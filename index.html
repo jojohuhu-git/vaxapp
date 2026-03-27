@@ -288,9 +288,82 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 2px rgba(46,158
     <!-- STEP 2: History -->
     <div class="card">
       <div class="ctitle"><span class="sbadge">2</span> Vaccination History</div>
+
+      <!-- Quick-add panel -->
+      <div style="background:var(--blt);border:1px solid var(--bmd);border-radius:7px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--b);margin-bottom:7px">⚡ Quick Add — Enter brand &amp; date to add one dose across all covered vaccines at once</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          <div>
+            <label style="font-size:10.5px">Vaccine brand given</label>
+            <select id="qa-brand" style="font-size:11.5px;padding:5px 7px">
+              <option value="">Select brand…</option>
+              <optgroup label="─── Combination vaccines ───">
+                <option value="Vaxelis">Vaxelis (DTaP+IPV+Hib+HepB)</option>
+                <option value="Pentacel">Pentacel (DTaP+IPV+Hib)</option>
+                <option value="Pediarix">Pediarix (DTaP+HepB+IPV)</option>
+                <option value="Kinrix">Kinrix (DTaP+IPV, 4–6y)</option>
+                <option value="Quadracel">Quadracel (DTaP+IPV, 4–6y)</option>
+                <option value="ProQuad (MMRV)">ProQuad/MMRV (MMR+VAR)</option>
+                <option value="Penbraya">Penbraya (MenACWY+MenB)</option>
+                <option value="Twinrix">Twinrix (HepA+HepB, ≥18y)</option>
+              </optgroup>
+              <optgroup label="─── Single-antigen vaccines ───">
+                <option value="Engerix-B">Engerix-B (HepB)</option>
+                <option value="Recombivax HB">Recombivax HB (HepB)</option>
+                <option value="Rotarix (RV1 – 2 doses)">Rotarix (RV, 2-dose)</option>
+                <option value="RotaTeq (RV5 – 3 doses)">RotaTeq (RV, 3-dose)</option>
+                <option value="Daptacel">Daptacel (DTaP)</option>
+                <option value="Infanrix">Infanrix (DTaP)</option>
+                <option value="ActHIB (PRP-T)">ActHIB (Hib)</option>
+                <option value="Hiberix (PRP-T)">Hiberix (Hib)</option>
+                <option value="PedvaxHIB (PRP-OMP)">PedvaxHIB (Hib)</option>
+                <option value="Prevnar 20 (PCV20)">Prevnar 20 (PCV)</option>
+                <option value="Vaxneuvance (PCV15)">Vaxneuvance (PCV)</option>
+                <option value="IPOL">IPOL (IPV)</option>
+                <option value="IIV4 (any inactivated)">IIV4 (Flu)</option>
+                <option value="Flucelvax Quadrivalent (ccIIV4, egg-free)">Flucelvax (Flu)</option>
+                <option value="FluMist Quadrivalent (LAIV4, ≥2y healthy)">FluMist (Flu, ≥2y)</option>
+                <option value="M-M-R II">M-M-R II (MMR)</option>
+                <option value="Priorix">Priorix (MMR)</option>
+                <option value="Varivax">Varivax (VAR)</option>
+                <option value="Havrix">Havrix (HepA)</option>
+                <option value="Vaqta">Vaqta (HepA)</option>
+                <option value="Adacel (≥7y)">Adacel (Tdap, ≥7y)</option>
+                <option value="Boostrix (≥10y)">Boostrix (Tdap, ≥10y)</option>
+                <option value="Gardasil 9">Gardasil 9 (HPV)</option>
+                <option value="Menveo (MenACWY-CRM, ≥2m)">Menveo (MenACWY)</option>
+                <option value="MenQuadfi (MenACWY-TT, ≥2y)">MenQuadfi (MenACWY)</option>
+                <option value="Bexsero (MenB-4C)">Bexsero (MenB)</option>
+                <option value="Trumenba (MenB-FHbp)">Trumenba (MenB)</option>
+                <option value="Beyfortus (nirsevimab, 50mg &lt;5kg / 100mg ≥5kg)">Beyfortus (RSV)</option>
+                <option value="Spikevax (≥6mo)">Spikevax (COVID, ≥6m)</option>
+                <option value="Comirnaty (≥5y)">Comirnaty (COVID, ≥5y)</option>
+              </optgroup>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:10.5px">Date given</label>
+            <input type="date" id="qa-date" style="font-size:11.5px;padding:5px 7px">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          <div>
+            <label style="font-size:10.5px">Or approximate age given</label>
+            <select id="qa-age" style="font-size:11.5px;padding:5px 7px">
+              <option value="">Approx age (if no date)…</option>
+              ${AGE_OPTS.map(o=>`<option value="${o.v}">${esc(o.l)}</option>`).join("")}
+            </select>
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button onclick="quickAdd()" style="width:100%;background:var(--g);color:#fff;border:none;border-radius:6px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer">+ Add Dose</button>
+          </div>
+        </div>
+        <div id="qa-preview" style="font-size:10.5px;color:var(--b);min-height:14px"></div>
+        <div style="font-size:10px;color:var(--gy3);margin-top:4px">💡 Combo brands (e.g. Vaxelis) will auto-fill <em>all covered vaccines</em> in the table below. You can also add doses individually using the <strong>+ Dose</strong> buttons.</div>
+      </div>
+
       <p style="font-size:11px;color:#888;margin-bottom:8px;line-height:1.4">
-        Add doses. Choose entry mode per dose:<br>
-        📅 <b>Exact date</b> | 🗓 <b>Approx age</b> | ❓ <b>Unknown date/age</b>
+        Individual doses below. Click 📅/🗓/❓ to switch date entry mode per dose.
       </p>
       <div class="htbl-wrap"><table class="htbl" id="htbl">
         <thead><tr><th style="width:70px">Vaccine</th><th>Doses</th><th style="width:38px;text-align:center">#</th></tr></thead>
@@ -1219,33 +1292,113 @@ function renderResults() {
 
 // ── VAX LIST TAB ──────────────────────────────────────────────
 function renderRecTab(cont, recs, cnts) {
-  const scfg={due:{l:"Routinely Due",bg:"var(--glt)",c:"var(--g)"},catchup:{l:"Catch-up",bg:"var(--alt)",c:"var(--a)"},"risk-based":{l:"Risk-Based",bg:"var(--rlt)",c:"var(--r)"},recommended:{l:"Shared Decision",bg:"var(--blt)",c:"var(--b)"}};
-  const filterBtns=`<div class="tabs" style="margin-bottom:10px">
-    <button class="tab ${S.filter==="all"?"on":""}" onclick="setFilter('all')">All (${recs.length})</button>
-    ${Object.entries(scfg).filter(([k])=>cnts[k]>0).map(([k,v])=>`<button class="tab ${S.filter===k?"on":""}" onclick="setFilter('${k}')">${v.l} (${cnts[k]})</button>`).join("")}
+  const scfg={
+    due:{l:"Routinely Due",bg:"var(--glt)",c:"var(--g)",sym:"🟢",desc:"Due at this visit"},
+    catchup:{l:"Catch-up",bg:"var(--alt)",c:"var(--a)",sym:"⬆️",desc:"Overdue — give now"},
+    "risk-based":{l:"Risk-Based",bg:"var(--rlt)",c:"var(--r)",sym:"⚑",desc:"Indicated based on risk factors"},
+    recommended:{l:"Shared Decision",bg:"var(--blt)",c:"var(--b)",sym:"◈",desc:"Shared clinical decision-making"},
+  };
+
+  // ── Status legend (always visible) ──────────────────────────
+  const legend=`<div style="background:var(--gy6);border:1px solid var(--gy5);border-radius:7px;padding:10px 13px;margin-bottom:12px">
+    <div style="font-size:10.5px;font-weight:700;color:var(--gy2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Status Guide — symbols &amp; colors used on each card below</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px">
+      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--glt);color:var(--g);border-radius:50%;font-size:11px;font-weight:800;border:1.5px solid var(--gmd);flex-shrink:0">✓</span>
+        <span><strong style="color:var(--g)">✓ Complete &amp; valid</strong> — series done, all intervals met</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#fff8e1;color:#e65100;border-radius:50%;font-size:11px;font-weight:800;border:1.5px solid #ffe082;flex-shrink:0">⚠</span>
+        <span><strong style="color:#e65100">⚠ Grace period</strong> — ≤4 days early, may count as valid</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--rlt);color:var(--r2);border-radius:50%;font-size:11px;font-weight:800;border:1.5px solid var(--rmd);flex-shrink:0">⛔</span>
+        <span><strong style="color:var(--r2)">⛔ Invalid — action needed</strong> — repeat dose required</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--glt);color:var(--g);border-radius:50%;font-size:12px;font-weight:800;border:1.5px solid var(--gmd);flex-shrink:0">🟢</span>
+        <span><strong style="color:var(--g)">🟢 Due now</strong> — green badge on card = give at this visit</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--blt);color:var(--b2);border-radius:50%;font-size:12px;font-weight:800;border:1.5px solid var(--bmd);flex-shrink:0">🔵</span>
+        <span><strong style="color:var(--b2)">🔵 Future / shared decision</strong> — blue badge on card</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--plt);color:#6c3483;border-radius:50%;font-size:11px;font-weight:800;border:1.5px solid var(--pmd);flex-shrink:0">📋</span>
+        <span><strong style="color:#6c3483">📋 Off-label (countable)</strong> — valid with documentation</span>
+      </div>
+    </div>
+    <div style="margin-top:7px;font-size:11px;color:var(--gy3)">The <strong>colored left border</strong> and <strong>badge color</strong> on each card match the status above. Cards with a ⛔ red left border require action — see the error details inside.</div>
   </div>`;
 
-  const legend=`<div class="legend">
-    <div class="leg"><div class="leg-dot" style="background:var(--g3)"></div> ✓ Complete &amp; valid</div>
-    <div class="leg"><div class="leg-dot" style="background:var(--a2)"></div> ⚠ OK w/ grace period</div>
-    <div class="leg"><div class="leg-dot" style="background:var(--r2)"></div> ⛔ Invalid — action needed</div>
-    <div class="leg"><div class="leg-dot" style="background:var(--g)"></div> 🟢 Due now</div>
-    <div class="leg"><div class="leg-dot" style="background:var(--b2)"></div> 🔵 Future</div>
-    <div class="leg"><div class="leg-dot" style="background:#6c3483"></div> 📋 Off-label (countable)</div>
+  // ── Scheduling errors summary (Change 3) ─────────────────────
+  const allErrs=auditAll();
+  const hardErrs=allErrs.filter(e=>e.severity==="err");
+  const graceErrs=allErrs.filter(e=>e.severity==="grace");
+  const offLabelErrs=allErrs.filter(e=>e.severity==="offLabel");
+  let errBanner="";
+  if(hardErrs.length||graceErrs.length||offLabelErrs.length){
+    const errCards=allErrs.map(e=>{
+      const isHard=e.severity==="err";
+      const isGrace=e.severity==="grace";
+      const isOff=e.severity==="offLabel";
+      const bg=isHard?"var(--rlt)":isGrace?"#fff8e1":"var(--plt)";
+      const border=isHard?"var(--r2)":isGrace?"#e65100":"#6c3483";
+      const ico=isHard?"⛔":isGrace?"⚠️":"📋";
+      return `<div style="background:${bg};border:1px solid ${border};border-left:3px solid ${border};border-radius:5px;padding:8px 11px;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:700;color:${border};margin-bottom:2px">${ico} ${esc(e.title)}</div>
+        <div style="font-size:11px;color:var(--gy2);margin-bottom:4px;line-height:1.4">${esc(e.detail)}</div>
+        <div style="font-size:11px;background:#fff;border-radius:4px;padding:5px 8px;border:1px solid ${border}">
+          <span style="font-size:9.5px;font-weight:700;text-transform:uppercase;color:${border};letter-spacing:.3px">Required Action: </span>${esc(e.action)}
+          ${e.earliest?`<span style="color:var(--r);font-weight:700"> Earliest: ${fmtD(e.earliest)}</span>`:""}
+        </div>
+        <div style="font-size:10px;margin-top:4px;color:var(--b2)">📚 <a href="${esc(e.refUrl)}" target="_blank">${esc(e.refLabel)}</a>${e.refUrl2?` · <a href="${esc(e.refUrl2)}" target="_blank">${esc(e.refLabel2)}</a>`:""}</div>
+      </div>`;
+    }).join("");
+    errBanner=`<div style="border:2px solid ${hardErrs.length?"var(--r2)":"#e65100"};border-radius:8px;padding:12px 14px;margin-bottom:14px;background:${hardErrs.length?"#fff8f8":"#fffdf0"}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:16px">${hardErrs.length?"⛔":"⚠️"}</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:${hardErrs.length?"var(--r2)":"#e65100"}">Scheduling Errors Found in Vaccination History</div>
+          <div style="font-size:11px;color:var(--gy2);margin-top:1px">
+            ${hardErrs.length?`${hardErrs.length} invalid dose${hardErrs.length>1?"s":""} requiring action. `:""} 
+            ${graceErrs.length?`${graceErrs.length} within ≤4-day grace period (may count as valid). `:""}
+            ${offLabelErrs.length?`${offLabelErrs.length} off-label use (countable with documentation).`:""} 
+          </div>
+        </div>
+      </div>
+      ${errCards}
+    </div>`;
+  }
+
+  const filterBtns=`<div class="tabs" style="margin-bottom:10px">
+    <button class="tab ${S.filter==="all"?"on":""}" onclick="setFilter('all')">All (${recs.length})</button>
+    ${Object.entries(scfg).filter(([k])=>cnts[k]>0).map(([k,v])=>`<button class="tab ${S.filter===k?"on":""}" onclick="setFilter('${k}')">${v.sym} ${v.l} (${cnts[k]})</button>`).join("")}
   </div>`;
 
   const filtered=S.filter==="all"?recs:recs.filter(r=>r.status===S.filter);
   const cards=filtered.map((rec,i)=>{
     const vm=VAX_META[rec.vk];const cfg=scfg[rec.status];
     const isOpen=S.openR[i]!==false;
-    // Determine completion status based on dose history
-    const given=dc(rec.vk);const needed=rec.doseNum;
-    const errs=auditAll().filter(e=>e.vk===rec.vk&&e.severity==="err");
+    const errs=allErrs.filter(e=>e.vk===rec.vk&&e.severity==="err");
     const hasErr=errs.length>0;
-    const isDone=given>=needed&&!hasErr&&rec.status!=="due"&&rec.status!=="catchup";
 
-    let extra="",borderCls="";
-    if(hasErr){extra=" rc-invalid";borderCls=`border-left-color:var(--r2)`;}
+    // Determine the inline status symbol for this card
+    let inlineStatus="";
+    const given=dc(rec.vk);
+    if(hasErr){
+      inlineStatus=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--rlt);color:var(--r2);border-radius:50%;font-size:10px;border:1.5px solid var(--rmd);flex-shrink:0" title="⛔ Invalid — action needed, see error above">⛔</span>`;
+    } else if(rec.status==="due"){
+      inlineStatus=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--glt);color:var(--g);border-radius:50%;font-size:11px;border:1.5px solid var(--gmd);flex-shrink:0" title="🟢 Due now at this visit">🟢</span>`;
+    } else if(rec.status==="catchup"){
+      inlineStatus=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--alt);color:var(--a);border-radius:50%;font-size:11px;border:1.5px solid var(--amd);flex-shrink:0" title="⬆️ Catch-up — overdue, give now">⬆️</span>`;
+    } else if(rec.status==="risk-based"){
+      inlineStatus=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--rlt);color:var(--r);border-radius:50%;font-size:11px;border:1.5px solid var(--rmd);flex-shrink:0" title="⚑ Risk-based — indicated by patient risk factors">⚑</span>`;
+    } else if(rec.status==="recommended"){
+      inlineStatus=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--blt);color:var(--b2);border-radius:50%;font-size:12px;border:1.5px solid var(--bmd);flex-shrink:0" title="🔵 Shared clinical decision-making">🔵</span>`;
+    }
+
+    let borderCls=hasErr?`border-left-color:var(--r2);background:#fff8f8`:`border-left-color:${vm.c}`;
 
     // Interval check
     let ivHtml="";
@@ -1253,9 +1406,9 @@ function renderRecTab(cont, recs, cnts) {
       const today=new Date().toISOString().slice(0,10);
       const d=dBetween(rec.prevDate,today);
       if(d!==null){const ok=d>=rec.minInt;const grace=!ok&&d>=rec.minInt-GRACE;
-        ivHtml=ok?`<div class="iv-msg iv-ok">✅ ${d} days since last dose (min ${rec.minInt}d) — interval valid.</div>`:
-          grace?`<div class="iv-msg iv-grace">⚠️ ${d}d since last dose — ${rec.minInt-d}d short of minimum. ≤4-day grace applies. May proceed.</div>`:
-          `<div class="iv-msg iv-warn">⛔ Only ${d}d since last dose. Min ${rec.minInt}d. Earliest valid: ${fmtD(addD(rec.prevDate,rec.minInt))}.</div>`;}
+        ivHtml=ok?`<div class="iv-msg iv-ok">✅ Interval valid: ${d} days since last dose (min ${rec.minInt}d).</div>`:
+          grace?`<div class="iv-msg iv-grace">⚠️ Grace period: ${d}d since last dose (${rec.minInt-d}d short of min ${rec.minInt}d). ≤4-day rule — may proceed and document.</div>`:
+          `<div class="iv-msg iv-warn">⛔ Interval too short: only ${d}d since last dose. Min is ${rec.minInt}d. Earliest valid date: <strong>${fmtD(addD(rec.prevDate,rec.minInt))}</strong>.</div>`;}
     } else if(rec.minInt&&!rec.prevDate){
       ivHtml=`<div class="iv-msg iv-info">ℹ️ Min interval: ${rec.minInt} days. Enter prior dose date in Step 2 to auto-validate.</div>`;
     }
@@ -1264,14 +1417,15 @@ function renderRecTab(cont, recs, cnts) {
     const isComboB=b=>["Pediarix","Pentacel","Vaxelis","Kinrix","Quadracel","ProQuad","Penbraya","Twinrix"].some(k=>b.startsWith(k));
 
     const ctra=CONTRA[rec.vk];const cOpen=S.openC[i];
-    return `<div class="rc ${extra}" style="border-left-color:${vm.c};${borderCls}">
+    return `<div class="rc" style="${borderCls}">
       <div class="rchead" onclick="togR(${i})">
+        ${inlineStatus}
         <div class="rcdot" style="background:${vm.c}"></div>
         <div class="rcinfo">
           <div class="rc-name">${esc(vm.n)} <span style="color:#bbb;font-size:10px">(${vm.ab})</span></div>
           <div class="rc-dose">${esc(rec.dose)}</div>
         </div>
-        <span class="rc-badge" style="background:${cfg.bg};color:${cfg.c}">${cfg.l}</span>
+        <span class="rc-badge" style="background:${cfg.bg};color:${cfg.c}">${cfg.sym} ${cfg.l}</span>
         <span class="rc-chev">${isOpen?"▲":"▼"}</span>
       </div>
       ${isOpen?`<div class="rcbody">
@@ -1287,7 +1441,7 @@ function renderRecTab(cont, recs, cnts) {
     </div>`;
   }).join("")||`<p style="color:#aaa;text-align:center;padding:20px">No items match this filter.</p>`;
 
-  cont.innerHTML=filterBtns+legend+cards+disc();
+  cont.innerHTML=errBanner+filterBtns+legend+cards+disc();
 }
 
 // ── BUILT-IN COMBO ANALYZER (instant, no API call) ────────────
@@ -1550,25 +1704,48 @@ function renderForecastTab(cont) {
 
 // ── CATCH-UP TABLE ────────────────────────────────────────────
 function renderCUTab(cont) {
+  // AAP notes where they differ from or add nuance to CDC (AAP Red Book 2021-2024 + AAP immunization schedule PDF)
+  // Discrepancies are flagged inline
   const rows=[
-    {v:"HepB",m:"Birth",d12:"4 weeks",d23:"8 wks (min 16 wks from D1; min age 24 wks)",d34:"—",d45:"—"},
-    {v:"RV",m:"6 wks (max 14w6d to start)",d12:"4 weeks",d23:"4 wks (max age final: 8m0d)",d34:"—",d45:"—"},
-    {v:"DTaP",m:"6 weeks",d12:"4 weeks",d23:"4 weeks",d34:"6 months",d45:"6 months†"},
-    {v:"Hib",m:"6 weeks",d12:"4–8 wks (see notes)",d23:"4–8 wks (see notes)",d34:"8 wks (final)",d45:"—"},
-    {v:"PCV",m:"6 weeks",d12:"4 weeks",d23:"4–8 wks (see notes)",d34:"8 wks (final)",d45:"—"},
-    {v:"IPV",m:"6 weeks",d12:"4 weeks",d23:"4 wks (<4y) / 6m (≥4y)",d34:"6m (≥4y)",d45:"—"},
-    {v:"MMR",m:"12 months",d12:"4 weeks",d23:"—",d34:"—",d45:"—"},
-    {v:"VAR",m:"12 months",d12:"3m (<13y) / 4w (≥13y)",d23:"—",d34:"—",d45:"—"},
-    {v:"HepA",m:"12 months",d12:"6 months",d23:"—",d34:"—",d45:"—"},
-    {v:"HPV",m:"9 years",d12:"5m (2-dose) / 4w (3-dose)",d23:"12 wks (3-dose)",d34:"—",d45:"—"},
-    {v:"MenACWY",m:"2m (high-risk) / 11y (routine)",d12:"8 weeks",d23:"—",d34:"—",d45:"—"},
-    {v:"MenB",m:"10 years",d12:"Bexsero ≥1m; Trumenba ≥6m (2-dose) or 1–2m (accel.)",d23:"Trumenba 3-dose: 4m",d34:"—",d45:"—"},
-  ].map(r=>`<tr><td style="font-weight:700;color:${VAX_META[r.v]?.c||"#333"}">${r.v}</td><td>${r.m}</td><td>${r.d12}</td><td>${r.d23}</td><td>${r.d34}</td><td>${r.d45}</td></tr>`).join("");
+    {v:"HepB",m:"Birth",d12:"4 weeks",d23:"8 wks (min 16 wks from D1; min age 24 wks)",d34:"—",d45:"—",
+     note:""},
+    {v:"RV",m:"6 wks (max 14w6d to start)",d12:"4 weeks",d23:"4 wks (max age final: 8m0d)",d34:"—",d45:"—",
+     note:""},
+    {v:"DTaP",m:"6 weeks",d12:"4 weeks",d23:"4 weeks",d34:"6 months",d45:"6 months†",
+     note:""},
+    {v:"Hib",m:"6 weeks",d12:"4–8 wks (see notes)",d23:"4–8 wks (see notes)",d34:"8 wks (final)",d45:"—",
+     note:""},
+    {v:"PCV",m:"6 weeks",d12:"4 weeks",d23:"4–8 wks (see notes)",d34:"8 wks (final)",d45:"—",
+     note:""},
+    {v:"IPV",m:"6 weeks",d12:"4 weeks",d23:"4 wks (<4y) / 6m (≥4y)",d34:"6m (≥4y)",d45:"—",
+     note:""},
+    {v:"MMR",m:"12 months",d12:"4 weeks",d23:"—",d34:"—",d45:"—",
+     note:"⚑ AAP: If a 2nd dose is needed for catch-up, min interval is 4 weeks. AAP does not differ from CDC here."},
+    {v:"VAR",m:"12 months",d12:"3m (<13y) / 4w (≥13y)",d23:"—",d34:"—",d45:"—",
+     note:"⚑ AAP default: Same as CDC. AAP clarifies: 3-month minimum for children; 4-week minimum for adolescents ≥13y."},
+    {v:"HepA",m:"12 months",d12:"6 months",d23:"—",d34:"—",d45:"—",
+     note:""},
+    {v:"HPV",m:"9 years",d12:"5m (2-dose) / 4w (3-dose)",d23:"12 wks (3-dose)",d34:"—",d45:"—",
+     note:"⚑ AAP discrepancy: CDC allows 2-dose series for ages 9–14y. AAP 2024 affirms 2-dose series for 9–14y but emphasizes completion of the series — does not differ on intervals."},
+    {v:"MenACWY",m:"2m (high-risk) / 11y (routine)",d12:"8 weeks",d23:"—",d34:"—",d45:"—",
+     note:"⚑ AAP: Same as CDC. AAP emphasizes MenACWY booster at 16y for those vaccinated at 11–12y."},
+    {v:"MenB",m:"10 years",d12:"Bexsero ≥1m; Trumenba ≥6m (2-dose) or 1–2m (accel.)",d23:"Trumenba 3-dose: 4m",d34:"—",d45:"—",
+     note:"⚑ AAP discrepancy (defaulting to AAP): AAP 2023 endorses MenB for all adolescents ages 16–23y via shared clinical decision-making, same as CDC. AAP recommends Bexsero and Trumenba are NOT interchangeable — same as CDC. No interval discrepancy."},
+  ].map(r=>`<tr>
+    <td style="font-weight:700;color:${VAX_META[r.v]?.c||"#333"};white-space:nowrap">${r.v}</td>
+    <td>${r.m}</td><td>${r.d12}</td><td>${r.d23}</td><td>${r.d34}</td><td>${r.d45}</td>
+    ${r.note?`<td style="font-size:10px;color:#6c3483;line-height:1.35;max-width:180px">${esc(r.note)}</td>`:`<td style="color:#ccc;font-size:10px">—</td>`}
+  </tr>`).join("");
 
-  cont.innerHTML=`<p style="font-size:12px;color:#666;margin-bottom:10px;line-height:1.45">Minimum intervals per CDC 2025 Catch-up Table 2. Series need not be restarted regardless of elapsed time. Doses ≤4 days early may be counted as valid.</p>
-  <div style="overflow-x:auto"><table class="cutbl"><thead><tr><th>Vaccine</th><th>Min age D1</th><th>D1→D2</th><th>D2→D3</th><th>D3→D4</th><th>D4→D5</th></tr></thead><tbody>${rows}</tbody></table></div>
-  <p style="font-size:10.5px;color:#bbb;margin-top:7px">†Dose 5 not needed if D4 at ≥4y AND ≥6m after D3. 
-  Source: <a href="${REFS.catchup.url}" target="_blank">${REFS.catchup.label}</a></p>${disc()}`;
+  cont.innerHTML=`
+  <div style="background:#f5eef8;border:1px solid #d2b4de;border-radius:7px;padding:10px 12px;margin-bottom:12px;font-size:11.5px;color:#4a235a;line-height:1.55">
+    <strong>📚 AAP / CDC Cross-Reference Note:</strong> This table reflects the <a href="${REFS.catchup.url}" target="_blank" style="color:#6c3483">CDC 2025 Catch-up Schedule (Table 2)</a> and the <a href="https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf" target="_blank" style="color:#6c3483">AAP 2024–2025 Immunization Schedule</a>. Where the two sources differ, <strong>AAP guidance is used as the default</strong> (indicated by ⚑ in the notes column). For most vaccines, CDC and AAP are concordant. Discrepancies are minor and typically involve emphasis or shared-decision language rather than different intervals.
+  </div>
+  <p style="font-size:12px;color:#666;margin-bottom:10px;line-height:1.45">Minimum intervals between doses. A series need not be restarted regardless of elapsed time. Doses ≤4 days early may be counted as valid.</p>
+  <div style="overflow-x:auto"><table class="cutbl"><thead><tr>
+    <th>Vaccine</th><th>Min age D1</th><th>D1→D2</th><th>D2→D3</th><th>D3→D4</th><th>D4→D5</th><th style="color:#6c3483;min-width:140px">⚑ AAP notes / discrepancies</th>
+  </tr></thead><tbody>${rows}</tbody></table></div>
+  <p style="font-size:10.5px;color:#bbb;margin-top:7px">†Dose 5 not needed if D4 at ≥4y AND ≥6m after D3. Sources: <a href="${REFS.catchup.url}" target="_blank">CDC 2025 Catch-up Table 2</a> · <a href="https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf" target="_blank">AAP 2024-2025 Immunization Schedule PDF</a></p>${disc()}`;
 }
 
 function disc(){return `<div class="disc"><b>Clinical disclaimer:</b> This tool assists healthcare providers and does not replace clinical judgment. Based on 2025 ACIP/CDC Child &amp; Adolescent Immunization Schedule, AAP Red Book (2021–2024), and immunize.org. Always verify at <a href="https://www.cdc.gov/vaccines/hcp/imz-schedules/index.html" target="_blank">cdc.gov/vaccines</a>. Assess contraindications individually per patient.</div>`;}
@@ -1584,13 +1761,102 @@ function stateChange(){
 function toggleRisk(id){event&&event.stopPropagation&&event.stopPropagation();S.risks=S.risks.includes(id)?S.risks.filter(r=>r!==id):[...S.risks,id];renderRisks();renderResults();encState();}
 function addDose(vk){S.hist[vk].push({mode:"date",date:"",brand:"",given:true});renderHistory();renderAudit();renderResults();encState();}
 function rmDose(vk,i){S.hist[vk].splice(i,1);renderHistory();renderAudit();renderResults();encState();}
-function updD(vk,i,f,v){if(S.hist[vk][i]){S.hist[vk][i][f]=v;S.hist[vk][i].given=true;}renderHistory();renderAudit();renderResults();encState();}
+// COMBO_COVERS: maps brand name → list of vaccine keys it covers (for autofill)
+const COMBO_COVERS = {
+  "Pediarix":            ["DTaP","HepB","IPV"],
+  "Pentacel":            ["DTaP","IPV","Hib"],
+  "Vaxelis":             ["DTaP","IPV","Hib","HepB"],
+  "Kinrix":              ["DTaP","IPV"],
+  "Quadracel":           ["DTaP","IPV"],
+  "ProQuad (MMRV)":      ["MMR","VAR"],
+  "Penbraya":            ["MenACWY","MenB"],
+  "Twinrix":             ["HepA","HepB"],
+};
+function brandAutoFill(sourceVk, doseIdx, brandValue) {
+  // Find which combo this brand belongs to (match on startsWith for variants like "Pediarix (DTaP+HepB+IPV)")
+  const comboEntry = Object.entries(COMBO_COVERS).find(([k])=>brandValue.startsWith(k)||brandValue===k);
+  if(!comboEntry) return; // not a combo — nothing to autofill
+  const [comboName, siblingVks] = comboEntry;
+  // For each sibling vaccine (excluding the source), autofill the same brand+date+mode
+  siblingVks.forEach(sibVk=>{
+    if(sibVk===sourceVk) return;
+    const sourceDose = S.hist[sourceVk][doseIdx];
+    if(!sourceDose) return;
+    // Ensure sibling has at least doseIdx+1 doses
+    while((S.hist[sibVk]||[]).length <= doseIdx){
+      if(!S.hist[sibVk]) S.hist[sibVk]=[];
+      S.hist[sibVk].push({mode:"date",date:"",brand:"",given:true});
+    }
+    const sibDose = S.hist[sibVk][doseIdx];
+    // Only autofill if sibling dose brand is empty or was the same combo
+    const wasSameCombo = Object.keys(COMBO_COVERS).some(k=>sibDose.brand.startsWith(k));
+    if(!sibDose.brand || wasSameCombo){
+      sibDose.brand = brandValue;
+      sibDose.given = true;
+      // Copy date/mode too if the sibling dose has no date yet
+      if(!sibDose.date && sourceDose.date) sibDose.date = sourceDose.date;
+      if(sibDose.mode==="date"&&sourceDose.mode) sibDose.mode = sourceDose.mode;
+      if(sibDose.mode==="age"&&sourceDose.ageDays) sibDose.ageDays = sourceDose.ageDays;
+    }
+  });
+}
+function updD(vk,i,f,v){
+  if(S.hist[vk][i]){
+    S.hist[vk][i][f]=v;
+    S.hist[vk][i].given=true;
+    // Autofill combo siblings when brand is changed
+    if(f==="brand" && v) brandAutoFill(vk,i,v);
+    // If date is changed and this dose has a combo brand, propagate date to siblings
+    if(f==="date" && S.hist[vk][i].brand) brandAutoFill(vk,i,S.hist[vk][i].brand);
+  }
+  renderHistory();renderAudit();renderResults();encState();
+}
 function toggleMode(vk,i){const d=S.hist[vk][i];if(!d)return;const modes=["date","age","unknown"];d.mode=modes[(modes.indexOf(d.mode)+1)%3];if(d.mode==="unknown"){d.date="";d.ageDays=null;}renderHistory();renderAudit();renderResults();encState();}
 function setTab(t){S.tab=t;S.openR={};S.openC={};renderResults();}
 function setFilter(f){S.filter=f;renderResults();}
 function togR(i){S.openR[i]=S.openR[i]===undefined?false:!S.openR[i];renderResults();}
 function togC(i,e){e&&e.stopPropagation&&e.stopPropagation();S.openC[i]=!S.openC[i];renderResults();}
 function togCust(vk){S.custSel=S.custSel.includes(vk)?S.custSel.filter(x=>x!==vk):[...S.custSel,vk];renderResults();}
+function quickAdd(){
+  const brand=document.getElementById("qa-brand").value;
+  const date=document.getElementById("qa-date").value;
+  const age=document.getElementById("qa-age").value;
+  const prev=document.getElementById("qa-preview");
+  if(!brand){prev.textContent="⚠ Please select a brand.";return;}
+  if(!date&&!age){prev.textContent="⚠ Please enter a date or approximate age.";return;}
+
+  // Determine which vaccines this brand covers
+  const comboEntry=Object.entries(COMBO_COVERS).find(([k])=>brand.startsWith(k)||brand===k);
+  const vaccinesToAdd=comboEntry?comboEntry[1]:[];
+
+  // If not a combo, find the single vaccine from VBR lookup
+  let singleVk=null;
+  if(!comboEntry){
+    for(const vk of VAX_KEYS){
+      const allBrands=[...(VBR[vk]?.s||[]),...(VBR[vk]?.c||[])];
+      if(allBrands.some(b=>b===brand||b.startsWith(brand.split(" ")[0]))){singleVk=vk;break;}
+    }
+  }
+
+  const targetVks=comboEntry?vaccinesToAdd:(singleVk?[singleVk]:[]);
+  if(!targetVks.length){prev.textContent="⚠ Could not match brand to a vaccine. Please add manually below.";return;}
+
+  const mode=date?"date":"age";
+  targetVks.forEach(vk=>{
+    if(!S.hist[vk]) S.hist[vk]=[];
+    const newDose={mode,date:date||"",ageDays:age||null,brand,given:true};
+    S.hist[vk].push(newDose);
+  });
+
+  prev.innerHTML=`✅ Added ${brand} to: <strong>${targetVks.map(v=>VAX_META[v].ab).join(", ")}</strong>${date?` (${fmtD(date)})`:(age?` (approx ${AGE_OPTS.find(o=>o.v==age)?.l||age+" days"})`:"")}.`;
+
+  // Reset form
+  document.getElementById("qa-brand").value="";
+  document.getElementById("qa-date").value="";
+  document.getElementById("qa-age").value="";
+
+  renderHistory();renderAudit();renderResults();encState();
+}
 function clearAll(){if(!confirm("Reset all entered data?"))return;VAX_KEYS.forEach(k=>S.hist[k]=[]);S.risks=[];S.am=-1;S.dob="";document.getElementById("ageGroup").value="";document.getElementById("dob").value="";renderRisks();renderHistory();renderAudit();renderResults();encState();}
 
 // ╔══════════════════════════════════════════════════════════════╗
