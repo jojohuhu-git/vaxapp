@@ -281,7 +281,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 2px rgba(46,158
       </div>
       <div class="field">
         <label>Date of birth <span style="font-weight:400;color:#aaa">(enables exact age validation)</span></label>
-        <input type="date" id="dob" oninput="stateChange()">
+        <input type="text" id="dob" placeholder="MM/DD/YYYY" oninput="dobChange(this.value)" style="font-size:12.5px;padding:6px 9px;border:1px solid var(--gy5);border-radius:6px;width:100%">
       </div>
     </div>
 
@@ -297,61 +297,62 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 2px rgba(46,158
             <label style="font-size:10.5px">Vaccine brand given</label>
             <select id="qa-brand" style="font-size:11.5px;padding:5px 7px">
               <option value="">Select brand…</option>
-              <optgroup label="─── Combination vaccines ───">
-                <option value="Vaxelis">Vaxelis (DTaP+IPV+Hib+HepB)</option>
-                <option value="Pentacel">Pentacel (DTaP+IPV+Hib)</option>
+              <optgroup label="── Combination vaccines (covers multiple) ──">
+                <option value="Kinrix">Kinrix (DTaP+IPV, 4–6y only)</option>
                 <option value="Pediarix">Pediarix (DTaP+HepB+IPV)</option>
-                <option value="Kinrix">Kinrix (DTaP+IPV, 4–6y)</option>
-                <option value="Quadracel">Quadracel (DTaP+IPV, 4–6y)</option>
-                <option value="ProQuad (MMRV)">ProQuad/MMRV (MMR+VAR)</option>
-                <option value="Penbraya">Penbraya (MenACWY+MenB)</option>
+                <option value="Penbraya">Penbraya (MenACWY+MenB, ≥10y)</option>
+                <option value="Pentacel">Pentacel (DTaP+IPV+Hib)</option>
+                <option value="ProQuad (MMRV)">ProQuad / MMRV (MMR+VAR, 12m–12y)</option>
+                <option value="Quadracel">Quadracel (DTaP+IPV, 4–6y only)</option>
                 <option value="Twinrix">Twinrix (HepA+HepB, ≥18y)</option>
+                <option value="Vaxelis">Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3)</option>
               </optgroup>
-              <optgroup label="─── Single-antigen vaccines ───">
+              <optgroup label="── Single-antigen vaccines ──">
+                <option value="Adacel (Tdap, ≥7y)">Adacel (Tdap, ≥7y)</option>
+                <option value="ActHIB (PRP-T)">ActHIB (Hib, PRP-T)</option>
+                <option value="Beyfortus (nirsevimab, 50mg &lt;5kg / 100mg ≥5kg)">Beyfortus (RSV nirsevimab)</option>
+                <option value="Bexsero (MenB-4C)">Bexsero (MenB-4C, 2-dose series)</option>
+                <option value="Boostrix (Tdap, ≥10y)">Boostrix (Tdap, ≥10y)</option>
+                <option value="Comirnaty (COVID-19, ≥5y)">Comirnaty (COVID-19, ≥5y)</option>
+                <option value="Daptacel (DTaP only)">Daptacel (DTaP only)</option>
                 <option value="Engerix-B">Engerix-B (HepB)</option>
+                <option value="Flucelvax Quadrivalent (ccIIV4, egg-free)">Flucelvax (Flu, egg-free ccIIV4)</option>
+                <option value="FluMist Quadrivalent (LAIV4, ≥2y healthy)">FluMist (Flu LAIV4, ≥2y healthy)</option>
+                <option value="Gardasil 9 (HPV, 9-valent)">Gardasil 9 (HPV)</option>
+                <option value="Havrix (HepA only)">Havrix (HepA)</option>
+                <option value="Hiberix (PRP-T)">Hiberix (Hib, PRP-T)</option>
+                <option value="IIV4 (any inactivated)">IIV4 (Flu, any inactivated)</option>
+                <option value="Infanrix (DTaP only)">Infanrix (DTaP only)</option>
+                <option value="IPOL (IPV only)">IPOL (IPV only)</option>
+                <option value="M-M-R II (MMR only)">M-M-R II (MMR)</option>
+                <option value="Menveo (MenACWY-CRM, ≥2m)">Menveo (MenACWY-CRM, ≥2m)</option>
+                <option value="MenQuadfi (MenACWY-TT, ≥2y)">MenQuadfi (MenACWY-TT, ≥2y)</option>
+                <option value="mNexspike (COVID-19, ≥12y)">mNexspike (COVID-19, ≥12y)</option>
+                <option value="Nuvaxovid (COVID-19, ≥12y, protein subunit)">Nuvaxovid (COVID-19, ≥12y, protein subunit)</option>
+                <option value="PedvaxHIB (PRP-OMP)">PedvaxHIB (Hib, PRP-OMP, 3-dose series)</option>
+                <option value="Prevnar 20 (PCV20)">Prevnar 20 (PCV20, preferred)</option>
+                <option value="Priorix (MMR only)">Priorix (MMR)</option>
                 <option value="Recombivax HB">Recombivax HB (HepB)</option>
-                <option value="Rotarix (RV1 – 2 doses)">Rotarix (RV, 2-dose)</option>
-                <option value="RotaTeq (RV5 – 3 doses)">RotaTeq (RV, 3-dose)</option>
-                <option value="Daptacel">Daptacel (DTaP)</option>
-                <option value="Infanrix">Infanrix (DTaP)</option>
-                <option value="ActHIB (PRP-T)">ActHIB (Hib)</option>
-                <option value="Hiberix (PRP-T)">Hiberix (Hib)</option>
-                <option value="PedvaxHIB (PRP-OMP)">PedvaxHIB (Hib)</option>
-                <option value="Prevnar 20 (PCV20)">Prevnar 20 (PCV)</option>
-                <option value="Vaxneuvance (PCV15)">Vaxneuvance (PCV)</option>
-                <option value="IPOL">IPOL (IPV)</option>
-                <option value="IIV4 (any inactivated)">IIV4 (Flu)</option>
-                <option value="Flucelvax Quadrivalent (ccIIV4, egg-free)">Flucelvax (Flu)</option>
-                <option value="FluMist Quadrivalent (LAIV4, ≥2y healthy)">FluMist (Flu, ≥2y)</option>
-                <option value="M-M-R II">M-M-R II (MMR)</option>
-                <option value="Priorix">Priorix (MMR)</option>
-                <option value="Varivax">Varivax (VAR)</option>
-                <option value="Havrix">Havrix (HepA)</option>
-                <option value="Vaqta">Vaqta (HepA)</option>
-                <option value="Adacel (≥7y)">Adacel (Tdap, ≥7y)</option>
-                <option value="Boostrix (≥10y)">Boostrix (Tdap, ≥10y)</option>
-                <option value="Gardasil 9">Gardasil 9 (HPV)</option>
-                <option value="Menveo (MenACWY-CRM, ≥2m)">Menveo (MenACWY)</option>
-                <option value="MenQuadfi (MenACWY-TT, ≥2y)">MenQuadfi (MenACWY)</option>
-                <option value="Bexsero (MenB-4C)">Bexsero (MenB)</option>
-                <option value="Trumenba (MenB-FHbp)">Trumenba (MenB)</option>
-                <option value="Beyfortus (nirsevimab, 50mg &lt;5kg / 100mg ≥5kg)">Beyfortus (RSV)</option>
-                <option value="Spikevax (≥6mo)">Spikevax (COVID, ≥6m)</option>
-                <option value="Comirnaty (≥5y)">Comirnaty (COVID, ≥5y)</option>
+                <option value="Rotarix (RV1 – 2 doses)">Rotarix (RV, 2-dose series)</option>
+                <option value="RotaTeq (RV5 – 3 doses)">RotaTeq (RV, 3-dose series)</option>
+                <option value="Spikevax (COVID-19, ≥6mo)">Spikevax (COVID-19, ≥6m)</option>
+                <option value="Trumenba (MenB-FHbp)">Trumenba (MenB-FHbp, 2- or 3-dose)</option>
+                <option value="Vaqta (HepA only)">Vaqta (HepA)</option>
+                <option value="Varivax (VAR only)">Varivax (VAR/Chickenpox)</option>
+                <option value="Vaxneuvance (PCV15)">Vaxneuvance (PCV15)</option>
               </optgroup>
             </select>
           </div>
           <div>
             <label style="font-size:10.5px">Date given</label>
-            <input type="date" id="qa-date" style="font-size:11.5px;padding:5px 7px">
+            <input type="text" id="qa-date" placeholder="MM/DD/YYYY" style="font-size:11.5px;padding:5px 7px;border:1px solid var(--gy5);border-radius:5px;width:100%">
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
           <div>
             <label style="font-size:10.5px">Or approximate age given</label>
             <select id="qa-age" style="font-size:11.5px;padding:5px 7px">
-              <option value="">Approx age (if no date)…</option>
-              ${AGE_OPTS.map(o=>`<option value="${o.v}">${esc(o.l)}</option>`).join("")}
+              <option value="">Approx age (if no exact date)…</option>
             </select>
           </div>
           <div style="display:flex;align-items:flex-end">
@@ -451,28 +452,48 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 2px rgba(46,158
 // ║  DATA                                                        ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-// Reference links for each vaccine (CDC schedule notes pages)
+// Reference links — specific URLs per vaccine AND per error type (immunize.org + CDC)
 const REFS = {
-  HepB:    {label:"CDC HepB Schedule Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepb"},
-  RV:      {label:"CDC Rotavirus Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-rotavirus"},
-  DTaP:    {label:"CDC DTaP Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-dtap"},
-  Hib:     {label:"CDC Hib Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hib"},
-  PCV:     {label:"CDC Pneumococcal Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo"},
-  IPV:     {label:"CDC IPV Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-polio"},
-  Flu:     {label:"CDC Influenza Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-influenza"},
-  MMR:     {label:"CDC MMR Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mmr"},
-  VAR:     {label:"CDC Varicella Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-varicella"},
-  HepA:    {label:"CDC HepA Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepa"},
-  Tdap:    {label:"CDC Tdap/Td Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-tdap-td"},
-  HPV:     {label:"CDC HPV Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hpv"},
-  MenACWY: {label:"CDC MenACWY Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening"},
-  MenB:    {label:"CDC MenB Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening-b"},
-  RSV:     {label:"CDC RSV/Nirsevimab Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html"},
-  COVID:   {label:"CDC COVID-19 Schedule",url:"https://www.cdc.gov/vaccines/covid-19/clinical-considerations/interim-considerations-us.html"},
+  HepB:    {label:"CDC HepB Schedule Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepb",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4075.pdf",immLabel:"immunize.org HepB FAQ"},
+  RV:      {label:"CDC Rotavirus Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-rotavirus",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4222.pdf",immLabel:"immunize.org Rotavirus FAQ"},
+  DTaP:    {label:"CDC DTaP Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-dtap",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4212.pdf",immLabel:"immunize.org DTaP FAQ"},
+  Hib:     {label:"CDC Hib Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hib",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4077.pdf",immLabel:"immunize.org Hib FAQ"},
+  PCV:     {label:"CDC Pneumococcal (PCV/PPSV) Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4215.pdf",immLabel:"immunize.org PCV/PPSV FAQ"},
+  IPV:     {label:"CDC Polio (IPV) Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-polio",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4210.pdf",immLabel:"immunize.org IPV FAQ"},
+  Flu:     {label:"CDC Influenza Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-influenza",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4218.pdf",immLabel:"immunize.org Flu FAQ"},
+  MMR:     {label:"CDC MMR Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mmr",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4219.pdf",immLabel:"immunize.org MMR FAQ"},
+  VAR:     {label:"CDC Varicella Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-varicella",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4220.pdf",immLabel:"immunize.org Varicella FAQ"},
+  HepA:    {label:"CDC HepA Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepa",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4083.pdf",immLabel:"immunize.org HepA FAQ"},
+  Tdap:    {label:"CDC Tdap/Td Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-tdap-td",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4213.pdf",immLabel:"immunize.org Tdap FAQ"},
+  HPV:     {label:"CDC HPV Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hpv",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4217.pdf",immLabel:"immunize.org HPV FAQ"},
+  MenACWY: {label:"CDC MenACWY Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4216.pdf",immLabel:"immunize.org MenACWY FAQ"},
+  MenB:    {label:"CDC MenB Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening-b",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4223.pdf",immLabel:"immunize.org MenB FAQ"},
+  RSV:     {label:"CDC RSV/Nirsevimab Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4230.pdf",immLabel:"immunize.org Nirsevimab FAQ"},
+  COVID:   {label:"CDC COVID-19 Schedule",url:"https://www.cdc.gov/vaccines/covid-19/clinical-considerations/interim-considerations-us.html",
+            immUrl:"https://www.immunize.org/covid-19/",immLabel:"immunize.org COVID-19 resources"},
   catchup: {label:"CDC Catch-up Schedule Table 2",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-catch-up.html"},
   schedule:{label:"CDC 2025 Child/Adolescent Schedule",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-age.html"},
-  immOrg:  {label:"immunize.org",url:"https://www.immunize.org/wp-content/uploads/catg.d/p2011.pdf"},
+  immOrg:  {label:"immunize.org Schedules",url:"https://www.immunize.org/immunization-schedules/"},
   AAP:     {label:"AAP Red Book Online",url:"https://redbook.solutions.aap.org/"},
+  interval:{label:"immunize.org: Invalid Doses—What to Do",url:"https://www.immunize.org/wp-content/uploads/catg.d/p3085.pdf"},
+  brandMix:{label:"immunize.org: Combination Vaccines",url:"https://www.immunize.org/wp-content/uploads/catg.d/p4100.pdf"},
+  ppsv23:  {label:"CDC PPSV23 Recommendations",url:"https://www.cdc.gov/mmwr/preview/mmwrhtml/rr5911a1.htm"},
+  pcv13high:{label:"CDC PCV13 for High-Risk Adults",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo"},
 };
 
 // Approximate age options for "approx age" entry mode
@@ -568,22 +589,22 @@ const OFF_LABEL_RULES = [
 ];
 
 const VAX_META = {
-  HepB:    {n:"Hepatitis B",    ab:"HepB",    c:"#1D9E75"},
-  RV:      {n:"Rotavirus",      ab:"RV",      c:"#D85A30"},
-  DTaP:    {n:"DTaP",           ab:"DTaP",    c:"#2980b9"},
-  Hib:     {n:"Hib",            ab:"Hib",     c:"#8e44ad"},
-  PCV:     {n:"Pneumococcal",   ab:"PCV",     c:"#c0392b"},
-  IPV:     {n:"Polio (IPV)",    ab:"IPV",     c:"#27ae60"},
-  Flu:     {n:"Influenza",      ab:"Flu",     c:"#e67e22"},
-  MMR:     {n:"MMR",            ab:"MMR",     c:"#e74c3c"},
-  VAR:     {n:"Varicella",      ab:"VAR",     c:"#16a085"},
-  HepA:    {n:"Hepatitis A",    ab:"HepA",    c:"#7f8c8d"},
-  Tdap:    {n:"Tdap",           ab:"Tdap",    c:"#2980b9"},
-  HPV:     {n:"HPV",            ab:"HPV",     c:"#6c3483"},
-  MenACWY: {n:"MenACWY",        ab:"MenACWY", c:"#8e44ad"},
-  MenB:    {n:"MenB",           ab:"MenB",    c:"#d35400"},
-  RSV:     {n:"RSV (mAb)",      ab:"RSV-mAb", c:"#1abc9c"},
-  COVID:   {n:"COVID-19",       ab:"COVID",   c:"#7f8c8d"},
+  HepB:    {n:"Hepatitis B",       ab:"HepB",    c:"#1D9E75"},
+  RV:      {n:"Rotavirus",         ab:"RV",      c:"#D85A30"},
+  DTaP:    {n:"DTaP",              ab:"DTaP",    c:"#2980b9"},
+  Hib:     {n:"Hib",               ab:"Hib",     c:"#8e44ad"},
+  PCV:     {n:"Pneumococcal (PCV/PPSV)", ab:"PCV/PPSV", c:"#c0392b"},
+  IPV:     {n:"Polio (IPV)",       ab:"IPV",     c:"#27ae60"},
+  Flu:     {n:"Influenza",         ab:"Flu",     c:"#e67e22"},
+  MMR:     {n:"MMR",               ab:"MMR",     c:"#e74c3c"},
+  VAR:     {n:"Varicella",         ab:"VAR",     c:"#16a085"},
+  HepA:    {n:"Hepatitis A",       ab:"HepA",    c:"#7f8c8d"},
+  Tdap:    {n:"Tdap",              ab:"Tdap",    c:"#2980b9"},
+  HPV:     {n:"HPV",               ab:"HPV",     c:"#6c3483"},
+  MenACWY: {n:"MenACWY",           ab:"MenACWY", c:"#8e44ad"},
+  MenB:    {n:"MenB",              ab:"MenB",    c:"#d35400"},
+  RSV:     {n:"RSV (mAb)",         ab:"RSV-mAb", c:"#1abc9c"},
+  COVID:   {n:"COVID-19",          ab:"COVID",   c:"#7f8c8d"},
 };
 
 // Ordered by age of first recommended dose; Flu and COVID last (annual)
@@ -606,23 +627,28 @@ const VAX_KEYS = [
   "COVID",   // Annual (6 months+, shared decision)
 ];
 
-const VBR = { // vaccine brands
-  HepB:    {s:["Engerix-B","Recombivax HB"], c:["Pediarix","Vaxelis","Twinrix (≥18y)","Heplisav-B (≥18y, 2-dose)"]},
+const VBR = { // vaccine brands — combo entries include (contents) for clarity
+  HepB:    {s:["Engerix-B","Recombivax HB"], c:["Pediarix (DTaP+HepB+IPV)","Vaxelis (DTaP+IPV+Hib+HepB)","Twinrix (HepA+HepB, ≥18y)","Heplisav-B (≥18y, 2-dose)"]},
   RV:      {s:["Rotarix (RV1 – 2 doses)","RotaTeq (RV5 – 3 doses)"], c:[], lock:true},
-  DTaP:    {s:["Daptacel","Infanrix"], c:["Pediarix","Pentacel","Vaxelis","Kinrix (DTaP+IPV, 4–6y only)","Quadracel (DTaP+IPV, 4–6y only)"]},
-  Hib:     {s:["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP)"], c:["Pentacel","Vaxelis (doses 1–3 only)"]},
-  PCV:     {s:["Prevnar 20 (PCV20)","Vaxneuvance (PCV15)"], c:[]},
-  IPV:     {s:["IPOL"], c:["Pediarix","Pentacel","Vaxelis","Kinrix (DTaP+IPV, 4–6y)","Quadracel (DTaP+IPV, 4–6y)"]},
-  Flu:     {s:["IIV4 (any inactivated)","Flucelvax Quadrivalent (ccIIV4, egg-free)","FluMist Quadrivalent (LAIV4, ≥2y healthy)"], c:[]},
-  MMR:     {s:["M-M-R II","Priorix"], c:["ProQuad (MMRV, 12m–12y, if VAR also due)"]},
-  VAR:     {s:["Varivax"], c:["ProQuad (MMRV, 12m–12y, if MMR also due)"]},
-  HepA:    {s:["Havrix","Vaqta"], c:["Twinrix (≥18y)"]},
-  Tdap:    {s:["Adacel (≥7y)","Boostrix (≥10y)"], c:[]},
-  HPV:     {s:["Gardasil 9"], c:[]},
+  DTaP:    {s:["Daptacel (DTaP only)","Infanrix (DTaP only)"], c:["Kinrix (DTaP+IPV, 4–6y only)","Pediarix (DTaP+HepB+IPV)","Pentacel (DTaP+IPV+Hib)","Quadracel (DTaP+IPV, 4–6y only)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)"]},
+  Hib:     {s:["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP)"], c:["Pentacel (DTaP+IPV+Hib)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only — NOT booster)"]},
+  PCV:     {s:[
+    "Prevnar 20 (PCV20) — preferred, covers 20 serotypes",
+    "Vaxneuvance (PCV15) — if used, add PPSV23 ≥8 weeks later for high-risk",
+    "Prevnar 13 (PCV13) — use only if PCV20/PCV15 unavailable or specific indication",
+    "Pneumovax 23 (PPSV23) — for high-risk ≥2y after PCV series; NOT for routine infant series",
+  ], c:[]},
+  IPV:     {s:["IPOL (IPV only)"], c:["Kinrix (DTaP+IPV, 4–6y only)","Pediarix (DTaP+HepB+IPV)","Pentacel (DTaP+IPV+Hib)","Quadracel (DTaP+IPV, 4–6y only)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)"]},
+  Flu:     {s:["Flucelvax Quadrivalent (ccIIV4, egg-free)","FluMist Quadrivalent (LAIV4, ≥2y healthy)","IIV4 (any age-appropriate inactivated)"], c:[]},
+  MMR:     {s:["M-M-R II (MMR only)","Priorix (MMR only)"], c:["ProQuad (MMR+VAR/MMRV, 12m–12y)"]},
+  VAR:     {s:["Varivax (VAR only)"], c:["ProQuad (MMR+VAR/MMRV, 12m–12y)"]},
+  HepA:    {s:["Havrix (HepA only)","Vaqta (HepA only)"], c:["Twinrix (HepA+HepB, ≥18y)"]},
+  Tdap:    {s:["Adacel (Tdap, ≥7y)","Boostrix (Tdap, ≥10y)"], c:[]},
+  HPV:     {s:["Gardasil 9 (HPV, 9-valent)"], c:[]},
   MenACWY: {s:["Menveo (MenACWY-CRM, ≥2m)","MenQuadfi (MenACWY-TT, ≥2y)"], c:["Penbraya (MenACWY+MenB, ≥10y)"]},
   MenB:    {s:["Bexsero (MenB-4C)","Trumenba (MenB-FHbp)"], c:["Penbraya (MenACWY+MenB, ≥10y)"], lock:true},
   RSV:     {s:["Beyfortus (nirsevimab, 50mg <5kg / 100mg ≥5kg)"], c:[]},
-  COVID:   {s:["Spikevax (≥6mo)","Comirnaty (≥5y)","mNexspike (≥12y)","Nuvaxovid (≥12y, protein subunit)"], c:[]},
+  COVID:   {s:["Comirnaty (COVID-19, ≥5y)","mNexspike (COVID-19, ≥12y)","Nuvaxovid (COVID-19, ≥12y, protein subunit)","Spikevax (COVID-19, ≥6mo)"], c:[]},
 };
 
 // Combo vaccines with what they cover
@@ -888,7 +914,8 @@ function auditAll() {
           title:"Rotavirus — Brand Mixing Error",
           detail:"Mixed Rotarix + RotaTeq detected. These are NOT interchangeable. The series must be restarted with one brand.",
           action:"Restart entire RV series with one brand. Administer new dose 1 (if still within age window — max 14w6d to start).",
-          refUrl:REFS.RV.url,refLabel:REFS.RV.label});
+          refUrl:REFS.RV.url,refLabel:REFS.RV.label,
+          refUrl2:REFS.brandMix.url,refLabel2:REFS.brandMix.label});
       }
       if (vk==="MenB") {
         const bex=brands.filter(b=>b.includes("Bexsero")).length;
@@ -897,7 +924,8 @@ function auditAll() {
           title:"MenB — Brand Mixing Error",
           detail:"Mixed Bexsero + Trumenba detected. These are NOT interchangeable. Series must restart with one brand.",
           action:"Restart MenB series with one brand. Consult with provider of prior dose.",
-          refUrl:REFS.MenB.url,refLabel:REFS.MenB.label});
+          refUrl:REFS.MenB.url,refLabel:REFS.MenB.label,
+          refUrl2:REFS.brandMix.url,refLabel2:REFS.brandMix.label});
       }
     }
 
@@ -909,7 +937,8 @@ function auditAll() {
           title:"Hib — Vaxelis Used as Booster Dose",
           detail:"Vaxelis (dose 4) is NOT approved for the Hib booster dose (12–15 months). This dose must be repeated with ActHIB, Hiberix, or PedvaxHIB.",
           action:"Repeat Hib booster with a standalone Hib vaccine (ActHIB, Hiberix, or PedvaxHIB). Min 8 weeks after the invalid dose.",
-          refUrl:REFS.Hib.url,refLabel:REFS.Hib.label});
+          refUrl:REFS.Hib.url,refLabel:REFS.Hib.label,
+          refUrl2:REFS.brandMix.url,refLabel2:REFS.brandMix.label});
       }
       const pedDoses = doses.filter(d=>d.brand&&d.brand.includes("PedvaxHIB"));
       if (pedDoses.length>=4) {
@@ -917,7 +946,8 @@ function auditAll() {
           title:"Hib — PedvaxHIB Overdose (4 doses given)",
           detail:"PedvaxHIB (PRP-OMP) requires only 3 total doses. A 4th dose appears to have been given.",
           action:"Verify brand of dose 4. If PedvaxHIB, it was given in error; no further PedvaxHIB needed.",
-          refUrl:REFS.Hib.url,refLabel:REFS.Hib.label});
+          refUrl:REFS.Hib.url,refLabel:REFS.Hib.label,
+          refUrl2:REFS.Hib.immUrl||null,refLabel2:REFS.Hib.immLabel||null});
       }
     }
 
@@ -932,20 +962,26 @@ function auditAll() {
             errors.push({vk, doseNum:idx+1, type:"off_label", severity:r.countable?"offLabel":"err",
               title:`${VAX_META[vk].n} — Dose ${idx+1} Off-Label Use (${dose.brand||""})`,
               detail:r.msg, action:r.countable?"Count as valid. Document off-label use in the medical record. Monitor per clinical judgment.":"This dose CANNOT be counted. Repeat at appropriate age with same or different brand.",
-              refUrl:r.ref||REFS[vk].url, refLabel:REFS[vk].label});
+              refUrl:r.ref||REFS[vk].url, refLabel:REFS[vk].label,
+              refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
           } else if (r.err && !r.ok) {
+            // Use specific immunize.org interval FAQ for interval/age errors
+            const immUrl=REFS[vk]?.immUrl||null;
+            const immLabel=REFS[vk]?.immLabel||null;
             errors.push({vk, doseNum:idx+1, type:r.type, severity:"err",
-              title:`${VAX_META[vk].n} — Dose ${idx+1} Error (${r.type.replace("_"," ")})`,
+              title:`${VAX_META[vk].n} — Dose ${idx+1} Error (${r.type.replace(/_/g," ")})`,
               detail:r.msg,
               action:buildAction(r),
               earliest:r.earliest,
               refUrl:REFS[vk].url, refLabel:REFS[vk].label,
-              refUrl2:r.type==="interval"?REFS.catchup.url:null, refLabel2:r.type==="interval"?REFS.catchup.label:null});
+              refUrl2:r.type==="interval"?REFS.interval.url:(r.type==="min_age"?REFS.catchup.url:immUrl),
+              refLabel2:r.type==="interval"?REFS.interval.label:(r.type==="min_age"?REFS.catchup.label:immLabel)});
           } else if (r.grace) {
             errors.push({vk, doseNum:idx+1, type:r.type, severity:"grace",
-              title:`${VAX_META[vk].n} — Dose ${idx+1} Within Grace Period`,
-              detail:r.msg, action:"Per CDC policy, doses given ≤4 days early may be counted as valid. Document accordingly.",
-              refUrl:REFS[vk].url, refLabel:REFS[vk].label});
+              title:`${VAX_META[vk].n} — Dose ${idx+1} Within ≤4-Day Grace Period`,
+              detail:r.msg, action:"Per CDC policy, doses given ≤4 days early may be counted as valid. Document in the record.",
+              refUrl:REFS[vk].url, refLabel:REFS[vk].label,
+              refUrl2:REFS.interval.url,refLabel2:REFS.interval.label});
           }
         });
       }
@@ -965,128 +1001,270 @@ function buildAction(r) {
 }
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  RECOMMENDATION ENGINE                                       ║
+// ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
 function genRecs(am) {
   const recs = [];
-  const immuno = S.risks.some(r=>["hiv","immunocomp"].includes(r));
+  const immuno = S.risks.some(x=>["hiv","immunocomp"].includes(x));
   const hr = highRisk();
 
+  // Helper: push a recommendation
   function r(vk, dose, doseNum, status, note, brands, opts={}) {
-    recs.push({vk,dose,doseNum,status,note,brands,
-      prevDate:opts.prevDate||lastDate(vk), minInt:opts.minInt||null,
-      brandTip:opts.bt||null,
-      refUrl:opts.refUrl||REFS[vk].url, refLabel:opts.refLabel||REFS[vk].label,
-      refUrl2:opts.refUrl2||null, refLabel2:opts.refLabel2||null,
+    recs.push({vk, dose, doseNum, status, note, brands,
+      prevDate: opts.prevDate||lastDate(vk), minInt: opts.minInt||null,
+      brandTip: opts.bt||null,
+      refUrl:  opts.refUrl||REFS[vk].url,   refLabel:  opts.refLabel||REFS[vk].label,
+      refUrl2: opts.refUrl2||null,           refLabel2: opts.refLabel2||null,
     });
   }
 
-  // HepB
+  // ── HepB ──────────────────────────────────────────────────────
   const hb=dc("HepB");
-  if(am===0&&hb===0) r("HepB","Dose 1 (birth)",1,"due","Within 24h of birth (≥2000g). Mother HBsAg+: also HBIG within 12h.",["Engerix-B","Recombivax HB"]);
-  else if(am>=1&&am<6&&hb===1) r("HepB","Dose 2",2,"due","At 1–2 months. Min 4 weeks from D1.",["Engerix-B","Recombivax HB","Pediarix","Vaxelis"],{minInt:28});
-  else if(am>=6&&hb===2) r("HepB","Dose 3",3,"due","6–18 months. Min 8 wks from D2; min 16 wks from D1; min age 24 weeks.",["Engerix-B","Recombivax HB","Pediarix","Vaxelis"],{minInt:56});
-  else if(hb<3&&am>2) r("HepB",`Catch-up D${hb+1}/3`,hb+1,"catchup",`Complete 3-dose series. Adolescents 11–15y: 2-dose adult Recombivax HB option. ≥18y: Heplisav-B (2-dose) or Twinrix.`,["Engerix-B","Recombivax HB","Heplisav-B (≥18y)","Twinrix (≥18y)"]);
+  if (am===0 && hb===0)
+    r("HepB","Dose 1 (birth)",1,"due","Within 24h of birth (≥2000g). Mother HBsAg+: also HBIG within 12h.",["Engerix-B","Recombivax HB"]);
+  else if (am>=1 && am<=4 && hb===1)
+    r("HepB","Dose 2 (1–4 months)",2,"due","Min 4 weeks from dose 1.",["Engerix-B","Recombivax HB","Pediarix (DTaP+HepB+IPV)","Vaxelis (DTaP+IPV+Hib+HepB)"],{minInt:28});
+  else if (am>=6 && am<=18 && hb===2)
+    r("HepB","Dose 3 (6–18 months)",3,"due","Min 8 weeks from dose 2; min 16 weeks from dose 1; min age 24 weeks.",["Engerix-B","Recombivax HB","Pediarix (DTaP+HepB+IPV)","Vaxelis (DTaP+IPV+Hib+HepB)"],{minInt:56});
+  else if (hb<3 && am>=1)
+    r("HepB",`Catch-up — dose ${hb+1} of 3`,hb+1,"catchup",
+      `Complete 3-dose HepB series. Doses remaining: ${3-hb}. Min 4w between D1→D2; min 8w D2→D3; min 16w D1→D3; min age 24 weeks for final dose.${am>=132?" Adolescents 11–15y: 2-dose adult Recombivax HB option (0,6m apart).":" "}${am>=216?" ≥18y: Heplisav-B (2-dose) or Twinrix.":""}`,
+      am>=216?["Engerix-B","Recombivax HB","Heplisav-B (≥18y, 2-dose)","Twinrix (HepA+HepB, ≥18y)"]:["Engerix-B","Recombivax HB"],
+      {refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
 
-  // RSV
+  // ── RSV (nirsevimab) ──────────────────────────────────────────
   const rsv=dc("RSV");
-  if(am<8&&rsv===0) r("RSV","Nirsevimab (1 dose)",1,"due","All infants <8m entering first RSV season. 50mg if <5kg; 100mg if ≥5kg. Monoclonal antibody (not a vaccine).",["Beyfortus (nirsevimab)"]);
-  else if(am>=8&&am<20&&rsv===0&&S.risks.includes("rsv_risk")) r("RSV","Nirsevimab – 2nd season (high-risk)",1,"risk-based","High-risk 8–19m: prematurity, CHD, CLD, immunocompromise. 100mg.",["Beyfortus (nirsevimab, 100mg)"]);
+  if (am<8 && rsv===0)
+    r("RSV","Nirsevimab (1 dose)",1,"due","All infants <8 months entering first RSV season. 50mg if <5kg; 100mg if ≥5kg. Monoclonal antibody (not a traditional vaccine).",["Beyfortus (nirsevimab)"]);
+  else if (am>=8 && am<20 && rsv===0 && S.risks.includes("rsv_risk"))
+    r("RSV","Nirsevimab — 2nd season (high-risk only)",1,"risk-based","High-risk 8–19 months: prematurity, CHD, CLD, immunocompromise entering 2nd RSV season. 100mg.",["Beyfortus (nirsevimab, 100mg)"]);
 
-  // RV
-  const rv=dc("RV");const rvb=anyBrand("RV");const rvMax=rvb.includes("Rotarix")?2:3;
-  if(am>=2&&am<=7&&rv<rvMax){
-    if(rv===0&&am>3.5){/*too late*/}
-    else if(rv===0) r("RV","Dose 1 (by 14w6d)",1,"due","Min 6 weeks. Rotarix=2 doses; RotaTeq=3 doses. NEVER interchange. Max start: 14w6d.",["Rotarix (RV1) — 2-dose series","RotaTeq (RV5) — 3-dose series"],{bt:"💡 Rotarix = 2 total doses vs RotaTeq = 3. Pick at D1 and never switch."});
-    else r("RV",`D${rv+1}${rvb?` (${rvb})`:""}`,rv+1,"due",`Same brand as D1. Min 4 weeks between doses. Max age final dose: 8m0d.`,rvb?[rvb]:["Rotarix","RotaTeq"],{minInt:28});
+  // ── RV ────────────────────────────────────────────────────────
+  const rv=dc("RV"); const rvb=anyBrand("RV"); const rvMax=rvb.includes("Rotarix")?2:3;
+  if (am>=2 && am<=8 && rv<rvMax) {
+    // Hard cutoff: cannot start after 14w6d (~3.5m), cannot give any dose after 8m
+    if (rv===0 && am>3.5) {
+      /* Too late to start — no recommendation, age window closed */
+    } else if (rv===0)
+      r("RV","Dose 1 (must start by 14w6d)",1,"due","Min age 6 weeks. Must start by 14 weeks 6 days. Rotarix=2 doses; RotaTeq=3 doses. NEVER interchange brands.",["Rotarix (RV1) — 2-dose series","RotaTeq (RV5) — 3-dose series"],{bt:"💡 Choose ONE brand at dose 1 and never switch — brands are NOT interchangeable."});
+    else
+      r("RV",`Dose ${rv+1} (${rvb||"same brand as D1"})`,rv+1,"due",`Same brand as dose 1. Min 4 weeks between doses. Max age for any dose: 8 months 0 days.`,rvb?[rvb]:["Rotarix","RotaTeq"],{minInt:28});
   }
 
-  // DTaP
+  // ── DTaP / Tdap ───────────────────────────────────────────────
   const dt=dc("DTaP");
-  if(am>=2&&am<=6&&dt<3) r("DTaP",`D${dt+1}/5 (primary)`,dt+1,"due","2, 4, 6 months. Min 4 weeks between doses.",["Daptacel (DTaP only)","Infanrix (DTaP only)","Pediarix (DTaP+HepB+IPV)","Pentacel (DTaP+IPV+Hib)","Vaxelis (DTaP+IPV+Hib+HepB)"],{minInt:28,bt:"💡 Vaxelis covers 4 antigens in one injection."});
-  else if(am>=12&&am<=18&&dt===3) r("DTaP","D4 (booster, 15–18m)",4,"due","Min 6 months from D3. Can give at 12m if ≥6m from D3.",["Daptacel (DTaP only)","Infanrix (DTaP only)","Pentacel (DTaP+IPV+Hib)"],{minInt:182});
-  else if(am>=48&&am<=72&&dt===4) r("DTaP","D5 (4–6 year booster)",5,"due","Not needed if D4 at ≥4y AND ≥6m after D3.",["Kinrix (DTaP+IPV, 4–6y only)","Quadracel (DTaP+IPV, 4–6y only)","Daptacel (DTaP only)","Infanrix (DTaP only)"],{bt:"💡 Kinrix/Quadracel = DTaP+IPV in one injection at 4–6y."});
-  else if(am>72&&dt<5) r("DTaP",`Catch-up D${Math.min(dt+1,5)}/5`,dt+1,"catchup",`${am>=84?"Use Tdap instead for ≥7y. ":""}Dose 5 waived if D4 at ≥4y AND ≥6m after D3.`,am>=84?["Adacel (Tdap ≥7y)","Boostrix (Tdap ≥10y)"]:["Daptacel","Infanrix"]);
-
-  // Hib
-  const hib=dc("Hib");const hibb=anyBrand("Hib");const isPed=hibb.includes("PedvaxHIB");const hibPrim=isPed?2:3;
-  if(am>=2&&am<=6&&hib<hibPrim){
-    const brands=S.risks.includes("alaska_native")?["PedvaxHIB (preferred AI/AN)","Vaxelis (preferred AI/AN)"]:["ActHIB (PRP-T, 4-dose)","Hiberix (PRP-T, 4-dose)","PedvaxHIB (PRP-OMP, 3-dose total)","Pentacel (DTaP+IPV+Hib)","Vaxelis (DTaP+IPV+Hib+HepB, NOT for booster)"];
-    r("Hib",`D${hib+1} (primary)`,hib+1,"due",isPed?"PedvaxHIB: 2 primary doses (2&4m). No 6m dose.":"PRP-T: 3 primary doses (2,4,6m).",brands,{minInt:28,bt:S.risks.includes("alaska_native")?"⚑ PedvaxHIB or Vaxelis preferred for AI/AN per ACIP.":"💡 PedvaxHIB = 3 total doses; PRP-T brands = 4 total. Vaxelis NOT for booster."});
+  const primaryBrands=["Daptacel (DTaP only)","Infanrix (DTaP only)","Pediarix (DTaP+HepB+IPV)","Pentacel (DTaP+IPV+Hib)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3)"];
+  if (am>=2 && am<=6 && dt<3) {
+    r("DTaP",`Dose ${dt+1} of 5 (primary series)`,dt+1,"due","Primary series at 2, 4, 6 months. Min 4 weeks between doses.",primaryBrands,{minInt:28,bt:"💡 Vaxelis covers DTaP+IPV+Hib+HepB in one injection. Pediarix covers DTaP+HepB+IPV."});
+  } else if (am>=7 && am<=18 && dt<3) {
+    // Catch-up: missed primary doses, still under 18m
+    r("DTaP",`Catch-up — dose ${dt+1} of 5 (primary)`,dt+1,"catchup",`Primary series not complete. Give dose ${dt+1} now. Min 4 weeks from prior dose.`,dt<3?primaryBrands:["Daptacel (DTaP only)","Infanrix (DTaP only)","Pentacel (DTaP+IPV+Hib)"],{minInt:28,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (am>=12 && am<=18 && dt===3) {
+    r("DTaP","Dose 4 (booster, 15–18 months)",4,"due","Min 6 months from dose 3. May give as early as 12 months if ≥6 months since dose 3.",["Daptacel (DTaP only)","Infanrix (DTaP only)","Pentacel (DTaP+IPV+Hib)"],{minInt:182});
+  } else if (am>=19 && am<=47 && dt<4) {
+    // Catch-up 19–47 months: need doses to complete primary + booster
+    r("DTaP",`Catch-up — dose ${Math.min(dt+1,4)} of ${dt<3?"5 (primary incomplete)":"4 (booster)"}`,Math.min(dt+1,4),"catchup",
+      `Complete catch-up per CDC Table 2. If doses 1–3 not complete, give remaining primary doses (min 4w apart). Then booster (dose 4) ≥6m after dose 3.`,
+      ["Daptacel (DTaP only)","Infanrix (DTaP only)","Pentacel (DTaP+IPV+Hib)"],{minInt:dt<3?28:182,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (am>=48 && am<=72 && dt===4) {
+    r("DTaP","Dose 5 (4–6 year booster)",5,"due","Not needed if dose 4 was at ≥4 years AND ≥6 months after dose 3.",["Kinrix (DTaP+IPV, 4–6y only)","Quadracel (DTaP+IPV, 4–6y only)","Daptacel (DTaP only)","Infanrix (DTaP only)"],{bt:"💡 Kinrix or Quadracel = DTaP+IPV in one injection at the 4–6y visit."});
+  } else if (am>=48 && am<=83 && dt<4) {
+    // 4–6y with incomplete series: catch-up
+    r("DTaP",`Catch-up — dose ${Math.min(dt+1,5)} of 5`,Math.min(dt+1,5),"catchup",
+      `Incomplete DTaP series. Give remaining doses. Min 4w for early doses; ≥6m for dose 4; dose 5 needed if dose 4 was before age 4y.`,
+      ["Kinrix (DTaP+IPV, 4–6y only)","Quadracel (DTaP+IPV, 4–6y only)","Daptacel (DTaP only)","Infanrix (DTaP only)"],{refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (am>=84 && dt<5) {
+    // ≥7y: use Tdap for any remaining doses
+    r("DTaP","Catch-up — Tdap (≥7 years, use instead of DTaP)",Math.min(dt+1,5),"catchup",
+      `At age ≥7 years, Tdap replaces DTaP for catch-up. Give 1 Tdap dose. Complete any remaining tetanus/diphtheria doses with Td at least 4 weeks later. Dose 5 waived if dose 4 given at ≥4y and ≥6m after dose 3.`,
+      ["Adacel (Tdap, ≥7y)","Boostrix (Tdap, ≥10y)"],{refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
   }
-  else if(am>=12&&am<=15&&hib<(isPed?3:4)) r("Hib","Booster (12–15m)",hib+1,"due","Min 8 weeks after prior dose. Vaxelis NOT approved for booster.",["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP)"],{minInt:56});
-  else if(am>=15&&am<60&&hib===0) r("Hib","Catch-up (15–59m, unvax)",1,"catchup","1 dose. Partially vaccinated: see catch-up table.",["ActHIB","Hiberix","PedvaxHIB"],{refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
-  else if(am>=60&&hib===0&&hr) r("Hib","Risk-based (≥5y, high-risk)",1,"risk-based","Asplenia/HIV/immunocomp: 1 dose. HSCT: 3 doses (4w apart, 6–12m post-transplant).",["ActHIB","Hiberix","PedvaxHIB"]);
 
-  // PCV
-  const pcv=dc("PCV");const pcvb=anyBrand("PCV");
-  if(am>=2&&am<=6&&pcv<3) r("PCV",`D${pcv+1}/4 (primary)`,pcv+1,"due","2,4,6 months.",["Prevnar 20 (PCV20) — preferred","Vaxneuvance (PCV15)"],{minInt:28,bt:"💡 PCV20 preferred: 20 serotypes, no PPSV23 needed. PCV15 + PPSV23 for high-risk."});
-  else if(am>=12&&am<=15&&pcv===3) r("PCV","D4 booster (12–15m)",4,"due","Min 8 weeks after D3.",["Prevnar 20 (PCV20)","Vaxneuvance (PCV15)"],{minInt:56});
-  else if(am>15&&pcv<4){const ir=S.risks.some(r=>["asplenia","hiv","immunocomp","cochlear","chronic_heart","chronic_lung","chronic_kidney","diabetes","chronic_liver"].includes(r)); r("PCV","Catch-up/risk-based",pcv+1,ir?"risk-based":"catchup",`Catch-up <5y. High-risk: complete series. ${pcvb.includes("PCV15")&&ir?"PCV15 + PPSV23 ≥8w later for high-risk.":""}`,["Prevnar 20 (PCV20)","Vaxneuvance (PCV15)"]);}
+  // ── Hib ───────────────────────────────────────────────────────
+  const hib=dc("Hib"); const hibb=anyBrand("Hib"); const isPed=hibb.includes("PedvaxHIB"); const hibPrim=isPed?2:3;
+  const hibComboBrands=S.risks.includes("alaska_native")
+    ?["PedvaxHIB (PRP-OMP) — preferred for AI/AN","Vaxelis (DTaP+IPV+Hib+HepB) — preferred for AI/AN"]
+    :["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP, 3-dose total)","Pentacel (DTaP+IPV+Hib)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)"];
+  if (am>=2 && am<=6 && hib<hibPrim) {
+    r("Hib",`Dose ${hib+1} of ${hibPrim} (primary)`,hib+1,"due",
+      isPed?"PedvaxHIB (PRP-OMP): only 2 primary doses (2 & 4 months). No 6-month dose needed.":"PRP-T brands: 3 primary doses (2, 4, 6 months).",
+      hibComboBrands,{minInt:28,bt:S.risks.includes("alaska_native")?"⚑ PedvaxHIB or Vaxelis preferred for AI/AN per ACIP.":"💡 PedvaxHIB needs only 3 total doses; PRP-T brands need 4. Vaxelis NOT approved for booster."});
+  } else if (am>=7 && am<=11 && hib<hibPrim) {
+    // Catch-up 7–11 months with incomplete primary
+    r("Hib",`Catch-up — dose ${hib+1} of primary series`,hib+1,"catchup",
+      `7–11 months: if behind, give remaining doses now. Min 4 weeks between doses. Complete by 12–15m with booster.`,
+      hibComboBrands,{minInt:28,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (am>=12 && am<=15 && hib<(isPed?3:4)) {
+    r("Hib","Booster (12–15 months)",hib+1,"due","Booster at 12–15 months. Min 8 weeks after prior dose. Vaxelis NOT approved for booster.",["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP)"],{minInt:56});
+  } else if (am>=16 && am<60 && hib===0) {
+    // 16–59m unvaccinated: 1 dose catch-up
+    r("Hib","Catch-up — 1 dose (16–59 months, unvaccinated)",1,"catchup",
+      `Unvaccinated 16–59 months: give 1 dose of any Hib vaccine. Partially vaccinated: see CDC catch-up Table 2.`,
+      ["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP)"],{refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (am>=16 && am<60 && hib>0 && hib<(isPed?3:4)) {
+    // Partially vaccinated 16–59m
+    r("Hib",`Catch-up — dose ${hib+1} (partial series, 16–59 months)`,hib+1,"catchup",
+      `Incomplete Hib series. Give next dose per catch-up table. Min 8 weeks from last dose if ≥15 months.`,
+      ["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP)"],{minInt:56,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (am>=60 && hib===0 && hr) {
+    r("Hib","Risk-based — 1 dose (≥5 years, high-risk)",1,"risk-based","Asplenia, HIV, immunocompromise: 1 dose. HSCT: 3 doses (4 weeks apart, 6–12 months post-transplant regardless of prior history).",["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP)"]);
+  }
 
-  // IPV
+  // ── PCV / PPSV ────────────────────────────────────────────────
+  const pcv=dc("PCV"); const pcvb=anyBrand("PCV");
+  const isHighRiskPCV=S.risks.some(x=>["asplenia","hiv","immunocomp","cochlear","chronic_heart","chronic_lung","chronic_kidney","diabetes","chronic_liver"].includes(x));
+  const pcvBrands=["Prevnar 20 (PCV20) — preferred","Vaxneuvance (PCV15)","Prevnar 13 (PCV13) — only if PCV20/PCV15 unavailable"];
+  const pcvNote=`💡 PCV20 preferred — covers 20 serotypes and no PPSV23 needed after. If PCV15 used for high-risk patients: add PPSV23 ≥8 weeks after completing PCV series. PCV13 still used if PCV20/PCV15 unavailable or specific clinical indication.`;
+  if (am>=2 && am<=6 && pcv<3) {
+    r("PCV",`Dose ${pcv+1} of 4 (PCV primary, ${am===2?"2":am===4?"4":"6"} months)`,pcv+1,"due","Primary series at 2, 4, 6 months. Min 4 weeks between doses.",pcvBrands,{minInt:28,bt:pcvNote,refUrl:REFS.PCV.url,refLabel:REFS.PCV.label});
+  } else if (am>=7 && am<=11 && pcv<3) {
+    r("PCV",`Catch-up — PCV dose ${pcv+1} (7–11 months)`,pcv+1,"catchup","7–11 months behind: give remaining primary doses ≥4 weeks apart. Booster still needed at 12–15m.",pcvBrands,{minInt:28,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (am>=12 && am<=15 && pcv<4) {
+    const needBooster=pcv>=3;
+    r("PCV",needBooster?"Dose 4 — PCV booster (12–15 months)":"Catch-up — PCV (complete primary + booster)",pcv+1,needBooster?"due":"catchup",
+      needBooster?"Booster dose at 12–15 months. Min 8 weeks after dose 3.":"Complete remaining primary doses first (min 4w apart), then booster (min 8w after prior).",
+      pcvBrands,{minInt:needBooster?56:28,bt:pcvNote,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (am>=16 && am<=59 && pcv<4) {
+    r("PCV",`Catch-up — PCV/PPSV (${am<=59?"16–59 months":"≥5 years"})`,pcv+1,isHighRiskPCV?"risk-based":"catchup",
+      `Catch-up PCV series. Doses needed: ${4-pcv}. Min 8 weeks between doses when catching up. ${isHighRiskPCV?"High-risk: after completing PCV series, add PPSV23 ≥8 weeks later if PCV15 used.":""}`,
+      pcvBrands,{minInt:56,bt:pcvNote,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (am>=60 && isHighRiskPCV && pcv<4) {
+    r("PCV","Risk-based PCV/PPSV (≥5 years, high-risk)",pcv+1,"risk-based",
+      "High-risk ≥5y: 1 dose PCV20 (or PCV15 + PPSV23 ≥8w later). If PCV15 used: add PPSV23 at 8 weeks. Asplenia/immunocompromise: 2 doses PPSV23 (5 years apart). See CDC high-risk guidelines.",
+      ["Prevnar 20 (PCV20) — preferred for high-risk ≥5y","Vaxneuvance (PCV15) + PPSV23 ≥8w later","Pneumovax 23 (PPSV23) — after PCV for high-risk"],
+      {refUrl:REFS.PCV.url,refLabel:REFS.PCV.label,refUrl2:REFS.ppsv23.url,refLabel2:REFS.ppsv23.label});
+  }
+
+  // ── IPV ───────────────────────────────────────────────────────
   const ipv=dc("IPV");
-  if(am>=2&&am<=4&&ipv<2) r("IPV",`D${ipv+1}/4 (primary)`,ipv+1,"due","2 and 4 months.",["IPOL (IPV only)","Pediarix (DTaP+HepB+IPV)","Pentacel (DTaP+IPV+Hib)","Vaxelis (DTaP+IPV+Hib+HepB)"],{minInt:28});
-  else if(am>=6&&am<=18&&ipv===2) r("IPV","D3 (6–18m)",3,"due","Third dose 6–18 months.",["IPOL","Pediarix","Pentacel","Vaxelis"]);
-  else if(am>=48&&am<=72&&ipv===3) r("IPV","D4 (4–6y booster)",4,"due","Final dose. Min 6m from D3. Min age 4 years.",["IPOL (IPV only)","Kinrix (DTaP+IPV, 4–6y) — preferred","Quadracel (DTaP+IPV, 4–6y) — preferred"],{bt:"💡 Kinrix/Quadracel = DTaP+IPV in one shot at 4–6y visit."});
-  else if(am>72&&ipv<4) r("IPV",`Catch-up D${ipv+1}/4`,ipv+1,"catchup","Final dose: ≥4y and ≥6m after prior.",["IPOL"],{refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  const ipvBrands=["IPOL (IPV only)","Pediarix (DTaP+HepB+IPV)","Pentacel (DTaP+IPV+Hib)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3)"];
+  if (am>=2 && am<=4 && ipv<2) {
+    r("IPV",`Dose ${ipv+1} of 4 (primary)`,ipv+1,"due","At 2 and 4 months. Min 4 weeks between doses.",ipvBrands,{minInt:28});
+  } else if (am>=5 && am<=18 && ipv<3) {
+    // Catch-up or dose 3
+    r("IPV",`${ipv<2?"Catch-up — ":""}Dose ${ipv+1} of 4`,ipv+1,ipv<2?"catchup":"due",
+      ipv<2?"Behind on primary IPV series. Give next dose now, min 4 weeks from last dose.":"Third dose at 6–18 months. Min 4 weeks from dose 2 if <4 years.",
+      ipvBrands,{minInt:28,refUrl2:ipv<2?REFS.catchup.url:null,refLabel2:ipv<2?REFS.catchup.label:null});
+  } else if (am>=48 && am<=72 && ipv===3) {
+    r("IPV","Dose 4 — final booster (4–6 years)",4,"due","Final dose. Min 6 months from dose 3. Min age 4 years.",["IPOL (IPV only)","Kinrix (DTaP+IPV, 4–6y) — preferred","Quadracel (DTaP+IPV, 4–6y) — preferred"],{bt:"💡 Kinrix or Quadracel = IPV+DTaP in one injection at the 4–6y visit."});
+  } else if (am>=19 && am<=47 && ipv<3) {
+    r("IPV",`Catch-up — dose ${ipv+1} of 4`,ipv+1,"catchup",`Complete IPV catch-up. Min 4 weeks between doses if <4 years.`,["IPOL (IPV only)","Pentacel (DTaP+IPV+Hib)"],{minInt:28,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (am>72 && ipv<4) {
+    r("IPV",`Catch-up — dose ${ipv+1} of 4 (final)`,ipv+1,"catchup","Final dose must be at ≥4 years AND ≥6 months after prior dose. Series complete after 4 doses.",["IPOL (IPV only)"],{minInt:182,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  }
 
-  // Flu
+  // ── Influenza ─────────────────────────────────────────────────
   const flu=dc("Flu");
-  if(am>=6){const fe=flu===0&&am<108;const noL=S.risks.some(r=>["immunocomp","asplenia","pregnancy"].includes(r));const ea=S.risks.includes("egg_allergy");
-    r("Flu",fe?"2 doses this season (≥4w apart)":"Annual dose",1,"due",`Annual ≥6m. ${fe?"First-ever <9y: 2 doses ≥4 weeks apart. ":""}${noL?"Avoid LAIV — use IIV only. ":"FluMist LAIV acceptable ≥2y healthy non-pregnant. "}${ea?"Egg allergy: Flucelvax preferred (egg-free); most IIV acceptable.":""}`,
-    noL||am<24?["IIV4 (any inactivated)","Flucelvax Quadrivalent (ccIIV4, egg-free)"]:["IIV4 (any inactivated)","Flucelvax Quadrivalent (ccIIV4, egg-free)","FluMist Quadrivalent (LAIV4, ≥2y)"],{minInt:fe?28:null});
+  if (am>=6) {
+    const firstEver=flu===0&&am<108;
+    const noLAIV=S.risks.some(x=>["immunocomp","asplenia","pregnancy"].includes(x));
+    const eggAllergy=S.risks.includes("egg_allergy");
+    const fluBrands=noLAIV||am<24
+      ?["IIV4 (any age-appropriate inactivated)","Flucelvax Quadrivalent (ccIIV4, egg-free)"]
+      :["IIV4 (any age-appropriate inactivated)","Flucelvax Quadrivalent (ccIIV4, egg-free)","FluMist Quadrivalent (LAIV4, ≥2y healthy non-pregnant)"];
+    r("Flu",firstEver?"2 doses this season (≥4 weeks apart, first-ever)":"Annual influenza dose",1,"due",
+      `Annual flu vaccine for all ≥6 months. ${firstEver?"First-ever flu vaccine in children <9y requires 2 doses ≥4 weeks apart. ":""}${noLAIV?"LAIV (FluMist) contraindicated — use inactivated IIV only. ":"FluMist acceptable for healthy non-pregnant ≥2y. "}${eggAllergy?"Egg allergy: Flucelvax (egg-free) preferred; most IIV acceptable per ACIP regardless of egg allergy severity.":""}`,
+      fluBrands,{minInt:firstEver?28:null});
   }
 
-  // MMR + VAR
-  const mmr=dc("MMR");const var_=dc("VAR");
-  if(am>=12&&am<=15&&mmr===0) r("MMR","D1 (12–15m)",1,"due","ProQuad if VAR also due (1 injection covers both).",var_===0?["ProQuad (MMRV) — 1 injection = MMR+VAR","M-M-R II","Priorix"]:["M-M-R II","Priorix","ProQuad (MMRV)"],{bt:var_===0?"💡 ProQuad = MMR+VAR in one shot. Note: slightly higher febrile seizure risk 12–23m vs separate. Discuss with caregiver.":undefined});
-  else if(am>=48&&am<=72&&mmr===1) r("MMR","D2 (4–6y)",2,"due","Min 4 weeks after D1.",var_<2?["ProQuad (MMRV) — preferred if VAR D2 also due","M-M-R II","Priorix"]:["M-M-R II","Priorix","ProQuad (MMRV, ≤12y)"],{minInt:28});
-  else if(am>72&&mmr<2) r("MMR",`Catch-up D${mmr+1}/2`,mmr+1,"catchup","2 doses ≥4w apart.",["M-M-R II","Priorix"],{minInt:28,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  // ── MMR ───────────────────────────────────────────────────────
+  const mmr=dc("MMR"); const var_=dc("VAR");
+  const mmrBrands1=var_===0?["ProQuad (MMR+VAR/MMRV) — 1 shot covers both","M-M-R II (MMR only)","Priorix (MMR only)"]:["M-M-R II (MMR only)","Priorix (MMR only)","ProQuad (MMR+VAR/MMRV)"];
+  if (am>=12 && am<=15 && mmr===0) {
+    r("MMR","Dose 1 (12–15 months)",1,"due","First dose 12–15 months.",mmrBrands1,{bt:var_===0?"💡 ProQuad gives MMR+VAR in one injection. Note: slightly higher febrile seizure risk at 12–23 months vs separate injections — discuss with caregiver.":undefined});
+  } else if (am>=16 && mmr===0) {
+    r("MMR",`Catch-up — dose 1 of 2`,1,"catchup","Give 1 dose now. Second dose ≥4 weeks later. Two doses needed for full protection.",["M-M-R II (MMR only)","Priorix (MMR only)"],{refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (mmr===1 && am>=48 && am<=72) {
+    r("MMR","Dose 2 (4–6 year booster)",2,"due","Min 4 weeks after dose 1.",var_<2?["ProQuad (MMR+VAR/MMRV) — preferred if VAR dose 2 also due","M-M-R II (MMR only)","Priorix (MMR only)"]:["M-M-R II (MMR only)","Priorix (MMR only)","ProQuad (MMR+VAR/MMRV, ≤12y)"],{minInt:28});
+  } else if (mmr===1 && (am<48||am>72)) {
+    r("MMR","Catch-up — dose 2 of 2",2,"catchup","Min 4 weeks after dose 1.",["M-M-R II (MMR only)","Priorix (MMR only)"],{minInt:28,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  }
 
-  if(am>=12&&am<=15&&var_===0) r("VAR","D1 (12–15m)",1,"due","ProQuad if MMR also due.",mmr===0?["ProQuad (MMRV) — preferred","Varivax"]:["Varivax","ProQuad (MMRV, if MMR also due)"]);
-  else if(am>=48&&am<=72&&var_===1) r("VAR","D2 (4–6y)",2,"due",am>=156?"≥13y: min 4w.":"Min 3 months after D1 (<13y).",mmr===1?["ProQuad (MMRV, ≤12y) — preferred if MMR D2 also due","Varivax"]:["Varivax","ProQuad (MMRV, ≤12y)"],{minInt:am>=156?28:84});
-  else if(am>72&&var_<2) r("VAR",`Catch-up D${var_+1}/2`,var_+1,"catchup",am>=156?"≥13y: 2 doses ≥4w apart.":"2 doses ≥3m apart.",["Varivax"],{minInt:am>=156?28:84,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  // ── Varicella ─────────────────────────────────────────────────
+  const varBrands1=mmr===0?["ProQuad (MMR+VAR/MMRV) — preferred","Varivax (VAR only)"]:["Varivax (VAR only)","ProQuad (MMR+VAR/MMRV, if MMR also due)"];
+  if (am>=12 && am<=15 && var_===0) {
+    r("VAR","Dose 1 (12–15 months)",1,"due","First dose 12–15 months.",varBrands1);
+  } else if (am>=16 && var_===0) {
+    r("VAR","Catch-up — dose 1 of 2",1,"catchup","Give 1 dose now. Second dose ≥3 months later (<13y) or ≥4 weeks later (≥13y). Two doses required.",["Varivax (VAR only)"],{refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  } else if (var_===1 && am>=48 && am<=72) {
+    r("VAR","Dose 2 (4–6 year booster)",2,"due",am>=156?"≥13y: min 4 weeks after dose 1.":"Min 3 months after dose 1 (<13y).",mmr===1?["ProQuad (MMR+VAR/MMRV, ≤12y) — preferred if MMR dose 2 also due","Varivax (VAR only)"]:["Varivax (VAR only)","ProQuad (MMR+VAR/MMRV, ≤12y)"],{minInt:am>=156?28:84});
+  } else if (var_===1 && (am<48||am>72)) {
+    r("VAR","Catch-up — dose 2 of 2",2,"catchup",am>=156?"≥13y: min 4 weeks.":"Min 3 months after dose 1.",["Varivax (VAR only)"],{minInt:am>=156?28:84,refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
+  }
 
-  // HepA
+  // ── HepA ──────────────────────────────────────────────────────
   const ha=dc("HepA");
-  if(am>=12&&am<24&&ha===0) r("HepA","D1 (12–23m)",1,"due","First dose. D2 follows 6–18m later.",["Havrix","Vaqta"]);
-  else if(am>=18&&ha===1) r("HepA","D2 (≥6m after D1)",2,"due","Min 6 months after D1.",am>=216?["Havrix","Vaqta","Twinrix (≥18y)"]:["Havrix","Vaqta"],{minInt:182});
-  else if(am>=24&&ha===0){const tr=S.risks.includes("travel");const lr=S.risks.includes("chronic_liver")||S.risks.includes("hcv"); r("HepA","Catch-up/risk-based",1,(tr||lr)?"risk-based":"catchup",`2 doses ≥6m apart. ${tr?"Travel: begin ASAP. ":""}${lr?"Recommended for liver disease/HCV. ":""}`,am>=216?["Havrix","Vaqta","Twinrix (≥18y)"]:["Havrix","Vaqta"]);}
+  if (am>=12 && am<24 && ha===0) {
+    r("HepA","Dose 1 (12–23 months)",1,"due","First dose at 12–23 months. Second dose follows 6–18 months later.",["Havrix (HepA only)","Vaqta (HepA only)"]);
+  } else if (am>=18 && ha===1) {
+    r("HepA","Dose 2 (≥6 months after dose 1)",2,"due","Min 6 months after dose 1.",am>=216?["Havrix (HepA only)","Vaqta (HepA only)","Twinrix (HepA+HepB, ≥18y)"]:["Havrix (HepA only)","Vaqta (HepA only)"],{minInt:182});
+  } else if (am>=24 && ha===0) {
+    const travel=S.risks.includes("travel"); const liverDz=S.risks.includes("chronic_liver")||S.risks.includes("hcv");
+    r("HepA","Catch-up/risk-based — dose 1 of 2",1,(travel||liverDz)?"risk-based":"catchup",
+      `Catch-up 2-dose series (≥6 months apart). ${travel?"Travel to endemic areas: begin immediately — even 1 dose provides some protection. ":""}${liverDz?"Recommended for all with chronic liver disease or HCV. ":""}`,
+      am>=216?["Havrix (HepA only)","Vaqta (HepA only)","Twinrix (HepA+HepB, ≥18y)"]:["Havrix (HepA only)","Vaqta (HepA only)"]);
+  }
 
-  // Tdap
+  // ── Tdap ──────────────────────────────────────────────────────
   const tdap=dc("Tdap");
-  if(am>=132&&am<=144&&tdap===0) r("Tdap","D1 (11–12y)",1,"due","Single Tdap. Then Td every 10y.",["Adacel (≥7y)","Boostrix (≥10y)"]);
-  else if(am>=84&&am<132&&tdap===0&&dt<5) r("Tdap","Catch-up Tdap (7–10y, incomplete DTaP)",1,"catchup","Age ≥7y with incomplete DTaP.",["Adacel (≥7y)"]);
-  else if(am>144&&tdap===0) r("Tdap","Catch-up Tdap",1,"catchup","Single Tdap if not received. Then Td every 10y.",["Adacel (≥7y)","Boostrix (≥10y)"]);
-
-  // HPV
-  const hpv=dc("HPV");const hpvStart=S.risks.includes("sexual_abuse")?108:132;
-  if(am>=hpvStart&&am<=216){
-    const ys=am<180;
-    if(hpv===0) r("HPV",`D1 (${S.risks.includes("sexual_abuse")?"9y+ abuse hx":"11–12y"})`,1,"due",immuno?"3-dose required (immunocomp).":ys?"<15y: 2-dose (0, 6–12m). Min 5m between doses.":"≥15y: 3-dose (0, 1–2, 6m).",["Gardasil 9"]);
-    else if(hpv===1) r("HPV",immuno?"D2/3":ys?"D2/2 (≥5m after D1)":"D2/3",2,"due","Min from D1: 5m (2-dose) or 4w (3-dose).",["Gardasil 9"],{minInt:ys&&!immuno?150:28});
-    else if(hpv===2&&(immuno||!ys)) r("HPV","D3/3",3,"due","Min 12w from D2; ≥5m from D1.",["Gardasil 9"],{minInt:84});
+  if (am>=84 && am<=131 && tdap===0 && dt<5) {
+    r("Tdap","Catch-up Tdap (7–10 years, incomplete DTaP)",1,"catchup","Age 7–10y with incomplete DTaP series: give 1 Tdap. Use only Adacel (≥7y). Remaining Td booster doses as needed.",["Adacel (Tdap, ≥7y)"]);
+  } else if (am>=132 && am<=144 && tdap===0) {
+    r("Tdap","Dose 1 (routine, 11–12 years)",1,"due","Single Tdap at 11–12 years. Then Td every 10 years.",["Adacel (Tdap, ≥7y)","Boostrix (Tdap, ≥10y)"]);
+  } else if (am>144 && tdap===0) {
+    r("Tdap","Catch-up Tdap (≥13 years)",1,"catchup","Give 1 Tdap if not received. Then Td every 10 years.",["Adacel (Tdap, ≥7y)","Boostrix (Tdap, ≥10y)"]);
   }
 
-  // MenACWY
-  const men=dc("MenACWY");const menb=dc("MenB");
-  if(am>=132&&am<=144&&men===0) r("MenACWY","D1 (11–12y)",1,"due","Routine. Booster at 16y. Penbraya if starting MenB.",menb===0?["Penbraya (MenACWY+MenB, ≥10y) — if starting MenB","Menveo (MenACWY-CRM, ≥2m)","MenQuadfi (MenACWY-TT, ≥2y)"]:["Menveo","MenQuadfi"],{bt:menb===0?"💡 Penbraya = MenACWY+MenB in one injection.":undefined});
-  else if(am>=192&&am<=204&&men===1) r("MenACWY","Booster (16y)",2,"due","Booster. High-risk: boost every 5y.",["Menveo","MenQuadfi","Penbraya (if MenB also due)"],{minInt:56});
-  if(am>=24&&men===0&&(hr||S.risks.includes("college"))) r("MenACWY",S.risks.includes("college")?"Catch-up (college entry)":"Risk-based",1,S.risks.includes("college")?"catchup":"risk-based",S.risks.includes("college")?"First-year dorm: 1 dose if not vaccinated at ≥16y.":"High-risk: 2 doses 8w apart; boost every 3–5y.",["Menveo","MenQuadfi"]);
-
-  // MenB
-  if(am>=120){
-    if(menb===0) r("MenB",hr?"D1 (high-risk, recommended)":"D1 (shared decision, 16–23y)",1,hr?"risk-based":"recommended",
-      hr?"Bexsero 2 doses (0, ≥1m) OR Trumenba 3 doses (0,1–2,6m). NOT interchangeable.":"Preferred 16–18y. Bexsero 2 doses (≥1m) OR Trumenba 2 doses (≥6m) or accel. Penbraya if MenACWY also due.",
-      men===0?["Penbraya (MenACWY+MenB) — if MenACWY also starting","Bexsero (MenB-4C, 2-dose)","Trumenba (MenB-FHbp, 2- or 3-dose)"]:["Bexsero (MenB-4C, 2-dose)","Trumenba (MenB-FHbp, 2- or 3-dose)"],
-      {bt:"⚠️ Bexsero and Trumenba are NOT interchangeable — complete entire series with same brand."});
-    else if(menb===1){const mb=anyBrand("MenB"); r("MenB",`D2 (${mb||"same brand as D1"})`,2,"due",mb.includes("Bexsero")?"Bexsero D2: ≥1m after D1. Series complete after 2 doses.":"Trumenba: ≥6m (2-dose) or 1–2m (accel 3-dose).",mb?[mb]:["Bexsero","Trumenba"],{minInt:mb.includes("Bexsero")?28:182});}
+  // ── HPV ───────────────────────────────────────────────────────
+  const hpv=dc("HPV"); const hpvStart=S.risks.includes("sexual_abuse")?108:132;
+  if (am>=hpvStart && am<=216) {
+    const ys=am<180; // started <15y → 2-dose series (unless immunocompromised)
+    if (hpv===0)
+      r("HPV",`Dose 1 (${S.risks.includes("sexual_abuse")?"9y+ — sexual abuse history":"routine 11–12y"})`,1,"due",
+        immuno?"3-dose series required (immunocompromised — even if started <15y): doses at 0, 1–2, 6 months.":ys?"Starting <15y: 2-dose series (0, 6–12 months). Minimum 5 months between doses.":"Starting ≥15y: 3-dose series (0, 1–2, 6 months).",
+        ["Gardasil 9 (HPV, 9-valent)"]);
+    else if (hpv===1)
+      r("HPV",immuno?"Dose 2 of 3":ys?"Dose 2 of 2 (≥5 months after dose 1)":"Dose 2 of 3",2,"due","Min from dose 1: 5 months (2-dose) or 4 weeks (3-dose).",["Gardasil 9 (HPV, 9-valent)"],{minInt:ys&&!immuno?150:28});
+    else if (hpv===2&&(immuno||!ys))
+      r("HPV","Dose 3 of 3",3,"due","Min 12 weeks from dose 2; ≥5 months from dose 1.",["Gardasil 9 (HPV, 9-valent)"],{minInt:84});
   }
 
-  // COVID
-  if(am>=6) r("COVID","Updated annual COVID-19 vaccine",1,"recommended","Shared decision-making. Annual updated vaccine especially for immunocompromised, chronic disease, household contacts.",
-    am<60?["Spikevax (≥6m)"]:am<144?["Spikevax","Comirnaty (≥5y)"]:["Comirnaty (≥5y)","Spikevax","mNexspike (≥12y)","Nuvaxovid (≥12y, protein subunit)"]);
+  // ── MenACWY ───────────────────────────────────────────────────
+  const men=dc("MenACWY"); const menb=dc("MenB");
+  if (am>=132 && am<=144 && men===0) {
+    r("MenACWY","Dose 1 (routine, 11–12 years)",1,"due","Routine at 11–12y. Booster at 16y. Use Penbraya if also starting MenB.",
+      menb===0?["Penbraya (MenACWY+MenB, ≥10y) — if starting MenB too","Menveo (MenACWY-CRM, ≥2m)","MenQuadfi (MenACWY-TT, ≥2y)"]:["Menveo (MenACWY-CRM, ≥2m)","MenQuadfi (MenACWY-TT, ≥2y)"],
+      {bt:menb===0?"💡 Penbraya = MenACWY+MenB in one injection — use when starting both series.":undefined});
+  } else if (am>=192 && am<=204 && men===1) {
+    r("MenACWY","Booster (16 years)",2,"due","Booster at 16y for ongoing protection through college. High-risk: booster every 3–5 years.",["Menveo (MenACWY-CRM, ≥2m)","MenQuadfi (MenACWY-TT, ≥2y)","Penbraya (MenACWY+MenB) — if MenB booster also due"],{minInt:56});
+  } else if (am>144 && am<192 && men===0) {
+    r("MenACWY","Catch-up (13–15 years)",1,"catchup","Give 1 dose if not yet received. Booster at 16y if first dose given before 16y.",["Menveo (MenACWY-CRM, ≥2m)","MenQuadfi (MenACWY-TT, ≥2y)"]);
+  } else if (am>=24 && men===0 && (hr||S.risks.includes("college"))) {
+    r("MenACWY",S.risks.includes("college")?"Catch-up — college entry":"Risk-based — high-risk",1,
+      S.risks.includes("college")?"catchup":"risk-based",
+      S.risks.includes("college")?"First-year dormitory: give 1 dose if not vaccinated at ≥16y.":"High-risk (asplenia, HIV, complement deficiency): 2-dose primary series 8 weeks apart; then boost every 3–5 years.",
+      ["Menveo (MenACWY-CRM, ≥2m)","MenQuadfi (MenACWY-TT, ≥2y)"]);
+  }
+
+  // ── MenB ──────────────────────────────────────────────────────
+  if (am>=120) {
+    if (menb===0) {
+      r("MenB",hr?"Dose 1 — recommended (high-risk)":"Dose 1 — shared decision (preferred 16–23y)",1,hr?"risk-based":"recommended",
+        hr?"Recommended for high-risk patients. Bexsero: 2 doses (0, ≥1 month apart). Trumenba: 3 doses (0, 1–2, 6 months). NOT interchangeable.":"Preferred 16–18y. Bexsero: 2 doses ≥1m apart. Trumenba: 2 doses ≥6m apart (or accelerated 3-dose). Penbraya if MenACWY also starting.",
+        men===0?["Penbraya (MenACWY+MenB, ≥10y) — if starting MenACWY too","Bexsero (MenB-4C, 2-dose series)","Trumenba (MenB-FHbp, 2- or 3-dose series)"]:["Bexsero (MenB-4C, 2-dose series)","Trumenba (MenB-FHbp, 2- or 3-dose series)"],
+        {bt:"⚠️ Bexsero and Trumenba are NOT interchangeable — complete entire series with the same brand."});
+    } else if (menb===1) {
+      const mb=anyBrand("MenB");
+      r("MenB",`Dose 2 (${mb||"same brand as dose 1"})`,2,"due",
+        mb.includes("Bexsero")?"Bexsero dose 2: ≥1 month after dose 1. Series complete after 2 doses.":"Trumenba dose 2: ≥6 months after dose 1 (2-dose schedule) or 1–2 months (accelerated 3-dose).",
+        mb?[mb]:["Bexsero (MenB-4C)","Trumenba (MenB-FHbp)"],{minInt:mb.includes("Bexsero")?28:182});
+    }
+  }
+
+  // ── COVID-19 ──────────────────────────────────────────────────
+  if (am>=6)
+    r("COVID","Updated annual COVID-19 vaccine",1,"recommended","Shared clinical decision-making. Annual updated vaccine especially recommended for immunocompromised, chronic illness, household contacts of vulnerable persons.",
+      am<60?["Spikevax (COVID-19, ≥6mo)"]:am<144?["Spikevax (COVID-19, ≥6mo)","Comirnaty (COVID-19, ≥5y)"]:["Comirnaty (COVID-19, ≥5y)","Spikevax (COVID-19, ≥6mo)","mNexspike (COVID-19, ≥12y)","Nuvaxovid (COVID-19, ≥12y, protein subunit — non-mRNA option)"]);
 
   return recs;
 }
@@ -1098,77 +1276,71 @@ function buildRegimens(recs, am) {
   const needed=recs.filter(r=>r.status==="due"||r.status==="catchup").map(r=>r.vk);
   if(!needed.length) return [];
 
-  // Eligible combos: age fits AND every antigen they cover that we need is available
-  // We do NOT require combo covers ALL needed vaccines — just that its antigens are in needed list
-  const eligibleCombos=[...Object.entries(COMBOS).filter(([name,c])=>{
-    if(name==="Vaxelis"&&am>=12) return false; // not for Hib booster
+  // Eligible combos: age fits AND ≥2 of their antigens are in the needed list
+  const eligibleCombos=Object.entries(COMBOS).filter(([name,c])=>{
+    if(name==="Vaxelis"&&am>=12) return false;
     if(am<c.minM||am>c.maxM) return false;
-    // Combo is eligible if at least 2 of its antigens are in the needed list
     return c.c.filter(v=>needed.includes(v)).length>=2;
-  })];
+  });
 
-  // planWith: greedily apply the given subset of combos (sorted largest coverage first),
-  // then fill remaining needed vaccines as standalone
-  function planWith(comboNames){
-    const cov=new Set(); const shots=[]; const bs=new Set();
-    const selected=[...eligibleCombos.filter(([n])=>comboNames.includes(n))]
-      .sort((a,b)=>b[1].c.filter(v=>needed.includes(v)).length-a[1].c.filter(v=>needed.includes(v)).length);
-    for(const[name,co]of selected){
-      // Only use this combo if ALL its antigens that are in needed are not yet covered
-      const toCover=co.c.filter(v=>needed.includes(v));
-      if(toCover.length>=2 && toCover.every(v=>!cov.has(v))){
+  // Core plan builder: apply named combos greedily (largest needed-coverage first)
+  function buildPlan(comboNames) {
+    const cov=new Set(); const shots=[]; const brands=new Set();
+    const selected=eligibleCombos
+      .filter(([n])=>comboNames.includes(n))
+      .slice()
+      .sort((a,b)=>b[1].c.filter(v=>needed.includes(v)).length - a[1].c.filter(v=>needed.includes(v)).length);
+
+    for(const [name,co] of selected) {
+      // Use combo only if it covers ≥2 not-yet-covered needed antigens
+      const toCover=co.c.filter(v=>needed.includes(v)&&!cov.has(v));
+      if(toCover.length>=2) {
         toCover.forEach(v=>cov.add(v));
-        shots.push({brand:name,covers:toCover,desc:co.desc,isCombo:true});
-        bs.add(name);
+        shots.push({brand:name, covers:toCover, desc:co.desc, isCombo:true});
+        brands.add(name);
       }
     }
-    // Standalone fill for anything not covered
-    for(const v of needed){
-      if(!cov.has(v)){
+    // Fill remaining needed vaccines with first standalone option
+    for(const v of needed) {
+      if(!cov.has(v)) {
         const br=(VBR[v]?.s||[v])[0];
-        shots.push({brand:br,covers:[v],desc:br,isCombo:false});
-        bs.add(br); cov.add(v);
+        shots.push({brand:br, covers:[v], desc:br, isCombo:false});
+        brands.add(br); cov.add(v);
       }
     }
-    return {shots, bCount:bs.size, sCount:shots.length};
+    return {shots, sCount:shots.length, bCount:brands.size};
   }
 
-  // Plan A — Fewest Injections: use ALL eligible combos simultaneously
-  const allNames=eligibleCombos.map(([n])=>n);
-  const planA=planWith(allNames);
+  // Plan A: stack ALL eligible non-overlapping combos
+  const planA=buildPlan(eligibleCombos.map(([n])=>n));
 
-  // Plan B — Fewest Brands: use only the SINGLE combo that covers the most needed antigens
-  // (minimizes stocking many different products)
-  const sortedByNeededCoverage=[...eligibleCombos]
-    .sort((a,b)=>b[1].c.filter(v=>needed.includes(v)).length-a[1].c.filter(v=>needed.includes(v)).length);
-  const bestSingleCombo=sortedByNeededCoverage.length?[sortedByNeededCoverage[0][0]]:[];
-  const planB=planWith(bestSingleCombo);
+  // Plan B: use ONLY the single combo covering the most needed antigens
+  const bestCombo=eligibleCombos
+    .slice()
+    .sort((a,b)=>b[1].c.filter(v=>needed.includes(v)).length - a[1].c.filter(v=>needed.includes(v)).length)[0];
+  const planB=buildPlan(bestCombo?[bestCombo[0]]:[]);
 
-  // Plan C — Single-Antigen: no combos
-  const planC=planWith([]);
+  // Plan C: no combos at all
+  const planC=buildPlan([]);
 
-  // Determine if A and B are truly identical
-  const identical=planA.sCount===planB.sCount&&planA.bCount===planB.bCount&&
+  const sameAB = planA.sCount===planB.sCount && planA.bCount===planB.bCount &&
     JSON.stringify(planA.shots.map(s=>s.brand).sort())===JSON.stringify(planB.shots.map(s=>s.brand).sort());
 
-  const planBLabel = identical ? "⭐ Optimal Combo" : "Fewest Brands";
-  const planBIcon  = identical ? "⭐" : "🏷️";
-  const planBDescSuffix = identical
-    ? " Only one optimal strategy exists at this age — this is the single best combination plan."
-    : ` Uses the ${bestSingleCombo[0]||"—"} combo for maximum antigen consolidation while keeping the product list minimal.`;
-
   return [
-    {l:"Fewest Injections", ic:"💉",
-     d:`Applies ALL eligible combination vaccines to cover as many antigens as possible in the minimum number of shots. ${planA.sCount} injection${planA.sCount!==1?"s":""}, ${planA.bCount} distinct brand${planA.bCount!==1?"s":""}.`,
+    {l:"💉 Fewest Injections", ic:"",
+     d:`Stacks ALL eligible non-overlapping combination vaccines. Result: ${planA.sCount} injection${planA.sCount!==1?"s":""} covering ${needed.length} antigens, using ${planA.bCount} brand${planA.bCount!==1?"s":""}.`,
      p:planA, feat:true},
-    {l:planBLabel, ic:planBIcon,
-     d:`Uses the single combination product that covers the most antigens (minimizes brands to stock/reorder), then standalone for the rest.${planBDescSuffix} ${planB.sCount} injection${planB.sCount!==1?"s":""}, ${planB.bCount} brand${planB.bCount!==1?"s":""}.`,
+    {l:sameAB?"⭐ Optimal Combo (= Plan A)":"🏷️ Fewest Brands", ic:"",
+     d:sameAB
+       ?`At this age with these vaccines due, only one combination strategy is possible — both plans produce the same result (${planA.sCount} injection${planA.sCount!==1?"s":""}). No additional non-overlapping combos are available.`
+       :`Uses only ${bestCombo?.[0]||"—"} (covers most needed antigens simultaneously) plus standalone for the rest. Result: ${planB.sCount} injection${planB.sCount!==1?"s":""}, ${planB.bCount} brand${planB.bCount!==1?"s":""}.`,
      p:planB, feat:false},
-    {l:"Single-Antigen Only", ic:"📋",
-     d:`Each antigen given as a standalone product — no combination vaccines. Useful when combos are unavailable or contraindicated. ${planC.sCount} injection${planC.sCount!==1?"s":""}, ${planC.bCount} brand${planC.bCount!==1?"s":""}.`,
+    {l:"📋 Single-Antigen Only", ic:"",
+     d:`Each antigen as a standalone product — no combination vaccines. Result: ${planC.sCount} injection${planC.sCount!==1?"s":""}, ${planC.bCount} brand${planC.bCount!==1?"s":""}. Use when combos are unavailable or contraindicated.`,
      p:planC, feat:false},
   ];
 }
+
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RENDER: HISTORY TABLE                                       ║
@@ -1194,7 +1366,7 @@ function renderHistory() {
       const modeBtn=`<button class="dmode-btn" onclick="toggleMode('${vk}',${i})" title="Switch entry mode">${d.mode==="date"?"📅":d.mode==="age"?"🗓":"❓"}</button>`;
       let inputHtml="";
       if(d.mode==="date"){
-        inputHtml=`<input type="date" value="${esc(d.date||"")}" onchange="updD('${vk}',${i},'date',this.value)">`;
+        inputHtml=`<input type="text" placeholder="MM/DD/YYYY" value="${esc(d.date?fmtDateInput(d.date):"")}" onchange="updDDate('${vk}',${i},this.value)" style="width:95px;padding:0 2px;border:none;background:transparent;font-size:10.5px;">`;
       } else if(d.mode==="age"){
         inputHtml=`<select class="age-sel" onchange="updD('${vk}',${i},'ageDays',this.value)"><option value="">Age…</option>${AGE_OPTS.map(o=>`<option value="${o.v}" ${d.ageDays==o.v?"selected":""}>${esc(o.l)}</option>`).join("")}</select>`;
       } else {
@@ -1301,34 +1473,36 @@ function renderRecTab(cont, recs, cnts) {
 
   // ── Status legend (always visible) ──────────────────────────
   const legend=`<div style="background:var(--gy6);border:1px solid var(--gy5);border-radius:7px;padding:10px 13px;margin-bottom:12px">
-    <div style="font-size:10.5px;font-weight:700;color:var(--gy2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Status Guide — symbols &amp; colors used on each card below</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px">
-      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--glt);color:var(--g);border-radius:50%;font-size:11px;font-weight:800;border:1.5px solid var(--gmd);flex-shrink:0">✓</span>
-        <span><strong style="color:var(--g)">✓ Complete &amp; valid</strong> — series done, all intervals met</span>
+    <div style="font-size:10.5px;font-weight:700;color:var(--gy2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Status Guide — what each symbol on the cards means</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">
+      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--glt);color:var(--g);border-radius:50%;font-size:13px;border:2px solid var(--gmd);flex-shrink:0">🟢</span>
+        <span><strong style="color:var(--g)">🟢 Routinely Due</strong> — give at this visit</span>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#fff8e1;color:#e65100;border-radius:50%;font-size:11px;font-weight:800;border:1.5px solid #ffe082;flex-shrink:0">⚠</span>
-        <span><strong style="color:#e65100">⚠ Grace period</strong> — ≤4 days early, may count as valid</span>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--alt);color:var(--a);border-radius:50%;font-size:13px;border:2px solid var(--amd);flex-shrink:0">⬆️</span>
+        <span><strong style="color:var(--a)">⬆️ Catch-up</strong> — overdue, give now</span>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--rlt);color:var(--r2);border-radius:50%;font-size:11px;font-weight:800;border:1.5px solid var(--rmd);flex-shrink:0">⛔</span>
-        <span><strong style="color:var(--r2)">⛔ Invalid — action needed</strong> — repeat dose required</span>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--rlt);color:var(--r);border-radius:50%;font-size:13px;border:2px solid var(--rmd);flex-shrink:0">⚑</span>
+        <span><strong style="color:var(--r)">⚑ Risk-Based</strong> — indicated by risk factors</span>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--glt);color:var(--g);border-radius:50%;font-size:12px;font-weight:800;border:1.5px solid var(--gmd);flex-shrink:0">🟢</span>
-        <span><strong style="color:var(--g)">🟢 Due now</strong> — green badge on card = give at this visit</span>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--blt);color:var(--b2);border-radius:50%;font-size:13px;border:2px solid var(--bmd);flex-shrink:0">🔵</span>
+        <span><strong style="color:var(--b2)">🔵 Shared Decision</strong> — discuss with patient</span>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--blt);color:var(--b2);border-radius:50%;font-size:12px;font-weight:800;border:1.5px solid var(--bmd);flex-shrink:0">🔵</span>
-        <span><strong style="color:var(--b2)">🔵 Future / shared decision</strong> — blue badge on card</span>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--rlt);color:var(--r2);border-radius:50%;font-size:13px;border:2px solid var(--rmd);flex-shrink:0">⛔</span>
+        <span><strong style="color:var(--r2)">⛔ Scheduling Error</strong> — repeat dose required (see above)</span>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--plt);color:#6c3483;border-radius:50%;font-size:11px;font-weight:800;border:1.5px solid var(--pmd);flex-shrink:0">📋</span>
-        <span><strong style="color:#6c3483">📋 Off-label (countable)</strong> — valid with documentation</span>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--plt);color:#6c3483;border-radius:50%;font-size:13px;border:2px solid var(--pmd);flex-shrink:0">📋</span>
+        <span><strong style="color:#6c3483">📋 Off-label (countable)</strong> — valid, document use</span>
       </div>
     </div>
-    <div style="margin-top:7px;font-size:11px;color:var(--gy3)">The <strong>colored left border</strong> and <strong>badge color</strong> on each card match the status above. Cards with a ⛔ red left border require action — see the error details inside.</div>
+    <div style="margin-top:8px;padding:5px 8px;background:#fff;border-radius:4px;border:1px solid var(--gy5);font-size:11px;color:var(--gy3)">
+      The <strong>colored left border</strong> on each card and the <strong>icon circle</strong> in the card header both reflect the status above. Cards with a ⛔ red left border have errors shown at the top of this tab.
+    </div>
   </div>`;
 
   // ── Scheduling errors summary (Change 3) ─────────────────────
@@ -1574,83 +1748,82 @@ function renderRegTab(cont, recs) {
 }
 
 // ── FORECAST TAB ──────────────────────────────────────────────
-// Builds ordered brand list for a vaccine at a dose number:
-// combo options first (most antigens → fewest), then standalone
-function orderedBrands(vk, doseNum, am) {
+// Returns brands valid for a vaccine at a given visit,
+// only including combo brands when ALL their antigens are due at this visit
+function orderedBrandsForVisit(vk, doseNum, visitM, dueVksAtVisit) {
   const comboOpts=[];
-  // Find applicable combos that cover this vaccine at this age/dose
   Object.entries(COMBOS).forEach(([name,c])=>{
-    if(am<c.minM||am>c.maxM) return;
+    if(visitM<c.minM||visitM>c.maxM) return;
     if(!c.c.includes(vk)) return;
-    if(name==="Vaxelis"&&am>=12&&vk==="Hib") return; // not for Hib booster
-    // Kinrix/Quadracel only for DTaP/IPV dose 4-5 or off-label
+    if(name==="Vaxelis"&&visitM>=12&&vk==="Hib") return; // not for Hib booster
+    // Only show this combo if ALL its antigens are in the due list for this visit
+    const allDue=c.c.every(v=>dueVksAtVisit.includes(v));
+    if(!allDue) return;
     comboOpts.push({
-      label:`${name} — covers ${c.c.join(" + ")}`,
-      covers:c.c,
+      label:`${name} (covers ${c.c.join(" + ")})`,
       name,
+      covers:c.c,
       antigenCount:c.c.length
     });
   });
-  // Sort combos: most antigens first (most convenient)
   comboOpts.sort((a,b)=>b.antigenCount-a.antigenCount);
-
   const standalone=(VBR[vk]?.s||[]).map(s=>({label:s,name:s,covers:[vk],antigenCount:1}));
   return [...comboOpts,...standalone];
 }
 
 function renderForecastTab(cont) {
   const audErrs=auditAll();
+  // Persistent forecast brand selections per visit (key: "visitM_vk" → brandName)
+  if(!S.fcBrands) S.fcBrands={};
 
   const visitCardsHtml=FORECAST_VISITS.map((visit,vi)=>{
     const isPast=visit.m<S.am;
     const isCurr=visit.m<=S.am&&(vi===FORECAST_VISITS.length-1||FORECAST_VISITS[vi+1].m>S.am);
     const isFuture=!isPast&&!isCurr;
 
-    // Build vaccine rows for this visit
     const DISP=["HepB","RV","DTaP","Hib","PCV","IPV","MMR","VAR","HepA","Tdap","HPV","MenACWY","MenB","Flu","RSV","COVID"];
     const vaxRows=[];
+
+    // Pre-compute which vaccines are "due" at this visit (for combo eligibility filtering)
+    const dueVksAtVisit=[];
+    DISP.forEach(vk=>{
+      const vRecs=genRecs(visit.m).filter(r=>r.vk===vk);
+      if(vRecs.length&&(vRecs[0].status==="due"||vRecs[0].status==="catchup")){
+        dueVksAtVisit.push(vk);
+      }
+    });
 
     DISP.forEach(vk=>{
       const given=dc(vk);
       const vRecs=genRecs(visit.m).filter(r=>r.vk===vk);
       const hasErr=audErrs.some(e=>e.vk===vk&&e.severity==="err");
       const isStd=visit.std.includes(vk);
-      if(!vRecs.length&&!isStd) return; // not relevant at this visit
+      if(!vRecs.length&&!isStd) return;
 
       let statusIcon="",statusText="",statusCls="",brandHtml="";
 
       if(!vRecs.length&&given>0){
-        // Series complete
         statusIcon="✓";statusText="Complete";statusCls="fch-done";
       } else if(vRecs.length){
         const rec=vRecs[0];const dn=rec.doseNum;
         if(hasErr&&isPast){statusIcon="✕";statusText=`Invalid D${dn} — repeat`;statusCls="fch-inv";}
-        else if(rec.status==="due"){statusIcon=`D${dn}`;statusText=`Dose ${dn} due`;statusCls=isCurr?"fch-need":"fch-need";}
+        else if(rec.status==="due"){statusIcon=`D${dn}`;statusText=`Dose ${dn} due`;statusCls="fch-need";}
         else if(rec.status==="catchup"){statusIcon=`CU`;statusText=`Catch-up D${dn}`;statusCls="fch-cu";}
         else{statusIcon="†";statusText="Risk-based/Shared decision";statusCls="fch-rb";}
 
-        // Brand dropdown for due/catchup (only at current or future visits)
         if((rec.status==="due"||rec.status==="catchup")&&!isPast){
-          const brands=orderedBrands(vk,dn,visit.m);
+          const brands=orderedBrandsForVisit(vk,dn,visit.m,dueVksAtVisit);
           const selKey=`fc_${visit.m}_${vk}`;
-          const opts=brands.map(b=>`<option value="${esc(b.name)}">${esc(b.label)}</option>`).join("");
-          brandHtml=`<select class="fc-sel" id="${esc(selKey)}" style="margin-top:3px;width:100%;padding:3px 5px;border:1px solid var(--gy5);border-radius:4px;font-size:10.5px;background:var(--wh);color:var(--gy)">
-            <option value="">— Select brand —</option>
+          const savedBrand=S.fcBrands[selKey]||"";
+          const opts=brands.map(b=>`<option value="${esc(b.name)}" ${savedBrand===b.name?"selected":""}>${esc(b.label)}</option>`).join("");
+          // Show coverage note if a combo is selected
+          const selectedBrand=brands.find(b=>b.name===savedBrand);
+          const coverageNote=selectedBrand?.covers?.length>1
+            ?`<div style="font-size:9px;color:var(--g);margin-top:2px;font-weight:600">→ Also covers: ${selectedBrand.covers.filter(v=>v!==vk).join(", ")}</div>`:"";
+          brandHtml=`<select id="${esc(selKey)}" onchange="fcBrandChange(${visit.m},'${vk}',this.value)" style="margin-top:3px;width:100%;padding:3px 5px;border:1px solid var(--gy5);border-radius:4px;font-size:10px;background:var(--wh);color:var(--gy)">
+            <option value="">— Choose brand —</option>
             ${opts}
-          </select>`;
-          // Add event to highlight combo coverage when selected
-          brandHtml+=`<div id="${esc(selKey)}_info" style="font-size:9.5px;color:var(--b2);margin-top:2px;display:none"></div>`;
-          brandHtml+=`<script>
-            document.getElementById("${selKey}")&&document.getElementById("${selKey}").addEventListener("change",function(){
-              var info=document.getElementById("${selKey}_info");
-              var val=this.value;
-              var comboDef=${JSON.stringify(Object.fromEntries(Object.entries(COMBOS).map(([n,c])=>[n,c.c])))};
-              if(val&&comboDef[val]){
-                info.style.display="block";
-                info.textContent="Covers: "+comboDef[val].join(" + ");
-              } else { info.style.display="none"; }
-            });
-          <\/script>`;
+          </select>${coverageNote}`;
         }
       }
 
@@ -1663,7 +1836,6 @@ function renderForecastTab(cont) {
     const headerColor=isCurr?"var(--g)":isPast?"var(--gy3)":"var(--gy)";
     const cardBg=isCurr?"#f0fbf5":isPast?"#fafaf8":"#fff";
     const borderLeft=isCurr?"3px solid var(--g3)":"1px solid var(--gy5)";
-    const cardOpacity=isPast?"opacity:.7":"";
 
     return `<div style="background:${cardBg};border:1px solid var(--gy5);border-left:${borderLeft};border-radius:8px;padding:12px 14px;margin-bottom:10px;${isPast?"opacity:.7":""}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:${vaxRows.length?"10px":"0"}">
@@ -1671,15 +1843,16 @@ function renderForecastTab(cont) {
         ${isPast?`<span style="font-size:10px;color:var(--gy3);font-weight:600">Past Visit</span>`:""}
         ${isFuture?`<span style="font-size:10px;color:var(--b2);font-weight:600">Upcoming</span>`:""}
         <span style="font-size:13px;font-weight:800;color:${headerColor}">${esc(visit.l)}</span>
+        ${!isPast&&dueVksAtVisit.length>1?`<span style="font-size:9.5px;color:var(--gy3);font-style:italic">Selecting a combo brand will auto-fill all vaccines it covers</span>`:""}
       </div>
-      ${vaxRows.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+      ${vaxRows.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px">
         ${vaxRows.map(row=>`<div style="background:var(--wh);border:1px solid var(--gy5);border-radius:6px;padding:8px 10px;border-top:2px solid ${VAX_META[row.vk].c}">
           <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
             <span style="font-size:10px;font-weight:800;color:${VAX_META[row.vk].c}">${VAX_META[row.vk].ab}</span>
             <span class="fch ${row.statusCls}" style="flex-shrink:0">${esc(row.statusIcon)}</span>
           </div>
           <div style="font-size:10px;color:var(--gy2);margin-bottom:3px;font-weight:600">${esc(VAX_META[row.vk].n)}</div>
-          <div style="font-size:10px;color:var(--gy3);margin-bottom:${row.brandHtml?"5px":"0"}">${esc(row.statusText)}</div>
+          <div style="font-size:10px;color:var(--gy3);margin-bottom:${row.brandHtml?"4px":"0"}">${esc(row.statusText)}</div>
           ${row.brandHtml}
         </div>`).join("")}
       </div>`:"<div style='font-size:11px;color:var(--gy3)'>No standard vaccines due at this visit.</div>"}
@@ -1688,17 +1861,16 @@ function renderForecastTab(cont) {
 
   const legend=`<div class="legend" style="margin-bottom:12px">
     <div class="leg"><span class="fch fch-done">✓</span> Complete</div>
-    <div class="leg"><span class="fch fch-need">D#</span> Due — dose number</div>
+    <div class="leg"><span class="fch fch-need">D#</span> Dose # due</div>
     <div class="leg"><span class="fch fch-cu">CU</span> Catch-up needed</div>
     <div class="leg"><span class="fch fch-rb">†</span> Risk-based / Shared decision</div>
     <div class="leg"><span class="fch fch-inv">✕</span> Invalid — must repeat</div>
-    <div style="font-size:10px;color:var(--gy2)">Use the brand dropdown ▾ to select a product. Combo options listed first (most antigens → fewest injections).</div>
+    <div style="font-size:10px;color:var(--gy2)">Combo brands only appear when ALL their component vaccines are also due at that visit. Selecting a combo auto-fills sibling vaccines.</div>
   </div>`;
 
   cont.innerHTML=`${legend}${visitCardsHtml}
   <p style="font-size:10px;color:#bbb;margin-top:8px;line-height:1.5">
-    Brand dropdowns list combination vaccines first (covers most antigens → fewest injections), then single-antigen options. ▶ = current visit. Past visits are dimmed.
-    <br>Sources: <a href="${REFS.schedule.url}" target="_blank" style="color:var(--b2)">${REFS.schedule.label}</a> · <a href="${REFS.immOrg.url}" target="_blank" style="color:var(--b2)">${REFS.immOrg.label}</a> · <a href="${REFS.AAP.url}" target="_blank" style="color:var(--b2)">${REFS.AAP.label}</a>
+    Sources: <a href="${REFS.schedule.url}" target="_blank" style="color:var(--b2)">${REFS.schedule.label}</a> · <a href="${REFS.immOrg.url}" target="_blank" style="color:var(--b2)">${REFS.immOrg.label}</a> · <a href="${REFS.AAP.url}" target="_blank" style="color:var(--b2)">${REFS.AAP.label}</a>
   </p>${disc()}`;
 }
 
@@ -1753,6 +1925,39 @@ function disc(){return `<div class="disc"><b>Clinical disclaimer:</b> This tool 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  STATE MANAGEMENT                                            ║
 // ╚══════════════════════════════════════════════════════════════╝
+// Format ISO date (YYYY-MM-DD) → MM/DD/YYYY for display in text input
+function fmtDateInput(iso){
+  if(!isD(iso))return iso||"";
+  const [y,m,d]=iso.split("-");
+  return `${m}/${d}/${y}`;
+}
+// Parse user-entered date string (flexible: MM/DD/YYYY, M/D/YYYY, YYYY-MM-DD) → ISO YYYY-MM-DD
+function parseDateInput(s){
+  if(!s)return "";
+  s=s.trim();
+  // Already ISO format
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)&&!isNaN(new Date(s)))return s;
+  // MM/DD/YYYY or M/D/YYYY
+  const slash=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  if(slash){const[,m,d,y]=slash;const iso=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;return isNaN(new Date(iso))?"":iso;}
+  // MM-DD-YYYY
+  const dash=/^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(s);
+  if(dash){const[,m,d,y]=dash;const iso=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;return isNaN(new Date(iso))?"":iso;}
+  return "";
+}
+function updDDate(vk,i,raw){
+  const iso=parseDateInput(raw);
+  updD(vk,i,"date",iso);
+}
+// Populate the quick-add age dropdown after script loads
+function populateQaAge(){
+  const sel=document.getElementById("qa-age");
+  if(!sel)return;
+  // Remove all options except the first placeholder
+  while(sel.options.length>1)sel.remove(1);
+  AGE_OPTS.forEach(o=>{const opt=document.createElement("option");opt.value=o.v;opt.textContent=o.l;sel.appendChild(opt);});
+}
+function dobChange(raw){S.dob=parseDateInput(raw)||"";renderHistory();renderAudit();renderResults();encState();}
 function stateChange(){
   S.am=parseInt(document.getElementById("ageGroup").value)||(-1);
   S.dob=document.getElementById("dob").value||"";
@@ -1760,17 +1965,37 @@ function stateChange(){
 }
 function toggleRisk(id){event&&event.stopPropagation&&event.stopPropagation();S.risks=S.risks.includes(id)?S.risks.filter(r=>r!==id):[...S.risks,id];renderRisks();renderResults();encState();}
 function addDose(vk){S.hist[vk].push({mode:"date",date:"",brand:"",given:true});renderHistory();renderAudit();renderResults();encState();}
-function rmDose(vk,i){S.hist[vk].splice(i,1);renderHistory();renderAudit();renderResults();encState();}
-// COMBO_COVERS: maps brand name → list of vaccine keys it covers (for autofill)
+function rmDose(vk,i){
+  // Before removing, check if this dose has a combo brand — if so, also remove sibling doses
+  const dose = S.hist[vk]?.[i];
+  if(dose?.brand){
+    const comboEntry=Object.entries(COMBO_COVERS).find(([k])=>dose.brand.startsWith(k));
+    if(comboEntry){
+      const [,sibVks]=comboEntry;
+      sibVks.forEach(sibVk=>{
+        if(sibVk===vk) return;
+        // Only remove sibling dose if it has the same combo brand at the same index
+        const sibDose=S.hist[sibVk]?.[i];
+        if(sibDose && sibDose.brand && sibDose.brand.startsWith(comboEntry[0])){
+          S.hist[sibVk].splice(i,1);
+        }
+      });
+    }
+  }
+  S.hist[vk].splice(i,1);
+  renderHistory();renderAudit();renderResults();encState();
+}
+// COMBO_COVERS: maps brand prefix → vaccine keys covered (used for autofill)
+// Keys must match the START of the brand strings used in VBR above
 const COMBO_COVERS = {
-  "Pediarix":            ["DTaP","HepB","IPV"],
-  "Pentacel":            ["DTaP","IPV","Hib"],
-  "Vaxelis":             ["DTaP","IPV","Hib","HepB"],
-  "Kinrix":              ["DTaP","IPV"],
-  "Quadracel":           ["DTaP","IPV"],
-  "ProQuad (MMRV)":      ["MMR","VAR"],
-  "Penbraya":            ["MenACWY","MenB"],
-  "Twinrix":             ["HepA","HepB"],
+  "Pediarix":       ["DTaP","HepB","IPV"],
+  "Pentacel":       ["DTaP","IPV","Hib"],
+  "Vaxelis":        ["DTaP","IPV","Hib","HepB"],
+  "Kinrix":         ["DTaP","IPV"],
+  "Quadracel":      ["DTaP","IPV"],
+  "ProQuad":        ["MMR","VAR"],
+  "Penbraya":       ["MenACWY","MenB"],
+  "Twinrix":        ["HepA","HepB"],
 };
 function brandAutoFill(sourceVk, doseIdx, brandValue) {
   // Find which combo this brand belongs to (match on startsWith for variants like "Pediarix (DTaP+HepB+IPV)")
@@ -1816,41 +2041,101 @@ function setTab(t){S.tab=t;S.openR={};S.openC={};renderResults();}
 function setFilter(f){S.filter=f;renderResults();}
 function togR(i){S.openR[i]=S.openR[i]===undefined?false:!S.openR[i];renderResults();}
 function togC(i,e){e&&e.stopPropagation&&e.stopPropagation();S.openC[i]=!S.openC[i];renderResults();}
+// Forecast brand selection: save and always overwrite siblings (fix 2)
+function fcBrandChange(visitM, vk, brandName){
+  if(!S.fcBrands) S.fcBrands={};
+  const selKey=`fc_${visitM}_${vk}`;
+  const prevBrand=S.fcBrands[selKey]||"";
+  S.fcBrands[selKey]=brandName;
+
+  // Find what combo the NEW brand belongs to (if any)
+  const newCombo=brandName
+    ? Object.entries(COMBO_COVERS).find(([k])=>brandName.startsWith(k)||brandName===k)
+    : null;
+
+  // Find what combo the PREVIOUS brand belonged to (if any)
+  const prevCombo=prevBrand
+    ? Object.entries(COMBO_COVERS).find(([k])=>prevBrand.startsWith(k)||prevBrand===k)
+    : null;
+
+  // Determine all sibling vaccines to update: union of prev+new combo siblings
+  const allSibs=new Set();
+  if(newCombo) newCombo[1].forEach(v=>{ if(v!==vk) allSibs.add(v); });
+  if(prevCombo) prevCombo[1].forEach(v=>{ if(v!==vk) allSibs.add(v); });
+
+  allSibs.forEach(sibVk=>{
+    const sibKey=`fc_${visitM}_${sibVk}`;
+    if(newCombo && newCombo[1].includes(sibVk)) {
+      // Sibling is covered by the NEW combo — set to new brand
+      S.fcBrands[sibKey]=brandName;
+    } else if(prevCombo && prevCombo[1].includes(sibVk) && S.fcBrands[sibKey]===prevBrand) {
+      // Sibling was set to the OLD combo brand — clear it since we switched away
+      S.fcBrands[sibKey]="";
+    }
+  });
+
+  renderResults();
+}
+
+// Match a brand string from quickAdd to the exact VBR entry label (for dropdown selection)
+function matchBrandToVBR(brandValue) {
+  for(const vk of VAX_KEYS) {
+    const allBrands=[...(VBR[vk]?.s||[]),...(VBR[vk]?.c||[])];
+    // Try exact match first
+    if(allBrands.includes(brandValue)) return {vk, brand:brandValue};
+    // Try prefix match (brandValue starts with first word of brand)
+    const prefix=brandValue.split(" ")[0];
+    const match=allBrands.find(b=>b.startsWith(prefix));
+    if(match) return {vk, brand:match};
+  }
+  return null;
+}
+
 function togCust(vk){S.custSel=S.custSel.includes(vk)?S.custSel.filter(x=>x!==vk):[...S.custSel,vk];renderResults();}
 function quickAdd(){
-  const brand=document.getElementById("qa-brand").value;
-  const date=document.getElementById("qa-date").value;
+  const qaRaw=document.getElementById("qa-brand").value;
+  const rawDate=document.getElementById("qa-date").value;
   const age=document.getElementById("qa-age").value;
   const prev=document.getElementById("qa-preview");
-  if(!brand){prev.textContent="⚠ Please select a brand.";return;}
-  if(!date&&!age){prev.textContent="⚠ Please enter a date or approximate age.";return;}
+  if(!qaRaw){prev.textContent="⚠ Please select a brand.";return;}
+  const date=rawDate?parseDateInput(rawDate):"";
+  if(!date&&!age){prev.textContent="⚠ Please enter a date (MM/DD/YYYY) or select an approximate age.";return;}
+  if(rawDate&&!date){prev.textContent="⚠ Date not recognized. Use MM/DD/YYYY (e.g. 03/15/2023).";return;}
 
   // Determine which vaccines this brand covers
-  const comboEntry=Object.entries(COMBO_COVERS).find(([k])=>brand.startsWith(k)||brand===k);
-  const vaccinesToAdd=comboEntry?comboEntry[1]:[];
+  const comboEntry=Object.entries(COMBO_COVERS).find(([k])=>qaRaw.startsWith(k)||qaRaw===k);
 
-  // If not a combo, find the single vaccine from VBR lookup
-  let singleVk=null;
-  if(!comboEntry){
+  let targets=[];
+  if(comboEntry) {
+    targets=comboEntry[1].map(vk=>{
+      // Resolve exact VBR brand label for each vaccine covered by this combo
+      const allBrands=[...(VBR[vk]?.s||[]),...(VBR[vk]?.c||[])];
+      const comboPrefix=comboEntry[0];
+      const resolved=allBrands.find(b=>b.startsWith(comboPrefix))||qaRaw;
+      return {vk, brand:resolved};
+    });
+  } else {
+    // Single vaccine — find exact VBR match
     for(const vk of VAX_KEYS){
       const allBrands=[...(VBR[vk]?.s||[]),...(VBR[vk]?.c||[])];
-      if(allBrands.some(b=>b===brand||b.startsWith(brand.split(" ")[0]))){singleVk=vk;break;}
+      if(allBrands.includes(qaRaw)){targets=[{vk,brand:qaRaw}];break;}
+      const prefix=qaRaw.split(" ")[0];
+      const match=allBrands.find(b=>b.startsWith(prefix));
+      if(match){targets=[{vk,brand:match}];break;}
     }
   }
 
-  const targetVks=comboEntry?vaccinesToAdd:(singleVk?[singleVk]:[]);
-  if(!targetVks.length){prev.textContent="⚠ Could not match brand to a vaccine. Please add manually below.";return;}
+  if(!targets.length){prev.textContent="⚠ Could not match brand to a vaccine. Please add manually below.";return;}
 
   const mode=date?"date":"age";
-  targetVks.forEach(vk=>{
+  targets.forEach(({vk,brand})=>{
     if(!S.hist[vk]) S.hist[vk]=[];
-    const newDose={mode,date:date||"",ageDays:age||null,brand,given:true};
-    S.hist[vk].push(newDose);
+    S.hist[vk].push({mode, date:date||"", ageDays:age||null, brand, given:true});
   });
 
-  prev.innerHTML=`✅ Added ${brand} to: <strong>${targetVks.map(v=>VAX_META[v].ab).join(", ")}</strong>${date?` (${fmtD(date)})`:(age?` (approx ${AGE_OPTS.find(o=>o.v==age)?.l||age+" days"})`:"")}.`;
+  const ageLbl=age?AGE_OPTS.find(o=>o.v==age)?.l:"";
+  prev.innerHTML=`✅ Added to: <strong>${targets.map(t=>VAX_META[t.vk].ab+" ("+t.brand+")").join(", ")}</strong>${date?` · ${fmtD(date)}`:ageLbl?` · ${ageLbl}`:""}.`;
 
-  // Reset form
   document.getElementById("qa-brand").value="";
   document.getElementById("qa-date").value="";
   document.getElementById("qa-age").value="";
@@ -1863,6 +2148,7 @@ function clearAll(){if(!confirm("Reset all entered data?"))return;VAX_KEYS.forEa
 // ║  SHARE / URL ENCODING                                        ║
 // ╚══════════════════════════════════════════════════════════════╝
 function encState(){
+  // S.dob is stored as ISO; DOB text field shows formatted value
   const p={v:2,am:S.am,dob:S.dob,r:S.risks,h:{}};
   VAX_KEYS.forEach(vk=>{const d=(S.hist[vk]||[]).filter(d=>d.given);if(d.length)p.h[vk]=d.map(d=>({m:d.mode||"date",d:d.date||"",a:d.ageDays||null,b:d.brand||""}));});
   try{const enc=btoa(JSON.stringify(p));const url=window.location.href.split("#")[0].split("?")[0]+"?s="+encodeURIComponent(enc);history.replaceState(null,"",url);return url;}catch{return window.location.href;}
@@ -1887,9 +2173,16 @@ function copyUrl(){const el=document.getElementById("shareUrl");el.select();try{
 // ║  INIT                                                        ║
 // ╚══════════════════════════════════════════════════════════════╝
 function init(){
+  // Populate quick-add age dropdown (must run after AGE_OPTS is defined in script)
+  populateQaAge();
+
+  // Restore state from URL if present
   const params=new URLSearchParams(window.location.search);
   const s=params.get("s");
-  if(s&&decState(s)){if(S.am>=0)document.getElementById("ageGroup").value=S.am;if(S.dob)document.getElementById("dob").value=S.dob;}
+  if(s&&decState(s)){
+    if(S.am>=0) document.getElementById("ageGroup").value=S.am;
+    if(S.dob) document.getElementById("dob").value=fmtDateInput(S.dob);
+  }
   renderRisks();renderHistory();renderAudit();renderResults();
 }
 document.addEventListener("DOMContentLoaded",init);
