@@ -452,48 +452,90 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 2px rgba(46,158
 // ║  DATA                                                        ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-// Reference links — specific URLs per vaccine AND per error type (immunize.org + CDC)
+// Reference links — CDC anchor URLs go directly to the relevant section of the schedule notes page.
+// immunize.org PDFs are vaccine-specific FAQ sheets (direct PDF links).
+// AAP URL is the direct PDF download of the 2024-2025 immunization schedule.
 const REFS = {
-  HepB:    {label:"CDC HepB Schedule Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepb",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4075.pdf",immLabel:"immunize.org HepB FAQ"},
-  RV:      {label:"CDC Rotavirus Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-rotavirus",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4222.pdf",immLabel:"immunize.org Rotavirus FAQ"},
-  DTaP:    {label:"CDC DTaP Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-dtap",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4212.pdf",immLabel:"immunize.org DTaP FAQ"},
-  Hib:     {label:"CDC Hib Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hib",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4077.pdf",immLabel:"immunize.org Hib FAQ"},
-  PCV:     {label:"CDC Pneumococcal (PCV/PPSV) Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4215.pdf",immLabel:"immunize.org PCV/PPSV FAQ"},
-  IPV:     {label:"CDC Polio (IPV) Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-polio",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4210.pdf",immLabel:"immunize.org IPV FAQ"},
-  Flu:     {label:"CDC Influenza Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-influenza",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4218.pdf",immLabel:"immunize.org Flu FAQ"},
-  MMR:     {label:"CDC MMR Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mmr",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4219.pdf",immLabel:"immunize.org MMR FAQ"},
-  VAR:     {label:"CDC Varicella Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-varicella",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4220.pdf",immLabel:"immunize.org Varicella FAQ"},
-  HepA:    {label:"CDC HepA Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepa",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4083.pdf",immLabel:"immunize.org HepA FAQ"},
-  Tdap:    {label:"CDC Tdap/Td Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-tdap-td",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4213.pdf",immLabel:"immunize.org Tdap FAQ"},
-  HPV:     {label:"CDC HPV Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hpv",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4217.pdf",immLabel:"immunize.org HPV FAQ"},
-  MenACWY: {label:"CDC MenACWY Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4216.pdf",immLabel:"immunize.org MenACWY FAQ"},
-  MenB:    {label:"CDC MenB Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening-b",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4223.pdf",immLabel:"immunize.org MenB FAQ"},
-  RSV:     {label:"CDC RSV/Nirsevimab Notes",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4230.pdf",immLabel:"immunize.org Nirsevimab FAQ"},
-  COVID:   {label:"CDC COVID-19 Schedule",url:"https://www.cdc.gov/vaccines/covid-19/clinical-considerations/interim-considerations-us.html",
-            immUrl:"https://www.immunize.org/covid-19/",immLabel:"immunize.org COVID-19 resources"},
-  catchup: {label:"CDC Catch-up Schedule Table 2",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-catch-up.html"},
-  schedule:{label:"CDC 2025 Child/Adolescent Schedule",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-age.html"},
-  immOrg:  {label:"immunize.org Schedules",url:"https://www.immunize.org/immunization-schedules/"},
-  AAP:     {label:"AAP Red Book Online",url:"https://redbook.solutions.aap.org/"},
-  interval:{label:"immunize.org: Invalid Doses—What to Do",url:"https://www.immunize.org/wp-content/uploads/catg.d/p3085.pdf"},
-  brandMix:{label:"immunize.org: Combination Vaccines",url:"https://www.immunize.org/wp-content/uploads/catg.d/p4100.pdf"},
-  ppsv23:  {label:"CDC PPSV23 Recommendations",url:"https://www.cdc.gov/mmwr/preview/mmwrhtml/rr5911a1.htm"},
-  pcv13high:{label:"CDC PCV13 for High-Risk Adults",url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo"},
+  HepB:    {label:"CDC HepB Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepb",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4075.pdf",
+            immLabel:"immunize.org: Hepatitis B Vaccine FAQ"},
+  RV:      {label:"CDC Rotavirus Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-rotavirus",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4222.pdf",
+            immLabel:"immunize.org: Rotavirus Vaccine FAQ"},
+  DTaP:    {label:"CDC DTaP/Tdap/Td Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-dtap",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4212.pdf",
+            immLabel:"immunize.org: DTaP Vaccine FAQ"},
+  Hib:     {label:"CDC Hib Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hib",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4077.pdf",
+            immLabel:"immunize.org: Hib Vaccine FAQ"},
+  PCV:     {label:"CDC Pneumococcal (PCV/PPSV) Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4215.pdf",
+            immLabel:"immunize.org: Pneumococcal Vaccines FAQ"},
+  IPV:     {label:"CDC Polio (IPV) Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-polio",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4210.pdf",
+            immLabel:"immunize.org: IPV Vaccine FAQ"},
+  Flu:     {label:"CDC Influenza Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-influenza",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4218.pdf",
+            immLabel:"immunize.org: Influenza Vaccine FAQ"},
+  MMR:     {label:"CDC MMR Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mmr",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4219.pdf",
+            immLabel:"immunize.org: MMR Vaccine FAQ"},
+  VAR:     {label:"CDC Varicella Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-varicella",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4220.pdf",
+            immLabel:"immunize.org: Varicella Vaccine FAQ"},
+  HepA:    {label:"CDC Hepatitis A Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepa",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4083.pdf",
+            immLabel:"immunize.org: Hepatitis A Vaccine FAQ"},
+  Tdap:    {label:"CDC Tdap/Td Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-tdap-td",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4213.pdf",
+            immLabel:"immunize.org: Tdap Vaccine FAQ"},
+  HPV:     {label:"CDC HPV Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hpv",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4217.pdf",
+            immLabel:"immunize.org: HPV Vaccine FAQ"},
+  MenACWY: {label:"CDC Meningococcal (MenACWY) Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4216.pdf",
+            immLabel:"immunize.org: MenACWY Vaccine FAQ"},
+  MenB:    {label:"CDC Meningococcal B (MenB) Schedule Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening-b",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4223.pdf",
+            immLabel:"immunize.org: MenB Vaccine FAQ"},
+  RSV:     {label:"CDC RSV Immunization Notes",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html",
+            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4230.pdf",
+            immLabel:"immunize.org: Nirsevimab (RSV) FAQ"},
+  COVID:   {label:"CDC COVID-19 Vaccine Guidance",
+            url:"https://www.cdc.gov/covid/vaccines/index.html",
+            immUrl:"https://www.immunize.org/covid-19/",
+            immLabel:"immunize.org: COVID-19 Vaccine Resources"},
+  catchup: {label:"CDC 2025 Catch-up Immunization Schedule (Table 2)",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-catch-up.html"},
+  schedule:{label:"CDC 2025 Child/Adolescent Immunization Schedule",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-age.html"},
+  immOrg:  {label:"immunize.org Immunization Schedules",
+            url:"https://www.immunize.org/immunization-schedules/"},
+  AAP:     {label:"AAP 2024–2025 Immunization Schedule (PDF)",
+            url:"https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf"},
+  interval:{label:"immunize.org: Invalid Vaccine Doses — What To Do",
+            url:"https://www.immunize.org/wp-content/uploads/catg.d/p3085.pdf"},
+  brandMix:{label:"immunize.org: Combination Vaccines FAQ",
+            url:"https://www.immunize.org/wp-content/uploads/catg.d/p4100.pdf"},
+  ppsv23:  {label:"CDC Pneumococcal Schedule Notes (PCV/PPSV section)",
+            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo"},
+  pcv13high:{label:"CDC Pneumococcal Schedule Notes — High-Risk Guidance",
+             url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo"},
 };
 
 // Approximate age options for "approx age" entry mode
@@ -1472,36 +1514,37 @@ function renderRecTab(cont, recs, cnts) {
   };
 
   // ── Status legend (always visible) ──────────────────────────
+  // Uses the exact same chip styles as the Full Forecast tab for visual consistency
   const legend=`<div style="background:var(--gy6);border:1px solid var(--gy5);border-radius:7px;padding:10px 13px;margin-bottom:12px">
-    <div style="font-size:10.5px;font-weight:700;color:var(--gy2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Status Guide — what each symbol on the cards means</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">
-      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--glt);color:var(--g);border-radius:50%;font-size:13px;border:2px solid var(--gmd);flex-shrink:0">🟢</span>
-        <span><strong style="color:var(--g)">🟢 Routinely Due</strong> — give at this visit</span>
+    <div style="font-size:10.5px;font-weight:700;color:var(--gy2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Status Guide — same symbols used in Vaccine List and Full Forecast</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px">
+      <div style="display:flex;align-items:center;gap:9px;font-size:11.5px">
+        <span class="fch fch-need" style="flex-shrink:0;font-size:10px;padding:2px 7px">D#</span>
+        <span><strong style="color:var(--g)">Routinely Due</strong> — give at this visit (D# = dose number)</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--alt);color:var(--a);border-radius:50%;font-size:13px;border:2px solid var(--amd);flex-shrink:0">⬆️</span>
-        <span><strong style="color:var(--a)">⬆️ Catch-up</strong> — overdue, give now</span>
+      <div style="display:flex;align-items:center;gap:9px;font-size:11.5px">
+        <span class="fch fch-cu" style="flex-shrink:0;font-size:10px;padding:2px 7px">CU</span>
+        <span><strong style="color:var(--a)">Catch-up</strong> — overdue, give now</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--rlt);color:var(--r);border-radius:50%;font-size:13px;border:2px solid var(--rmd);flex-shrink:0">⚑</span>
-        <span><strong style="color:var(--r)">⚑ Risk-Based</strong> — indicated by risk factors</span>
+      <div style="display:flex;align-items:center;gap:9px;font-size:11.5px">
+        <span class="fch fch-rb" style="flex-shrink:0;font-size:10px;padding:2px 7px">†</span>
+        <span><strong style="color:var(--r)">Risk-Based / Shared Decision</strong> — based on risk factors or shared decision-making</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--blt);color:var(--b2);border-radius:50%;font-size:13px;border:2px solid var(--bmd);flex-shrink:0">🔵</span>
-        <span><strong style="color:var(--b2)">🔵 Shared Decision</strong> — discuss with patient</span>
+      <div style="display:flex;align-items:center;gap:9px;font-size:11.5px">
+        <span class="fch fch-inv" style="flex-shrink:0;font-size:10px;padding:2px 7px">✕</span>
+        <span><strong style="color:var(--r2)">Scheduling Error</strong> — invalid dose, repeat required (see top of tab)</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--rlt);color:var(--r2);border-radius:50%;font-size:13px;border:2px solid var(--rmd);flex-shrink:0">⛔</span>
-        <span><strong style="color:var(--r2)">⛔ Scheduling Error</strong> — repeat dose required (see above)</span>
+      <div style="display:flex;align-items:center;gap:9px;font-size:11.5px">
+        <span class="fch fch-done" style="flex-shrink:0;font-size:10px;padding:2px 7px">✓</span>
+        <span><strong style="color:#2e7d32">Complete</strong> — series done, all intervals met</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--plt);color:#6c3483;border-radius:50%;font-size:13px;border:2px solid var(--pmd);flex-shrink:0">📋</span>
-        <span><strong style="color:#6c3483">📋 Off-label (countable)</strong> — valid, document use</span>
+      <div style="display:flex;align-items:center;gap:9px;font-size:11.5px">
+        <span class="fch" style="flex-shrink:0;font-size:10px;padding:2px 7px;background:var(--plt);color:#6c3483;border:1px solid var(--pmd)">OL</span>
+        <span><strong style="color:#6c3483">Off-label (countable)</strong> — valid, document in medical record</span>
       </div>
     </div>
     <div style="margin-top:8px;padding:5px 8px;background:#fff;border-radius:4px;border:1px solid var(--gy5);font-size:11px;color:var(--gy3)">
-      The <strong>colored left border</strong> on each card and the <strong>icon circle</strong> in the card header both reflect the status above. Cards with a ⛔ red left border have errors shown at the top of this tab.
+      These chips appear in both the <strong>Vaccine List</strong> cards (in the badge at right of each card) and the <strong>Full Forecast</strong> table. The colored left border on each card also matches the status.
     </div>
   </div>`;
 
@@ -1550,26 +1593,35 @@ function renderRecTab(cont, recs, cnts) {
     ${Object.entries(scfg).filter(([k])=>cnts[k]>0).map(([k,v])=>`<button class="tab ${S.filter===k?"on":""}" onclick="setFilter('${k}')">${v.sym} ${v.l} (${cnts[k]})</button>`).join("")}
   </div>`;
 
-  const filtered=S.filter==="all"?recs:recs.filter(r=>r.status===S.filter);
+  const statusOrder={due:0,catchup:1,"risk-based":2,recommended:3};
+  const filtered=(S.filter==="all"?recs:recs.filter(r=>r.status===S.filter))
+    .slice()
+    .sort((a,b)=>{
+      const allE=auditAll();
+      const aErr=allE.some(e=>e.vk===a.vk&&e.severity==="err")?-1:0;
+      const bErr=allE.some(e=>e.vk===b.vk&&e.severity==="err")?-1:0;
+      if(aErr!==bErr) return aErr-bErr; // errors first
+      return (statusOrder[a.status]??9)-(statusOrder[b.status]??9);
+    });
   const cards=filtered.map((rec,i)=>{
     const vm=VAX_META[rec.vk];const cfg=scfg[rec.status];
     const isOpen=S.openR[i]!==false;
     const errs=allErrs.filter(e=>e.vk===rec.vk&&e.severity==="err");
     const hasErr=errs.length>0;
 
-    // Determine the inline status symbol for this card
+    // Inline status chip — uses the same fch chip classes as the Full Forecast tab
     let inlineStatus="";
     const given=dc(rec.vk);
     if(hasErr){
-      inlineStatus=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--rlt);color:var(--r2);border-radius:50%;font-size:10px;border:1.5px solid var(--rmd);flex-shrink:0" title="⛔ Invalid — action needed, see error above">⛔</span>`;
+      inlineStatus=`<span class="fch fch-inv" style="font-size:9.5px;padding:2px 6px;flex-shrink:0" title="Scheduling Error — action needed, see top of tab">✕</span>`;
     } else if(rec.status==="due"){
-      inlineStatus=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--glt);color:var(--g);border-radius:50%;font-size:11px;border:1.5px solid var(--gmd);flex-shrink:0" title="🟢 Due now at this visit">🟢</span>`;
+      inlineStatus=`<span class="fch fch-need" style="font-size:9.5px;padding:2px 6px;flex-shrink:0" title="Routinely Due — give at this visit">D${rec.doseNum}</span>`;
     } else if(rec.status==="catchup"){
-      inlineStatus=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--alt);color:var(--a);border-radius:50%;font-size:11px;border:1.5px solid var(--amd);flex-shrink:0" title="⬆️ Catch-up — overdue, give now">⬆️</span>`;
+      inlineStatus=`<span class="fch fch-cu" style="font-size:9.5px;padding:2px 6px;flex-shrink:0" title="Catch-up — overdue, give now">CU</span>`;
     } else if(rec.status==="risk-based"){
-      inlineStatus=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--rlt);color:var(--r);border-radius:50%;font-size:11px;border:1.5px solid var(--rmd);flex-shrink:0" title="⚑ Risk-based — indicated by patient risk factors">⚑</span>`;
+      inlineStatus=`<span class="fch fch-rb" style="font-size:9.5px;padding:2px 6px;flex-shrink:0" title="Risk-based — indicated by patient risk factors">†</span>`;
     } else if(rec.status==="recommended"){
-      inlineStatus=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--blt);color:var(--b2);border-radius:50%;font-size:12px;border:1.5px solid var(--bmd);flex-shrink:0" title="🔵 Shared clinical decision-making">🔵</span>`;
+      inlineStatus=`<span class="fch fch-rb" style="font-size:9.5px;padding:2px 6px;flex-shrink:0" title="Shared clinical decision-making">†</span>`;
     }
 
     let borderCls=hasErr?`border-left-color:var(--r2);background:#fff8f8`:`border-left-color:${vm.c}`;
@@ -1599,7 +1651,7 @@ function renderRecTab(cont, recs, cnts) {
           <div class="rc-name">${esc(vm.n)} <span style="color:#bbb;font-size:10px">(${vm.ab})</span></div>
           <div class="rc-dose">${esc(rec.dose)}</div>
         </div>
-        <span class="rc-badge" style="background:${cfg.bg};color:${cfg.c}">${cfg.sym} ${cfg.l}</span>
+        <span class="rc-badge" style="background:${cfg.bg};color:${cfg.c}">${hasErr?"✕ Error":rec.status==="due"?`D${rec.doseNum} Due`:rec.status==="catchup"?"CU Catch-up":rec.status==="risk-based"?"† Risk-Based":"† Shared Decision"}</span>
         <span class="rc-chev">${isOpen?"▲":"▼"}</span>
       </div>
       ${isOpen?`<div class="rcbody">
@@ -1610,7 +1662,7 @@ function renderRecTab(cont, recs, cnts) {
         <div class="bwrap">${rec.brands.map(b=>`<span class="bchip ${isComboB(b)?"combo":pref(b)?"pref":""}">${esc(b)}</span>`).join("")}</div>
         ${ctra?`<span class="ctog" onclick="togC(${i},event)">${cOpen?"▲":"▼"} Contraindications &amp; Precautions</span>
         ${cOpen?`<div class="cbox">${ctra.ci?.length?`<div class="ctit red">⛔ Contraindications</div><ul class="clist">${ctra.ci.map(c=>`<li>${esc(c)}</li>`).join("")}</ul>`:""}${ctra.prec?.length?`<div class="ctit amb" style="margin-top:5px">⚠️ Precautions</div><ul class="clist">${ctra.prec.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>`:""}</div>`:""}`:""} 
-        <div class="refline">📚 <a class="reflink" href="${esc(rec.refUrl)}" target="_blank">${esc(rec.refLabel)}</a>${rec.refUrl2?` · <a class="reflink" href="${esc(rec.refUrl2)}" target="_blank">${esc(rec.refLabel2)}</a>`:""}</div>
+        <div class="refline">📚 References: <a class="reflink" href="${esc(rec.refUrl)}" target="_blank">${esc(rec.refLabel)}</a>${rec.refUrl2?` · <a class="reflink" href="${esc(rec.refUrl2)}" target="_blank">${esc(rec.refLabel2)}</a>`:""}${REFS[rec.vk]?.immUrl?` · <a class="reflink" href="${esc(REFS[rec.vk].immUrl)}" target="_blank">${esc(REFS[rec.vk].immLabel)}</a>`:""} · <a class="reflink" href="https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf" target="_blank">AAP 2024–2025 Immunization Schedule (PDF)</a></div>
       </div>`:""}
     </div>`;
   }).join("")||`<p style="color:#aaa;text-align:center;padding:20px">No items match this filter.</p>`;
@@ -1618,77 +1670,44 @@ function renderRecTab(cont, recs, cnts) {
   cont.innerHTML=errBanner+filterBtns+legend+cards+disc();
 }
 
-// ── BUILT-IN COMBO ANALYZER (instant, no API call) ────────────
+// Custom Combination Analyzer — brand constraints + co-admin notes only
+// (combo options are shown better in the "All Eligible" table above)
 function analyzeCombo(selectedVks, am) {
   if(!selectedVks.length) return null;
-  const lines=[];
 
-  // 1. Find all combos that cover ≥2 of the selected vaccines at this age
-  const appCombos=Object.entries(COMBOS).filter(([n,c])=>{
-    if(n==="Vaxelis"&&am>=12) return false;
-    return am>=c.minM && am<=c.maxM;
-  });
-  const matchingCombos=appCombos.filter(([,c])=>c.c.filter(v=>selectedVks.includes(v)).length>=2);
-
-  lines.push("═══ Combination Vaccine Options ═══");
-  if(!matchingCombos.length){
-    lines.push("No combination vaccines cover ≥2 of your selected vaccines at this age. Each must be given as a standalone product.");
-  } else {
-    matchingCombos.sort((a,b)=>b[1].c.filter(v=>selectedVks.includes(v)).length-a[1].c.filter(v=>selectedVks.includes(v)).length);
-    matchingCombos.forEach(([name,c])=>{
-      const covered=c.c.filter(v=>selectedVks.includes(v));
-      const notCovered=c.c.filter(v=>!selectedVks.includes(v));
-      lines.push(`▸ ${name}`);
-      lines.push(`  Covers (from your selection): ${covered.join(", ")}`);
-      if(notCovered.length) lines.push(`  Also covers (bonus): ${notCovered.join(", ")}`);
-      lines.push(`  Age range: ${c.minM}–${c.maxM} months`);
-      lines.push(`  Note: ${c.desc}`);
-    });
-  }
-
-  // 2. Brand constraints
-  lines.push("\n═══ Brand Compatibility Constraints ═══");
+  // ── Brand compatibility constraints ───────────────────────────
   const constraints=[];
-  if(selectedVks.includes("RV")) constraints.push("RV (Rotavirus): Choose Rotarix (2 doses) OR RotaTeq (3 doses) at dose 1 and NEVER switch brands mid-series.");
-  if(selectedVks.includes("MenB")) constraints.push("MenB: Choose Bexsero (2 doses, ≥1 month apart) OR Trumenba (2–3 doses). NOT interchangeable — complete entire series with same brand.");
-  if(selectedVks.includes("Hib")) constraints.push("Hib: Vaxelis is NOT approved for the booster dose (12–15 months). Use ActHIB, Hiberix, or PedvaxHIB for the booster.");
-  if(selectedVks.includes("DTaP")&&selectedVks.includes("IPV")&&am>=48&&am<=72) constraints.push("DTaP + IPV at 4–6y: Kinrix (Infanrix-IPV) or Quadracel (Daptacel-IPV) covers both in one injection — this is the recommended approach.");
-  if(selectedVks.includes("MMR")&&selectedVks.includes("VAR")) constraints.push("MMR + VAR: ProQuad (MMRV) covers both in one injection. Note: slightly higher febrile seizure risk at 12–23 months vs separate injections — discuss with caregiver.");
-  if(selectedVks.includes("MenACWY")&&selectedVks.includes("MenB")&&am>=120) constraints.push("MenACWY + MenB at ≥10y: Penbraya (MenACWY-TT + MenB-FHbp) covers both in one injection. Use when starting both series simultaneously.");
-  if(selectedVks.includes("HepA")&&selectedVks.includes("HepB")&&am>=216) constraints.push("HepA + HepB at ≥18y: Twinrix covers both. Available as 3-dose (0,1,6m) or accelerated 4-dose series.");
-  if(!constraints.length) constraints.push("No brand-specific constraints or interchangeability warnings for this combination.");
-  constraints.forEach(c=>lines.push(`• ${c}`));
+  if(selectedVks.includes("RV"))
+    constraints.push({ico:"🔴",txt:"Rotavirus (RV): NEVER interchange Rotarix and RotaTeq — choose one brand at dose 1 and complete the entire series with that same brand.",ref:"immunize.org RV FAQ",refUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4222.pdf"});
+  if(selectedVks.includes("MenB"))
+    constraints.push({ico:"🔴",txt:"MenB: Bexsero and Trumenba are NOT interchangeable. Once a brand is chosen, complete the full series with that same brand.",ref:"CDC MenB Notes",refUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening-b"});
+  if(selectedVks.includes("Hib") && am>=12 && am<=15)
+    constraints.push({ico:"⚠️",txt:"Hib booster (12–15m): Vaxelis is NOT approved for the booster dose. Use ActHIB, Hiberix, or PedvaxHIB only for dose 4.",ref:"CDC Hib Notes",refUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hib"});
+  if(selectedVks.includes("DTaP")&&selectedVks.includes("IPV")&&am>=48&&am<=72)
+    constraints.push({ico:"💡",txt:"DTaP + IPV at 4–6y: Kinrix or Quadracel covers both in one injection — the preferred approach at this visit.",ref:"CDC DTaP Notes",refUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-dtap"});
+  if(selectedVks.includes("MMR")&&selectedVks.includes("VAR"))
+    constraints.push({ico:"⚠️",txt:"MMR + Varicella: ProQuad (MMRV) covers both in one shot. Note: slightly higher febrile seizure risk at 12–23 months vs separate injections — discuss with caregiver.",ref:"CDC MMR Notes",refUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mmr"});
+  if(selectedVks.includes("MenACWY")&&selectedVks.includes("MenB")&&am>=120)
+    constraints.push({ico:"💡",txt:"MenACWY + MenB at ≥10y: Penbraya covers both in one injection. Use when starting both series simultaneously.",ref:"CDC MenACWY Notes",refUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening"});
+  if(selectedVks.includes("HepA")&&selectedVks.includes("HepB")&&am>=216)
+    constraints.push({ico:"💡",txt:"HepA + HepB at ≥18y: Twinrix covers both. Available as standard 3-dose (0,1,6m) or accelerated 4-dose series.",ref:"CDC HepA Notes",refUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepa"});
+  if(!constraints.length)
+    constraints.push({ico:"✅",txt:"No brand interchangeability warnings for this combination. Complete each series with any age-appropriate brand.",ref:"",refUrl:""});
 
-  // 3. Optimal strategy to minimize injections
-  lines.push("\n═══ Optimal Strategy (Fewest Injections) ═══");
-  const cov=new Set();const strategy=[];
-  const sortedCombos=[...matchingCombos].sort((a,b)=>b[1].c.filter(v=>selectedVks.includes(v)).length-a[1].c.filter(v=>selectedVks.includes(v)).length);
-  for(const[name,c]of sortedCombos){
-    if(c.c.filter(v=>selectedVks.includes(v)).every(v=>!cov.has(v))){
-      c.c.filter(v=>selectedVks.includes(v)).forEach(v=>cov.add(v));
-      strategy.push(`💉 ${name} → covers ${c.c.filter(v=>selectedVks.includes(v)).join(" + ")} (${c.c.filter(v=>selectedVks.includes(v)).length} antigens in 1 shot)`);
-    }
-  }
-  selectedVks.filter(v=>!cov.has(v)).forEach(v=>{
-    strategy.push(`💉 ${(VBR[v]?.s||[v])[0]} → ${VAX_META[v].n} only`);
-  });
-  if(!strategy.length) strategy.push("No combination possible — all vaccines must be given separately.");
-  strategy.forEach((s,i)=>lines.push(`${i+1}. ${s}`));
-  lines.push(`Total: ${strategy.length} injection${strategy.length!==1?"s":""} for ${selectedVks.length} vaccine antigen${selectedVks.length!==1?"s":""}.`);
-
-  // 4. Co-admin notes
-  lines.push("\n═══ Co-administration Notes ═══");
+  // ── Co-administration notes ───────────────────────────────────
   const coNotes=[];
-  const liveCombined=selectedVks.filter(v=>["MMR","VAR"].includes(v));
-  if(liveCombined.length===2) coNotes.push("MMR + VAR (or ProQuad): Both live vaccines — can be given same day OR separated by ≥28 days. Do NOT give 1–27 days apart.");
-  if(selectedVks.includes("Flu")&&am<24) coNotes.push("Influenza: Inactivated IIV only for <2 years. LAIV (FluMist) not approved under 2 years.");
-  if(selectedVks.includes("PCV")&&selectedVks.includes("Flu")) coNotes.push("PCV + Flu: Can be given simultaneously in different limbs — no interaction.");
-  if(selectedVks.includes("HepB")&&am===0) coNotes.push("Birth HepB: If mother HBsAg+, administer HBIG simultaneously in a different limb.");
-  if(!coNotes.length) coNotes.push("No special co-administration restrictions for this combination. Vaccines can be given simultaneously in separate limbs/sites.");
-  coNotes.forEach(n=>lines.push(`• ${n}`));
+  if(selectedVks.includes("MMR")&&selectedVks.includes("VAR"))
+    coNotes.push({ico:"⚠️",txt:"MMR + Varicella (separate injections): Can be given the SAME day OR separated by ≥28 days. Do NOT give 1–27 days apart — immunologic interference.",ref:"CDC MMR Notes",refUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mmr"});
+  if(selectedVks.includes("Flu")&&am<24)
+    coNotes.push({ico:"🔴",txt:"Influenza (<2 years): LAIV (FluMist) is NOT approved for children under 2 years. Use inactivated influenza vaccine (IIV) only.",ref:"CDC Flu Notes",refUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-influenza"});
+  if(selectedVks.includes("HepB")&&am===0)
+    coNotes.push({ico:"⚠️",txt:"Birth HepB: If mother is HBsAg+, administer HBIG simultaneously in a different limb within 12 hours of birth.",ref:"CDC HepB Notes",refUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepb"});
+  if(selectedVks.includes("PCV")&&selectedVks.includes("Flu"))
+    coNotes.push({ico:"✅",txt:"PCV + Influenza: Can be given simultaneously in separate limbs — no clinically significant interaction.",ref:"CDC Schedule Notes",refUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html"});
+  if(!coNotes.length)
+    coNotes.push({ico:"✅",txt:"No special co-administration restrictions. All selected vaccines can be given simultaneously in separate limbs/sites.",ref:"",refUrl:""});
 
-  lines.push("\n📚 Reference: CDC 2025 ACIP Child/Adolescent Schedule Notes — cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html");
-  return lines.join("\n");
+  return {constraints, coNotes};
 }
 
 // ── REGIMEN TAB ───────────────────────────────────────────────
@@ -1696,78 +1715,158 @@ function renderRegTab(cont, recs) {
   const regs=buildRegimens(recs,S.am);
   if(!regs.length){cont.innerHTML=`<p style="color:#aaa;text-align:center;padding:30px">No routinely due or catch-up vaccines at this age.</p>${disc()}`;return;}
 
-  const regHtml=regs.map(reg=>`<div class="regc ${reg.feat?"feat":""}">
-    <div class="reg-lbl">${reg.ic} ${reg.l}${reg.feat?`<span style="font-size:9px;background:var(--glt);color:var(--g);border-radius:7px;padding:1px 5px;margin-left:4px">Recommended</span>`:""}</div>
+  const needed=recs.filter(r=>r.status==="due"||r.status==="catchup").map(r=>r.vk);
+
+  // Plan A: Fewest Injections (first plan from buildRegimens)
+  const planA=regs[0];
+  // Plan C: Single-Antigen (last plan)
+  const planC=regs[regs.length-1];
+
+  // Render the two plans side by side
+  const planHtml=[planA, planC].map((reg,pi)=>`<div class="regc ${pi===0?"feat":""}">
+    <div class="reg-lbl">${reg.l}${pi===0?`<span style="font-size:9px;background:var(--glt);color:var(--g);border-radius:7px;padding:1px 5px;margin-left:4px">Recommended</span>`:""}</div>
     <div class="reg-desc">${reg.d}</div>
-    <div class="reg-stats"><div class="rsb"><div class="rsbn">${reg.p.sCount}</div><div class="rsbl">Shots</div></div><div class="rsb"><div class="rsbn">${reg.p.bCount}</div><div class="rsbl">Brands</div></div></div>
-    ${reg.p.shots.map(s=>`<div class="rshot"><div class="rshot-dot" style="background:${s.isCombo?"var(--g3)":"#aaa"}"></div>
-      <div><strong style="font-size:11px">${esc(s.brand)}</strong>${s.isCombo?`<span class="cbadge">combo</span>`:""}
-      <br><span style="font-size:10px;color:var(--gy2)">${s.isCombo?esc(s.desc):s.covers.join(" + ")}</span>
-      ${s.isCombo?`<br><span style="font-size:9px;color:var(--b2)">Covers: ${s.covers.join(" + ")}</span>`:""}</div>
+    <div class="reg-stats">
+      <div class="rsb"><div class="rsbn">${reg.p.sCount}</div><div class="rsbl">Shots</div></div>
+      <div class="rsb"><div class="rsbn">${reg.p.bCount}</div><div class="rsbl">Brands</div></div>
+    </div>
+    ${reg.p.shots.map(s=>`<div class="rshot">
+      <div class="rshot-dot" style="background:${s.isCombo?"var(--g3)":"#aaa"}"></div>
+      <div>
+        <strong style="font-size:11px">${esc(s.brand)}</strong>${s.isCombo?`<span class="cbadge">combo</span>`:""}
+        <br><span style="font-size:10px;color:var(--gy2)">${s.isCombo?esc(s.desc):s.covers.join(" + ")}</span>
+        ${s.isCombo?`<br><span style="font-size:9px;color:var(--b2)">Covers: ${s.covers.join(" + ")}</span>`:""}
+      </div>
     </div>`).join("")}
   </div>`).join("");
 
-  // Auto-analyze all due/catchup vaccines as default selection
-  if(!S.custSel.length) S.custSel=[...new Set(recs.filter(r=>r.status==="due"||r.status==="catchup").map(r=>r.vk))];
-  const custResult=analyzeCombo(S.custSel,S.am);
+  // Build the "All Available Combo Vaccines" reference table
+  // Shows every combo eligible at this age, what it covers, dose constraints, and which of the needed vaccines it helps with
+  const eligibleCombosForRef=Object.entries(COMBOS).filter(([name,c])=>{
+    if(name==="Vaxelis"&&S.am>=12) return false;
+    if(S.am<c.minM||S.am>c.maxM) return false;
+    return true; // Show all age-eligible combos, not just those with needed overlap
+  });
 
+  const comboRefRows=eligibleCombosForRef.map(([name,c])=>{
+    const needCovered=c.c.filter(v=>needed.includes(v));
+    const notNeeded=c.c.filter(v=>!needed.includes(v));
+    const isUseful=needCovered.length>=2;
+    const rowBg=isUseful?"#f0fbf5":"#fafafa";
+    const usefulBadge=isUseful
+      ?`<span style="font-size:9px;background:var(--glt);color:var(--g);border-radius:8px;padding:1px 6px;font-weight:700;margin-left:4px">✓ covers ${needCovered.length} needed</span>`
+      :`<span style="font-size:9px;background:var(--gy6);color:var(--gy3);border-radius:8px;padding:1px 6px;margin-left:4px">not all needed</span>`;
+    return `<tr style="background:${rowBg}">
+      <td style="padding:7px 10px;font-weight:700;font-size:12px">${esc(name)}${usefulBadge}</td>
+      <td style="padding:7px 10px;font-size:11px">
+        ${c.c.map(v=>{
+          const inNeeded=needed.includes(v);
+          return `<span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:10.5px;margin:1px;background:${inNeeded?"var(--glt)":"var(--gy6)"};color:${inNeeded?"var(--g)":"var(--gy3)"}${inNeeded?";font-weight:700":""}">${esc(v)}${inNeeded?" ✓":""}</span>`;
+        }).join("")}
+      </td>
+      <td style="padding:7px 10px;font-size:10.5px;color:var(--gy2)">${esc(c.desc)}</td>
+      <td style="padding:7px 10px;font-size:10.5px;color:var(--gy3)">${c.minM}–${c.maxM=999?"18+":c.maxM} months</td>
+    </tr>`;
+  }).join("");
+
+  const noEligible=eligibleCombosForRef.length===0
+    ?`<p style="color:#aaa;padding:12px;text-align:center;font-style:italic">No combination vaccines are age-eligible at this visit.</p>`
+    :"";
+
+  // Custom analyzer
+  if(!S.custSel.length) S.custSel=[...new Set(needed)];
+  const custResult=analyzeCombo(S.custSel,S.am);
   const custCks=recs.map(r=>`<div class="cck" onclick="togCust('${r.vk}');renderResults()">
     <input type="checkbox" ${S.custSel.includes(r.vk)?"checked":""} onclick="togCust('${r.vk}');renderResults();event.stopPropagation()">
     <span style="font-weight:700;font-size:11px">${VAX_META[r.vk].ab}</span>
     <span style="font-size:9px;color:#aaa">(${r.status==="due"?"due":r.status==="catchup"?"catch-up":"other"})</span>
   </div>`).join("");
 
-  cont.innerHTML=`<p style="font-size:12px;color:#666;margin-bottom:11px;line-height:1.45">Optimized strategies for this visit. <strong>Green dot + "combo" badge</strong> = combination product covering multiple antigens in one injection.</p>
-  <div class="reg-grid">${regHtml}</div>
+  cont.innerHTML=`
+  <p style="font-size:12px;color:#666;margin-bottom:11px;line-height:1.45">
+    Optimized injection strategies for <strong>${needed.length} vaccine antigen${needed.length!==1?"s":""}</strong> due/catch-up at this visit.
+    <span style="color:var(--g3)">●</span> green = combination product.
+  </p>
 
-  <div class="cbox2">
-    <div style="font-size:12.5px;font-weight:700;color:var(--gy);margin-bottom:8px">🔧 Custom Combination Analyzer</div>
+  <!-- Two core plans -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+    ${planHtml}
+  </div>
 
-    <!-- How-to-use callout -->
-    <div style="font-size:11.5px;color:var(--b);background:var(--blt);border:1px solid var(--bmd);border-radius:6px;padding:10px 12px;margin-bottom:12px;line-height:1.6">
-      <div style="font-weight:700;margin-bottom:4px">📖 How to use this tool:</div>
-      <ol style="padding-left:18px;margin:0">
-        <li><strong>Check the boxes</strong> below for every vaccine you are considering giving at <em>this</em> visit.</li>
-        <li>The analyzer <strong>instantly</strong> shows: which combination products cover your selection, brand constraints, the optimal fewest-injection strategy, and co-administration notes.</li>
-        <li>Results update automatically each time you check or uncheck a vaccine — <strong>no button needed.</strong></li>
-      </ol>
-      <div style="margin-top:5px;font-size:10.5px;color:var(--gy2)">💡 Tip: All due &amp; catch-up vaccines are pre-selected. Uncheck any you are <em>not</em> giving today.</div>
+  <!-- All available combo vaccines reference table -->
+  <div style="border:1px solid var(--gy5);border-radius:8px;overflow:hidden;margin-bottom:14px">
+    <div style="background:var(--gy6);padding:10px 14px;border-bottom:1px solid var(--gy5);display:flex;align-items:center;gap:8px">
+      <span style="font-size:14px">💊</span>
+      <div>
+        <div style="font-size:12.5px;font-weight:700;color:var(--gy)">All Eligible Combination Vaccines at This Age</div>
+        <div style="font-size:11px;color:var(--gy3);margin-top:1px">Institutions can use any of these combinations depending on their formulary. Green antigens = needed at this visit. Bold rows cover ≥2 needed antigens.</div>
+      </div>
     </div>
+    ${noEligible||`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:#f0f0ed">
+        <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--gy3);text-transform:uppercase;letter-spacing:.4px">Product</th>
+        <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--gy3);text-transform:uppercase;letter-spacing:.4px">Antigens covered</th>
+        <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--gy3);text-transform:uppercase;letter-spacing:.4px">Notes &amp; constraints</th>
+        <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--gy3);text-transform:uppercase;letter-spacing:.4px">Age range</th>
+      </tr></thead>
+      <tbody style="border-top:1px solid var(--gy5)">${comboRefRows}</tbody>
+    </table></div>`}
+    <div style="padding:7px 12px;background:#fafaf8;border-top:1px solid var(--gy6);font-size:10px;color:var(--gy3)">
+      ✓ = antigen due at this visit for this patient · Giving a combo when some antigens are already complete is acceptable per ACIP — the extra antigen dose is not harmful.
+    </div>
+  </div>
 
+  <!-- Brand Constraints & Co-admin Notes (replaces old Custom Combination Analyzer) -->
+  <div class="cbox2">
+    <div style="font-size:12.5px;font-weight:700;color:var(--gy);margin-bottom:5px">🔧 Brand Constraints &amp; Co-administration Notes</div>
+    <div style="font-size:11px;color:var(--gy2);margin-bottom:10px;line-height:1.45">Select vaccines below to see brand interchangeability rules and co-administration guidance for your chosen combination. <em style="color:var(--gy3)">(Combination product options are shown in the table above.)</em></div>
     <div style="font-size:10.5px;font-weight:700;color:var(--gy3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Select vaccines for this visit:</div>
     <div class="cgrid" style="margin-bottom:10px">${custCks}</div>
-    ${S.custSel.length
-      ? `<div style="font-size:11px;color:var(--gy2);margin-bottom:8px;padding:5px 8px;background:var(--gy6);border-radius:4px">
-           Analyzing: <strong style="color:var(--g)">${S.custSel.map(v=>VAX_META[v].ab).join(" · ")}</strong>
-           <span style="color:var(--gy3);margin-left:6px">(${S.custSel.length} vaccine${S.custSel.length!==1?"s":""})</span>
-         </div>
-         <div class="aiout" style="font-size:11.5px;white-space:pre-wrap;line-height:1.65;border-left:3px solid var(--g3);background:#fafff8">${esc(custResult||"")}</div>`
-      : `<div style="font-size:12px;color:#aaa;padding:14px;text-align:center;background:var(--gy6);border-radius:5px">☑️ Check at least one vaccine above to see the combination analysis.</div>`
+    ${S.custSel.length && custResult ? `
+      <div style="font-size:11px;color:var(--gy2);margin-bottom:8px;padding:5px 8px;background:var(--gy6);border-radius:4px">
+        Analyzing: <strong style="color:var(--g)">${S.custSel.map(v=>VAX_META[v].ab).join(" · ")}</strong>
+        <span style="color:var(--gy3);margin-left:6px">(${S.custSel.length} vaccine${S.custSel.length!==1?"s":""})</span>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--gy2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Brand Compatibility Constraints</div>
+      ${custResult.constraints.map(c=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:7px 10px;border-radius:5px;margin-bottom:5px;background:${c.ico==="🔴"?"var(--rlt)":c.ico==="⚠️"?"var(--alt)":"var(--glt)"};border:1px solid ${c.ico==="🔴"?"var(--rmd)":c.ico==="⚠️"?"var(--amd)":"var(--gmd)"}"><span style="font-size:14px;flex-shrink:0;line-height:1.3">${c.ico}</span><div style="font-size:11.5px;color:var(--gy);line-height:1.5">${esc(c.txt)}${c.refUrl?` <a href="${esc(c.refUrl)}" target="_blank" style="font-size:10px;color:var(--b2);white-space:nowrap">📚 ${esc(c.ref)}</a>`:""}</div></div>`).join("")}
+      <div style="font-size:11px;font-weight:700;color:var(--gy2);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 6px">Co-administration Notes</div>
+      ${custResult.coNotes.map(n=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:7px 10px;border-radius:5px;margin-bottom:5px;background:${n.ico==="🔴"?"var(--rlt)":n.ico==="⚠️"?"var(--alt)":"var(--glt)"};border:1px solid ${n.ico==="🔴"?"var(--rmd)":n.ico==="⚠️"?"var(--amd)":"var(--gmd)"}"><span style="font-size:14px;flex-shrink:0;line-height:1.3">${n.ico}</span><div style="font-size:11.5px;color:var(--gy);line-height:1.5">${esc(n.txt)}${n.refUrl?` <a href="${esc(n.refUrl)}" target="_blank" style="font-size:10px;color:var(--b2);white-space:nowrap">📚 ${esc(n.ref)}</a>`:""}</div></div>`).join("")}
+    ` : S.custSel.length===0
+      ? `<div style="font-size:12px;color:#aaa;padding:14px;text-align:center;background:var(--gy6);border-radius:5px">☑️ Check at least one vaccine above to see brand constraints and co-administration notes.</div>`
+      : `<div style="font-size:12px;color:var(--g);padding:12px;background:var(--glt);border-radius:5px;border:1px solid var(--gmd)">✅ No brand constraints or co-administration restrictions for this single-vaccine selection.</div>`
     }
   </div>${disc()}`;
 }
 
 // ── FORECAST TAB ──────────────────────────────────────────────
-// Returns brands valid for a vaccine at a given visit,
-// only including combo brands when ALL their antigens are due at this visit
+// Returns brands valid for a vaccine at a given visit.
+// Combo brands are shown if they cover this vaccine AND at least one other vaccine due at this visit.
+// This lets providers see combo options even when not all antigens are needed (e.g., Pediarix
+// shown under DTaP even if HepB is complete — provider can still give the combo and the extra
+// HepB antigen is acceptable per ACIP guidance on combination vaccines).
 function orderedBrandsForVisit(vk, doseNum, visitM, dueVksAtVisit) {
   const comboOpts=[];
   Object.entries(COMBOS).forEach(([name,c])=>{
     if(visitM<c.minM||visitM>c.maxM) return;
     if(!c.c.includes(vk)) return;
     if(name==="Vaxelis"&&visitM>=12&&vk==="Hib") return; // not for Hib booster
-    // Only show this combo if ALL its antigens are in the due list for this visit
-    const allDue=c.c.every(v=>dueVksAtVisit.includes(v));
-    if(!allDue) return;
+    // Show combo if it covers THIS vaccine AND at least 1 other vaccine that is due at this visit
+    // (even if some combo antigens are already complete — extra antigens from combos are acceptable)
+    const otherDue=c.c.filter(v=>v!==vk&&dueVksAtVisit.includes(v));
+    if(otherDue.length===0) return; // only show if at least 1 other antigen is due
+    const alreadyComplete=c.c.filter(v=>v!==vk&&!dueVksAtVisit.includes(v));
+    const noteExtra=alreadyComplete.length>0?` [${alreadyComplete.join("+")} already complete — extra dose acceptable per ACIP]`:"";
     comboOpts.push({
-      label:`${name} (covers ${c.c.join(" + ")})`,
+      label:`${name} (covers ${c.c.join(" + ")})${noteExtra}`,
       name,
       covers:c.c,
-      antigenCount:c.c.length
+      dueCovered:[vk,...otherDue],
+      antigenCount:c.c.length,
+      hasExtra:alreadyComplete.length>0
     });
   });
-  comboOpts.sort((a,b)=>b.antigenCount-a.antigenCount);
-  const standalone=(VBR[vk]?.s||[]).map(s=>({label:s,name:s,covers:[vk],antigenCount:1}));
+  comboOpts.sort((a,b)=>b.dueCovered.length-a.dueCovered.length);
+  const standalone=(VBR[vk]?.s||[]).map(s=>({label:s,name:s,covers:[vk],dueCovered:[vk],antigenCount:1,hasExtra:false}));
   return [...comboOpts,...standalone];
 }
 
@@ -1819,7 +1918,7 @@ function renderForecastTab(cont) {
           // Show coverage note if a combo is selected
           const selectedBrand=brands.find(b=>b.name===savedBrand);
           const coverageNote=selectedBrand?.covers?.length>1
-            ?`<div style="font-size:9px;color:var(--g);margin-top:2px;font-weight:600">→ Also covers: ${selectedBrand.covers.filter(v=>v!==vk).join(", ")}</div>`:"";
+            ?`<div style="font-size:9px;color:var(--g);margin-top:2px;font-weight:600">→ Covers: ${selectedBrand.covers.join(" + ")}${selectedBrand.hasExtra?" (✓ extra antigen acceptable)":""}</div>`:"";
           brandHtml=`<select id="${esc(selKey)}" onchange="fcBrandChange(${visit.m},'${vk}',this.value)" style="margin-top:3px;width:100%;padding:3px 5px;border:1px solid var(--gy5);border-radius:4px;font-size:10px;background:var(--wh);color:var(--gy)">
             <option value="">— Choose brand —</option>
             ${opts}
@@ -1865,7 +1964,7 @@ function renderForecastTab(cont) {
     <div class="leg"><span class="fch fch-cu">CU</span> Catch-up needed</div>
     <div class="leg"><span class="fch fch-rb">†</span> Risk-based / Shared decision</div>
     <div class="leg"><span class="fch fch-inv">✕</span> Invalid — must repeat</div>
-    <div style="font-size:10px;color:var(--gy2)">Combo brands only appear when ALL their component vaccines are also due at that visit. Selecting a combo auto-fills sibling vaccines.</div>
+    <div style="font-size:10px;color:var(--gy2)">Combo brands appear if they cover this vaccine <em>plus at least one other due vaccine</em>. Combos with extra already-complete antigens are noted — per ACIP, giving an extra antigen via a combo is acceptable. Selecting a combo auto-fills sibling vaccine dropdowns.</div>
   </div>`;
 
   cont.innerHTML=`${legend}${visitCardsHtml}
