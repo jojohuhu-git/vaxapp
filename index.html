@@ -452,90 +452,173 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 2px rgba(46,158
 // ║  DATA                                                        ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-// Reference links — CDC anchor URLs go directly to the relevant section of the schedule notes page.
-// immunize.org PDFs are vaccine-specific FAQ sheets (direct PDF links).
-// AAP URL is the direct PDF download of the 2024-2025 immunization schedule.
+// Reference links — all URLs verified March 2026.
+// Priority: immunize.org Ask the Experts (actively maintained) → AAP → CDC schedule notes.
+// CDC anchor links (#note-xxx) jump directly to the relevant section.
+// immunize.org/ask-experts/topic/ pages are the live, regularly updated expert Q&A pages.
 const REFS = {
-  HepB:    {label:"CDC HepB Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepb",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4075.pdf",
-            immLabel:"immunize.org: Hepatitis B Vaccine FAQ"},
-  RV:      {label:"CDC Rotavirus Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-rotavirus",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4222.pdf",
-            immLabel:"immunize.org: Rotavirus Vaccine FAQ"},
-  DTaP:    {label:"CDC DTaP/Tdap/Td Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-dtap",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4212.pdf",
-            immLabel:"immunize.org: DTaP Vaccine FAQ"},
-  Hib:     {label:"CDC Hib Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hib",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4077.pdf",
-            immLabel:"immunize.org: Hib Vaccine FAQ"},
-  PCV:     {label:"CDC Pneumococcal (PCV/PPSV) Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4215.pdf",
-            immLabel:"immunize.org: Pneumococcal Vaccines FAQ"},
-  IPV:     {label:"CDC Polio (IPV) Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-polio",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4210.pdf",
-            immLabel:"immunize.org: IPV Vaccine FAQ"},
-  Flu:     {label:"CDC Influenza Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-influenza",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4218.pdf",
-            immLabel:"immunize.org: Influenza Vaccine FAQ"},
-  MMR:     {label:"CDC MMR Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mmr",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4219.pdf",
-            immLabel:"immunize.org: MMR Vaccine FAQ"},
-  VAR:     {label:"CDC Varicella Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-varicella",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4220.pdf",
-            immLabel:"immunize.org: Varicella Vaccine FAQ"},
-  HepA:    {label:"CDC Hepatitis A Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepa",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4083.pdf",
-            immLabel:"immunize.org: Hepatitis A Vaccine FAQ"},
-  Tdap:    {label:"CDC Tdap/Td Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-tdap-td",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4213.pdf",
-            immLabel:"immunize.org: Tdap Vaccine FAQ"},
-  HPV:     {label:"CDC HPV Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hpv",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4217.pdf",
-            immLabel:"immunize.org: HPV Vaccine FAQ"},
-  MenACWY: {label:"CDC Meningococcal (MenACWY) Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4216.pdf",
-            immLabel:"immunize.org: MenACWY Vaccine FAQ"},
-  MenB:    {label:"CDC Meningococcal B (MenB) Schedule Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening-b",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4223.pdf",
-            immLabel:"immunize.org: MenB Vaccine FAQ"},
-  RSV:     {label:"CDC RSV Immunization Notes",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html",
-            immUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4230.pdf",
-            immLabel:"immunize.org: Nirsevimab (RSV) FAQ"},
-  COVID:   {label:"CDC COVID-19 Vaccine Guidance",
-            url:"https://www.cdc.gov/covid/vaccines/index.html",
-            immUrl:"https://www.immunize.org/covid-19/",
-            immLabel:"immunize.org: COVID-19 Vaccine Resources"},
-  catchup: {label:"CDC 2025 Catch-up Immunization Schedule (Table 2)",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-catch-up.html"},
-  schedule:{label:"CDC 2025 Child/Adolescent Immunization Schedule",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-age.html"},
-  immOrg:  {label:"immunize.org Immunization Schedules",
-            url:"https://www.immunize.org/immunization-schedules/"},
-  AAP:     {label:"AAP 2024–2025 Immunization Schedule (PDF)",
-            url:"https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf"},
-  interval:{label:"immunize.org: Invalid Vaccine Doses — What To Do",
-            url:"https://www.immunize.org/wp-content/uploads/catg.d/p3085.pdf"},
-  brandMix:{label:"immunize.org: Combination Vaccines FAQ",
-            url:"https://www.immunize.org/wp-content/uploads/catg.d/p4100.pdf"},
-  ppsv23:  {label:"CDC Pneumococcal Schedule Notes (PCV/PPSV section)",
-            url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo"},
-  pcv13high:{label:"CDC Pneumococcal Schedule Notes — High-Risk Guidance",
-             url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo"},
+  HepB:    {
+    label:"immunize.org: Hepatitis B — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/hepb/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/hepb/",
+    immLabel:"immunize.org: Hepatitis B Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepb",
+    cdcLabel:"CDC HepB Schedule Notes",
+    aapUrl:"https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf",
+    aapLabel:"AAP 2024–2025 Immunization Schedule (PDF)"
+  },
+  RV:      {
+    label:"immunize.org: Rotavirus — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/rotavirus/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/rotavirus/",
+    immLabel:"immunize.org: Rotavirus Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-rotavirus",
+    cdcLabel:"CDC Rotavirus Schedule Notes"
+  },
+  DTaP:    {
+    label:"immunize.org: DTaP — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/dtap/",
+    immUrl:"https://www.immunize.org/ask-experts/topic/combo-vaccines/",
+    immLabel:"immunize.org: Combination Vaccines — Ask the Experts",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-dtap",
+    cdcLabel:"CDC DTaP/Tdap/Td Schedule Notes"
+  },
+  Hib:     {
+    label:"immunize.org: Hib — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/hib/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/hib/",
+    immLabel:"immunize.org: Hib Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hib",
+    cdcLabel:"CDC Hib Schedule Notes"
+  },
+  PCV:     {
+    label:"immunize.org: Pneumococcal — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/pneumococcal/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/pneumococcal/",
+    immLabel:"immunize.org: Pneumococcal Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo",
+    cdcLabel:"CDC Pneumococcal (PCV/PPSV) Schedule Notes"
+  },
+  IPV:     {
+    label:"immunize.org: Polio (IPV) — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/polio/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/polio/",
+    immLabel:"immunize.org: Polio Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-polio",
+    cdcLabel:"CDC Polio (IPV) Schedule Notes"
+  },
+  Flu:     {
+    label:"immunize.org: Influenza — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/influenza/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/influenza/",
+    immLabel:"immunize.org: Influenza Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-influenza",
+    cdcLabel:"CDC Influenza Schedule Notes"
+  },
+  MMR:     {
+    label:"immunize.org: MMR — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/mmr/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/measles/",
+    immLabel:"immunize.org: Measles/MMR Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mmr",
+    cdcLabel:"CDC MMR Schedule Notes"
+  },
+  VAR:     {
+    label:"immunize.org: Varicella — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/varicella/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/varicella/",
+    immLabel:"immunize.org: Varicella Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-varicella",
+    cdcLabel:"CDC Varicella Schedule Notes"
+  },
+  HepA:    {
+    label:"immunize.org: Hepatitis A — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/hepa/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/hepa/",
+    immLabel:"immunize.org: Hepatitis A Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepa",
+    cdcLabel:"CDC Hepatitis A Schedule Notes"
+  },
+  Tdap:    {
+    label:"immunize.org: Tdap — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/tdap/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/pertussis/",
+    immLabel:"immunize.org: Pertussis/Tdap Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-tdap-td",
+    cdcLabel:"CDC Tdap/Td Schedule Notes"
+  },
+  HPV:     {
+    label:"immunize.org: HPV — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/hpv/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/hpv/",
+    immLabel:"immunize.org: HPV Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hpv",
+    cdcLabel:"CDC HPV Schedule Notes"
+  },
+  MenACWY: {
+    label:"immunize.org: MenACWY — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/menacwy/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/menacwy/",
+    immLabel:"immunize.org: MenACWY Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening",
+    cdcLabel:"CDC MenACWY Schedule Notes"
+  },
+  MenB:    {
+    label:"immunize.org: MenB — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/menb/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/menb/",
+    immLabel:"immunize.org: MenB Vaccine Resources",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening-b",
+    cdcLabel:"CDC MenB Schedule Notes"
+  },
+  RSV:     {
+    label:"immunize.org: RSV (Nirsevimab/Clesrovimab) — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/rsv/",
+    immUrl:"https://www.immunize.org/vaccines/a-z/rsv/",
+    immLabel:"immunize.org: RSV Vaccine & Antibody Resources",
+    cdcUrl:"https://www.cdc.gov/rsv/hcp/vaccine-clinical-guidance/infants-young-children.html",
+    cdcLabel:"CDC RSV Immunization Guidance for Infants"
+  },
+  COVID:   {
+    label:"immunize.org: COVID-19 Vaccine Resources",
+    url:"https://www.immunize.org/vaccines/a-z/covid-19/",
+    immUrl:"https://www.immunize.org/ask-experts/topic/covid-19/",
+    immLabel:"immunize.org: COVID-19 — Ask the Experts",
+    cdcUrl:"https://www.cdc.gov/covid/vaccines/index.html",
+    cdcLabel:"CDC COVID-19 Vaccine Guidance"
+  },
+  catchup: {
+    label:"CDC 2025 Catch-up Immunization Schedule (Table 2)",
+    url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-catch-up.html"
+  },
+  schedule:{
+    label:"CDC 2025 Child/Adolescent Immunization Schedule",
+    url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-age.html"
+  },
+  immOrg:  {
+    label:"immunize.org — Ask the Experts (all vaccines)",
+    url:"https://www.immunize.org/ask-experts/"
+  },
+  AAP:     {
+    label:"AAP 2024–2025 Immunization Schedule (PDF)",
+    url:"https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf"
+  },
+  interval:{
+    label:"immunize.org: Vaccine Administration Errors — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/admin-vaccines/vaccine-admin-errors/"
+  },
+  brandMix:{
+    label:"immunize.org: Combination Vaccines — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/combo-vaccines/"
+  },
+  ppsv23:  {
+    label:"immunize.org: Pneumococcal (PCV/PPSV) — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/pneumococcal/"
+  },
+  pcv13high:{
+    label:"immunize.org: Pneumococcal Recommendations for Children — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/pneumococcal/recommendations-children/"
+  },
 };
 
 // Approximate age options for "approx age" entry mode
@@ -1007,17 +1090,17 @@ function auditAll() {
               refUrl:r.ref||REFS[vk].url, refLabel:REFS[vk].label,
               refUrl2:REFS.catchup.url,refLabel2:REFS.catchup.label});
           } else if (r.err && !r.ok) {
-            // Use specific immunize.org interval FAQ for interval/age errors
-            const immUrl=REFS[vk]?.immUrl||null;
-            const immLabel=REFS[vk]?.immLabel||null;
-            errors.push({vk, doseNum:idx+1, type:r.type, severity:"err",
+              // For interval/age errors, use immunize.org Ask the Experts as primary ref
+              const vkImmUrl=REFS[vk]?.url||null;
+              const vkImmLabel=REFS[vk]?.label||null;
+              errors.push({vk, doseNum:idx+1, type:r.type, severity:"err",
               title:`${VAX_META[vk].n} — Dose ${idx+1} Error (${r.type.replace(/_/g," ")})`,
               detail:r.msg,
               action:buildAction(r),
               earliest:r.earliest,
               refUrl:REFS[vk].url, refLabel:REFS[vk].label,
-              refUrl2:r.type==="interval"?REFS.interval.url:(r.type==="min_age"?REFS.catchup.url:immUrl),
-              refLabel2:r.type==="interval"?REFS.interval.label:(r.type==="min_age"?REFS.catchup.label:immLabel)});
+              refUrl2:r.type==="interval"?REFS.interval.url:(r.type==="min_age"?REFS.catchup.url:vkImmUrl),
+              refLabel2:r.type==="interval"?REFS.interval.label:(r.type==="min_age"?REFS.catchup.label:vkImmLabel)});
           } else if (r.grace) {
             errors.push({vk, doseNum:idx+1, type:r.type, severity:"grace",
               title:`${VAX_META[vk].n} — Dose ${idx+1} Within ≤4-Day Grace Period`,
@@ -1662,7 +1745,9 @@ function renderRecTab(cont, recs, cnts) {
         <div class="bwrap">${rec.brands.map(b=>`<span class="bchip ${isComboB(b)?"combo":pref(b)?"pref":""}">${esc(b)}</span>`).join("")}</div>
         ${ctra?`<span class="ctog" onclick="togC(${i},event)">${cOpen?"▲":"▼"} Contraindications &amp; Precautions</span>
         ${cOpen?`<div class="cbox">${ctra.ci?.length?`<div class="ctit red">⛔ Contraindications</div><ul class="clist">${ctra.ci.map(c=>`<li>${esc(c)}</li>`).join("")}</ul>`:""}${ctra.prec?.length?`<div class="ctit amb" style="margin-top:5px">⚠️ Precautions</div><ul class="clist">${ctra.prec.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>`:""}</div>`:""}`:""} 
-        <div class="refline">📚 References: <a class="reflink" href="${esc(rec.refUrl)}" target="_blank">${esc(rec.refLabel)}</a>${rec.refUrl2?` · <a class="reflink" href="${esc(rec.refUrl2)}" target="_blank">${esc(rec.refLabel2)}</a>`:""}${REFS[rec.vk]?.immUrl?` · <a class="reflink" href="${esc(REFS[rec.vk].immUrl)}" target="_blank">${esc(REFS[rec.vk].immLabel)}</a>`:""} · <a class="reflink" href="https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf" target="_blank">AAP 2024–2025 Immunization Schedule (PDF)</a></div>
+        <div class="refline">📚
+          <a class="reflink" href="${esc(rec.refUrl)}" target="_blank">${esc(rec.refLabel)}</a>${rec.refUrl2?` · <a class="reflink" href="${esc(rec.refUrl2)}" target="_blank">${esc(rec.refLabel2)}</a>`:""}${REFS[rec.vk]?.cdcUrl?` · <a class="reflink" href="${esc(REFS[rec.vk].cdcUrl)}" target="_blank">${esc(REFS[rec.vk].cdcLabel)}</a>`:""} · <a class="reflink" href="https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf" target="_blank">AAP 2024–2025 Immunization Schedule (PDF)</a>
+        </div>
       </div>`:""}
     </div>`;
   }).join("")||`<p style="color:#aaa;text-align:center;padding:20px">No items match this filter.</p>`;
@@ -1678,7 +1763,7 @@ function analyzeCombo(selectedVks, am) {
   // ── Brand compatibility constraints ───────────────────────────
   const constraints=[];
   if(selectedVks.includes("RV"))
-    constraints.push({ico:"🔴",txt:"Rotavirus (RV): NEVER interchange Rotarix and RotaTeq — choose one brand at dose 1 and complete the entire series with that same brand.",ref:"immunize.org RV FAQ",refUrl:"https://www.immunize.org/wp-content/uploads/catg.d/p4222.pdf"});
+    constraints.push({ico:"🔴",txt:"Rotavirus (RV): NEVER interchange Rotarix and RotaTeq — choose one brand at dose 1 and complete the entire series with that same brand.",ref:"immunize.org: Rotavirus — Ask the Experts",refUrl:"https://www.immunize.org/ask-experts/topic/rotavirus/"});
   if(selectedVks.includes("MenB"))
     constraints.push({ico:"🔴",txt:"MenB: Bexsero and Trumenba are NOT interchangeable. Once a brand is chosen, complete the full series with that same brand.",ref:"CDC MenB Notes",refUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening-b"});
   if(selectedVks.includes("Hib") && am>=12 && am<=15)
