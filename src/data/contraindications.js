@@ -1,0 +1,18 @@
+export const CONTRA = {
+  HepB:    {ci:["Anaphylaxis to prior dose or component (yeast)"],prec:["Moderate/severe acute illness"]},
+  RV:      {ci:["Anaphylaxis to prior dose","SCID","History of intussusception"],prec:["Immunocompromise (other than SCID)","Acute gastroenteritis","Preterm – give at chronological age"]},
+  DTaP:    {ci:["Anaphylaxis to prior dose","Encephalopathy within 7 days of pertussis vaccine (not attributable to another cause)"],prec:["Progressive/unstable neurologic disorder","Seizure within 3 days","Inconsolable crying ≥3h within 48h","Collapse/shock within 48h","Temp ≥40.5°C within 48h","GBS within 6 weeks of tetanus vaccine","Moderate/severe acute illness"]},
+  Hib:     {ci:["Anaphylaxis to prior dose","Age <6 weeks"],prec:["Moderate/severe acute illness"]},
+  PCV:     {ci:["Anaphylaxis to prior dose (including diphtheria toxoid)"],prec:["Moderate/severe acute illness"]},
+  IPV:     {ci:["Anaphylaxis to prior dose, neomycin, streptomycin, or polymyxin B"],prec:["Moderate/severe acute illness","Pregnancy"]},
+  Flu:     {ci:["Anaphylaxis to prior dose"],prec:["GBS within 6 weeks of prior flu vaccine","Moderate/severe acute illness","LAIV: immunocompromise, asplenia, pregnancy, <2y, asthma <5y, aspirin therapy"]},
+  MMR:     {ci:["Anaphylaxis to prior dose (neomycin, gelatin)","Pregnancy","Severe immunodeficiency"],prec:["Blood product ≤11m prior","Moderate/severe acute illness","Thrombocytopenia/ITP","Need for TB testing"]},
+  VAR:     {ci:["Anaphylaxis to prior dose (neomycin, gelatin)","Pregnancy","Severe immunodeficiency"],prec:["Blood product ≤11m prior","Moderate/severe acute illness","Antivirals within 24h"]},
+  HepA:    {ci:["Anaphylaxis to prior dose (neomycin)"],prec:["Moderate/severe acute illness"]},
+  Tdap:    {ci:["Anaphylaxis to prior dose","Encephalopathy within 7 days of pertussis vaccine"],prec:["Progressive/unstable neurologic disorder","GBS within 6 weeks of tetanus vaccine","Arthus-type reaction after Td","Moderate/severe acute illness"]},
+  HPV:     {ci:["Anaphylaxis to prior dose (yeast)"],prec:["Moderate/severe acute illness","Pregnancy – defer"]},
+  MenACWY: {ci:["Anaphylaxis to prior dose"],prec:["Moderate/severe acute illness","GBS (Menactra only – use Menveo or MenQuadfi)"]},
+  MenB:    {ci:["Anaphylaxis to prior dose"],prec:["Moderate/severe acute illness","Pregnancy – insufficient data"]},
+  RSV:     {ci:["Anaphylaxis to nirsevimab or any component"],prec:["Moderate/severe acute illness"]},
+  COVID:   {ci:["Anaphylaxis to prior dose"],prec:["Moderate/severe acute illness","Myocarditis/pericarditis after prior mRNA COVID vaccine"]},
+};
