@@ -18,13 +18,14 @@ export const MIN_INT = {
 };
 
 // Brand-specific min ages (days)
+// Keys must be prefixes that match the actual brand strings in vaccineData.js via startsWith()
 export const BRAND_MIN = {
   "Kinrix":1461,"Quadracel":1461,
-  "ProQuad (MMRV)":365,
-  "Adacel (Tdap)":2555,"Boostrix (Tdap)":3650,
-  "Menveo (MenACWY-CRM)":60,"MenQuadfi (MenACWY-TT)":730,
+  "ProQuad":365,
+  "Adacel":2555,"Boostrix":3650,
+  "Menveo":60,"MenQuadfi":730,
   "Twinrix":6570,"Heplisav-B":6570,
-  "FluMist Quadrivalent (LAIV4)":730,
+  "FluMist Quadrivalent":730,
   "Comirnaty":1825,"mNexspike":4380,"Nuvaxovid":4380,
   "Penbraya":3650,
 };

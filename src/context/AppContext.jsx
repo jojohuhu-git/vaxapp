@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer } from 'react';
-import { VAX_KEYS, COMBO_COVERS, VBR } from '../data/vaccineData.js';
+import { VAX_KEYS, COMBO_COVERS, COMBOS, VBR } from '../data/vaccineData.js';
 
 // ── Initial state ──────────────────────────────────────────────
 function initHist() {
@@ -66,7 +66,7 @@ function brandAutoFill(hist, vk, idx) {
 function reducer(state, action) {
   switch (action.type) {
     case "SET_AGE":
-      return { ...state, am: action.payload };
+      return { ...state, am: action.payload, fcBrands: {} };
 
     case "SET_DOB":
       return { ...state, dob: action.payload };
@@ -180,21 +180,26 @@ function reducer(state, action) {
       const key = `${visitM}_${vk}`;
       let nextFc = { ...state.fcBrands, [key]: brandName };
 
+      // Clear other visits' selections for the same vaccine so projections reset
+      for (const k of Object.keys(nextFc)) {
+        if (k !== key && k.endsWith(`_${vk}`)) {
+          delete nextFc[k];
+        }
+      }
+
       // If the selected brand is a combo, auto-fill sibling brands for same visit
       const comboName = Object.keys(COMBO_COVERS).find(c => brandName.startsWith(c));
-      if (comboName) {
+      if (comboName && COMBOS[comboName]) {
+        const comboLabel = `${comboName} (covers ${COMBOS[comboName].c.join(" + ")})`;
         const siblings = COMBO_COVERS[comboName].filter(v => v !== vk);
         for (const sibVk of siblings) {
           const sibKey = `${visitM}_${sibVk}`;
-          // Find the matching combo brand string for the sibling
-          const sibBrand = (VBR[sibVk]?.c || []).find(b => b.startsWith(comboName));
-          if (sibBrand) {
-            nextFc = { ...nextFc, [sibKey]: sibBrand };
-          }
+          nextFc = { ...nextFc, [sibKey]: comboLabel };
         }
       }
 
       // If old brand was a combo, clear siblings that were auto-filled with old combo
+      // and set them to their first standalone brand
       const oldBrand = state.fcBrands[key] || "";
       const oldCombo = Object.keys(COMBO_COVERS).find(c => oldBrand.startsWith(c));
       if (oldCombo && oldCombo !== comboName) {
@@ -203,7 +208,8 @@ function reducer(state, action) {
           const sibKey = `${visitM}_${sibVk}`;
           const sibVal = nextFc[sibKey] || "";
           if (sibVal.startsWith(oldCombo)) {
-            nextFc = { ...nextFc, [sibKey]: "" };
+            const standalone = (VBR[sibVk]?.s || [])[0] || "";
+            nextFc = { ...nextFc, [sibKey]: standalone };
           }
         }
       }

@@ -57,7 +57,10 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob) {
 
   // 3. Interval between doses
   if (doseIdx > 0 && isD(thisDate) && isD(prevDate)) {
-    const minInt = spec.i[doseIdx]; // i is 0-indexed: i[0]=minD, i[1]=d1d2, i[2]=d2d3...
+    let minInt = spec.i[doseIdx]; // i is 0-indexed: i[0]=minD, i[1]=d1d2, i[2]=d2d3...
+    // Age-dependent interval overrides
+    if (vk === "VAR" && doseIdx === 1 && ageAtDose !== null && ageAtDose >= 4745) minInt = 28; // ≥13y: 4 weeks instead of 3 months
+    if (vk === "HPV" && doseIdx === 1 && ageAtDose !== null && ageAtDose >= 5475) minInt = 28; // ≥15y (3-dose series): D1→D2 = 4 weeks
     if (minInt) {
       const days = dBetween(prevDate, thisDate);
       if (days !== null && days < minInt - GRACE) {
@@ -75,7 +78,9 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob) {
   if (doseIdx > 0 && (!isD(thisDate) || !isD(prevDate)) && dose.mode === "age" && prevDose?.mode === "age") {
     const a1 = doseAgeDays(prevDose, dob), a2 = doseAgeDays(dose, dob);
     if (a1 !== null && a2 !== null) {
-      const minInt = spec.i[doseIdx];
+      let minInt = spec.i[doseIdx];
+      if (vk === "VAR" && doseIdx === 1 && a2 >= 4745) minInt = 28; // ≥13y
+      if (vk === "HPV" && doseIdx === 1 && a2 >= 5475) minInt = 28; // ≥15y
       if (minInt && (a2 - a1) < minInt - GRACE) {
         results.push({ type: "interval", ok: false, err: true,
           msg: `D${doseIdx + 1} (~age ${Math.round(a2 / 30.4)}m) only ~${a2 - a1}d after D${doseIdx} (~age ${Math.round(a1 / 30.4)}m). Min ${minInt}d. INVALID \u2014 must repeat.`,

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { buildRegimens } from '../logic/regimens';
 import { analyzeCombo } from '../logic/comboAnalyzer';
-import { VAX_META } from '../data/vaccineData';
+import { VAX_META, COMBOS } from '../data/vaccineData';
 
 export default function RegTab({ recs }) {
   const { state, dispatch } = useApp();
@@ -64,32 +64,60 @@ export default function RegTab({ recs }) {
         ))}
       </div>
 
-      {/* Combo table */}
-      {regimens.some(r => r.p.shots.some(s => s.isCombo)) && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, color: "#555", marginBottom: 4 }}>
-            Combination Vaccine Coverage
-          </div>
-          <table className="cutbl">
-            <thead>
-              <tr>
-                <th>Combo Brand</th>
-                <th>Antigens Covered</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {regimens[0].p.shots.filter(s => s.isCombo).map((shot, si) => (
-                <tr key={si}>
-                  <td style={{ fontWeight: 700 }}>{shot.brand}</td>
-                  <td>{shot.covers.join(", ")}</td>
-                  <td style={{ fontSize: 10.5 }}>{shot.desc}</td>
+      {/* Combo table — all age-appropriate combos */}
+      {(() => {
+        const am = state.am;
+        const allCombos = Object.entries(COMBOS).filter(([name, c]) => {
+          if (name === "Vaxelis" && am >= 12) return false;
+          if (am < c.minM || am > c.maxM) return false;
+          return c.c.some(v => needed.includes(v));
+        });
+        if (!allCombos.length) return null;
+
+        const usedInPlan = new Set(regimens[0]?.p.shots.filter(s => s.isCombo).map(s => s.brand) || []);
+
+        return (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: "#555", marginBottom: 4 }}>
+              Combination Vaccine Coverage
+            </div>
+            <table className="cutbl">
+              <thead>
+                <tr>
+                  <th>Combo Brand</th>
+                  <th>Antigens Covered</th>
+                  <th>Notes</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {allCombos.map(([name, c]) => {
+                  const coveredNeeded = c.c.filter(v => needed.includes(v));
+                  const inPlan = usedInPlan.has(name);
+                  return (
+                    <tr key={name} style={inPlan ? { background: "#eaf3fb" } : undefined}>
+                      <td style={{ fontWeight: 700 }}>
+                        {name}
+                        {inPlan && <span style={{ fontSize: 9, color: "#2980b9", marginLeft: 4 }}>(in plan)</span>}
+                      </td>
+                      <td>
+                        {c.c.map((v, vi) => (
+                          <span key={v}>
+                            {vi > 0 && ", "}
+                            <span style={{ fontWeight: coveredNeeded.includes(v) ? 700 : 400, color: coveredNeeded.includes(v) ? "#1a3a6b" : "#aaa" }}>
+                              {v}
+                            </span>
+                          </span>
+                        ))}
+                      </td>
+                      <td style={{ fontSize: 10.5 }}>{c.desc}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
 
       {/* Custom brand constraints analyzer */}
       <div className="cbox2">

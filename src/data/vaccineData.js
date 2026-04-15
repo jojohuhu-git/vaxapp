@@ -41,7 +41,7 @@ export const VBR = { // vaccine brands — combo entries include (contents) for 
   HepB:    {s:["Engerix-B","Recombivax HB"], c:["Pediarix (DTaP+HepB+IPV)","Vaxelis (DTaP+IPV+Hib+HepB)","Twinrix (HepA+HepB, ≥18y)","Heplisav-B (≥18y, 2-dose)"]},
   RV:      {s:["Rotarix (RV1 – 2 doses)","RotaTeq (RV5 – 3 doses)"], c:[], lock:true},
   DTaP:    {s:["Daptacel (DTaP only)","Infanrix (DTaP only)"], c:["Kinrix (DTaP+IPV, 4–6y only)","Pediarix (DTaP+HepB+IPV)","Pentacel (DTaP+IPV+Hib)","Quadracel (DTaP+IPV, 4–6y only)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)"]},
-  Hib:     {s:["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP)"], c:["Pentacel (DTaP+IPV+Hib)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only — NOT booster)"]},
+  Hib:     {s:["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP)"], c:["Pentacel (DTaP+IPV+Hib, Hib=PRP-T)","Vaxelis (DTaP+IPV+Hib+HepB, Hib=PRP-OMP, doses 1–3 only — NOT booster)"]},
   PCV:     {s:[
     "Prevnar 20 (PCV20) — preferred, covers 20 serotypes",
     "Vaxneuvance (PCV15) — if used, add PPSV23 ≥8 weeks later for high-risk",
@@ -63,8 +63,8 @@ export const VBR = { // vaccine brands — combo entries include (contents) for 
 
 // Combo vaccines with what they cover
 export const COMBOS = {
-  Vaxelis:   {c:["DTaP","IPV","Hib","HepB"],  minM:1.5, maxM:5.9,  desc:"DTaP + IPV + Hib + HepB (doses 1–3 only; NOT for Hib booster)"},
-  Pentacel:  {c:["DTaP","IPV","Hib"],          minM:1.5, maxM:59,   desc:"DTaP + IPV + Hib (doses 1–4 of DTaP/IPV; doses 1–3 of Hib primary)"},
+  Vaxelis:   {c:["DTaP","IPV","Hib","HepB"],  minM:1.5, maxM:5.9,  desc:"DTaP + IPV + Hib (PRP-OMP) + HepB (doses 1–3 only; NOT for Hib booster). Hib component is PRP-OMP — preferred for AI/AN."},
+  Pentacel:  {c:["DTaP","IPV","Hib"],          minM:1.5, maxM:59,   desc:"DTaP + IPV + Hib (PRP-T) (doses 1–4 of DTaP/IPV; doses 1–3 of Hib primary). Hib component is PRP-T (same as ActHIB)."},
   Pediarix:  {c:["DTaP","HepB","IPV"],         minM:1.5, maxM:83,   desc:"DTaP + HepB + IPV (doses 1–3)"},
   Kinrix:    {c:["DTaP","IPV"],                minM:48,  maxM:83,   desc:"DTaP + IPV (dose 5 DTaP + dose 4 IPV, age 4–6y ONLY)"},
   Quadracel: {c:["DTaP","IPV"],                minM:48,  maxM:83,   desc:"DTaP + IPV (dose 5 DTaP + dose 4 IPV, age 4–6y ONLY)"},

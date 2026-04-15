@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { VBR, COMBO_COVERS } from '../data/vaccineData';
+import { VBR, VAX_META, VAX_KEYS, COMBO_COVERS } from '../data/vaccineData';
 import { AGE_OPTS } from '../data/ageOptions';
 import { fmtDateInput, parseDateInput } from '../logic/utils';
 
@@ -12,14 +12,24 @@ export default function QuickAdd() {
   const [ageDays, setAgeDays] = useState("");
   const [msg, setMsg] = useState("");
 
-  // Build a flat list of all brands (standalone + combo) with their target vk
+  // Build brands grouped by vaccine, plus a combo group
+  const brandsByVk = {};
+  const comboBrands = [];
+  const seenCombo = new Set();
   const allBrands = [];
   const seen = new Set();
-  Object.entries(VBR).forEach(([vk, { s, c }]) => {
-    for (const b of [...(s || []), ...(c || [])]) {
-      if (!seen.has(b)) {
-        seen.add(b);
-        allBrands.push({ label: b, vk });
+  VAX_KEYS.forEach(vk => {
+    const { s, c } = VBR[vk] || {};
+    const standalones = [];
+    for (const b of (s || [])) {
+      if (!seen.has(b)) { seen.add(b); standalones.push({ label: b, vk }); allBrands.push({ label: b, vk }); }
+    }
+    if (standalones.length) brandsByVk[vk] = standalones;
+    for (const b of (c || [])) {
+      const comboName = b.split(" (")[0];
+      if (!seenCombo.has(comboName)) {
+        seenCombo.add(comboName);
+        if (!seen.has(b)) { seen.add(b); comboBrands.push({ label: b, vk }); allBrands.push({ label: b, vk }); }
       }
     }
   });
@@ -80,9 +90,20 @@ export default function QuickAdd() {
           style={{ flex: "1 1 160px", fontSize: 11, padding: "4px 6px" }}
         >
           <option value="">Select brand...</option>
-          {allBrands.map(b => (
-            <option key={b.label} value={b.label}>{b.label}</option>
-          ))}
+          {VAX_KEYS.map(vk => brandsByVk[vk] ? (
+            <optgroup key={vk} label={VAX_META[vk]?.n || vk}>
+              {brandsByVk[vk].map(b => (
+                <option key={b.label} value={b.label}>{b.label}</option>
+              ))}
+            </optgroup>
+          ) : null)}
+          {comboBrands.length > 0 && (
+            <optgroup label="Combination Vaccines">
+              {comboBrands.map(b => (
+                <option key={b.label} value={b.label}>{b.label}</option>
+              ))}
+            </optgroup>
+          )}
         </select>
 
         <select
