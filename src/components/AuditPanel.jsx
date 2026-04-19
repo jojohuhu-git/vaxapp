@@ -10,7 +10,7 @@ export default function AuditPanel() {
   return (
     <div>
       <div className="ctitle">
-        <span>&#x1F50D;</span> Audit
+        Audit
         {errCount > 0 && <span className="sbadge err">{errCount}</span>}
         {warnCount > 0 && <span className="sbadge" style={{ background: "#e67e22" }}>{warnCount}</span>}
         {errCount === 0 && warnCount === 0 && <span className="sbadge ok">0</span>}

@@ -1,10 +1,11 @@
 import { useApp } from '../context/AppContext';
 import { FORECAST_VISITS, FC_BRANDS } from '../data/forecastData';
-import { VAX_META, COMBO_COVERS } from '../data/vaccineData';
+import { VAX_META, COMBO_COVERS, VAX_KEYS } from '../data/vaccineData';
 import { genRecs } from '../logic/recommendations';
 import { orderedBrandsForVisit } from '../logic/forecastLogic';
 import { dc } from '../logic/stateHelpers';
-import { computeDosePlan, fmtProjection } from '../logic/dosePlan';
+import { computeDosePlan, fmtProjection, getTotalDoses } from '../logic/dosePlan';
+import { validatedHistory } from '../logic/validation';
 
 function resolveDropdownBrand(selectedBrand, brandOpts) {
   if (!selectedBrand) return "";
@@ -36,7 +37,8 @@ function buildPatientForecastHTML(state, allVks, recs) {
   const am = state.am;
   const currentRecMap = {};
   recs.forEach(r => { currentRecMap[r.vk] = r; });
-  const dosePlan = computeDosePlan(am, state.dob, recs, state.fcBrands);
+  const validHistHTML = validatedHistory(state.hist, state.dob);
+  const dosePlan = computeDosePlan(am, state.dob, recs, state.fcBrands, validHistHTML, state.risks);
   const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   const dobStr = state.dob ? fmtDateShort(state.dob) : "";
 
@@ -56,7 +58,7 @@ function buildPatientForecastHTML(state, allVks, recs) {
     const selBrand = fcKey ? (state.fcBrands[fcKey] || "") : "";
     const brandStr = selBrand ? selBrand.split(" (")[0] : "";
 
-    const statusLabel = r.status === "catchup" ? "Catch-up" : r.status === "risk-based" ? "Risk-based" : r.status === "recommended" ? "Recommended" : "Due";
+    const statusLabel = r.status === "catchup" ? "Catch-up" : r.status === "risk-based" ? "Risk-based" : r.status === "recommended" ? "Shared Clinical Decision" : "Due";
 
     // Current dose
     const currentDose = {
@@ -223,17 +225,42 @@ export default function ForecastTab({ recs }) {
   const currentRecMap = {};
   recs.forEach(r => { currentRecMap[r.vk] = r; });
 
-  // Compute projected dose plan
-  const dosePlan = computeDosePlan(am, state.dob, recs, state.fcBrands);
+  // Filter history to countable doses only (drops invalid/uncountable doses
+  // like a Kinrix IPV at 2 months) so the projection advances correctly.
+  const validHist = validatedHistory(state.hist, state.dob);
 
-  // Gather all unique vaccine keys across all visits
-  const allVks = [];
-  const vkSet = new Set();
-  FORECAST_VISITS.forEach(v => {
-    v.std.forEach(vk => {
-      if (!vkSet.has(vk)) { vkSet.add(vk); allVks.push(vk); }
+  // Compute projected dose plan
+  const dosePlan = computeDosePlan(am, state.dob, recs, state.fcBrands, validHist, state.risks);
+
+  // Vaccines owned by the projection: any vk with at least one plan entry,
+  // PLUS any vaccine currently due (so single-dose-remaining vaccines like
+  // Flu/MMR/VAR/HepA/HPV D1 don't re-appear at every future eligible visit).
+  const planVks = new Set(Object.keys(dosePlan).map(k => k.split("_").slice(1).join("_")));
+  recs.forEach(r => planVks.add(r.vk));
+
+  // For each vaccine, find the earliest future visit where genRecs first
+  // reports the vaccine as due. We render D1 only at that visit and suppress
+  // at subsequent visits (the later row becomes "—"). This eliminates
+  // duplicate "Dose 1" cells for vaccines like HPV that span a wide
+  // catch-up window (e.g., 11–12y and 16y visits).
+  const firstFutureVisitForVk = {};
+  FORECAST_VISITS.forEach((v, vi) => {
+    const isVisitCurr = v.m === am || (vi < FORECAST_VISITS.length - 1 && am >= v.m && am < FORECAST_VISITS[vi + 1].m);
+    if (v.m < am || isVisitCurr) return;
+    const vr = genRecs(v.m, validHist, state.risks, state.dob);
+    vr.forEach(r => {
+      if (firstFutureVisitForVk[r.vk] == null) firstFutureVisitForVk[r.vk] = v.m;
     });
   });
+
+  // Gather all unique vaccine keys across all visits, then order columns by
+  // the canonical VAX_KEYS order (age + combo-cluster grouping). This keeps
+  // antigens that share combination vaccines (DTaP/IPV/Hib/HepB in Pediarix/
+  // Pentacel/Vaxelis, MMR/VAR in ProQuad, MenACWY/MenB in Penbraya/Penmenvy,
+  // Flu/COVID annuals) adjacent for easier reading and less right-scrolling.
+  const vkSet = new Set();
+  FORECAST_VISITS.forEach(v => v.std.forEach(vk => vkSet.add(vk)));
+  const allVks = VAX_KEYS.filter(vk => vkSet.has(vk));
 
   function handleDownload() {
     const html = buildPatientForecastHTML(state, allVks, recs);
@@ -257,15 +284,26 @@ export default function ForecastTab({ recs }) {
           <span style={{ color: "#5b3a9e", fontWeight: 600 }}> Purple</span> = projected dose.
           Select brands to auto-plan subsequent dose dates.
         </div>
-        <button
-          onClick={handleDownload}
-          style={{
-            fontSize: 11, padding: "4px 10px", background: "#2e7d32", color: "#fff",
-            border: "none", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap", marginLeft: 8,
-          }}
-        >
-          Download Schedule
-        </button>
+        <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
+          <button
+            onClick={() => dispatch({ type: "RESET_FORECAST" })}
+            style={{
+              fontSize: 11, padding: "4px 10px", background: "#fff", color: "#8b1a1a",
+              border: "1px solid #d4b0b0", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap",
+            }}
+          >
+            Reset Forecast
+          </button>
+          <button
+            onClick={handleDownload}
+            style={{
+              fontSize: 11, padding: "4px 10px", background: "#2e7d32", color: "#fff",
+              border: "none", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap",
+            }}
+          >
+            Download Schedule
+          </button>
+        </div>
       </div>
       <div className="fc-wrap">
         <table className="fc-tbl">
@@ -286,7 +324,7 @@ export default function ForecastTab({ recs }) {
               const rowClass = isCurr ? "curr" : isPast ? "past" : "";
 
               // Generate recs for this visit's age to determine dose numbers
-              const visitRecs = genRecs(visit.m, state.hist, state.risks, state.dob);
+              const visitRecs = genRecs(visit.m, validHist, state.risks, state.dob);
               const visitRecMap = {};
               visitRecs.forEach(r => { visitRecMap[r.vk] = r; });
 
@@ -301,28 +339,103 @@ export default function ForecastTab({ recs }) {
                     const fcKey = `${visit.m}_${vk}`;
                     const proj = dosePlan[fcKey]; // projected dose from plan
 
-                    // Skip cell only if vaccine isn't standard at this visit AND no projection
-                    if (!isStd && !proj) {
+                    // Skip cell only if vaccine isn't standard at this visit AND has no
+                    // projection AND no rec emitted for this visit age (risk-based recs
+                    // — e.g. MenB D1 for immunocompromised — may fire outside std lists).
+                    if (!isStd && !proj && !visitRecMap[vk]) {
+                      return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
+                    }
+                    // For future visits without a projection, only render the vaccine at
+                    // its earliest-eligible future visit — later visits show "—".
+                    if (!isPast && !isCurr && !proj && firstFutureVisitForVk[vk] != null && firstFutureVisitForVk[vk] !== visit.m) {
+                      return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
+                    }
+                    // For future visits without a projection, if this vaccine is already
+                    // being given at the current visit (currentRecMap[vk]), don't re-emit
+                    // D1 at a later visit — the dosePlan projection owns subsequent doses.
+                    // Example: MenB D1 risk-based at 11y must not also show D1 at 16y.
+                    if (!isPast && !isCurr && !proj && currentRecMap[vk]) {
                       return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
                     }
 
                     const rec = visitRecMap[vk];
-                    const given = dc(state.hist, vk);
+                    // Count only countable doses — an off-label/invalid dose
+                    // that must be repeated (e.g. Kinrix IPV at 2m) should not
+                    // be shown as a completed series dose.
+                    const given = dc(validHist, vk);
                     const doseNum = rec ? rec.doseNum : given + 1;
+
+                    // Detect whether any COUNTABLE dose was administered at
+                    // this visit's age (within ±0.75 month). Used to show a
+                    // "Dn done" chip at the visit where the dose was actually
+                    // administered — e.g. Quadracel at 2m counts as DTaP D1,
+                    // so the 2m cell should read "Dose 1 of 5 done" rather
+                    // than "Dose 2 of 5 due".
+                    const dosesAtOrBeforeVisit = (() => {
+                      let n = 0;
+                      for (const d of (validHist[vk] || [])) {
+                        if (!d.given) continue;
+                        let ageM = null;
+                        if (d.mode === "date" && d.date && state.dob) {
+                          ageM = (new Date(d.date) - new Date(state.dob)) / 86400000 / 30.4;
+                        } else if (d.mode === "age" && d.ageDays != null) {
+                          ageM = Number(d.ageDays) / 30.4;
+                        }
+                        if (ageM === null) continue;
+                        if (ageM < visit.m + 0.75) n++;
+                      }
+                      return n;
+                    })();
+                    const dosesGivenHere = (() => {
+                      let n = 0;
+                      for (const d of (validHist[vk] || [])) {
+                        if (!d.given) continue;
+                        let ageM = null;
+                        if (d.mode === "date" && d.date && state.dob) {
+                          ageM = (new Date(d.date) - new Date(state.dob)) / 86400000 / 30.4;
+                        } else if (d.mode === "age" && d.ageDays != null) {
+                          ageM = Number(d.ageDays) / 30.4;
+                        }
+                        if (ageM === null) continue;
+                        if (Math.abs(ageM - visit.m) < 0.75) n++;
+                      }
+                      return n;
+                    })();
                     const selectedBrand = state.fcBrands[fcKey] || "";
+
+                    // Consistent "Dose N of Total" label. Total comes from the same
+                    // getTotalDoses the projection engine uses (brand/age-aware for
+                    // HPV, RV, Hib). Annual vaccines (Flu/COVID) collapse to "Annual".
+                    // Prefer the series total stamped on the projection (stable
+                    // across age-dependent dose counts, e.g. HPV 2-dose started
+                    // <15y should stay "of 2" even when D2 lands at 16y).
+                    const totalForVk = (proj && proj.totalDoses)
+                      || getTotalDoses(vk, rec || { doseNum, dose: "" }, state.fcBrands);
+                    const isAnnual = vk === "Flu" || vk === "COVID";
+                    const fmtDose = (n) => {
+                      if (isAnnual) return "Annual";
+                      if (!totalForVk || totalForVk <= 1) return `Dose ${n}`;
+                      return `Dose ${n} of ${totalForVk}`;
+                    };
+                    // Status-qualified variant: "catch-up", "risk-based", etc.
+                    const qualifier = (status) =>
+                      status === "catchup" ? " (catch-up)"
+                        : status === "risk-based" ? " (risk-based)"
+                          : status === "recommended" ? " (shared clinical decision)"
+                            : "";
 
                     // Determine cell status
                     let chipClass = "fch fch-need";
-                    let chipText = `D${doseNum}`;
+                    let chipText = fmtDose(doseNum);
                     let dateLabel = "";
 
                     if (isPast && rec) {
                       if (currentRecMap[vk]) {
                         chipClass = "fch fch-cu";
-                        chipText = `D${doseNum} (catch-up)`;
+                        chipText = `${fmtDose(doseNum)} (catch-up)`;
                       } else if (given > 0) {
                         chipClass = "fch fch-done";
-                        chipText = `D${Math.min(doseNum, given)} done`;
+                        chipText = `${fmtDose(Math.min(doseNum, given))} done`;
                       } else {
                         chipClass = "fch fch-exp";
                         chipText = `Expired`;
@@ -330,7 +443,7 @@ export default function ForecastTab({ recs }) {
                     } else if (isPast && !rec) {
                       if (given > 0) {
                         chipClass = "fch fch-done";
-                        chipText = `D${Math.min(doseNum, given)} done`;
+                        chipText = `${fmtDose(Math.min(doseNum, given))} done`;
                       } else if (!currentRecMap[vk] && isStd) {
                         chipClass = "fch fch-exp";
                         chipText = "Expired";
@@ -341,14 +454,23 @@ export default function ForecastTab({ recs }) {
                     } else if (proj && !isCurr) {
                       // Projected future dose from the plan
                       chipClass = "fch fch-proj";
-                      chipText = `D${proj.doseNum}`;
+                      chipText = fmtDose(proj.doseNum);
                       dateLabel = fmtProjection(proj, state.dob);
                     } else if (isCurr && rec) {
-                      chipClass = rec.status === "catchup" ? "fch fch-cu"
-                        : rec.status === "risk-based" ? "fch fch-rb"
-                          : rec.status === "recommended" ? "fch fch-ok"
-                            : "fch fch-need";
-                      chipText = rec.dose;
+                      // If a countable dose was administered at the current
+                      // visit's age, show that dose as DONE at this cell —
+                      // the rec's "next dose due" will be taken over by the
+                      // projection at the next eligible visit.
+                      if (dosesGivenHere > 0) {
+                        chipClass = "fch fch-done";
+                        chipText = `${fmtDose(dosesAtOrBeforeVisit)} done`;
+                      } else {
+                        chipClass = rec.status === "catchup" ? "fch fch-cu"
+                          : rec.status === "risk-based" ? "fch fch-rb"
+                            : rec.status === "recommended" ? "fch fch-ok"
+                              : "fch fch-need";
+                        chipText = `${fmtDose(rec.doseNum)}${qualifier(rec.status)}`;
+                      }
                     } else if (!rec) {
                       chipClass = given > 0 ? "fch fch-done-s" : "fch fch-na";
                       chipText = given > 0 ? "Complete" : "—";
@@ -357,16 +479,28 @@ export default function ForecastTab({ recs }) {
                         : rec.status === "risk-based" ? "fch fch-rb"
                           : rec.status === "recommended" ? "fch fch-ok"
                             : "fch fch-need";
-                      chipText = `D${doseNum}`;
+                      chipText = `${fmtDose(doseNum)}${qualifier(rec.status)}`;
+                    }
+
+                    // Earliest fcBrands selection at a prior visit for this vk
+                    // (constrains lock:true series like MenB/RV to same brand family).
+                    let earlierBrand = "";
+                    for (const ev of FORECAST_VISITS) {
+                      if (ev.m >= visit.m) break;
+                      const b = state.fcBrands[`${ev.m}_${vk}`];
+                      if (b) { earlierBrand = b; break; }
                     }
 
                     // Brand options for dropdown
-                    const brandOpts = orderedBrandsForVisit(vk, proj ? proj.doseNum : doseNum, visit.m, dueVksAtVisit, rec?.brands);
+                    const brandOpts = orderedBrandsForVisit(vk, proj ? proj.doseNum : doseNum, visit.m, dueVksAtVisit, rec?.brands, earlierBrand);
                     const displayBrand = resolveDropdownBrand(selectedBrand, brandOpts);
                     const fcBrandTip = FC_BRANDS[vk]?.[proj ? proj.doseNum : doseNum] || "";
 
-                    // Show dropdown for current/future with a rec OR projected dose
-                    const showDropdown = !isPast && (rec || proj) && brandOpts.length > 0;
+                    // Show dropdown for current/future with a rec OR projected dose.
+                    // Suppress at the current visit when the dose was already
+                    // administered here (history already carries the brand).
+                    const showDropdown = !isPast && (rec || proj) && brandOpts.length > 0
+                      && !(isCurr && dosesGivenHere > 0);
 
                     return (
                       <td key={vk} className="vcell">
@@ -398,9 +532,6 @@ export default function ForecastTab({ recs }) {
                             <span className="fc-covers">
                               {displayBrand.match(/covers ([^)]+)/)?.[1] || ""}
                             </span>
-                          )}
-                          {!displayBrand && fcBrandTip && !isPast && (rec || proj) && (
-                            <span className="fc-brand">{fcBrandTip.split("\n")[0]}</span>
                           )}
                         </div>
                       </td>

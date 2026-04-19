@@ -8,7 +8,7 @@ const FILTERS = [
   { id: "due", label: "Due" },
   { id: "catchup", label: "Catch-up" },
   { id: "risk-based", label: "Risk-Based" },
-  { id: "recommended", label: "Recommended" },
+  { id: "recommended", label: "Shared Clinical Decision" },
 ];
 
 export default function RecTab({ recs }) {
@@ -47,7 +47,7 @@ export default function RecTab({ recs }) {
         </div>
         <div className="leg">
           <span className="leg-dot" style={{ background: "#2980b9" }} />
-          <span>Recommended (shared decision)</span>
+          <span>Shared Clinical Decision Making</span>
         </div>
       </div>
 

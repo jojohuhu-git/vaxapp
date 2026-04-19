@@ -7,7 +7,7 @@ export default function RiskGrid() {
   return (
     <div>
       <div className="ctitle" style={{ marginTop: 10 }}>
-        <span>&#x26A0;&#xFE0F;</span> Risk Factors
+        Risk Factors
       </div>
       <div className="rgrid">
         {RISK_FACTORS.map(rf => (

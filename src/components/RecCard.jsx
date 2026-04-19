@@ -53,7 +53,11 @@ export default function RecCard({ rec, index }) {
           className="rc-badge"
           style={{ background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}
         >
-          {rec.status === "risk-based" ? "Risk-Based" : rec.status === "catchup" ? "Catch-up" : rec.status.charAt(0).toUpperCase() + rec.status.slice(1)}
+          {rec.status === "risk-based" ? "Risk-Based"
+            : rec.status === "catchup" ? "Catch-up"
+            : rec.status === "recommended" ? "Shared Clinical Decision"
+            : rec.status === "due" ? "Due"
+            : rec.status.charAt(0).toUpperCase() + rec.status.slice(1)}
         </span>
         <span className="rc-chev">{isOpen ? "\u25B2" : "\u25BC"}</span>
       </div>

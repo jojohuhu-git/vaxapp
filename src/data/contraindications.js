@@ -5,7 +5,7 @@ export const CONTRA = {
   Hib:     {ci:["Anaphylaxis to prior dose","Age <6 weeks"],prec:["Moderate/severe acute illness"]},
   PCV:     {ci:["Anaphylaxis to prior dose (including diphtheria toxoid)"],prec:["Moderate/severe acute illness"]},
   IPV:     {ci:["Anaphylaxis to prior dose, neomycin, streptomycin, or polymyxin B"],prec:["Moderate/severe acute illness","Pregnancy"]},
-  Flu:     {ci:["Anaphylaxis to prior dose"],prec:["GBS within 6 weeks of prior flu vaccine","Moderate/severe acute illness","LAIV: immunocompromise, asplenia, pregnancy, <2y, asthma <5y, aspirin therapy"]},
+  Flu:     {ci:["Anaphylaxis to prior dose"],prec:["GBS within 6 weeks of prior flu vaccine","Moderate/severe acute illness","LAIV: immunocompromise, asplenia, pregnancy, <2y, asthma <5y, aspirin therapy","Egg allergy note: Per ACIP 2023+, any licensed age-appropriate influenza vaccine (egg-based or egg-free) may be given regardless of egg allergy severity — no additional observation period required beyond standard 15 min post-vaccination"]},
   MMR:     {ci:["Anaphylaxis to prior dose (neomycin, gelatin)","Pregnancy","Severe immunodeficiency"],prec:["Blood product ≤11m prior","Moderate/severe acute illness","Thrombocytopenia/ITP","Need for TB testing"]},
   VAR:     {ci:["Anaphylaxis to prior dose (neomycin, gelatin)","Pregnancy","Severe immunodeficiency"],prec:["Blood product ≤11m prior","Moderate/severe acute illness","Antivirals within 24h"]},
   HepA:    {ci:["Anaphylaxis to prior dose (neomycin)"],prec:["Moderate/severe acute illness"]},

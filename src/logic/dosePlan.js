@@ -4,6 +4,7 @@
 import { MIN_INT } from '../data/scheduleRules.js';
 import { FORECAST_VISITS } from '../data/forecastData.js';
 import { addD } from './utils.js';
+import { genRecs } from './recommendations.js';
 
 /**
  * Standard routine ages (months) for each dose by vaccine key.
@@ -24,7 +25,7 @@ const ROUTINE = {
   Tdap:    [132],
   HPV:     [132, 138],       // 2-dose: 0, 6-12m; 3-dose: 0, 2, 6m
   MenACWY: [132, 192],
-  MenB:    [192, 193],       // Bexsero: 1m apart; Trumenba: 6m apart
+  MenB:    [192],            // Routine D1 at 16y. D2 interval is brand-dependent (Bexsero ≥1m, Trumenba ≥6m) so driven by min-interval, not a fixed routine age — otherwise a high-risk 11y start pushes D2 to 17–18y instead of 16y.
   COVID:   [6],              // annual
 };
 
@@ -38,7 +39,7 @@ const ROUTINE = {
  * @param {object} currentRecs - array of current rec objects from genRecs
  * @param {object} fcBrands - selected forecast brands { "visitM_vk": brandLabel }
  */
-export function computeDosePlan(am, dob, currentRecs, fcBrands) {
+export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks = []) {
   const plan = {}; // key: "visitM_vk" → { dueDate, dueAge, doseNum }
 
   // Find current visit index
@@ -46,8 +47,27 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands) {
     v.m === am || (vi < FORECAST_VISITS.length - 1 && am >= v.m && am < FORECAST_VISITS[vi + 1].m)
   );
 
-  // For each vaccine with a current recommendation, project future doses
-  for (const rec of currentRecs) {
+  // Build the projection seed set: every current rec plus a "virtual" starter
+  // rec for any vaccine that will first become due at a future visit. This way,
+  // D2+ forecasts appear for vaccines whose D1 hasn't been given yet (e.g., a
+  // 6-month-old's MMR/VAR/HepA D2 at 4–6y or 18m).
+  const seeds = [...currentRecs];
+  const seededVks = new Set(currentRecs.map(r => r.vk));
+  for (let vi = (currVisitIdx >= 0 ? currVisitIdx + 1 : 0); vi < FORECAST_VISITS.length; vi++) {
+    const v = FORECAST_VISITS[vi];
+    if (v.m <= am) continue;
+    const vr = genRecs(v.m, hist, risks, dob);
+    for (const r of vr) {
+      if (seededVks.has(r.vk)) continue;
+      // Only first-dose emissions can kick off projection of remaining doses.
+      if (r.doseNum !== 1) continue;
+      seededVks.add(r.vk);
+      // Tag this seed so the projection loop knows to anchor at visit vi.
+      seeds.push({ ...r, _seedVisitIdx: vi });
+    }
+  }
+
+  for (const rec of seeds) {
     const vk = rec.vk;
     const spec = MIN_INT[vk];
     if (!spec) continue;
@@ -55,34 +75,72 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands) {
     // Skip annual vaccines — they don't have a multi-dose series to project
     if (vk === "Flu" || vk === "COVID") continue;
 
-    const startDose = rec.doseNum; // current dose number
+    // Determine the starting anchor dose. Normally this is rec.doseNum (the
+    // dose due at the current visit — the loop below projects d = startDose+1
+    // onward). But if the most recent historical dose was ALREADY given at
+    // the current visit's age (e.g. Quadracel at 2 months which counts as
+    // DTaP D1), rec.doseNum would be D2 "due now" yet clinically D2 can't be
+    // given until the min-interval elapses. In that case anchor at the number
+    // of countable doses already given so the projection emits D2 at the next
+    // eligible visit rather than skipping straight to D3.
     const totalDoses = getTotalDoses(vk, rec, fcBrands);
+    const givenCountable = (hist[vk] || []).filter(d => d && d.given).length;
+    const lastGivenPeek = (hist[vk] || []).filter(d => d && d.given && d.date).slice(-1)[0];
+    let lastGivenAgeM = null;
+    if (lastGivenPeek && dob) {
+      const ageDays = (new Date(lastGivenPeek.date) - new Date(dob)) / 86400000;
+      lastGivenAgeM = ageDays / 30.4;
+    }
+    const lastDoseAtCurrentVisit =
+      lastGivenAgeM !== null && Math.abs(lastGivenAgeM - am) < 0.75;
+    const startDose = lastDoseAtCurrentVisit ? givenCountable : rec.doseNum;
     if (startDose >= totalDoses) continue; // series complete after this dose
 
-    // Has the provider selected a brand at any visit for this vaccine?
-    // Check current visit first, then any future visit
-    let selectedVisitIdx = -1;
-    const currVisit = currVisitIdx >= 0 ? FORECAST_VISITS[currVisitIdx] : null;
-    if (currVisit && fcBrands[`${currVisit.m}_${vk}`]) {
-      selectedVisitIdx = currVisitIdx;
+    // Anchor: start from the most recent given historical dose if available,
+    // else from the earliest visit where a brand was selected for this vk,
+    // else from the current visit.
+    let prevAge, prevDate, prevVisitIdx;
+
+    const givenHist = (hist[vk] || []).filter(d => d && d.given && d.date);
+    const lastGiven = givenHist.length ? givenHist[givenHist.length - 1] : null;
+
+    // If this is a "seed" rec for a vaccine that hasn't started yet, anchor
+    // projection at the future visit where D1 will first be given.
+    if (rec._seedVisitIdx != null) {
+      const seedVisit = FORECAST_VISITS[rec._seedVisitIdx];
+      prevAge = seedVisit.m;
+      prevDate = dob ? addD(dob, Math.round(prevAge * 30.4)) : "";
+      prevVisitIdx = rec._seedVisitIdx;
+    } else if (lastGiven && dob) {
+      // Compute age in months at the given dose date
+      const doseDate = lastGiven.date;
+      const ageDays = (new Date(doseDate) - new Date(dob)) / (1000 * 60 * 60 * 24);
+      prevAge = Math.max(0, ageDays / 30.4);
+      prevDate = doseDate;
+      // Find the visit slot closest to this age
+      prevVisitIdx = -1;
+      for (let i = FORECAST_VISITS.length - 1; i >= 0; i--) {
+        if (FORECAST_VISITS[i].m <= prevAge + 0.5) { prevVisitIdx = i; break; }
+      }
+      if (prevVisitIdx < 0) prevVisitIdx = 0;
     } else {
-      // Check future visits for a brand selection
-      for (let i = (currVisitIdx >= 0 ? currVisitIdx + 1 : 0); i < FORECAST_VISITS.length; i++) {
-        if (fcBrands[`${FORECAST_VISITS[i].m}_${vk}`]) {
-          selectedVisitIdx = i;
-          break;
+      // Fall back: look for an fcBrands selection at current or future visit
+      let selectedVisitIdx = -1;
+      const currVisit = currVisitIdx >= 0 ? FORECAST_VISITS[currVisitIdx] : null;
+      if (currVisit && fcBrands[`${currVisit.m}_${vk}`]) {
+        selectedVisitIdx = currVisitIdx;
+      } else {
+        for (let i = (currVisitIdx >= 0 ? currVisitIdx : 0); i < FORECAST_VISITS.length; i++) {
+          if (fcBrands[`${FORECAST_VISITS[i].m}_${vk}`]) { selectedVisitIdx = i; break; }
         }
       }
+      // If no selection either, use current visit as default anchor
+      if (selectedVisitIdx === -1) selectedVisitIdx = currVisitIdx >= 0 ? currVisitIdx : 0;
+      const selectedVisit = FORECAST_VISITS[selectedVisitIdx];
+      prevAge = selectedVisit.m;
+      prevDate = dob ? addD(dob, Math.round(prevAge * 30.4)) : "";
+      prevVisitIdx = selectedVisitIdx;
     }
-
-    // Only project if the provider has selected a brand (opted in)
-    if (selectedVisitIdx === -1) continue;
-
-    // Determine the "give date" for the selected dose
-    const selectedVisit = FORECAST_VISITS[selectedVisitIdx];
-    let prevAge = selectedVisit.m; // age in months when dose would be given
-    let prevDate = dob ? addD(dob, Math.round(prevAge * 30.4)) : "";
-    let prevVisitIdx = selectedVisitIdx;
 
     // Project each subsequent dose — each must go to a distinct later visit
     for (let d = startDose + 1; d <= totalDoses; d++) {
@@ -124,7 +182,12 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands) {
       }
 
       const planKey = `${visit.m}_${vk}`;
-      plan[planKey] = { dueDate, dueAge: actualAge, doseNum: d, projected: true };
+      // Carry the series total from the initial (anchor) rec so downstream
+      // renderers show a stable "Dose N of Total". Without this, a projected
+      // HPV D2 at the 16y visit would re-evaluate totalDoses against that
+      // visit's age (≥15y → 3-dose) and display "Dose 2 of 3" even though
+      // the series was started <15y as a 2-dose series.
+      plan[planKey] = { dueDate, dueAge: actualAge, doseNum: d, projected: true, totalDoses };
 
       // Update prev for next iteration — use visit age for proper interval spacing
       prevVisitIdx = visitIdx;
@@ -137,7 +200,7 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands) {
 }
 
 /** Get total doses in series for a vaccine, accounting for brand/age */
-function getTotalDoses(vk, rec, fcBrands) {
+export function getTotalDoses(vk, rec, fcBrands) {
   switch (vk) {
     case "HepB": return 3;
     case "RSV": return 1;
@@ -159,7 +222,14 @@ function getTotalDoses(vk, rec, fcBrands) {
     case "VAR": return 2;
     case "HepA": return 2;
     case "Tdap": return 1;
-    case "HPV": return rec.dose?.includes("2 of 2") || rec.dose?.includes("2-dose") ? 2 : 3;
+    case "HPV": {
+      // Per ACIP: 2-dose series if starting <15y AND not immunocompromised; 3-dose otherwise.
+      // The rec carries doseNum+note; seed recs emitted at the first eligible visit (~11–12y)
+      // are always <15y start, so default to 2-dose unless the note explicitly flags 3-dose.
+      if (rec.dose?.includes("2 of 2") || rec.dose?.includes("2-dose")) return 2;
+      if (rec.dose?.includes("3 of 3") || rec.dose?.includes("3-dose") || rec.note?.includes("3-dose")) return 3;
+      return 2;
+    }
     case "MenACWY": return 2;
     case "MenB": return 2; // simplified; Trumenba can be 3
     default: return 1;

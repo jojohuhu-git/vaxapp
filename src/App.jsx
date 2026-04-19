@@ -66,7 +66,6 @@ function AppInner() {
           color: "#0E4A30",
           lineHeight: 1.5,
         }}>
-          <span style={{ fontSize: 18, flexShrink: 0 }}>&#x1F4CB;</span>
           <div style={{ flex: 1 }}>
             <strong>PediVax Clinical Vaccine Planner</strong> &mdash; Enter the patient&apos;s age, vaccination history, and risk factors. The engine generates recommendations, regimen options, and a full forecast aligned with the 2025 CDC/ACIP immunization schedule.
           </div>
@@ -87,14 +86,14 @@ function AppInner() {
           <PatientInfo />
           <div className="card">
             <div className="ctitle">
-              <span>&#x1F4C5;</span> Vaccination History
+              Vaccination History
             </div>
             <QuickAdd />
             <HistoryTable />
           </div>
           <div className="card">
             <div className="ctitle">
-              <span>&#x2699;&#xFE0F;</span> Schedule Review
+              Schedule Review
             </div>
             <AuditPanel />
             <RiskGrid />

@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer } from 'react';
 import { VAX_KEYS, COMBO_COVERS, COMBOS, VBR } from '../data/vaccineData.js';
+import { FORECAST_VISITS } from '../data/forecastData.js';
 
 // ── Initial state ──────────────────────────────────────────────
 function initHist() {
@@ -177,45 +178,88 @@ function reducer(state, action) {
 
     case "FC_BRAND_CHANGE": {
       const { visitM, vk, brandName } = action.payload;
-      const key = `${visitM}_${vk}`;
-      let nextFc = { ...state.fcBrands, [key]: brandName };
+      let nextFc = { ...state.fcBrands };
 
-      // Clear other visits' selections for the same vaccine so projections reset
+      const oldBrand = state.fcBrands[`${visitM}_${vk}`] || "";
+      const oldComboName = Object.keys(COMBO_COVERS).find(c => oldBrand.startsWith(c));
+
+      // Step 1: Clear entries for this vaccine AT OR AFTER this visit only
+      // (preserve earlier-visit selections — e.g. D1 Penbraya stays when D2 changes)
       for (const k of Object.keys(nextFc)) {
-        if (k !== key && k.endsWith(`_${vk}`)) {
-          delete nextFc[k];
-        }
+        if (k.endsWith(`_${vk}`) && parseInt(k.split("_")[0], 10) >= visitM) delete nextFc[k];
       }
 
-      // If the selected brand is a combo, auto-fill sibling brands for same visit
-      const comboName = Object.keys(COMBO_COVERS).find(c => brandName.startsWith(c));
-      if (comboName && COMBOS[comboName]) {
-        const comboLabel = `${comboName} (covers ${COMBOS[comboName].c.join(" + ")})`;
-        const siblings = COMBO_COVERS[comboName].filter(v => v !== vk);
-        for (const sibVk of siblings) {
-          const sibKey = `${visitM}_${sibVk}`;
-          nextFc = { ...nextFc, [sibKey]: comboLabel };
-        }
-      }
-
-      // If old brand was a combo, clear siblings that were auto-filled with old combo
-      // and set them to their first standalone brand
-      const oldBrand = state.fcBrands[key] || "";
-      const oldCombo = Object.keys(COMBO_COVERS).find(c => oldBrand.startsWith(c));
-      if (oldCombo && oldCombo !== comboName) {
-        const oldSiblings = COMBO_COVERS[oldCombo].filter(v => v !== vk);
+      // Step 2: If old brand was a combo, clear sibling entries at or after this visit
+      // that were set by old combo
+      if (oldComboName) {
+        const oldSiblings = COMBO_COVERS[oldComboName].filter(v => v !== vk);
         for (const sibVk of oldSiblings) {
-          const sibKey = `${visitM}_${sibVk}`;
-          const sibVal = nextFc[sibKey] || "";
-          if (sibVal.startsWith(oldCombo)) {
-            const standalone = (VBR[sibVk]?.s || [])[0] || "";
-            nextFc = { ...nextFc, [sibKey]: standalone };
+          for (const k of Object.keys(nextFc)) {
+            if (
+              k.endsWith(`_${sibVk}`) &&
+              parseInt(k.split("_")[0], 10) >= visitM &&
+              (nextFc[k] || "").startsWith(oldComboName)
+            ) {
+              delete nextFc[k];
+            }
           }
+        }
+      }
+
+      // Step 3: If brand cleared (empty), we're done — return cascade-cleared state
+      if (!brandName) {
+        return { ...state, fcBrands: nextFc };
+      }
+
+      // Step 4: Determine new brand's combo info
+      const newComboName = Object.keys(COMBO_COVERS).find(c => brandName.startsWith(c));
+      const newComboData = newComboName ? COMBOS[newComboName] : null;
+
+      // Helper: is this brand valid at the given visit age?
+      const brandValidAtVisit = (visitAge) => {
+        if (newComboData) {
+          const propMax = newComboData.propagateMaxM ?? newComboData.maxM;
+          return visitAge >= newComboData.minM && visitAge <= propMax;
+        }
+        return true; // standalone brands propagate to all future visits
+      };
+
+      // Step 5: Set brand at selected visit + propagate forward
+      nextFc[`${visitM}_${vk}`] = brandName;
+      FORECAST_VISITS.forEach(v => {
+        if (v.m > visitM && v.std.includes(vk) && brandValidAtVisit(v.m)) {
+          nextFc[`${v.m}_${vk}`] = brandName;
+        }
+      });
+
+      // Step 6: If combo, set siblings at selected visit + propagate forward
+      if (newComboName && newComboData) {
+        const comboLabel = brandName.startsWith(`${newComboName} (covers`)
+          ? brandName
+          : `${newComboName} (covers ${newComboData.c.join(" + ")})`;
+        const siblings = COMBO_COVERS[newComboName].filter(v => v !== vk);
+
+        for (const sibVk of siblings) {
+          // Clear all entries for this sibling (so old selections don't persist)
+          for (const k of Object.keys(nextFc)) {
+            if (k.endsWith(`_${sibVk}`)) delete nextFc[k];
+          }
+          // Set at selected visit
+          nextFc[`${visitM}_${sibVk}`] = comboLabel;
+          // Propagate to future visits for sibling
+          FORECAST_VISITS.forEach(v => {
+            if (v.m > visitM && v.std.includes(sibVk) && brandValidAtVisit(v.m)) {
+              nextFc[`${v.m}_${sibVk}`] = comboLabel;
+            }
+          });
         }
       }
 
       return { ...state, fcBrands: nextFc };
     }
+
+    case "RESET_FORECAST":
+      return { ...state, fcBrands: {} };
 
     case "QUICK_ADD": {
       const { targets, mode, date, ageDays } = action.payload;

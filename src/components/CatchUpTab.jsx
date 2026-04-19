@@ -1,6 +1,7 @@
 import { MIN_INT } from '../data/scheduleRules';
 import { VAX_META, VAX_KEYS } from '../data/vaccineData';
 import { REFS } from '../data/refs';
+import { brandAgeNotesFor } from '../data/brandAgeNotes';
 
 export default function CatchUpTab() {
   return (
@@ -60,6 +61,29 @@ export default function CatchUpTab() {
             })}
           </tbody>
         </table>
+      </div>
+
+      <div style={{ marginTop: 16, padding: 12, background: "#f8f6ef", border: "1px solid #e0d9c0", borderRadius: 6, fontSize: 11, lineHeight: 1.55, color: "#3d3423" }}>
+        <div style={{ fontWeight: 700, marginBottom: 6, color: "#6b4e00" }}>
+          Brand-specific minimum ages (FDA label)
+        </div>
+        <div style={{ marginBottom: 4, color: "#6b4e00", fontSize: 10 }}>
+          The table above lists vaccine-level minimum ages from the ACIP catch-up schedule.
+          Individual brands within a vaccine may have <strong>narrower</strong> approved age ranges —
+          always confirm the brand you administer is labeled for the patient's age.
+        </div>
+        <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+          {brandAgeNotesFor(VAX_KEYS).map((n, i) => (
+            <li key={i}>
+              <span dangerouslySetInnerHTML={{ __html: n.html }} />
+              {n.refUrl && (
+                <span style={{ fontSize: 10, marginLeft: 6 }}>
+                  [<a href={n.refUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9" }}>{n.refLabel}</a>]
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

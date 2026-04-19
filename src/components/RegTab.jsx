@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { buildRegimens } from '../logic/regimens';
 import { analyzeCombo } from '../logic/comboAnalyzer';
 import { VAX_META, COMBOS } from '../data/vaccineData';
+import { brandAgeNotesFor } from '../data/brandAgeNotes';
 
 export default function RegTab({ recs }) {
   const { state, dispatch } = useApp();
@@ -10,7 +11,31 @@ export default function RegTab({ recs }) {
 
   const regimens = buildRegimens(recs, state.am);
 
-  const needed = recs.filter(r => r.status === "due" || r.status === "catchup").map(r => r.vk);
+  // Same inclusion set as the regimen optimizer: every rec that represents a
+  // dose to administer at this visit, including risk-based (e.g. asplenia
+  // MenACWY/MenB at 10y) and recommended (shared-decision MenB, annual COVID).
+  const ADMIN_STATUSES = new Set(["due", "catchup", "risk-based", "recommended"]);
+  const adminRecs = recs.filter(r => ADMIN_STATUSES.has(r.status));
+  const needed = [...new Set(adminRecs.map(r => r.vk))];
+  // Max dose number being given per vk — used to gate dose-limited combos
+  // (Vaxelis doses 1–3; Kinrix/Quadracel DTaP D5 + IPV D4).
+  const doseNumByVk = {};
+  for (const r of adminRecs) {
+    if (r.doseNum != null) doseNumByVk[r.vk] = Math.max(doseNumByVk[r.vk] ?? 0, r.doseNum);
+  }
+  function comboAllowedByDose(name, c) {
+    if (name === "Vaxelis") {
+      for (const v of c.c) {
+        if (needed.includes(v) && (doseNumByVk[v] ?? 0) >= 4) return false;
+      }
+    }
+    if (name === "Kinrix" || name === "Quadracel") {
+      const dt = doseNumByVk.DTaP, ipv = doseNumByVk.IPV;
+      if (dt != null && dt !== 5) return false;
+      if (ipv != null && ipv !== 4) return false;
+    }
+    return true;
+  }
 
   function handleAnalyze() {
     const result = analyzeCombo(state.custSel, state.am);
@@ -68,8 +93,8 @@ export default function RegTab({ recs }) {
       {(() => {
         const am = state.am;
         const allCombos = Object.entries(COMBOS).filter(([name, c]) => {
-          if (name === "Vaxelis" && am >= 12) return false;
           if (am < c.minM || am > c.maxM) return false;
+          if (!comboAllowedByDose(name, c)) return false;
           return c.c.some(v => needed.includes(v));
         });
         if (!allCombos.length) return null;
@@ -161,6 +186,32 @@ export default function RegTab({ recs }) {
                 )}
               </div>
             ))}
+            {(() => {
+              const brandNotes = brandAgeNotesFor(state.custSel);
+              if (!brandNotes.length) return null;
+              return (
+                <>
+                  <div style={{ fontWeight: 700, marginTop: 10, marginBottom: 6 }}>
+                    Brand-Specific Minimum Ages (FDA label)
+                  </div>
+                  <div style={{ fontSize: 10, color: "#6b4e00", marginBottom: 6 }}>
+                    Vaccine-level minimum ages from the ACIP catch-up schedule are shown above.
+                    Individual brands may have <strong>narrower</strong> approved age ranges — always confirm
+                    the brand you administer is labeled for the patient's age.
+                  </div>
+                  {brandNotes.map((n, ni) => (
+                    <div key={ni} style={{ marginBottom: 5 }}>
+                      <span dangerouslySetInnerHTML={{ __html: n.html }} />
+                      {n.refUrl && (
+                        <span style={{ fontSize: 10, marginLeft: 6 }}>
+                          [<a href={n.refUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9" }}>{n.refLabel}</a>]
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
             <div style={{ fontWeight: 700, marginTop: 10, marginBottom: 6 }}>Co-Administration Notes</div>
             {analysis.coNotes.map((n, ni) => (
               <div key={ni} style={{ marginBottom: 5 }}>

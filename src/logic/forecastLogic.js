@@ -1,7 +1,37 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  FORECAST LOGIC                                              ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { COMBOS } from '../data/vaccineData.js';
+import { COMBOS, VBR } from '../data/vaccineData.js';
+
+/**
+ * For lock-family vaccines (MenB, RV), return the "antigen family" of a brand
+ * so later doses can be locked to an interchangeable product line.
+ *
+ * MenB:
+ *   - 4C antigen: Bexsero, Penmenvy (GSK) — interchangeable
+ *   - FHbp antigen: Trumenba, Penbraya (Pfizer) — interchangeable
+ *
+ * RV:
+ *   - Rotarix (2-dose), RotaTeq (3-dose) — NOT interchangeable, distinct families.
+ *
+ * @param {string} brand  full brand label
+ * @param {string} vk     vaccine key (MenB, RV, etc.) — determines the grouping axis
+ */
+function brandFamily(brand, vk) {
+  if (!brand) return "";
+
+  // MenB antigen grouping (4C vs FHbp) — pentavalent MenACWYB combos share a
+  // MenB component with specific monovalent products.
+  if (vk === "MenB") {
+    if (brand.startsWith("Bexsero") || brand.startsWith("Penmenvy")) return "MenB-4C";
+    if (brand.startsWith("Trumenba") || brand.startsWith("Penbraya")) return "MenB-FHbp";
+  }
+
+  const comboName = Object.keys(COMBOS).find(c => brand.startsWith(c));
+  if (comboName) return comboName;
+  // Standalone: first word is the family (e.g. "Rotarix", "RotaTeq")
+  return brand.split(/[\s(]/)[0];
+}
 
 /**
  * Returns brands valid for a vaccine at a given visit.
@@ -15,15 +45,42 @@ import { COMBOS } from '../data/vaccineData.js';
  * @param {string[]} dueVksAtVisit - vaccine keys due at this visit
  * @param {string[]} recBrands - brands from the recommendation engine for this vk
  */
-export function orderedBrandsForVisit(vk, doseNum, visitM, dueVksAtVisit, recBrands) {
+export function orderedBrandsForVisit(vk, doseNum, visitM, dueVksAtVisit, recBrands, earlierBrand = "") {
   const seen = new Set();
   const comboOpts = [];
   const standaloneOpts = [];
 
+  // Fallback: if no recBrands supplied (e.g. projected future dose where the
+  // recommendation engine hasn't fired for this visit), use the full brand set
+  // from VBR so the dropdown still offers every age/dose-appropriate option —
+  // including combos whose "other" antigen may already be complete (Kinrix /
+  // Quadracel for DTaP D5 when IPV D4 is already done).
+  if ((!recBrands || !recBrands.length) && VBR[vk]) {
+    recBrands = [...(VBR[vk].s || []), ...(VBR[vk].c || [])];
+  }
+
   // Add combo options from COMBOS that are age-appropriate and cover this vk + at least 1 other due vk
+  // Dose-number gates for combos labeled only for specific doses of `vk`.
+  // Keeps Pediarix/Vaxelis out of DTaP D4+ dropdowns and restricts Kinrix/
+  // Quadracel to DTaP D5 + IPV D4.
+  function comboValidForDose(name) {
+    if ((name === "Vaxelis" || name === "Pediarix") && vk === "DTaP" && doseNum >= 4) return false;
+    if ((name === "Vaxelis" || name === "Pediarix") && vk === "HepB" && doseNum >= 4) return false;
+    if (name === "Vaxelis" && vk === "Hib" && doseNum >= 4) return false;
+    if (name === "Vaxelis" && vk === "IPV" && doseNum >= 4) return false;
+    if (name === "Pediarix" && vk === "IPV" && doseNum >= 4) return false;
+    if (name === "Pentacel" && vk === "Hib" && doseNum >= 4) return false;
+    if ((name === "Kinrix" || name === "Quadracel")) {
+      if (vk === "DTaP" && doseNum !== 5) return false;
+      if (vk === "IPV" && doseNum !== 4) return false;
+    }
+    return true;
+  }
+
   Object.entries(COMBOS).forEach(([name, c]) => {
     if (visitM < c.minM || visitM > c.maxM) return;
     if (!c.c.includes(vk)) return;
+    if (!comboValidForDose(name)) return;
     if (name === "Vaxelis" && visitM >= 12 && vk === "Hib") return;
     const otherDue = c.c.filter(v => v !== vk && dueVksAtVisit.includes(v));
     if (otherDue.length === 0) return;
@@ -54,7 +111,7 @@ export function orderedBrandsForVisit(vk, doseNum, visitM, dueVksAtVisit, recBra
           // Rec-listed combo not in our combo list (maybe doesn't cover another due vk)
           // Still include it since the rec engine approved it
           const c = COMBOS[cn];
-          if (c && visitM >= c.minM && visitM <= c.maxM) {
+          if (c && visitM >= c.minM && visitM <= c.maxM && comboValidForDose(cn)) {
             const label = `${cn} (covers ${c.c.join(" + ")})`;
             if (!seen.has(label)) {
               seen.add(label);
@@ -83,5 +140,17 @@ export function orderedBrandsForVisit(vk, doseNum, visitM, dueVksAtVisit, recBra
     }
   }
 
-  return [...comboOpts, ...standaloneOpts];
+  let result = [...comboOpts, ...standaloneOpts];
+
+  // Non-interchangeable brand enforcement: for VBR entries flagged lock:true
+  // (MenB, RV), once an earlier dose has selected a brand, the remaining doses
+  // must stay within the same brand family.
+  if (earlierBrand && VBR[vk]?.lock) {
+    const fam = brandFamily(earlierBrand, vk);
+    if (fam) {
+      result = result.filter(bo => brandFamily(bo.label, vk) === fam);
+    }
+  }
+
+  return result;
 }

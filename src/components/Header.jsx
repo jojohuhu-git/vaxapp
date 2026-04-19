@@ -14,7 +14,6 @@ export default function Header({ onShare }) {
     <header className="hdr">
       <div className="hdr-in">
         <div className="logo">
-          <div className="logo-ico">&#x1F489;</div>
           <div>
             <h1>PediVax</h1>
             <p>Pediatric Vaccine Clinical Planner</p>
@@ -22,10 +21,10 @@ export default function Header({ onShare }) {
         </div>
         <div className="hdr-btns">
           <button className="hdr-btn" onClick={onShare}>
-            &#x1F517; Share
+            Share
           </button>
           <button className="hdr-btn" onClick={handleReset}>
-            &#x1F504; Reset
+            Reset
           </button>
         </div>
       </div>
