@@ -7,6 +7,7 @@ export const RISK_FACTORS = [
   {id:"travel",l:"International travel (high-risk)"},{id:"alaska_native",l:"American Indian / AK Native"},
   {id:"hcv",l:"Chronic hepatitis C"},{id:"sexual_abuse",l:"Sexual abuse/assault history"},
   {id:"pregnancy",l:"Pregnancy / planning"},{id:"rsv_risk",l:"High-risk infant (preterm/CHD)"},
+  {id:"maternal_rsv",l:"Pregnancy — maternal RSV (Abrysvo, 32\u201336w)"},
   {id:"hsct",l:"HSCT (stem cell transplant)"},{id:"complement",l:"Complement deficiency"},
   {id:"egg_allergy",l:"Egg allergy"},{id:"latex",l:"Latex allergy"},
 ];

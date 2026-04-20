@@ -35,7 +35,7 @@ export const REFS = {
     cdcLabel:"CDC Hib Schedule Notes"
   },
   PCV:     {
-    label:"immunize.org: Pneumococcal — Ask the Experts",
+    label:"immunize.org: Pneumococcal (PCV) — Ask the Experts",
     url:"https://www.immunize.org/ask-experts/topic/pneumococcal/",
     immUrl:"https://www.immunize.org/vaccines/a-z/pneumococcal/",
     immLabel:"immunize.org: Pneumococcal Vaccine Resources",
@@ -153,6 +153,12 @@ export const REFS = {
   brandMix:{
     label:"immunize.org: Combination Vaccines — Ask the Experts",
     url:"https://www.immunize.org/ask-experts/topic/combo-vaccines/"
+  },
+  PPSV23:  {
+    label:"immunize.org: Pneumococcal (PPSV23) — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/pneumococcal/",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo",
+    cdcLabel:"CDC Pneumococcal Schedule Notes"
   },
   ppsv23:  {
     label:"immunize.org: Pneumococcal (PCV/PPSV) — Ask the Experts",

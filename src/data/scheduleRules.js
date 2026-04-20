@@ -5,6 +5,7 @@ export const MIN_INT = {
   DTaP:    {minD:42,   maxD1:null, i:[null,28,28,182,182],   minByDose:[42,null,null,365,1461],    note:"Min age 6 weeks. D4 min age 12 months + 6 months after D3. D5 min age 4 years."},
   Hib:     {minD:42,   maxD1:null, i:[null,28,28,56,null],   minByDose:[42,null,null,365,null],    note:"Min age 6 weeks. Booster (D3 PedvaxHIB / D4 PRP-T) min age 12 months."},
   PCV:     {minD:42,   maxD1:null, i:[null,28,28,56,null],   minByDose:[42,null,null,365,null],    note:"Min age 6 weeks. D4 booster min age 12 months, min 8 weeks after D3."},
+  PPSV23:  {minD:730,  maxD1:null, i:[null,1825,null,null,null], minByDose:[730,null,null,null,null], note:"Min age 2 years. D1 ≥8 weeks after final PCV dose. D2 (asplenia/immunocomp only): min 5 years after D1."},
   IPV:     {minD:42,   maxD1:null, i:[null,28,28,182,null],  minByDose:[42,null,null,1461,null],   note:"Min age 6 weeks. D4 min 6 months after D3, min age 4 years."},
   Flu:     {minD:182,  maxD1:null, i:[null,28,null,null,null],note:"Min age 6 months. First-ever: 2 doses ≥4 weeks apart if <9y."},
   MMR:     {minD:365,  maxD1:null, i:[null,28,null,null,null],note:"Min age 12 months. Travel: dose at 6–11m does not count."},

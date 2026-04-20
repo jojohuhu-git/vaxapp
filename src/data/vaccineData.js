@@ -3,7 +3,8 @@ export const VAX_META = {
   RV:      {n:"Rotavirus",         ab:"RV",      c:"#D85A30"},
   DTaP:    {n:"DTaP",              ab:"DTaP",    c:"#2980b9"},
   Hib:     {n:"Hib",               ab:"Hib",     c:"#8e44ad"},
-  PCV:     {n:"Pneumococcal (PCV/PPSV)", ab:"PCV/PPSV", c:"#c0392b"},
+  PCV:     {n:"Pneumococcal (PCV)", ab:"PCV",     c:"#c0392b"},
+  PPSV23:  {n:"Pneumococcal (PPSV23)", ab:"PPSV23", c:"#922b21"},
   IPV:     {n:"Polio (IPV)",       ab:"IPV",     c:"#27ae60"},
   Flu:     {n:"Influenza",         ab:"Flu",     c:"#e67e22"},
   MMR:     {n:"MMR",               ab:"MMR",     c:"#e74c3c"},
@@ -32,7 +33,8 @@ export const VAX_KEYS = [
   "DTaP",    // 2 months ─┐
   "IPV",     // 2 months  │ combo cluster (Pediarix / Pentacel / Vaxelis / Kinrix / Quadracel)
   "Hib",     // 2 months ─┘
-  "PCV",     // 2 months — moved out from between Hib and IPV
+  "PCV",     // 2 months — conjugate pneumococcal (PCV13/PCV15/PCV20)
+  "PPSV23",  // ≥2 years — polysaccharide pneumococcal (Pneumovax 23), high-risk only
   "MMR",     // 12 months ─┐
   "VAR",     // 12 months ─┘ MMRV combo (ProQuad)
   "HepA",    // 12 months
@@ -53,8 +55,8 @@ export const VBR = { // vaccine brands — combo entries include (contents) for 
     "Prevnar 20 (PCV20) — preferred, covers 20 serotypes",
     "Vaxneuvance (PCV15) — if used, add PPSV23 ≥8 weeks later for high-risk",
     "Prevnar 13 (PCV13) — use only if PCV20/PCV15 unavailable or specific indication",
-    "Pneumovax 23 (PPSV23) — for high-risk ≥2y after PCV series; NOT for routine infant series",
   ], c:[]},
+  PPSV23:  {s:["Pneumovax 23 (PPSV23) — high-risk ≥2y after PCV series; NOT for routine infant schedule"], c:[]},
   IPV:     {s:["IPOL (IPV only)"], c:["Kinrix (DTaP+IPV, 4–6y only)","Pediarix (DTaP+HepB+IPV)","Pentacel (DTaP+IPV+Hib)","Quadracel (DTaP+IPV, 4–6y only)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)"]},
   Flu:     {s:["Flucelvax Quadrivalent (ccIIV4, egg-free)","FluMist Quadrivalent (LAIV4, ≥2y healthy)","IIV4 (any age-appropriate inactivated)"], c:[]},
   MMR:     {s:["M-M-R II (MMR only)","Priorix (MMR only)"], c:["ProQuad (MMR+VAR/MMRV, 12m–12y)"]},
@@ -64,7 +66,7 @@ export const VBR = { // vaccine brands — combo entries include (contents) for 
   HPV:     {s:["Gardasil 9 (HPV, 9-valent)"], c:[]},
   MenACWY: {s:["Menveo (MenACWY-CRM, ≥2m)","MenQuadfi (MenACWY-TT, ≥2y)"], c:["Penbraya (MenACWY+MenB-FHbp, ≥10y)","Penmenvy (MenACWY+MenB-4C, ≥10y)"]},
   MenB:    {s:["Bexsero (MenB-4C)","Trumenba (MenB-FHbp)"], c:["Penbraya (MenACWY+MenB-FHbp, ≥10y)","Penmenvy (MenACWY+MenB-4C, ≥10y)"], lock:true},
-  RSV:     {s:["Beyfortus (nirsevimab, 50mg <5kg / 100mg ≥5kg)"], c:[]},
+  RSV:     {s:["Beyfortus (nirsevimab, 50mg <5kg / 100mg ≥5kg)", "Abrysvo (RSVpreF, maternal vaccine, 32\u201336w gestation)"], c:[]},
   COVID:   {s:["Comirnaty (COVID-19, ≥5y)","mNexspike (COVID-19, ≥12y)","Nuvaxovid (COVID-19, ≥12y, protein subunit)","Spikevax (COVID-19, ≥6mo)"], c:[]},
 };
 

@@ -410,7 +410,7 @@ export default function ForecastTab({ recs }) {
                     // across age-dependent dose counts, e.g. HPV 2-dose started
                     // <15y should stay "of 2" even when D2 lands at 16y).
                     const totalForVk = (proj && proj.totalDoses)
-                      || getTotalDoses(vk, rec || { doseNum, dose: "" }, state.fcBrands);
+                      || getTotalDoses(vk, rec || { doseNum, dose: "" }, state.fcBrands, state.am, validHist);
                     const isAnnual = vk === "Flu" || vk === "COVID";
                     const fmtDose = (n) => {
                       if (isAnnual) return "Annual";
@@ -430,7 +430,11 @@ export default function ForecastTab({ recs }) {
                     let dateLabel = "";
 
                     if (isPast && rec) {
-                      if (currentRecMap[vk]) {
+                      if (dosesGivenHere > 0) {
+                        // A countable dose was administered at this visit — show it as done
+                        chipClass = "fch fch-done";
+                        chipText = `${fmtDose(dosesAtOrBeforeVisit)} done`;
+                      } else if (currentRecMap[vk]) {
                         chipClass = "fch fch-cu";
                         chipText = `${fmtDose(doseNum)} (catch-up)`;
                       } else if (given > 0) {

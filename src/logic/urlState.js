@@ -9,7 +9,7 @@ import { VAX_KEYS } from '../data/vaccineData.js';
  * @returns {string} base64-encoded state string
  */
 export function encState(state) {
-  const p = { v: 2, am: state.am, dob: state.dob, r: state.risks, h: {} };
+  const p = { v: 2, am: state.am, dob: state.dob, r: state.risks, c: state.cd4 ?? null, h: {} };
   VAX_KEYS.forEach(vk => {
     const d = (state.hist[vk] || []).filter(d => d.given);
     if (d.length) p.h[vk] = d.map(d => ({ m: d.mode || "date", d: d.date || "", a: d.ageDays || null, b: d.brand || "" }));
@@ -35,6 +35,7 @@ export function decState(enc) {
       am: p.am || -1,
       dob: p.dob || "",
       risks: p.r || [],
+      cd4: p.c ?? null,
       hist: {},
     };
     VAX_KEYS.forEach(vk => state.hist[vk] = []);

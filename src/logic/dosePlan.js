@@ -17,6 +17,7 @@ const ROUTINE = {
   DTaP:    [2, 4, 6, 15, 54],
   Hib:     [2, 4, 6, 12],   // dose 3 at 6m only for PRP-T; PedvaxHIB skips 6m
   PCV:     [2, 4, 6, 12],
+  PPSV23:  [24],             // risk-based only; min age 2 years
   IPV:     [2, 4, 6, 54],
   Flu:     [6],              // annual, single entry
   MMR:     [12, 54],
@@ -83,13 +84,17 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
     // given until the min-interval elapses. In that case anchor at the number
     // of countable doses already given so the projection emits D2 at the next
     // eligible visit rather than skipping straight to D3.
-    const totalDoses = getTotalDoses(vk, rec, fcBrands);
+    const totalDoses = getTotalDoses(vk, rec, fcBrands, am, hist);
     const givenCountable = (hist[vk] || []).filter(d => d && d.given).length;
-    const lastGivenPeek = (hist[vk] || []).filter(d => d && d.given && d.date).slice(-1)[0];
+    const lastGivenPeek = (hist[vk] || []).filter(d => d && d.given && (d.date || d.ageDays != null)).slice(-1)[0];
     let lastGivenAgeM = null;
-    if (lastGivenPeek && dob) {
-      const ageDays = (new Date(lastGivenPeek.date) - new Date(dob)) / 86400000;
-      lastGivenAgeM = ageDays / 30.4;
+    if (lastGivenPeek) {
+      if (lastGivenPeek.date && dob) {
+        const ageDays = (new Date(lastGivenPeek.date) - new Date(dob)) / 86400000;
+        lastGivenAgeM = ageDays / 30.4;
+      } else if (lastGivenPeek.ageDays != null) {
+        lastGivenAgeM = Number(lastGivenPeek.ageDays) / 30.4;
+      }
     }
     const lastDoseAtCurrentVisit =
       lastGivenAgeM !== null && Math.abs(lastGivenAgeM - am) < 0.75;
@@ -101,7 +106,7 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
     // else from the current visit.
     let prevAge, prevDate, prevVisitIdx;
 
-    const givenHist = (hist[vk] || []).filter(d => d && d.given && d.date);
+    const givenHist = (hist[vk] || []).filter(d => d && d.given && (d.date || d.ageDays != null));
     const lastGiven = givenHist.length ? givenHist[givenHist.length - 1] : null;
 
     // If this is a "seed" rec for a vaccine that hasn't started yet, anchor
@@ -111,12 +116,19 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       prevAge = seedVisit.m;
       prevDate = dob ? addD(dob, Math.round(prevAge * 30.4)) : "";
       prevVisitIdx = rec._seedVisitIdx;
-    } else if (lastGiven && dob) {
-      // Compute age in months at the given dose date
-      const doseDate = lastGiven.date;
-      const ageDays = (new Date(doseDate) - new Date(dob)) / (1000 * 60 * 60 * 24);
-      prevAge = Math.max(0, ageDays / 30.4);
-      prevDate = doseDate;
+    } else if (lastGiven) {
+      // Compute age in months — supports both date-mode (needs DOB) and age-mode (ageDays)
+      if (lastGiven.date && dob) {
+        const ageDays = (new Date(lastGiven.date) - new Date(dob)) / (1000 * 60 * 60 * 24);
+        prevAge = Math.max(0, ageDays / 30.4);
+        prevDate = lastGiven.date;
+      } else if (lastGiven.ageDays != null) {
+        prevAge = Number(lastGiven.ageDays) / 30.4;
+        prevDate = dob ? addD(dob, Number(lastGiven.ageDays)) : "";
+      } else {
+        prevAge = am;
+        prevDate = "";
+      }
       // Find the visit slot closest to this age
       prevVisitIdx = -1;
       for (let i = FORECAST_VISITS.length - 1; i >= 0; i--) {
@@ -200,24 +212,36 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
 }
 
 /** Get total doses in series for a vaccine, accounting for brand/age */
-export function getTotalDoses(vk, rec, fcBrands) {
+export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}) {
   switch (vk) {
-    case "HepB": return 3;
+    case "HepB": {
+      // Heplisav-B is a 2-dose series; all other HepB brands are 3-dose
+      const hbFcBrand = Object.entries(fcBrands).find(([k, v]) => k.endsWith("_HepB") && v);
+      if (hbFcBrand && hbFcBrand[1].startsWith("Heplisav-B")) return 2;
+      const hbHistBrand = (hist.HepB || []).find(d => d.given && d.brand)?.brand;
+      if (hbHistBrand?.startsWith("Heplisav-B")) return 2;
+      return 3;
+    }
     case "RSV": return 1;
     case "RV": {
-      // Check if Rotarix selected anywhere → 2 doses; RotaTeq → 3
-      const rvBrand = Object.entries(fcBrands).find(([k, v]) => k.endsWith("_RV") && v);
-      if (rvBrand && rvBrand[1].includes("Rotarix")) return 2;
+      // Check forecast brand selection first, then fall back to history brand
+      const rvFcBrand = Object.entries(fcBrands).find(([k, v]) => k.endsWith("_RV") && v);
+      if (rvFcBrand && rvFcBrand[1].includes("Rotarix")) return 2;
+      const rvHistBrand = (hist.RV || []).find(d => d.given && d.brand)?.brand;
+      if (rvHistBrand?.startsWith("Rotarix")) return 2;
       return 3;
     }
     case "DTaP": return 5;
     case "Hib": {
-      const hibBrand = Object.entries(fcBrands).find(([k, v]) => k.endsWith("_Hib") && v);
-      if (hibBrand && hibBrand[1].includes("PedvaxHIB")) return 3;
+      const hibFcBrand = Object.entries(fcBrands).find(([k, v]) => k.endsWith("_Hib") && v);
+      if (hibFcBrand && hibFcBrand[1].includes("PedvaxHIB")) return 3;
+      const hibHistBrand = (hist.Hib || []).find(d => d.given && d.brand)?.brand;
+      if (hibHistBrand?.startsWith("PedvaxHIB")) return 3;
       return 4;
     }
     case "PCV": return 4;
-    case "IPV": return 4;
+    case "PPSV23": return 1; // genRecs handles dose 2 separately for asplenia/immunocomp
+    case "IPV": return am >= 216 ? 3 : 4; // adults (≥18y) need only 3-dose catch-up series
     case "MMR": return 2;
     case "VAR": return 2;
     case "HepA": return 2;

@@ -33,6 +33,12 @@ const AGE_OPTIONS = [
 
 export default function PatientInfo() {
   const { state, dispatch } = useApp();
+  const showCD4 = state.risks.includes("hiv");
+  // CD4 threshold depends on age: <14y → CD4 percentage; ≥14y → absolute count
+  const cd4IsPercent = state.am >= 0 && state.am < 168;
+  const cd4Label = cd4IsPercent ? "CD4% (HIV, ages <14y)" : "CD4 count (cells/µL, HIV, ages ≥14y)";
+  const cd4Placeholder = cd4IsPercent ? "e.g. 25" : "e.g. 350";
+  const cd4Threshold = cd4IsPercent ? "≥15% allows live vaccines" : "≥200 allows live vaccines";
 
   return (
     <div className="card">
@@ -77,6 +83,26 @@ export default function PatientInfo() {
           }}
         />
       </div>
+      {showCD4 && (
+        <div className="field">
+          <label htmlFor="cd4-inp">{cd4Label}</label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              id="cd4-inp"
+              type="number"
+              min="0"
+              placeholder={cd4Placeholder}
+              value={state.cd4 ?? ""}
+              onChange={e => {
+                const v = e.target.value;
+                dispatch({ type: "SET_CD4", payload: v === "" ? null : Number(v) });
+              }}
+              style={{ width: 90 }}
+            />
+            <span style={{ fontSize: 10, color: "#666" }}>{cd4Threshold}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@ const INIT = {
   am: -1,
   dob: "",
   risks: [],
+  cd4: null,   // CD4% (<14y) or CD4 count cells/µL (≥14y) for HIV patients
   hist: initHist(),
   tab: "recs",
   filter: "all",
@@ -77,8 +78,13 @@ function reducer(state, action) {
       const risks = state.risks.includes(id)
         ? state.risks.filter(r => r !== id)
         : [...state.risks, id];
-      return { ...state, risks };
+      // Clear CD4 when HIV is unchecked
+      const cd4 = id === "hiv" && state.risks.includes("hiv") ? null : state.cd4;
+      return { ...state, risks, cd4 };
     }
+
+    case "SET_CD4":
+      return { ...state, cd4: action.payload };
 
     case "ADD_DOSE": {
       const { vk } = action.payload;
@@ -289,6 +295,7 @@ function reducer(state, action) {
         am: s.am != null ? s.am : state.am,
         dob: s.dob || state.dob,
         risks: s.risks || state.risks,
+        cd4: s.cd4 ?? null,
         hist,
       };
     }

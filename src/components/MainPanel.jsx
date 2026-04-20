@@ -27,7 +27,10 @@ export default function MainPanel() {
   // like Kinrix IPV <4y) are excluded so the rec engine correctly advances the
   // series instead of treating an invalid dose as complete.
   const validHist = validatedHistory(state.hist, state.dob);
-  const recs = genRecs(state.am, validHist, state.risks, state.dob);
+  const recs = genRecs(state.am, validHist, state.risks, state.dob, {
+    today: new Date().toISOString().slice(0, 10),
+    cd4: state.cd4,
+  });
 
   return (
     <div className="card">

@@ -78,7 +78,7 @@ export function orderedBrandsForVisit(vk, doseNum, visitM, dueVksAtVisit, recBra
   }
 
   Object.entries(COMBOS).forEach(([name, c]) => {
-    if (visitM < c.minM || visitM > c.maxM) return;
+    if (visitM < c.minM || visitM > (c.propagateMaxM ?? c.maxM)) return;
     if (!c.c.includes(vk)) return;
     if (!comboValidForDose(name)) return;
     if (name === "Vaxelis" && visitM >= 12 && vk === "Hib") return;

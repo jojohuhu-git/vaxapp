@@ -24,7 +24,7 @@ export function analyzeCombo(selectedVks, am) {
     constraints.push({ ico: "\u26A0\uFE0F", txt: "MMR + Varicella: ProQuad (MMRV) covers both in one shot. Note: slightly higher febrile seizure risk at 12\u201323 months vs separate injections \u2014 discuss with caregiver.", ref: "CDC MMR Notes", refUrl: "https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mmr" });
   if (selectedVks.includes("MenACWY") && selectedVks.includes("MenB") && am >= 120)
     constraints.push({ ico: "\uD83D\uDCA1", txt: "MenACWY + MenB at \u226510y: Two pentavalent combos cover both in one injection \u2014 Penbraya (Pfizer, MenB-FHbp; interchangeable with Trumenba) or Penmenvy (GSK, MenB-4C; interchangeable with Bexsero). Pick the combo whose MenB component matches the family you intend to complete the series with.", ref: "CDC MenACWY Notes", refUrl: "https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening" });
-  if (selectedVks.includes("HepA") && selectedVks.includes("HepB") && am >= 216)
+  if (selectedVks.includes("HepA") && selectedVks.includes("HepB") && am >= 204)
     constraints.push({ ico: "\uD83D\uDCA1", txt: "HepA + HepB at \u226518y: Twinrix covers both. Available as standard 3-dose (0,1,6m) or accelerated 4-dose series.", ref: "CDC HepA Notes", refUrl: "https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepa" });
 
   // ── Brand-specific FDA age-range constraints ──────────────────
