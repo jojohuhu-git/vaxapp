@@ -469,19 +469,29 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       // Antigen-family awareness: 4C (Bexsero/Penmenvy) vs FHbp (Trumenba/Penbraya).
       const is4C = mb.startsWith("Bexsero") || mb.startsWith("Penmenvy");
       const isFHbp = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
-      r("MenB", `Dose 2 (same antigen family as dose 1${mb ? `: ${mb}` : ""})`, 2, "due",
+      // High-risk FHbp uses the accelerated 3-dose schedule (D2 at 1–2 months);
+      // low-risk FHbp uses the 2-dose schedule (D2 at ≥6 months).
+      const fhbpD2Min = hr ? 28 : 182;
+      r("MenB", `Dose 2 (same antigen family as dose 1${mb ? `: ${mb}` : ""})`, 2, hr ? "risk-based" : "due",
         is4C ? "MenB-4C dose 2: \u22651 month after dose 1. Continue with a 4C product (Bexsero or Penmenvy). Series complete after 2 doses." :
-        isFHbp ? "MenB-FHbp dose 2: \u22656 months after dose 1 (2-dose schedule) or 1\u20132 months (accelerated 3-dose). Continue with an FHbp product (Trumenba or Penbraya)." :
+        isFHbp ? (hr
+          ? "MenB-FHbp high-risk: dose 2 at 1\u20132 months after dose 1 (accelerated 3-dose schedule, 0/1\u20132/6 months). A third dose is required at \u22656 months after dose 1."
+          : "MenB-FHbp dose 2: \u22656 months after dose 1 (2-dose schedule). Continue with an FHbp product (Trumenba or Penbraya).") :
         "Continue with the same antigen family as dose 1.",
         is4C ? ["Bexsero (MenB-4C)", "Penmenvy (MenACWY+MenB-4C)"]
           : isFHbp ? ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp)"]
           : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
-        { minInt: is4C ? 28 : 182 });
+        { minInt: is4C ? 28 : fhbpD2Min });
     } else if (menb === 2) {
       const mb = anyBrand(hist, "MenB");
       const isFHbp2 = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
-      if (isFHbp2) {
-        // Trumenba/Penbraya 3-dose accelerated: dose 3 at ≥6 months after dose 1
+      // Trumenba/Penbraya: high-risk patients need 3-dose accelerated regardless;
+      // low-risk patients on the 2-dose schedule are already complete.
+      if (isFHbp2 && hr) {
+        r("MenB", "Dose 3 of 3 (FHbp accelerated, high-risk)", 3, "risk-based",
+          "MenB-FHbp dose 3: \u22656 months after dose 1 AND \u22654 months after dose 2 (accelerated 3-dose 0/1\u20132/6m schedule). Required for high-risk patients (asplenia, complement deficiency, HIV).",
+          mb ? [mb] : ["Trumenba (MenB-FHbp)"], { minInt: 112 });
+      } else if (isFHbp2) {
         r("MenB", "Dose 3 of 3 (Trumenba/Penbraya accelerated)", 3, "due",
           "MenB-FHbp dose 3: \u22656 months after dose 1 (accelerated schedule). If using 2-dose schedule (\u22656m apart), series is already complete at 2 doses.",
           mb ? [mb] : ["Trumenba (MenB-FHbp)"], { minInt: 112 });

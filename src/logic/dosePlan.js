@@ -5,6 +5,7 @@ import { MIN_INT } from '../data/scheduleRules.js';
 import { FORECAST_VISITS } from '../data/forecastData.js';
 import { addD } from './utils.js';
 import { genRecs } from './recommendations.js';
+import { highRisk } from './stateHelpers.js';
 
 /**
  * Standard routine ages (months) for each dose by vaccine key.
@@ -29,6 +30,14 @@ const ROUTINE = {
   MenB:    [192],            // Routine D1 at 16y. D2 interval is brand-dependent (Bexsero ≥1m, Trumenba ≥6m) so driven by min-interval, not a fixed routine age — otherwise a high-risk 11y start pushes D2 to 17–18y instead of 16y.
   COVID:   [6],              // annual
 };
+
+// Vaccines whose routine ages assume a low-risk start (e.g. MenACWY D2 at 16y,
+// MenB D1 at 16y). For high-risk patients (asplenia, HIV, complement deficiency,
+// HSCT) the schedule is driven by minimum intervals from D1 — a 10-year-old
+// starting the series must get D2 ~8 weeks later, not years later at 16y.
+// Returning null from getRoutineAge for these vaccines lets the projection
+// fall back to interval-only spacing.
+const HIGHRISK_SKIPS_ROUTINE = new Set(["MenACWY", "MenB"]);
 
 /**
  * Given the current state, compute projected future dose schedule.
@@ -84,7 +93,7 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
     // given until the min-interval elapses. In that case anchor at the number
     // of countable doses already given so the projection emits D2 at the next
     // eligible visit rather than skipping straight to D3.
-    const totalDoses = getTotalDoses(vk, rec, fcBrands, am, hist);
+    const totalDoses = getTotalDoses(vk, rec, fcBrands, am, hist, risks);
     const givenCountable = (hist[vk] || []).filter(d => d && d.given).length;
     const lastGivenPeek = (hist[vk] || []).filter(d => d && d.given && (d.date || d.ageDays != null)).slice(-1)[0];
     let lastGivenAgeM = null;
@@ -136,22 +145,26 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       }
       if (prevVisitIdx < 0) prevVisitIdx = 0;
     } else {
-      // Fall back: look for an fcBrands selection at current or future visit
-      let selectedVisitIdx = -1;
-      const currVisit = currVisitIdx >= 0 ? FORECAST_VISITS[currVisitIdx] : null;
-      if (currVisit && fcBrands[`${currVisit.m}_${vk}`]) {
-        selectedVisitIdx = currVisitIdx;
-      } else {
-        for (let i = (currVisitIdx >= 0 ? currVisitIdx : 0); i < FORECAST_VISITS.length; i++) {
-          if (fcBrands[`${FORECAST_VISITS[i].m}_${vk}`]) { selectedVisitIdx = i; break; }
-        }
+      // No prior dose given. Anchor at the patient's ACTUAL current age (am),
+      // not at the most-recent past FORECAST_VISITS slot. Otherwise a 10-year-old
+      // (am=120) starting MenB would anchor at the 4–6y visit (m=54) — pushing
+      // D2 forward by years instead of weeks.
+      //
+      // Important: do NOT shift the anchor based on fcBrands selection. The
+      // brand picker stores the visit slot the user clicked in, but choosing
+      // Penbraya at the 11–12y visit row should not slide D1 to age 11–12y for
+      // a 10-year-old who is due now. fcBrands controls which BRAND to give,
+      // not WHEN to give D1.
+      prevAge = am;
+      prevDate = dob ? addD(dob, Math.round(am * 30.4)) : "";
+      // Find the visit slot at-or-just-before am for interval-based "next visit"
+      // searches. If am sits between visits, prevVisitIdx points to the nearest
+      // visit ≤ am so the projection loop scans forward for slots ≥ dueAge.
+      prevVisitIdx = -1;
+      for (let i = FORECAST_VISITS.length - 1; i >= 0; i--) {
+        if (FORECAST_VISITS[i].m <= am + 0.5) { prevVisitIdx = i; break; }
       }
-      // If no selection either, use current visit as default anchor
-      if (selectedVisitIdx === -1) selectedVisitIdx = currVisitIdx >= 0 ? currVisitIdx : 0;
-      const selectedVisit = FORECAST_VISITS[selectedVisitIdx];
-      prevAge = selectedVisit.m;
-      prevDate = dob ? addD(dob, Math.round(prevAge * 30.4)) : "";
-      prevVisitIdx = selectedVisitIdx;
+      if (prevVisitIdx < 0) prevVisitIdx = 0;
     }
 
     // Project each subsequent dose — each must go to a distinct later visit
@@ -159,8 +172,11 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       const doseIdx = d - 1; // 0-based
       const minInt = getMinInterval(vk, doseIdx, spec, prevAge);
 
-      // Find the next routine visit age for this dose
-      const routineAge = getRoutineAge(vk, d);
+      // Find the next routine visit age for this dose. For high-risk patients,
+      // ignore the routine schedule for vaccines whose default ages assume a
+      // low-risk start (MenACWY booster at 16y, MenB at 16y) — those patients
+      // are driven by minimum intervals from D1, not calendar anchors.
+      const routineAge = getRoutineAge(vk, d, risks);
 
       // Earliest age = max(prevAge + minInterval in months, routine age for this dose)
       const minIntMonths = minInt ? Math.ceil(minInt / 30.4) : 0;
@@ -184,14 +200,24 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       // Use the actual visit age (when the child will be seen) for proper spacing
       const actualAge = Math.max(visit.m, dueAge);
 
-      // Compute date if DOB available
+      // Compute dates if DOB available.
+      // earliestDate = the minimum-interval answer (prevDate + minInt) — i.e.
+      //   the soonest this dose can legally be given regardless of visit schedule.
+      // dueDate      = max(earliestDate, slot-age date) — the "at the next
+      //   scheduled visit that's also past the interval" answer.
       let dueDate = "";
+      let earliestDate = "";
       if (dob && prevDate) {
         const minDate = addD(prevDate, minInt || 28);
         const ageDate = addD(dob, Math.round(actualAge * 30.4));
-        // Use whichever is later
+        earliestDate = minDate;
+        // Use whichever is later for the scheduled-visit date
         dueDate = minDate > ageDate ? minDate : ageDate;
       }
+      // earliestAge — the minimum-interval age in months (pre-slot-snapping).
+      // We store this whether or not DOB is available so the UI can always
+      // show an approximate "can give as early as ~Xy Ym" fallback.
+      const earliestAge = prevAge + minIntMonths; // may be less than actualAge
 
       const planKey = `${visit.m}_${vk}`;
       // Carry the series total from the initial (anchor) rec so downstream
@@ -199,7 +225,11 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       // HPV D2 at the 16y visit would re-evaluate totalDoses against that
       // visit's age (≥15y → 3-dose) and display "Dose 2 of 3" even though
       // the series was started <15y as a 2-dose series.
-      plan[planKey] = { dueDate, dueAge: actualAge, doseNum: d, projected: true, totalDoses };
+      plan[planKey] = {
+        dueDate, dueAge: actualAge,
+        earliestDate, earliestAge,
+        doseNum: d, projected: true, totalDoses,
+      };
 
       // Update prev for next iteration — use visit age for proper interval spacing
       prevVisitIdx = visitIdx;
@@ -211,8 +241,8 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
   return plan;
 }
 
-/** Get total doses in series for a vaccine, accounting for brand/age */
-export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}) {
+/** Get total doses in series for a vaccine, accounting for brand/age/risk */
+export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) {
   switch (vk) {
     case "HepB": {
       // Heplisav-B is a 2-dose series; all other HepB brands are 3-dose
@@ -255,7 +285,30 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}) {
       return 2;
     }
     case "MenACWY": return 2;
-    case "MenB": return 2; // simplified; Trumenba can be 3
+    case "MenB": {
+      // Antigen family + risk determine total doses:
+      //   • MenB-4C (Bexsero, Penmenvy): always 2 doses (≥1m apart)
+      //   • MenB-FHbp (Trumenba, Penbraya):
+      //       – low-risk routine: 2 doses (≥6m apart)
+      //       – high-risk (asplenia, complement, HIV, HSCT, immunocomp):
+      //         3-dose accelerated series (0, 1–2m, 6m)
+      // Determine the family from history brand first, then the most recent
+      // forecast brand selection (use highest visit month so cascading combo
+      // selections agree with the user's most explicit choice).
+      const histMb = (hist.MenB || []).find(d => d.given && d.brand)?.brand || "";
+      let mb = histMb;
+      if (!mb) {
+        const fcMb = Object.entries(fcBrands)
+          .filter(([k, v]) => k.endsWith("_MenB") && v)
+          .sort((a, b) => Number(b[0].split("_")[0]) - Number(a[0].split("_")[0]))[0];
+        if (fcMb) mb = fcMb[1];
+      }
+      const is4C  = mb.startsWith("Bexsero")  || mb.startsWith("Penmenvy");
+      const isFHbp = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
+      if (is4C) return 2;
+      if (highRisk(risks) && (isFHbp || !mb)) return 3;
+      return 2;
+    }
     default: return 1;
   }
 }
@@ -270,13 +323,50 @@ function getMinInterval(vk, doseIdx, spec, ageMonths) {
   return interval || 28;
 }
 
-/** Get the routine age (months) for a given dose number */
-function getRoutineAge(vk, doseNum) {
+/** Get the routine age (months) for a given dose number.
+ * For high-risk vaccines (MenACWY, MenB), high-risk patients should not be
+ * gated by the routine 16y anchor — return null so the projection falls back
+ * to interval-only spacing.
+ */
+function getRoutineAge(vk, doseNum, risks = []) {
+  if (HIGHRISK_SKIPS_ROUTINE.has(vk) && highRisk(risks)) return null;
   const ages = ROUTINE[vk];
   if (!ages || doseNum - 1 >= ages.length) return null;
   return ages[doseNum - 1];
 }
 
+
+/**
+ * Format the earliest-eligible date/age for a projected dose.
+ * Returns a non-empty string only when the earliest eligible date is
+ * meaningfully before the scheduled slot date (gap ≥ 1 month).
+ * When DOB is available, returns a locale date string.
+ * When DOB is absent, returns an approximate age string.
+ * Returns "" when earliest ≈ slot (not worth showing).
+ */
+export function fmtEarliestDate(proj, dob) {
+  if (!proj) return "";
+  // Only surface when there's a real gap (≥ 1 month) between the minimum-
+  // interval date and the projected slot date — avoids cluttering cells where
+  // the slot IS the earliest valid date.
+  const gapMonths = proj.dueAge - (proj.earliestAge ?? proj.dueAge);
+  if (gapMonths < 1) return "";
+
+  if (proj.earliestDate && dob) {
+    return new Date(proj.earliestDate + "T12:00:00").toLocaleDateString("en-US", {
+      month: "short", day: "numeric", year: "numeric",
+    });
+  }
+  if (proj.earliestAge != null) {
+    const m = Math.round(proj.earliestAge);
+    if (m >= 24) {
+      const y = Math.floor(m / 12), mo = m % 12;
+      return `~${y}y${mo ? ` ${mo}m` : ""}`;
+    }
+    return `~${m}m`;
+  }
+  return "";
+}
 
 /**
  * Format a projected date or age for display.

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { fmtDateInput, parseDateInput } from '../logic/utils';
 
@@ -33,6 +34,18 @@ const AGE_OPTIONS = [
 
 export default function PatientInfo() {
   const { state, dispatch } = useApp();
+
+  // Local buffer for the DOB text field. The store holds an ISO date string;
+  // this local state holds whatever the user is currently typing so partial
+  // input (e.g. "04/25/2") doesn't get snapped away on every keystroke.
+  const [dobRaw, setDobRaw] = useState(() => fmtDateInput(state.dob));
+
+  // Keep the local buffer in sync when the store DOB changes externally
+  // (e.g. CLEAR_ALL or RESTORE_STATE).
+  useEffect(() => {
+    setDobRaw(fmtDateInput(state.dob));
+  }, [state.dob]);
+
   const showCD4 = state.risks.includes("hiv");
   // CD4 threshold depends on age: <14y → CD4 percentage; ≥14y → absolute count
   const cd4IsPercent = state.am >= 0 && state.am < 168;
@@ -66,10 +79,13 @@ export default function PatientInfo() {
           id="dob-inp"
           type="text"
           placeholder="MM/DD/YYYY"
-          value={fmtDateInput(state.dob)}
+          value={dobRaw}
           onChange={e => {
             const raw = e.target.value;
-            // Allow typing freely; only parse on complete patterns
+            // Always update local buffer so partial typing (e.g. "04/25/2")
+            // is preserved between keystrokes.
+            setDobRaw(raw);
+            // Eagerly sync to store whenever a complete, valid date is typed.
             const iso = parseDateInput(raw);
             if (iso) {
               dispatch({ type: "SET_DOB", payload: iso });
@@ -78,8 +94,11 @@ export default function PatientInfo() {
             }
           }}
           onBlur={e => {
+            // On blur: attempt final parse and normalize the display value.
             const iso = parseDateInput(e.target.value);
             dispatch({ type: "SET_DOB", payload: iso });
+            // Reformat to canonical MM/DD/YYYY (or clear if invalid).
+            setDobRaw(fmtDateInput(iso));
           }}
         />
       </div>

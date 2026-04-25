@@ -4,7 +4,7 @@ import { VAX_META, COMBO_COVERS, VAX_KEYS } from '../data/vaccineData';
 import { genRecs } from '../logic/recommendations';
 import { orderedBrandsForVisit } from '../logic/forecastLogic';
 import { dc } from '../logic/stateHelpers';
-import { computeDosePlan, fmtProjection, getTotalDoses } from '../logic/dosePlan';
+import { computeDosePlan, fmtProjection, fmtEarliestDate, getTotalDoses } from '../logic/dosePlan';
 import { validatedHistory } from '../logic/validation';
 
 function resolveDropdownBrand(selectedBrand, brandOpts) {
@@ -51,10 +51,11 @@ function buildPatientForecastHTML(state, allVks, recs) {
     if (seen.has(r.vk)) return;
     seen.add(r.vk);
     const name = VAX_META[r.vk]?.n || r.vk;
-    const currVisit = FORECAST_VISITS.find((v, vi) =>
-      v.m === am || (vi < FORECAST_VISITS.length - 1 && am >= v.m && am < FORECAST_VISITS[vi + 1].m)
-    );
-    const fcKey = currVisit ? `${currVisit.m}_${r.vk}` : "";
+    // Brand selections are stored under the patient's actual age (am) when
+    // am doesn't align with a FORECAST_VISITS slot — match the synthetic
+    // "Now" visit used by the rendered table.
+    const exactVisit = FORECAST_VISITS.find(v => v.m === am);
+    const fcKey = exactVisit ? `${exactVisit.m}_${r.vk}` : `${am}_${r.vk}`;
     const selBrand = fcKey ? (state.fcBrands[fcKey] || "") : "";
     const brandStr = selBrand ? selBrand.split(" (")[0] : "";
 
@@ -238,15 +239,50 @@ export default function ForecastTab({ recs }) {
   const planVks = new Set(Object.keys(dosePlan).map(k => k.split("_").slice(1).join("_")));
   recs.forEach(r => planVks.add(r.vk));
 
+  // Build the visits list used for rendering. If the patient's current age
+  // (am) does not align with an existing FORECAST_VISITS slot — e.g. a
+  // 10-year-old (am=120) falls between 4–6y (m=54) and 11–12y (m=132) — the
+  // current visit is rendered as the most recent past slot, which mislabels
+  // the dose timing ("Dose 1 at 4–6 years" for a 10y patient) and hides
+  // recommendations whose age window doesn't include the past slot's age
+  // (e.g. MenB requires am ≥ 120 — invisible at the 4–6y row).
+  //
+  // To fix this without altering FORECAST_VISITS (used by the projection
+  // engine and brand-cascading reducer), we splice in a synthetic "Now (X)"
+  // visit at m=am. The synthetic row owns D1 / current-visit recs at the
+  // patient's actual age. Future visit rows still show projected D2+ via
+  // the dosePlan as before.
+  const ageMatchesVisit = am >= 0 && FORECAST_VISITS.some(v => v.m === am);
+  const synth = (am >= 0 && !ageMatchesVisit) ? {
+    l: am < 12
+      ? `Now (${am}m)`
+      : `Now (${Math.floor(am / 12)}y${am % 12 ? ` ${am % 12}m` : ""})`,
+    m: am,
+    std: VAX_KEYS,            // accept any vk so the "isStd" gate doesn't hide recs
+    _synthetic: true,
+  } : null;
+  const visits = synth
+    ? (() => {
+        const out = [];
+        let inserted = false;
+        for (const v of FORECAST_VISITS) {
+          if (!inserted && v.m > am) { out.push(synth); inserted = true; }
+          out.push(v);
+        }
+        if (!inserted) out.push(synth); // am past last visit
+        return out;
+      })()
+    : FORECAST_VISITS;
+
   // For each vaccine, find the earliest future visit where genRecs first
   // reports the vaccine as due. We render D1 only at that visit and suppress
   // at subsequent visits (the later row becomes "—"). This eliminates
   // duplicate "Dose 1" cells for vaccines like HPV that span a wide
   // catch-up window (e.g., 11–12y and 16y visits).
+  // Uses the augmented `visits` list so the synthetic "Now" row participates.
   const firstFutureVisitForVk = {};
-  FORECAST_VISITS.forEach((v, vi) => {
-    const isVisitCurr = v.m === am || (vi < FORECAST_VISITS.length - 1 && am >= v.m && am < FORECAST_VISITS[vi + 1].m);
-    if (v.m < am || isVisitCurr) return;
+  visits.forEach((v) => {
+    if (v.m <= am) return;
     const vr = genRecs(v.m, validHist, state.risks, state.dob);
     vr.forEach(r => {
       if (firstFutureVisitForVk[r.vk] == null) firstFutureVisitForVk[r.vk] = v.m;
@@ -318,8 +354,11 @@ export default function ForecastTab({ recs }) {
             </tr>
           </thead>
           <tbody>
-            {FORECAST_VISITS.map((visit, vi) => {
-              const isCurr = visit.m === am || (vi < FORECAST_VISITS.length - 1 && am >= visit.m && am < FORECAST_VISITS[vi + 1].m);
+            {visits.map((visit, vi) => {
+              // With the synthetic "Now" row spliced in at m=am, isCurr is now
+              // a strict equality match — no need for the next-visit interval
+              // hack that previously let a 10y patient land on the 4–6y row.
+              const isCurr = visit.m === am;
               const isPast = visit.m < am && !isCurr;
               const rowClass = isCurr ? "curr" : isPast ? "past" : "";
 
@@ -410,7 +449,7 @@ export default function ForecastTab({ recs }) {
                     // across age-dependent dose counts, e.g. HPV 2-dose started
                     // <15y should stay "of 2" even when D2 lands at 16y).
                     const totalForVk = (proj && proj.totalDoses)
-                      || getTotalDoses(vk, rec || { doseNum, dose: "" }, state.fcBrands, state.am, validHist);
+                      || getTotalDoses(vk, rec || { doseNum, dose: "" }, state.fcBrands, state.am, validHist, state.risks);
                     const isAnnual = vk === "Flu" || vk === "COVID";
                     const fmtDose = (n) => {
                       if (isAnnual) return "Annual";
@@ -506,11 +545,23 @@ export default function ForecastTab({ recs }) {
                     const showDropdown = !isPast && (rec || proj) && brandOpts.length > 0
                       && !(isCurr && dosesGivenHere > 0);
 
+                    // Earliest-eligible date: the pure min-interval answer before
+                    // slot-snapping. Only shown for projected doses and only when
+                    // it differs from the slot date by ≥ 1 month.
+                    const earliestLabel = (proj && !isCurr)
+                      ? fmtEarliestDate(proj, state.dob)
+                      : "";
+
                     return (
                       <td key={vk} className="vcell">
                         <div className="fc-cell">
                           <span className={chipClass}>{chipText}</span>
                           {dateLabel && <span className="fc-date">{dateLabel}</span>}
+                          {earliestLabel && (
+                            <span className="fc-earliest" title="Earliest date this dose can be given based on minimum interval">
+                              earliest: {earliestLabel}
+                            </span>
+                          )}
                           {showDropdown && (
                             <select
                               value={displayBrand}
