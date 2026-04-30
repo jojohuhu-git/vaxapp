@@ -9,7 +9,10 @@ import { VAX_KEYS } from '../data/vaccineData.js';
  * @returns {string} base64-encoded state string
  */
 export function encState(state) {
-  const p = { v: 2, am: state.am, dob: state.dob, r: state.risks, c: state.cd4 ?? null, h: {} };
+  // v3 adds `f` (fcBrands) so two clinicians sharing a URL see the same
+  // forecast brand selections — load-bearing because brand drives PPSV23
+  // suppression after PCV20, MenB family, etc.
+  const p = { v: 3, am: state.am, dob: state.dob, r: state.risks, c: state.cd4 ?? null, h: {}, f: state.fcBrands || {} };
   VAX_KEYS.forEach(vk => {
     const d = (state.hist[vk] || []).filter(d => d.given);
     if (d.length) p.h[vk] = d.map(d => ({ m: d.mode || "date", d: d.date || "", a: d.ageDays || null, b: d.brand || "" }));
@@ -37,6 +40,7 @@ export function decState(enc) {
       risks: p.r || [],
       cd4: p.c ?? null,
       hist: {},
+      fcBrands: p.f && typeof p.f === 'object' ? p.f : {},
     };
     VAX_KEYS.forEach(vk => state.hist[vk] = []);
     Object.entries(p.h || {}).forEach(([vk, doses]) => {

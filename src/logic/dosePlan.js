@@ -66,7 +66,11 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
   for (let vi = (currVisitIdx >= 0 ? currVisitIdx + 1 : 0); vi < FORECAST_VISITS.length; vi++) {
     const v = FORECAST_VISITS[vi];
     if (v.m <= am) continue;
-    const vr = genRecs(v.m, hist, risks, dob);
+    // B-8 fix (2026-04-30): pass fcBrands so future-visit genRecs evaluations
+    // see the user's brand selections. Without this, PPSV23 could be seeded
+    // as a future projection even when PCV20 was selected (PCV20 covers
+    // PPSV serotypes; no PPSV23 follow-up needed).
+    const vr = genRecs(v.m, hist, risks, dob, { fcBrands });
     for (const r of vr) {
       if (seededVks.has(r.vk)) continue;
       // Only first-dose emissions can kick off projection of remaining doses.
