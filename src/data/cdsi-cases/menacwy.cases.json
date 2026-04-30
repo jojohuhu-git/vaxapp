@@ -1,0 +1,43 @@
+{
+  "antigen": "MenACWY",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "Meningococcal 2-dose routine, Risk Start 2-23 months, Risk 2-dose",
+  "cases": [
+    {
+      "id": "MENACWY-001",
+      "description": "Routine D1 at 11y (132mo); CDSI minAge 4015d",
+      "patient": { "ageMonths": 132 },
+      "expect": { "rec": { "vk": "MenACWY", "props": { "doseNum": 1, "status": "due" } } },
+      "rationale": "CDSI 2-dose D1 minAgeDays=4015 (11y). Code line 426 fires am 132-144."
+    },
+    {
+      "id": "MENACWY-002",
+      "description": "Routine D2 at 16y (192mo); CDSI minAge 5840d",
+      "patient": { "ageMonths": 192, "dosesGiven": { "MenACWY": 1 } },
+      "expect": { "rec": { "vk": "MenACWY", "props": { "doseNum": 2, "minInt": 56 } } },
+      "rationale": "CDSI 2-dose D2 minAgeDays=5840 (16y); minInterval choices 180d or 56d (the 56d 'from target dose' applies). Code line 430 minInt: 56 — matches."
+    },
+    {
+      "id": "MENACWY-003",
+      "description": "High-risk infant (asplenia) start at 2mo: 3-dose primary",
+      "patient": { "ageMonths": 2, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "MenACWY", "props": { "doseNum": 1, "status": "risk-based" } } },
+      "rationale": "CDSI 'Risk Start 2-23 months' D1 minAge=60d (2mo). Code line 402 fires."
+    },
+    {
+      "id": "MENACWY-004",
+      "description": "High-risk ≥2y unvaccinated: 2-dose primary, ≥8w apart, then boosters every 3-5y",
+      "patient": { "ageMonths": 36, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "MenACWY", "props": { "status": "risk-based" } } },
+      "rationale": "CDSI Risk 2-dose D1 minAgeDays=730 (2y), D2 minInt 56d. Code line 438-442 fires for am>=24 + high-risk."
+    },
+    {
+      "id": "MENACWY-005",
+      "description": "High-risk revaccination every 3-5y after primary series complete",
+      "patient": { "ageMonths": 72, "dosesGiven": { "MenACWY": 2 }, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "MenACWY", "props": { "status": "risk-based" } } },
+      "rationale": "CDSI Risk 2-dose D3 prefInt=1095d (3y). Code line 452-457 fires for high-risk with men>=2."
+    }
+  ],
+  "summary": { "totalRulesAudited": 5, "matches": 5, "conflicts": 0 }
+}

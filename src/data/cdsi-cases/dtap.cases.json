@@ -1,0 +1,94 @@
+{
+  "antigen": "DTaP",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "Pertussis standard series (sourceFile: AntigenSupportingData- Pertussis-508.xlsx)",
+  "auditedAt": "2026-04-27",
+  "auditedFile": "src/logic/recommendations.js",
+  "auditPolicy": "Hard limits (CDSI absolute min/max ages, allowable intervals) are enforced strictly. CDSI 'preferable' age windows that conflict with ACIP/CDC/AAP/immunize.org are resolved in favor of ACIP guidance — see memory/feedback_cdsi_vs_acip.md",
+  "cases": [
+    {
+      "id": "DTAP-001",
+      "description": "Dose 1: code starts at 2mo (ACIP recommended), CDSI absolute minimum is 38d (5.4w with grace)",
+      "patient": { "ageMonths": 1, "dosesGiven": {} },
+      "expect": { "rec": { "vk": "DTaP", "absent": true } },
+      "rationale": "CDSI Pertussis Dose 1 absoluteMinAgeDays=38, minAgeDays=42 (6w), earliestRecAgeDays=60 (2mo). Code uses am>=2 (recommended start). Acceptable per ACIP."
+    },
+    {
+      "id": "DTAP-002",
+      "description": "Dose 2: minimum interval from D1 = 28 days (4 weeks)",
+      "patient": { "ageMonths": 3, "dosesGiven": { "DTaP": 1 } },
+      "expect": { "rec": { "vk": "DTaP", "props": { "doseNum": 2, "minInt": 28 } } },
+      "rationale": "CDSI Dose 2 prefInt minIntervalDays=28. Code matches."
+    },
+    {
+      "id": "DTAP-003",
+      "description": "Dose 4 booster: minimum interval from D3 = 180 days; code uses 182 (26 weeks rounding)",
+      "patient": { "ageMonths": 15, "dosesGiven": { "DTaP": 3 } },
+      "expect": { "rec": { "vk": "DTaP", "props": { "doseNum": 4, "minInt": 182 } } },
+      "rationale": "CDSI=180d, code=182d. Off-by-2-day rounding to 26 weeks. Acceptable."
+    },
+    {
+      "id": "DTAP-004",
+      "description": "Dose 5: minimum age 4 years (1460d / 48 months)",
+      "patient": { "ageMonths": 48, "dosesGiven": { "DTaP": 4 } },
+      "expect": { "rec": { "vk": "DTaP", "props": { "doseNum": 5 } } },
+      "rationale": "CDSI Dose 5 minAgeDays=1460=48mo. Code line 114 fires at am>=48. Matches."
+    },
+    {
+      "id": "DTAP-005",
+      "description": "Pentacel through 6y per ACIP (CDSI 'preferable' caps at 5y; ACIP allows through 6y — ACIP wins)",
+      "patient": { "ageMonths": 70, "dosesGiven": { "DTaP": 3 } },
+      "expect": { "intentionalAcipDivergence": true, "policy": "ACIP > CDSI preferable for age windows" },
+      "rationale": "CDSI Pentacel preferable end age = 5y. ACIP/clinical practice allows through 6y. Per memory/feedback_cdsi_vs_acip.md, ACIP wins for non-hard-limit windows. CDSI 'allowable' has no end age, so the divergence is within CDSI's allowable bounds."
+    },
+    {
+      "id": "DTAP-006",
+      "description": "Vaxelis (CVX 146) FDA-labeled doses 1-3 only — excluded from D4 booster brand list",
+      "patient": { "ageMonths": 15, "dosesGiven": { "DTaP": 3 } },
+      "expect": { "noBrand": "Vaxelis" },
+      "rationale": "CDSI Dose 4 preferable list excludes Vaxelis. Code line 108 booster brands correctly exclude it."
+    },
+    {
+      "id": "DTAP-007",
+      "description": "Pediarix (CVX 110) excluded from Dose 4 booster preferable list per CDSI",
+      "patient": { "ageMonths": 15, "dosesGiven": { "DTaP": 3 } },
+      "expect": { "noBrand": "Pediarix" },
+      "rationale": "CDSI Dose 4 preferable list excludes Pediarix. Code line 108 correctly excludes. Note: 48-83mo catch-up does include Pediarix per ACIP (DTAP-005 same logic)."
+    },
+    {
+      "id": "DTAP-008",
+      "description": "At age ≥7y (≥84mo), DTaP brands are skipped — switch to Tdap (Adacel/Boostrix)",
+      "patient": { "ageMonths": 84, "dosesGiven": { "DTaP": 3 } },
+      "expect": { "noBrand": "Daptacel" },
+      "rationale": "CDSI Pertussis doses 1-5 conditional skip: 'Dose is not required for those 7 years or older'. Code line 121-126 correctly switches to Tdap brands."
+    },
+    {
+      "id": "DTAP-009",
+      "description": "Decennial Tdap/Td booster: 10y routine; 5y for tetanus-prone wound prophylaxis",
+      "patient": { "ageMonths": 216, "dosesGiven": { "Tdap": 1 } },
+      "expect": { "rec": { "vk": "Tdap", "props": { "minInt": 3652 } } },
+      "rationale": "Routine: 10y (3652d) per ACIP. Wound prophylaxis: separate path uses 1826d (5y) when 'wound_prophylaxis' risk is set. CDSI's 180d absolute minimum is more permissive than even ACIP's 5y wound recommendation — CDSI is for emergency clinical scenarios with TIG, not routine wound prophylaxis."
+    },
+    {
+      "id": "DTAP-009b",
+      "description": "Wound prophylaxis path: minInt = 1826d (5 years, ACIP)",
+      "patient": { "ageMonths": 216, "dosesGiven": { "Tdap": 1 }, "riskConditions": ["wound_prophylaxis"] },
+      "expect": { "rec": { "vk": "Tdap", "props": { "minInt": 1826, "status": "risk-based" } } },
+      "rationale": "When 'wound_prophylaxis' risk is set, decennial booster minInt drops to 1826d (5y) per ACIP wound management guidance. Status changes to 'risk-based'."
+    },
+    {
+      "id": "DTAP-010",
+      "description": "Routine Tdap at 11-12y (132-144 mo)",
+      "patient": { "ageMonths": 132, "dosesGiven": {} },
+      "expect": { "rec": { "vk": "Tdap", "props": { "doseNum": 1, "status": "due" } } },
+      "rationale": "CDSI Pertussis Dose 10 minAgeDays=4015 (11y). Code line 342 fires at am 132-144."
+    }
+  ],
+  "summary": {
+    "totalRulesAudited": 11,
+    "matches": 9,
+    "intentionalAcipDivergence": 1,
+    "behaviorAdded": 1,
+    "notes": "DTAP-005 resolved as intentional ACIP-driven divergence. DTAP-009 split into routine (10y) + new wound-prophylaxis path (5y) — added 'wound_prophylaxis' risk condition + dual-path in recommendations.js."
+  }
+}

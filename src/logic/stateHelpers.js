@@ -19,7 +19,10 @@ export const anyBrand = (hist, vk) => {
 };
 
 /** Check if patient is high-risk based on risk factors. */
-export const highRisk = (risks) => risks.some(r => ["asplenia", "hiv", "immunocomp", "hsct", "complement"].includes(r));
+// MenACWY/MenB high-risk indications per ACIP. complement_inhibitor
+// (eculizumab/ravulizumab) and microbiologist with N. meningitidis exposure
+// are added to the canonical set per CDC ACIP recommendations.
+export const highRisk = (risks) => risks.some(r => ["asplenia", "hiv", "immunocomp", "hsct", "complement", "complement_inhibitor", "microbiologist"].includes(r));
 
 /** Grace period constant (days). */
 export const GRACE = 4;

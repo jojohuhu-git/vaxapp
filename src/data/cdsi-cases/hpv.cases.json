@@ -1,0 +1,23 @@
+{
+  "antigen": "HPV",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "Out-of-scope for CDSI extraction (HPV not in 10-antigen audit set), but fix verified against CDC ACIP HPV guidance",
+  "auditedAt": "2026-04-30",
+  "cases": [
+    {
+      "id": "HPV-G1",
+      "description": "Catch-up cutoff at 27y birthday (am=324mo), not 26y birthday (am=312mo)",
+      "patient": { "ageMonths": 320, "dosesGiven": {} },
+      "expect": { "rec": { "vk": "HPV", "props": { "status": "recommended" } } },
+      "rationale": "Bug from great-gates AUDIT G1: previous code `am > 312` made 26y1m-26y11m patients display as 27-45y SCDM. CDC: catch-up through age 26y. Fixed by switching to `am >= 228 && am < 324` for catch-up window. Status 'recommended' (catch-up) — note text varies."
+    },
+    {
+      "id": "HPV-G1b",
+      "description": "27y0m (am=324) → SCDM 27-45y window",
+      "patient": { "ageMonths": 324, "dosesGiven": {} },
+      "expect": { "rec": { "vk": "HPV", "props": { "status": "recommended" } } },
+      "rationale": "At exactly 27y, patient enters SCDM window. Both isCatchup26 and isShared2745 → status 'recommended'. Note: hpvStatus is 'recommended' for both arms; differentiator is the description string."
+    }
+  ],
+  "summary": { "totalRulesAudited": 2, "matches": 2, "conflicts": 0, "bugsFixed": 1, "source": "great-gates AUDIT.md G1" }
+}

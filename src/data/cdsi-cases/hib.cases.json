@@ -1,0 +1,36 @@
+{
+  "antigen": "Hib",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "Hib Start at 2/7/12/15-month series; PRP-OMP 3-dose; Risk series",
+  "cases": [
+    {
+      "id": "HIB-001",
+      "description": "Standard 4-dose: D1 at 2mo, D2 at 4mo, D3 at 6mo, D4 booster at 12-15mo",
+      "patient": { "ageMonths": 2 },
+      "expect": { "rec": { "vk": "Hib", "props": { "doseNum": 1 } } },
+      "rationale": "CDSI Start-at-2mo D1 minAge=42d. Code line 133 fires am>=2."
+    },
+    {
+      "id": "HIB-002",
+      "description": "PRP-OMP (PedvaxHIB): only 3 total doses (no 6mo dose)",
+      "patient": { "ageMonths": 6, "dosesGiven": { "Hib": 2 }, "brands": { "Hib": "PedvaxHIB (PRP-OMP, 3-dose total)" } },
+      "expect": { "rec": { "vk": "Hib", "absent": true } },
+      "rationale": "CDSI PRP-OMP series has 3 doses (D1 6w, D2 10w, D3 12mo). Code line 129 sets hibPrim=2 for PedvaxHIB and only fires hib<hibPrim. With hib=2 already, no D3 at 6mo — correct (D3 is the 12mo booster)."
+    },
+    {
+      "id": "HIB-003",
+      "description": "16-59mo unvaccinated catch-up: 1 dose",
+      "patient": { "ageMonths": 30 },
+      "expect": { "rec": { "vk": "Hib", "props": { "status": "catchup" } } },
+      "rationale": "CDSI 'Start at 12 months 2-dose' series for catch-up start ≥12mo. Code line 149-153 emits 1-dose catch-up at 16-59mo."
+    },
+    {
+      "id": "HIB-004",
+      "description": "HSCT: 3-dose reset post-transplant regardless of prior",
+      "patient": { "ageMonths": 60, "riskConditions": ["hsct"] },
+      "expect": { "rec": { "vk": "Hib", "props": { "doseNum": 1, "status": "risk-based" } } },
+      "rationale": "CDSI Risk 3-dose series: minAgeToStart=42d, 3 doses. Code line 159-163 implements HSCT 3-dose reset."
+    }
+  ],
+  "summary": { "totalRulesAudited": 4, "matches": 4, "conflicts": 0 }
+}

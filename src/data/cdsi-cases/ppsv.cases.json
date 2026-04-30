@@ -1,0 +1,29 @@
+{
+  "antigen": "PPSV23",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "Pneumococcal Risk 6-18 yrs 2-dose PCV-PPSV; Risk 2-5 years 4-dose (PPSV at end)",
+  "cases": [
+    {
+      "id": "PPSV-001",
+      "description": "PPSV23 D1 after PCV15 series complete: ≥8w (56d) interval, min age 2y",
+      "patient": { "ageMonths": 30, "dosesGiven": { "PCV": 4 }, "brands": { "PCV": "Vaxneuvance (PCV15)" }, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "PPSV23", "props": { "doseNum": 1, "status": "risk-based" } } },
+      "rationale": "CDSI 'Risk 2-5 years 4-dose' D4 (PPSV) prefInt=1825d (5y) — but per ACIP the PCV→PPSV interval is 8w. Code line 207-216 enforces 56d (8w) min interval, matches ACIP."
+    },
+    {
+      "id": "PPSV-002",
+      "description": "PPSV23 NOT recommended after PCV20 (PCV20 covers PPSV serotypes)",
+      "patient": { "ageMonths": 30, "dosesGiven": { "PCV": 1 }, "brands": { "PCV": "Prevnar 20 (PCV20) — preferred" }, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "PPSV23", "absent": true } },
+      "rationale": "Code line 209 gates PPSV23 D1 on !usedPCV20. ACIP confirms no PPSV23 follow-up after PCV20."
+    },
+    {
+      "id": "PPSV-003",
+      "description": "PPSV23 D2 only for asplenia/immunocomp/HIV; ≥5y after D1",
+      "patient": { "ageMonths": 132, "dosesGiven": { "PPSV23": 1 }, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "PPSV23", "props": { "doseNum": 2, "minInt": 1825 } } },
+      "rationale": "CDSI Risk 6-18 yrs IC PCV-PPSV-PPSV D3 prefInt=1825d (5y). Code line 218-224 sets minInt: 1825."
+    }
+  ],
+  "summary": { "totalRulesAudited": 3, "matches": 3, "conflicts": 0 }
+}

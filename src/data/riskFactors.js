@@ -9,5 +9,8 @@ export const RISK_FACTORS = [
   {id:"pregnancy",l:"Pregnancy / planning"},{id:"rsv_risk",l:"High-risk infant (preterm/CHD)"},
   {id:"maternal_rsv",l:"Pregnancy — maternal RSV (Abrysvo, 32\u201336w)"},
   {id:"hsct",l:"HSCT (stem cell transplant)"},{id:"complement",l:"Complement deficiency"},
+  {id:"complement_inhibitor",l:"Complement inhibitor (eculizumab/ravulizumab)"},
+  {id:"microbiologist",l:"Microbiologist (N. meningitidis lab exposure)"},
   {id:"egg_allergy",l:"Egg allergy"},{id:"latex",l:"Latex allergy"},
+  {id:"wound_prophylaxis",l:"Tetanus-prone wound (Td/Tdap booster early)"},
 ];

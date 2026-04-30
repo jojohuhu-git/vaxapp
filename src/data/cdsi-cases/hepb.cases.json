@@ -1,0 +1,44 @@
+{
+  "antigen": "HepB",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "HepB 3-dose, 4-dose, CpG 2-dose, Adolescent 2-dose series",
+  "auditedAt": "2026-04-27",
+  "cases": [
+    {
+      "id": "HEPB-001",
+      "description": "Dose 1 at birth (am=0)",
+      "patient": { "ageMonths": 0 },
+      "expect": { "rec": { "vk": "HepB", "props": { "doseNum": 1 } } },
+      "rationale": "CDSI 3-dose D1 minAgeDays=0. Code line 62 fires at am===0."
+    },
+    {
+      "id": "HEPB-002",
+      "description": "Dose 2 minInt = 28d (4 weeks) from D1",
+      "patient": { "ageMonths": 2, "dosesGiven": { "HepB": 1 } },
+      "expect": { "rec": { "vk": "HepB", "props": { "doseNum": 2, "minInt": 28 } } },
+      "rationale": "CDSI D2 prefInt minIntervalDays=28. Code matches."
+    },
+    {
+      "id": "HEPB-003",
+      "description": "Dose 3 minInt = 56d (8w) from D2; final dose minAge = 168d (24w)",
+      "patient": { "ageMonths": 6, "dosesGiven": { "HepB": 2 } },
+      "expect": { "rec": { "vk": "HepB", "props": { "doseNum": 3, "minInt": 56 } } },
+      "rationale": "CDSI D3 prefInt: 56d from prev, also 112d from target D1, minAge 168d. Code line 67 sets minInt: 56."
+    },
+    {
+      "id": "HEPB-004",
+      "description": "Heplisav-B 2-dose series — only ≥18y (6570d)",
+      "patient": { "ageMonths": 216, "dosesGiven": { "HepB": 1 }, "brands": { "HepB": "Heplisav-B (≥18y, 2-dose)" } },
+      "expect": { "rec": { "vk": "HepB", "props": { "doseNum": 2, "minInt": 28 } } },
+      "rationale": "CDSI CpG 2-dose: minAgeToStart 6570d=18y, D2 minInt=28d. Code line 70 detects Heplisav brand and uses 2-dose series."
+    },
+    {
+      "id": "HEPB-005",
+      "description": "Birth dose with risk indication (mother HBsAg+) — note in code mentions HBIG within 12h",
+      "patient": { "ageMonths": 0 },
+      "expect": { "rec": { "vk": "HepB", "props": { "doseNum": 1 } } },
+      "rationale": "Code line 63 mentions HBIG for HBsAg+ mothers. CDSI tracks as conditional via Indication tab. Match."
+    }
+  ],
+  "summary": { "totalRulesAudited": 5, "matches": 5, "conflicts": 0 }
+}

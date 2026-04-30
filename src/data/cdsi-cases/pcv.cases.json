@@ -1,0 +1,43 @@
+{
+  "antigen": "PCV",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "Pneumococcal 4-dose, Start at 12 months, Start at 24 months, Risk 2-5 years 4-dose",
+  "cases": [
+    {
+      "id": "PCV-001",
+      "description": "4-dose primary: D1 at 2mo, D2 at 4mo, D3 at 6mo, D4 booster at 12-15mo",
+      "patient": { "ageMonths": 2 },
+      "expect": { "rec": { "vk": "PCV", "props": { "doseNum": 1 } } },
+      "rationale": "CDSI 4-dose D1 minAge=42d (6w), recAge=60d (2mo). Code line 184."
+    },
+    {
+      "id": "PCV-002",
+      "description": "PCV20 (Prevnar 20): single dose completes series — no PPSV23 needed",
+      "patient": { "ageMonths": 24, "dosesGiven": { "PCV": 1 }, "brands": { "PCV": "Prevnar 20 (PCV20) — preferred" }, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "PCV", "absent": true } },
+      "rationale": "PediVax usedPCV20 logic line 179-181: 1 dose of PCV20 = series complete. CDSI does not enumerate PCV20 separately but ACIP confirms 1-dose PCV20 closes the series for high-risk ≥2y."
+    },
+    {
+      "id": "PCV-003",
+      "description": "Booster at 12-15mo: minInt 56d (8w) after D3",
+      "patient": { "ageMonths": 12, "dosesGiven": { "PCV": 3 } },
+      "expect": { "rec": { "vk": "PCV", "props": { "doseNum": 4 } } },
+      "rationale": "CDSI 4-dose D4 minAge=360d (12mo), prefInt=56d. Code line 188-192."
+    },
+    {
+      "id": "PCV-004",
+      "description": "16-59mo catch-up: min interval 8w between catch-up doses",
+      "patient": { "ageMonths": 24, "dosesGiven": { "PCV": 2 } },
+      "expect": { "rec": { "vk": "PCV", "props": { "minInt": 56, "status": "catchup" } } },
+      "rationale": "CDSI Start-at-12-months D2 prefInt=56d. Code line 193-196 sets minInt: 56."
+    },
+    {
+      "id": "PCV-005",
+      "description": "≥2y high-risk PCV: 1 dose PCV20 (or PCV15 + PPSV23 follow-up)",
+      "patient": { "ageMonths": 24, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "PCV", "props": { "status": "risk-based" } } },
+      "rationale": "CDSI 'Risk 2-5 years 4-dose' starts at 730d (2y). Code line 197-201 emits risk-based PCV at am>=24."
+    }
+  ],
+  "summary": { "totalRulesAudited": 5, "matches": 5, "conflicts": 0 }
+}
