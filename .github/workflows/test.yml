@@ -13,9 +13,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-      - run: npm ci
+      # `npm install` instead of `npm ci` because vitest 4.x and vite 5's
+      # esbuild dependencies have a known peer-version conflict that npm 11
+      # marks "extraneous" locally but `npm ci` rejects in CI. `npm install`
+      # resolves on the fly. TODO: pin compatible vite/vitest versions and
+      # switch back to `npm ci`.
+      - run: npm install --no-audit --no-fund
       - run: npm test
       # Lint intentionally omitted: 85 pre-existing errors in src/. Add back
       # once the codebase passes `npm run lint` cleanly.
