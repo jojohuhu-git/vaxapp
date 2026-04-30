@@ -120,9 +120,9 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       ["Kinrix (DTaP+IPV, 4\u20136y only)", "Quadracel (DTaP+IPV, 4\u20136y only)", "Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"], { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 84 && dt < 5) {
     // ≥7y: use Tdap for any remaining doses
-    r("DTaP", "Catch-up \u2014 Tdap (\u22657 years, use instead of DTaP)", Math.min(dt + 1, 5), "catchup",
-      `At age \u22657 years, Tdap replaces DTaP for catch-up. Give 1 Tdap dose. Complete any remaining tetanus/diphtheria doses with Td at least 4 weeks later. Dose 5 waived if dose 4 given at \u22654y and \u22656m after dose 3.`,
-      ["Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"], { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+    // \u22657y catch-up handled exclusively under vk:"Tdap" (Tdap block below).
+    // Removed duplicative vk:"DTaP" emission that caused dosePlan to project
+    // DTaP doses on future forecast rows for unvaccinated adolescents/adults.
   }
 
   // ── Hib ───────────────────────────────────────────────────────

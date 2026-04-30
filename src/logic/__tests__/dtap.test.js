@@ -47,30 +47,42 @@ describe('DTaP — age cap at 7 years (THE bug that keeps resurfacing)', () => {
   it('84mo (7y), 3 DTaP doses → NO DTaP rec; emits Tdap catch-up instead', () => {
     const p = makePatient({ ageMonths: 84, dosesGiven: { DTaP: 3 } });
     const recs = run(p);
-    // The DTaP rec at this age uses key "DTaP" but the message text references
-    // Tdap. CDC: at ≥7y, do NOT give DTaP brands. The current code emits a
-    // rec under vk="DTaP" with brands restricted to Tdap brands. This test
-    // asserts the brands list contains NO DTaP-only brands.
-    const r = recFor(recs, 'DTaP');
-    expectNoBrand(recs, 'DTaP', 'Daptacel');
-    expectNoBrand(recs, 'DTaP', 'Infanrix');
-    expectNoBrand(recs, 'DTaP', 'Pediarix');
-    expectNoBrand(recs, 'DTaP', 'Pentacel');
-    expectNoBrand(recs, 'DTaP', 'Vaxelis');
-    expectNoBrand(recs, 'DTaP', 'Kinrix');
-    expectNoBrand(recs, 'DTaP', 'Quadracel');
-    // Must include a Tdap brand
-    const hasTdap = r.brands.some(b => b.includes('Adacel') || b.includes('Boostrix'));
-    expect(hasTdap, `Expected Tdap brand in ${JSON.stringify(r.brands)}`).toBe(true);
+    // CDC: at ≥7y, do NOT give DTaP brands. After 2026-04-30 fix, the rec
+    // engine emits NO vk="DTaP" entry at all (previously emitted vk:"DTaP"
+    // with Tdap brands, which polluted the forecast).
+    expect(recs.find(r => r.vk === 'DTaP')).toBeUndefined();
+    const tdap = recs.find(r => r.vk === 'Tdap');
+    expect(tdap, 'Expected Tdap catch-up rec at am=84').toBeDefined();
+    const hasTdapBrand = tdap.brands.some(b => b.includes('Adacel') || b.includes('Boostrix'));
+    expect(hasTdapBrand, `Tdap brands should include Adacel/Boostrix; got ${JSON.stringify(tdap.brands)}`).toBe(true);
   });
 
   it('120mo (10y), 0 DTaP doses → NO DTaP-brand rec; uses Tdap brands', () => {
     const p = makePatient({ ageMonths: 120, dosesGiven: {} });
     const recs = run(p);
     // Adolescent unvaccinated for tetanus. At age ≥7y, Tdap replaces DTaP.
-    expectNoBrand(recs, 'DTaP', 'Daptacel');
-    expectNoBrand(recs, 'DTaP', 'Infanrix');
-    expectNoBrand(recs, 'DTaP', 'Pentacel');
+    expect(recs.find(r => r.vk === 'DTaP')).toBeUndefined();
+    expect(recs.find(r => r.vk === 'Tdap')).toBeDefined();
+  });
+
+  it('120mo (10y), 0 DTaP doses → NO rec keyed under "DTaP" at all (was: emitted with Tdap brands but vk=DTaP, polluting forecast)', () => {
+    // BUG-FORECAST: a vk:"DTaP" rec at age ≥7y caused dosePlan to project
+    // DTaP D2-D5 across future forecast visit rows, even though the actual
+    // recommendation is Tdap. Since the Tdap block at recommendations.js:340+
+    // already handles every am≥84 case, the duplicative DTaP emission was
+    // removed. Lock the absence in.
+    const recs = run(makePatient({ ageMonths: 120 }));
+    const dtapRec = recs.find(r => r.vk === 'DTaP');
+    expect(dtapRec, `Expected NO rec with vk="DTaP" at am=120; got ${JSON.stringify(dtapRec)}`).toBeUndefined();
+    // Tdap rec should still be present (catch-up)
+    const tdapRec = recs.find(r => r.vk === 'Tdap');
+    expect(tdapRec, 'Expected Tdap catch-up rec at am=120').toBeDefined();
+  });
+
+  it('156mo (13y), 4 DTaP doses → NO DTaP rec; Tdap catch-up rec instead', () => {
+    const recs = run(makePatient({ ageMonths: 156, dosesGiven: { DTaP: 4 } }));
+    expect(recs.find(r => r.vk === 'DTaP')).toBeUndefined();
+    expect(recs.find(r => r.vk === 'Tdap')).toBeDefined();
   });
 
   it('216mo (18y), 4 DTaP doses → NO DTaP rec at all', () => {
