@@ -345,6 +345,25 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("Tdap", isPreg ? "Tdap (pregnancy \u2014 27\u201336 weeks each pregnancy)" : "Catch-up Tdap (\u226513 years)", 1, isPreg ? "due" : "catchup",
       isPreg ? "Give 1 dose Tdap during each pregnancy, preferably at 27\u201336 weeks gestation, regardless of prior Tdap history. Protects newborn via maternal antibody transfer (pertussis). Use Adacel or Boostrix." : "Give 1 Tdap if not received. Then Td every 10 years.",
       ["Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"]);
+  } else if (am >= 84 && tdap >= 1 && (dt + tdap) < 3) {
+    // \u22657y catch-up D2/D3 of the 3-dose primary series.
+    // ACIP/CDSI: when an unvaccinated patient \u22657y completes catch-up, they
+    // need 3 doses total: 1 Tdap, then 2 Td (or Tdap), at 4 weeks and
+    // 6 months. The pediatric series counts toward the 3 \u2014 so the gate
+    // is total tetanus-containing doses (dt + tdap) < 3.
+    // D2 minInt = 4 weeks (28d); D3 minInt = 6 months (180d).
+    const completedSoFar = dt + tdap;
+    const isD2 = completedSoFar === 1; // patient has 1 dose total \u2192 next is D2
+    r("Tdap",
+      isD2
+        ? `Catch-up dose 2 of 3 (\u22654 weeks after dose 1)`
+        : `Catch-up dose 3 of 3 (\u22656 months after dose 2)`,
+      tdap + 1, "catchup",
+      isD2
+        ? "ACIP catch-up Table 2: \u22657y patient with incomplete tetanus primary series. Give Td (or Tdap) \u22654 weeks after the prior dose. Then dose 3 at \u22656 months."
+        : "ACIP catch-up Table 2: \u22657y patient. Give the third (final) dose \u22656 months after dose 2. Td or Tdap acceptable.",
+      ["Td (generic)", "Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"],
+      { minInt: isD2 ? 28 : 180, refUrl: REFS.Tdap?.url, refLabel: REFS.Tdap?.label, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am > 144 && tdap >= 1 && isPreg) {
     // Pregnancy: Tdap every pregnancy regardless of prior history
     r("Tdap", "Tdap (pregnancy \u2014 27\u201336 weeks, each pregnancy)", tdap + 1, "due",
@@ -442,9 +461,17 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       menb === 0 ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenB too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenB too (4C family)", "Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"] : ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
       { bt: menb === 0 ? "Penbraya (MenB-FHbp) and Penmenvy (MenB-4C) both cover MenACWY+MenB in one injection. Pick the one whose MenB antigen matches the family you intend to complete the series with (FHbp \u2194 Trumenba, 4C \u2194 Bexsero)." : undefined });
   } else if (am >= 192 && am <= 216 && men === 1) {
+    // B-3 fix (2026-04-30): drop Penbraya/Penmenvy combos when the MenB
+    // series is already complete (menb >= 2). Combos cover MenACWY+MenB,
+    // so they're only useful if a MenB dose is also due. A 16y patient
+    // with completed MenB doesn't need another MenB injection.
+    const menbComplete = menb >= 2;
     r("MenACWY", am <= 204 ? "Booster (16 years)" : "Booster catch-up (17\u201318 years)", 2, "due",
       "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y. High-risk: booster every 3\u20135 years.",
-      ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)", "Penbraya (MenACWY+MenB-FHbp) \u2014 if MenB booster also due", "Penmenvy (MenACWY+MenB-4C) \u2014 if MenB booster also due"], { minInt: 56 });
+      menbComplete
+        ? ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"]
+        : ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)", "Penbraya (MenACWY+MenB-FHbp) \u2014 if MenB also due", "Penmenvy (MenACWY+MenB-4C) \u2014 if MenB also due"],
+      { minInt: 56 });
   } else if (am > 144 && am <= 216 && men === 0) {
     r("MenACWY", am < 192 ? "Catch-up (13\u201315 years)" : "Catch-up (16\u201318 years)", 1, "catchup",
       am < 192 ? "Give 1 dose if not yet received. Booster at 16y if first dose given before 16y." : "Give 1 dose now. If first dose at \u226516y, no booster needed.",

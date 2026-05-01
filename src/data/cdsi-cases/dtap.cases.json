@@ -64,17 +64,17 @@
     },
     {
       "id": "DTAP-009",
-      "description": "Decennial Tdap/Td booster: 10y routine; 5y for tetanus-prone wound prophylaxis",
-      "patient": { "ageMonths": 216, "dosesGiven": { "Tdap": 1 } },
+      "description": "Decennial Tdap/Td booster: 10y routine after primary tetanus series complete",
+      "patient": { "ageMonths": 216, "dosesGiven": { "DTaP": 4, "Tdap": 1 } },
       "expect": { "rec": { "vk": "Tdap", "props": { "minInt": 3652 } } },
-      "rationale": "Routine: 10y (3652d) per ACIP. Wound prophylaxis: separate path uses 1826d (5y) when 'wound_prophylaxis' risk is set. CDSI's 180d absolute minimum is more permissive than even ACIP's 5y wound recommendation — CDSI is for emergency clinical scenarios with TIG, not routine wound prophylaxis."
+      "rationale": "Patient has full pediatric series + adolescent Tdap (5 total tetanus doses). Decennial booster at 10y. Note: a patient with only 1-2 prior doses falls under the catch-up path (4w/6mo intervals), tested separately in tdap.test.js."
     },
     {
       "id": "DTAP-009b",
-      "description": "Wound prophylaxis path: minInt = 1826d (5 years, ACIP)",
-      "patient": { "ageMonths": 216, "dosesGiven": { "Tdap": 1 }, "riskConditions": ["wound_prophylaxis"] },
+      "description": "Wound prophylaxis path: minInt = 1826d (5 years, ACIP) after primary series complete",
+      "patient": { "ageMonths": 216, "dosesGiven": { "DTaP": 4, "Tdap": 1 }, "riskConditions": ["wound_prophylaxis"] },
       "expect": { "rec": { "vk": "Tdap", "props": { "minInt": 1826, "status": "risk-based" } } },
-      "rationale": "When 'wound_prophylaxis' risk is set, decennial booster minInt drops to 1826d (5y) per ACIP wound management guidance. Status changes to 'risk-based'."
+      "rationale": "When 'wound_prophylaxis' risk is set on a patient with completed primary series, decennial interval drops from 10y to 5y per ACIP wound management guidance."
     },
     {
       "id": "DTAP-010",

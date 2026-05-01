@@ -127,6 +127,25 @@ describe('MenACWY/MenB — CDSI golden cases', () => {
   }
 });
 
+describe('MenACWY booster brand list (B-3: drop combos when MenB complete)', () => {
+  it('192mo (16y), MenACWY=1, MenB=0 → booster brand list INCLUDES Penbraya/Penmenvy', () => {
+    const p = makePatient({ ageMonths: 192, dosesGiven: { MenACWY: 1 } });
+    const r = recFor(run(p), 'MenACWY');
+    expect(r.brands.some(b => b.startsWith('Penbraya'))).toBe(true);
+    expect(r.brands.some(b => b.startsWith('Penmenvy'))).toBe(true);
+  });
+
+  it('192mo (16y), MenACWY=1, MenB=2 (complete) → booster brand list EXCLUDES Penbraya/Penmenvy', () => {
+    const p = makePatient({ ageMonths: 192, dosesGiven: { MenACWY: 1, MenB: 2 } });
+    const r = recFor(run(p), 'MenACWY');
+    expect(r.brands.some(b => b.startsWith('Penbraya'))).toBe(false);
+    expect(r.brands.some(b => b.startsWith('Penmenvy'))).toBe(false);
+    // Single-antigen options should still be present
+    expect(r.brands.some(b => b.startsWith('Menveo'))).toBe(true);
+    expect(r.brands.some(b => b.startsWith('MenQuadfi'))).toBe(true);
+  });
+});
+
 describe('MenACWY/MenB — new risk factors (B-A4 harvest)', () => {
   it('120mo complement_inhibitor → MenB rec (high-risk gating)', () => {
     const p = makePatient({ ageMonths: 120, riskConditions: ['complement_inhibitor'] });
