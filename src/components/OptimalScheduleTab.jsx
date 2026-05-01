@@ -124,9 +124,8 @@ function ReviewRow({ rule }) {
 }
 
 const MODES = [
-  { id: 'fewestVisits',       label: 'Fewest visits',       hint: 'Cluster doses within 14 days. Default.' },
-  { id: 'earliestCompletion', label: 'Earliest completion', hint: 'Last dose at the earliest legal date. Algorithmically equivalent to "fewest visits" because every dose is already placed at its earliest legal date.' },
-  { id: 'fewestInjections',   label: 'Fewest injections',   hint: 'Substitute combo brands (Pediarix, Pentacel, Vaxelis, Kinrix, Quadracel, ProQuad, Penbraya, Penmenvy, Twinrix) where age and dose number permit.' },
+  { id: 'fewestVisits',     label: 'Fewest visits',     hint: 'Cluster doses within 14 days. Each dose at earliest legal date — also gives earliest series completion.' },
+  { id: 'fewestInjections', label: 'Fewest injections', hint: 'Substitute combo brands (Pediarix, Pentacel, Vaxelis, Kinrix, Quadracel, ProQuad, Penbraya, Penmenvy, Twinrix) where age and dose number permit.' },
 ];
 
 export default function OptimalScheduleTab() {

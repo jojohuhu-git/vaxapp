@@ -324,21 +324,19 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
 
   // ── Mode: combo substitution for fewestInjections ─────────────────
   // Modes:
-  //   'fewestVisits'         (default) — current greedy clustering.
-  //     Optimization target: minimum number of clinic visits.
-  //   'earliestCompletion'   — algorithmically identical to fewestVisits
-  //     because every dose is already placed at its earliest legal date.
-  //     Exposed as a separate mode for UI clarity; output matches fewestVisits.
-  //   'fewestInjections'     — post-process visits to substitute eligible
-  //     combo brands, reducing the number of physical injections per visit.
-  //     A combo is eligible at a visit if (a) every antigen in the combo's
-  //     coverage list is in that visit, (b) patient age at visit is within
-  //     [minM, maxM] from COMBOS, (c) each covered antigen's doseNum fits
-  //     the combo's labeled range (Vaxelis/Pediarix doses 1–3 only,
-  //     Pentacel doses 1–4, Kinrix/Quadracel only at 4–6y dose 5/4, etc.).
-  //   Greedy picker: per visit, pick the eligible combo with largest
-  //   coverage. Repeat until no more substitutions possible.
-  const mode = opts.mode || 'fewestVisits';
+  //   'fewestVisits'      (default) — greedy: each dose at earliest legal
+  //     date, cluster within 14 days. By construction this also yields
+  //     earliest series completion (the last dose is at its earliest
+  //     legal date), so a separate "earliestCompletion" mode is redundant.
+  //   'fewestInjections'  — post-process visits to substitute eligible
+  //     combo brands. A combo is eligible if (a) every antigen in the
+  //     combo's coverage is in that visit, (b) patient age at visit is
+  //     within [minM, maxM] from COMBOS, (c) each covered antigen's
+  //     doseNum fits the combo's labeled range. Greedy picker: per visit,
+  //     pick the eligible combo with largest coverage. Repeat.
+  // Legacy 'earliestCompletion' alias accepted for backward compatibility
+  // with old saved URLs; treated as 'fewestVisits'.
+  const mode = (opts.mode === 'earliestCompletion') ? 'fewestVisits' : (opts.mode || 'fewestVisits');
   if (mode === 'fewestInjections') {
     for (const v of visits) substituteCombos(v, dob);
   }
