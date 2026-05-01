@@ -457,9 +457,19 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       ["Menveo (MenACWY-CRM, \u22652 months)", "MenQuadfi (MenACWY-TT, \u22652 years)"],
       { minInt: 56, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
   } else if (am >= 132 && am <= 144 && men === 0) {
-    r("MenACWY", "Dose 1 (routine, 11\u201312 years)", 1, "due", "Routine at 11\u201312y. Booster at 16y. Use Penbraya if also starting MenB.",
-      menb === 0 ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenB too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenB too (4C family)", "Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"] : ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { bt: menb === 0 ? "Penbraya (MenB-FHbp) and Penmenvy (MenB-4C) both cover MenACWY+MenB in one injection. Pick the one whose MenB antigen matches the family you intend to complete the series with (FHbp \u2194 Trumenba, 4C \u2194 Bexsero)." : undefined });
+    // Combo brands (Penbraya/Penmenvy cover MenACWY+MenB) are only useful
+    // when MenB is also currently due. Low-risk MenB SCDM gates at 16y, so
+    // for a routine 11-12y MenACWY visit on a low-risk patient, MenB is not
+    // due \u2192 omit combos. High-risk MenB IR gates at 10y \u2192 combos useful.
+    const menbDueAtThisVisit = menb === 0 && hr;
+    r("MenACWY", "Dose 1 (routine, 11\u201312 years)", 1, "due",
+      menbDueAtThisVisit
+        ? "Routine at 11\u201312y. Booster at 16y. Use Penbraya/Penmenvy if also starting MenB."
+        : "Routine at 11\u201312y. Booster at 16y.",
+      menbDueAtThisVisit
+        ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenB too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenB too (4C family)", "Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"]
+        : ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
+      { bt: menbDueAtThisVisit ? "Penbraya (MenB-FHbp) and Penmenvy (MenB-4C) both cover MenACWY+MenB in one injection. Pick the one whose MenB antigen matches the family you intend to complete the series with (FHbp \u2194 Trumenba, 4C \u2194 Bexsero)." : undefined });
   } else if (am >= 192 && am <= 216 && men === 1) {
     // B-3 fix (2026-04-30): drop Penbraya/Penmenvy combos when the MenB
     // series is already complete (menb >= 2). Combos cover MenACWY+MenB,
