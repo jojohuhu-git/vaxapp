@@ -7,9 +7,20 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:related": "vitest related --run",
+    "test:optimal": "node src/logic/buildOptimalSchedule.test.js",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "src/**/*.{js,jsx}": [
+      "vitest related --run"
+    ]
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.5.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -23,6 +34,9 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
     "globals": "^15.11.0",
-    "vite": "^5.4.10"
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "vite": "^5.4.10",
+    "vitest": "^4.1.5"
   }
 }

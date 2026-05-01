@@ -1,0 +1,44 @@
+{
+  "antigen": "RV",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "Rotavirus 2-dose (Rotarix), 3-dose (RotaTeq), Late start at 15 weeks",
+  "auditedAt": "2026-04-30",
+  "cases": [
+    {
+      "id": "RV-001",
+      "description": "2mo, no doses → D1 of 3 (RotaTeq default, brand-aware)",
+      "patient": { "ageMonths": 2 },
+      "expect": { "rec": { "vk": "RV", "props": { "doseNum": 1 } } },
+      "rationale": "CDSI Rotavirus 3-dose D1 minAge=42d (6w). Code line 89 fires am 2-8."
+    },
+    {
+      "id": "RV-002",
+      "description": "4mo, 2 doses with Rotarix → series complete (Rotarix is 2-dose)",
+      "patient": { "ageMonths": 4, "dosesGiven": { "RV": 2 }, "brands": { "RV": "Rotarix (RV1)" } },
+      "expect": { "rec": { "vk": "RV", "absent": true } },
+      "rationale": "CDSI Rotavirus 2-dose has 2 doses total. Code line 88 sets rvMax=2 for Rotarix."
+    },
+    {
+      "id": "RV-003",
+      "description": "After 14 weeks 6 days (105d), NEVER start the series",
+      "patient": { "ageMonths": 4, "dob": "2025-12-23" },
+      "expect": { "rec": { "vk": "RV", "absent": true } },
+      "rationale": "CDSI Rotavirus D1 maxAge=105d (14w6d). Past this age starting RV is contraindicated. Code line 91 uses am>3.5 → no rec when starting late."
+    },
+    {
+      "id": "RV-004",
+      "description": "After 8 months 0 days (~241d), NEVER give any RV dose",
+      "patient": { "ageMonths": 9, "dosesGiven": { "RV": 1 } },
+      "expect": { "rec": { "vk": "RV", "absent": true } },
+      "rationale": "CDSI Rotavirus all doses maxAge=241d (~8m0d). Code line 89 gates am 2-8, so age 9mo+ correctly produces no rec."
+    },
+    {
+      "id": "RV-005",
+      "description": "Immunocompromised: live vaccine — RV contraindicated",
+      "patient": { "ageMonths": 2, "riskConditions": ["immunocomp"] },
+      "expect": { "rec": { "vk": "RV", "absent": true } },
+      "rationale": "Code line 89 includes !risks.includes('immunocomp') gate. Severe immunodeficiency contraindication for live oral vaccine."
+    }
+  ],
+  "summary": { "totalRulesAudited": 5, "matches": 5, "conflicts": 0 }
+}

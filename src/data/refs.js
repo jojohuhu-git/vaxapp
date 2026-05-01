@@ -19,8 +19,10 @@ export const REFS = {
     cdcLabel:"CDC Rotavirus Schedule Notes"
   },
   DTaP:    {
-    label:"immunize.org: DTaP — Ask the Experts",
-    url:"https://www.immunize.org/ask-experts/topic/dtap/",
+    // immunize.org uses 'pertussis' as the topic key for DTaP content
+    // (verified live 2026-04-30; the legacy 'dtap' slug returns 404).
+    label:"immunize.org: Pertussis (DTaP) — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/pertussis/",
     immUrl:"https://www.immunize.org/ask-experts/topic/combo-vaccines/",
     immLabel:"immunize.org: Combination Vaccines — Ask the Experts",
     cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-dtap",
@@ -83,10 +85,12 @@ export const REFS = {
     cdcLabel:"CDC Hepatitis A Schedule Notes"
   },
   Tdap:    {
-    label:"immunize.org: Tdap — Ask the Experts",
-    url:"https://www.immunize.org/ask-experts/topic/tdap/",
-    immUrl:"https://www.immunize.org/vaccines/a-z/pertussis/",
-    immLabel:"immunize.org: Pertussis/Tdap Vaccine Resources",
+    // immunize.org uses 'pertussis' as the topic key for Tdap content
+    // (verified live 2026-04-30; the legacy 'tdap' slug returns 404).
+    label:"immunize.org: Pertussis (Tdap) — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/pertussis/",
+    immUrl:"https://www.immunize.org/ask-experts/topic/pertussis/",
+    immLabel:"immunize.org: Pertussis (Tdap) — Ask the Experts",
     cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-tdap-td",
     cdcLabel:"CDC Tdap/Td Schedule Notes"
   },

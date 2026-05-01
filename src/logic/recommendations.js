@@ -117,12 +117,12 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     // 4–6y with incomplete series: catch-up
     r("DTaP", `Catch-up \u2014 dose ${Math.min(dt + 1, 5)} of 5`, Math.min(dt + 1, 5), "catchup",
       `Incomplete DTaP series. Give remaining doses. Min 4w for early doses; \u22656m for dose 4; dose 5 needed if dose 4 was before age 4y.`,
-      ["Kinrix (DTaP+IPV, 4\u20136y only)", "Quadracel (DTaP+IPV, 4\u20136y only)", "Daptacel (DTaP only)", "Infanrix (DTaP only)"], { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      ["Kinrix (DTaP+IPV, 4\u20136y only)", "Quadracel (DTaP+IPV, 4\u20136y only)", "Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"], { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 84 && dt < 5) {
     // ≥7y: use Tdap for any remaining doses
-    r("DTaP", "Catch-up \u2014 Tdap (\u22657 years, use instead of DTaP)", Math.min(dt + 1, 5), "catchup",
-      `At age \u22657 years, Tdap replaces DTaP for catch-up. Give 1 Tdap dose. Complete any remaining tetanus/diphtheria doses with Td at least 4 weeks later. Dose 5 waived if dose 4 given at \u22654y and \u22656m after dose 3.`,
-      ["Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"], { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+    // \u22657y catch-up handled exclusively under vk:"Tdap" (Tdap block below).
+    // Removed duplicative vk:"DTaP" emission that caused dosePlan to project
+    // DTaP doses on future forecast rows for unvaccinated adolescents/adults.
   }
 
   // ── Hib ───────────────────────────────────────────────────────
@@ -185,12 +185,12 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("PCV", `Dose ${pcv + 1} of 4 (PCV primary, ${am === 2 ? "2" : am === 4 ? "4" : "6"} months)`, pcv + 1, "due", "Primary series at 2, 4, 6 months. Min 4 weeks between doses.", pcvBrands, { minInt: 28, bt: pcvNote, refUrl: REFS.PCV.url, refLabel: REFS.PCV.label });
   } else if (am >= 7 && am <= 11 && pcv < 3) {
     r("PCV", `Catch-up \u2014 PCV dose ${pcv + 1} (7\u201311 months)`, pcv + 1, "catchup", "7\u201311 months behind: give remaining primary doses \u22654 weeks apart. Booster still needed at 12\u201315m.", pcvBrands, { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
-  } else if (am >= 12 && am <= 15 && pcv < 4) {
+  } else if (am >= 12 && am <= 15 && pcv < 4 && !pcvSeriesComplete) {
     const needBooster = pcv >= 3;
     r("PCV", needBooster ? "Dose 4 \u2014 PCV booster (12\u201315 months)" : "Catch-up \u2014 PCV (complete primary + booster)", pcv + 1, needBooster ? "due" : "catchup",
       needBooster ? "Booster dose at 12\u201315 months. Min 8 weeks after dose 3." : "Complete remaining primary doses first (min 4w apart), then booster (min 8w after prior).",
       pcvBrands, { minInt: needBooster ? 56 : 28, bt: pcvNote, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
-  } else if (am >= 16 && am <= 59 && pcv < 4) {
+  } else if (am >= 16 && am <= 59 && pcv < 4 && !pcvSeriesComplete) {
     r("PCV", `Catch-up \u2014 PCV (16\u201359 months)`, pcv + 1, isHighRiskPCV ? "risk-based" : "catchup",
       `Catch-up PCV series. Doses needed: ${4 - pcv}. Min 8 weeks between doses when catching up. ${isHighRiskPCV ? "High-risk: after completing PCV series, add PPSV23 \u22658 weeks later if PCV15 was used (see separate PPSV23 recommendation)." : ""}`,
       pcvBrands, { minInt: 56, bt: pcvNote, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
@@ -345,6 +345,25 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("Tdap", isPreg ? "Tdap (pregnancy \u2014 27\u201336 weeks each pregnancy)" : "Catch-up Tdap (\u226513 years)", 1, isPreg ? "due" : "catchup",
       isPreg ? "Give 1 dose Tdap during each pregnancy, preferably at 27\u201336 weeks gestation, regardless of prior Tdap history. Protects newborn via maternal antibody transfer (pertussis). Use Adacel or Boostrix." : "Give 1 Tdap if not received. Then Td every 10 years.",
       ["Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"]);
+  } else if (am >= 84 && tdap >= 1 && (dt + tdap) < 3) {
+    // \u22657y catch-up D2/D3 of the 3-dose primary series.
+    // ACIP/CDSI: when an unvaccinated patient \u22657y completes catch-up, they
+    // need 3 doses total: 1 Tdap, then 2 Td (or Tdap), at 4 weeks and
+    // 6 months. The pediatric series counts toward the 3 \u2014 so the gate
+    // is total tetanus-containing doses (dt + tdap) < 3.
+    // D2 minInt = 4 weeks (28d); D3 minInt = 6 months (180d).
+    const completedSoFar = dt + tdap;
+    const isD2 = completedSoFar === 1; // patient has 1 dose total \u2192 next is D2
+    r("Tdap",
+      isD2
+        ? `Catch-up dose 2 of 3 (\u22654 weeks after dose 1)`
+        : `Catch-up dose 3 of 3 (\u22656 months after dose 2)`,
+      tdap + 1, "catchup",
+      isD2
+        ? "ACIP catch-up Table 2: \u22657y patient with incomplete tetanus primary series. Give Td (or Tdap) \u22654 weeks after the prior dose. Then dose 3 at \u22656 months."
+        : "ACIP catch-up Table 2: \u22657y patient. Give the third (final) dose \u22656 months after dose 2. Td or Tdap acceptable.",
+      ["Td (generic)", "Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"],
+      { minInt: isD2 ? 28 : 180, refUrl: REFS.Tdap?.url, refLabel: REFS.Tdap?.label, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am > 144 && tdap >= 1 && isPreg) {
     // Pregnancy: Tdap every pregnancy regardless of prior history
     r("Tdap", "Tdap (pregnancy \u2014 27\u201336 weeks, each pregnancy)", tdap + 1, "due",
@@ -352,11 +371,17 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       ["Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"],
       { refUrl: REFS.Tdap?.url, refLabel: REFS.Tdap?.label });
   } else if (am > 144 && tdap >= 1) {
-    // Decennial Td/Tdap booster every 10 years (3652 days)
-    r("Tdap", "Td/Tdap booster (every 10 years)", tdap + 1, "due",
-      "ACIP: after primary Tdap, give a Td or Tdap booster every 10 years. Tdap is preferred when a pertussis-containing booster is clinically indicated.",
+    // Decennial Td/Tdap booster: 10y routine; 5y (\u22656mo per CDSI absolute min)
+    // for tetanus-prone wound prophylaxis per ACIP.
+    const woundProph = risks.includes("wound_prophylaxis");
+    r("Tdap",
+      woundProph ? "Td/Tdap \u2014 wound prophylaxis (\u22655 years since last dose)" : "Td/Tdap booster (every 10 years)",
+      tdap + 1, woundProph ? "risk-based" : "due",
+      woundProph
+        ? "Tetanus-prone wound: give Td or Tdap if it has been \u22655 years since the last tetanus-containing dose (ACIP). For non-prone wounds, the routine 10-year interval still applies."
+        : "ACIP: after primary Tdap, give a Td or Tdap booster every 10 years. Tdap is preferred when a pertussis-containing booster is clinically indicated.",
       ["Td (generic)", "Adacel (Tdap, \u22657y) \u2014 preferred if pertussis boost indicated", "Boostrix (Tdap, \u226510y) \u2014 preferred if pertussis boost indicated"],
-      { minInt: 3652, refUrl: REFS.Tdap?.url, refLabel: REFS.Tdap?.label });
+      { minInt: woundProph ? 1826 : 3652, refUrl: REFS.Tdap?.url, refLabel: REFS.Tdap?.label });
   }
 
   // ── HPV ───────────────────────────────────────────────────────
@@ -377,8 +402,13 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     const hpvDobWarning = (hpv >= 1 && firstHpvAgeDays === null && am >= 180 && !immuno)
       ? " \u26a0\ufe0f Enter date of birth for accurate schedule determination \u2014 without DOB this assumes series started at \u226515y (3-dose). If series actually started before age 15, only 2 doses are needed."
       : "";
-    const isCatchup26 = am > 216 && am <= 312; // 19–26y: catch-up (still strongly recommended)
-    const isShared2745 = am > 312; // 27–45y: shared clinical decision only
+    // 19y = 228mo through 26y11m = 323mo: catch-up (still strongly recommended).
+    // 27y = 324mo through 45y = 540mo: shared clinical decision only.
+    // Bug-fix (great-gates AUDIT G1, 2026-04-30): previous bound `am > 312` (=26y0m)
+    // miscategorized 26y1m–26y11m patients as 27–45y SCDM when they should still
+    // be in catch-up. CDC: catch-up recommended through age 26 years.
+    const isCatchup26 = am >= 228 && am < 324; // 19y–26y11m
+    const isShared2745 = am >= 324; // 27y–45y
     const hpvStatus = (isCatchup26 || isShared2745) ? "recommended" : "due";
     const sharedNote = isShared2745
       ? "ACIP 2019: shared clinical decision-making for ages 27\u201345y. Greatest benefit before first sexual exposure; discuss individual benefit vs cost. 3-dose series."
@@ -398,7 +428,10 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ── MenACWY ───────────────────────────────────────────────────
   const men = dc(hist, "MenACWY"); const menb = dc(hist, "MenB");
   // Infant high-risk MenACWY: asplenia, complement deficiency, HIV — Menveo only ≥2m
-  const isHighRiskMen = risks.some(x => ["asplenia", "complement", "hiv"].includes(x));
+  // ACIP MenACWY high-risk indications: asplenia, complement deficiency,
+  // HIV, complement inhibitor (eculizumab/ravulizumab), microbiologist with
+  // N. meningitidis exposure. Keep aligned with stateHelpers.highRisk().
+  const isHighRiskMen = risks.some(x => ["asplenia", "complement", "complement_inhibitor", "hiv", "microbiologist"].includes(x));
   if (isHighRiskMen && am >= 2 && am < 7 && men < 3) {
     // 4-dose primary series at 2, 4, 6 months for highest-risk infants
     r("MenACWY", `Dose ${men + 1} of 3 (infant high-risk, primary series)`, men + 1, "risk-based",
@@ -424,13 +457,31 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       ["Menveo (MenACWY-CRM, \u22652 months)", "MenQuadfi (MenACWY-TT, \u22652 years)"],
       { minInt: 56, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
   } else if (am >= 132 && am <= 144 && men === 0) {
-    r("MenACWY", "Dose 1 (routine, 11\u201312 years)", 1, "due", "Routine at 11\u201312y. Booster at 16y. Use Penbraya if also starting MenB.",
-      menb === 0 ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenB too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenB too (4C family)", "Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"] : ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { bt: menb === 0 ? "Penbraya (MenB-FHbp) and Penmenvy (MenB-4C) both cover MenACWY+MenB in one injection. Pick the one whose MenB antigen matches the family you intend to complete the series with (FHbp \u2194 Trumenba, 4C \u2194 Bexsero)." : undefined });
+    // Combo brands (Penbraya/Penmenvy cover MenACWY+MenB) are only useful
+    // when MenB is also currently due. Low-risk MenB SCDM gates at 16y, so
+    // for a routine 11-12y MenACWY visit on a low-risk patient, MenB is not
+    // due \u2192 omit combos. High-risk MenB IR gates at 10y \u2192 combos useful.
+    const menbDueAtThisVisit = menb === 0 && hr;
+    r("MenACWY", "Dose 1 (routine, 11\u201312 years)", 1, "due",
+      menbDueAtThisVisit
+        ? "Routine at 11\u201312y. Booster at 16y. Use Penbraya/Penmenvy if also starting MenB."
+        : "Routine at 11\u201312y. Booster at 16y.",
+      menbDueAtThisVisit
+        ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenB too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenB too (4C family)", "Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"]
+        : ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
+      { bt: menbDueAtThisVisit ? "Penbraya (MenB-FHbp) and Penmenvy (MenB-4C) both cover MenACWY+MenB in one injection. Pick the one whose MenB antigen matches the family you intend to complete the series with (FHbp \u2194 Trumenba, 4C \u2194 Bexsero)." : undefined });
   } else if (am >= 192 && am <= 216 && men === 1) {
+    // B-3 fix (2026-04-30): drop Penbraya/Penmenvy combos when the MenB
+    // series is already complete (menb >= 2). Combos cover MenACWY+MenB,
+    // so they're only useful if a MenB dose is also due. A 16y patient
+    // with completed MenB doesn't need another MenB injection.
+    const menbComplete = menb >= 2;
     r("MenACWY", am <= 204 ? "Booster (16 years)" : "Booster catch-up (17\u201318 years)", 2, "due",
       "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y. High-risk: booster every 3\u20135 years.",
-      ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)", "Penbraya (MenACWY+MenB-FHbp) \u2014 if MenB booster also due", "Penmenvy (MenACWY+MenB-4C) \u2014 if MenB booster also due"], { minInt: 56 });
+      menbComplete
+        ? ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"]
+        : ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)", "Penbraya (MenACWY+MenB-FHbp) \u2014 if MenB also due", "Penmenvy (MenACWY+MenB-4C) \u2014 if MenB also due"],
+      { minInt: 56 });
   } else if (am > 144 && am <= 216 && men === 0) {
     r("MenACWY", am < 192 ? "Catch-up (13\u201315 years)" : "Catch-up (16\u201318 years)", 1, "catchup",
       am < 192 ? "Give 1 dose if not yet received. Booster at 16y if first dose given before 16y." : "Give 1 dose now. If first dose at \u226516y, no booster needed.",
@@ -458,7 +509,11 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   }
 
   // ── MenB ──────────────────────────────────────────────────────
-  if (am >= 120) {
+  // High-risk: starts at 10y (am≥120) per CDSI Risk IR series.
+  // Low-risk SCDM: starts at 16y (am≥192) per CDSI MeningococcalB SCDM
+  // series and ACIP shared-clinical-decision-making guidance.
+  const menbStart = hr ? 120 : 192;
+  if (am >= menbStart) {
     if (menb === 0) {
       r("MenB", hr ? "Dose 1 \u2014 risk-based (high-risk)" : "Dose 1 \u2014 shared clinical decision (preferred 16\u201323y)", 1, hr ? "risk-based" : "recommended",
         hr ? "Risk-based for high-risk patients. Bexsero or Penmenvy (MenB-4C): 2 doses (0, \u22651 month apart). Trumenba or Penbraya (MenB-FHbp): 2 doses \u22656m apart (or accelerated 3-dose). Antigen families (4C vs FHbp) are NOT interchangeable." : "Shared clinical decision making, preferred 16\u201318y. MenB-4C (Bexsero/Penmenvy): 2 doses \u22651m apart. MenB-FHbp (Trumenba/Penbraya): 2 doses \u22656m apart (or accelerated 3-dose). Penbraya/Penmenvy if MenACWY also starting.",
@@ -469,22 +524,54 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       // Antigen-family awareness: 4C (Bexsero/Penmenvy) vs FHbp (Trumenba/Penbraya).
       const is4C = mb.startsWith("Bexsero") || mb.startsWith("Penmenvy");
       const isFHbp = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
-      r("MenB", `Dose 2 (same antigen family as dose 1${mb ? `: ${mb}` : ""})`, 2, "due",
+      // High-risk FHbp uses the accelerated 3-dose schedule (D2 at 1–2 months);
+      // low-risk FHbp uses the 2-dose schedule (D2 at ≥6 months).
+      const fhbpD2Min = hr ? 28 : 182;
+      r("MenB", `Dose 2 (same antigen family as dose 1${mb ? `: ${mb}` : ""})`, 2, hr ? "risk-based" : "due",
         is4C ? "MenB-4C dose 2: \u22651 month after dose 1. Continue with a 4C product (Bexsero or Penmenvy). Series complete after 2 doses." :
-        isFHbp ? "MenB-FHbp dose 2: \u22656 months after dose 1 (2-dose schedule) or 1\u20132 months (accelerated 3-dose). Continue with an FHbp product (Trumenba or Penbraya)." :
+        isFHbp ? (hr
+          ? "MenB-FHbp high-risk: dose 2 at 1\u20132 months after dose 1 (accelerated 3-dose schedule, 0/1\u20132/6 months). A third dose is required at \u22656 months after dose 1."
+          : "MenB-FHbp dose 2: \u22656 months after dose 1 (2-dose schedule). Continue with an FHbp product (Trumenba or Penbraya).") :
         "Continue with the same antigen family as dose 1.",
         is4C ? ["Bexsero (MenB-4C)", "Penmenvy (MenACWY+MenB-4C)"]
           : isFHbp ? ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp)"]
           : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
-        { minInt: is4C ? 28 : 182 });
+        { minInt: is4C ? 28 : fhbpD2Min });
     } else if (menb === 2) {
       const mb = anyBrand(hist, "MenB");
       const isFHbp2 = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
-      if (isFHbp2) {
-        // Trumenba/Penbraya 3-dose accelerated: dose 3 at ≥6 months after dose 1
+      // Trumenba/Penbraya: high-risk patients need 3-dose accelerated regardless;
+      // low-risk patients on the 2-dose schedule are already complete.
+      if (isFHbp2 && hr) {
+        r("MenB", "Dose 3 of 3 (FHbp accelerated, high-risk)", 3, "risk-based",
+          "MenB-FHbp dose 3: \u22656 months after dose 1 AND \u22654 months after dose 2 (accelerated 3-dose 0/1\u20132/6m schedule). Required for high-risk patients (asplenia, complement deficiency, HIV).",
+          mb ? [mb] : ["Trumenba (MenB-FHbp)"], { minInt: 112 });
+      } else if (isFHbp2) {
         r("MenB", "Dose 3 of 3 (Trumenba/Penbraya accelerated)", 3, "due",
           "MenB-FHbp dose 3: \u22656 months after dose 1 (accelerated schedule). If using 2-dose schedule (\u22656m apart), series is already complete at 2 doses.",
           mb ? [mb] : ["Trumenba (MenB-FHbp)"], { minInt: 112 });
+      }
+    }
+    // High-risk MenB revaccination after primary series complete.
+    // CDSI MeningococcalB Risk IR: D4 at 365d (1y) after primary, D5+ at
+    // 730d (2y) intervals thereafter. Mirrors MenACWY high-risk revaccination.
+    if (hr) {
+      const mb = anyBrand(hist, "MenB");
+      const isFHbpRev = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
+      const primaryComplete = isFHbpRev ? menb >= 3 : menb >= 2;
+      if (primaryComplete) {
+        // Dose 4 = first revaccination (1y interval); D5+ = ongoing 2y boosters
+        const isFirstRevax = isFHbpRev ? menb === 3 : menb === 2;
+        r("MenB",
+          isFirstRevax
+            ? `Revaccination dose ${menb + 1} (high-risk, 1 year after primary)`
+            : `Revaccination dose ${menb + 1} (high-risk, every 2 years)`,
+          menb + 1, "risk-based",
+          isFirstRevax
+            ? "ACIP/CDSI: high-risk MenB patients (asplenia, complement deficiency, HIV) receive their first booster ~1 year after completing the primary series."
+            : "ACIP/CDSI: high-risk MenB patients receive ongoing boosters every 2 years for as long as elevated risk persists.",
+          mb ? [mb] : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
+          { minInt: isFirstRevax ? 365 : 730, refUrl: REFS.MenB?.url, refLabel: REFS.MenB?.label });
       }
     }
   }

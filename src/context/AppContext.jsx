@@ -297,6 +297,10 @@ function reducer(state, action) {
         risks: s.risks || state.risks,
         cd4: s.cd4 ?? null,
         hist,
+        // B-7 fix (2026-04-30): fcBrands restored from URL share so two
+        // clinicians sharing a URL see identical forecasts. Drives PPSV23
+        // suppression after PCV20 + MenB family selection.
+        fcBrands: s.fcBrands && typeof s.fcBrands === 'object' ? s.fcBrands : {},
       };
     }
 

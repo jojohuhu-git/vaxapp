@@ -1,0 +1,36 @@
+{
+  "antigen": "IPV",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "Polio 4-dose, 5-dose, Adult Catch-up series",
+  "cases": [
+    {
+      "id": "IPV-001",
+      "description": "Dose 1 minAge=42d (6w); code starts at am>=2 (recommended 2mo)",
+      "patient": { "ageMonths": 2 },
+      "expect": { "rec": { "vk": "IPV", "props": { "doseNum": 1 } } },
+      "rationale": "CDSI Polio D1 minAge=42d. Code line 230 fires am>=2 (60d, recommended start)."
+    },
+    {
+      "id": "IPV-002",
+      "description": "Dose 2 minInt=28d from D1",
+      "patient": { "ageMonths": 4, "dosesGiven": { "IPV": 1 } },
+      "expect": { "rec": { "vk": "IPV", "props": { "doseNum": 2, "minInt": 28 } } },
+      "rationale": "CDSI 4-dose D2 prefInt=28d. Code matches."
+    },
+    {
+      "id": "IPV-003",
+      "description": "Dose 4 (final, 4-6y): minAge 4y AND minInt 180d (6mo) from prev",
+      "patient": { "ageMonths": 60, "dosesGiven": { "IPV": 3 } },
+      "expect": { "rec": { "vk": "IPV", "props": { "doseNum": 4 } } },
+      "rationale": "CDSI 4-dose D4 minInterval=180d, minAge=1460d (4y). Code line 240 sets correctly."
+    },
+    {
+      "id": "IPV-004",
+      "description": "Adult catch-up (≥18y/6570d): 3-dose series, NOT 4-dose",
+      "patient": { "ageMonths": 228, "dosesGiven": {} },
+      "expect": { "rec": { "vk": "IPV", "props": { "doseNum": 1 } } },
+      "rationale": "CDSI Adult Catch-up: minAgeToStart=6570d (18y), 3 doses. Code line 246-253 uses ipvTotal=3 for am>=216 (18y)."
+    }
+  ],
+  "summary": { "totalRulesAudited": 4, "matches": 4, "conflicts": 0 }
+}

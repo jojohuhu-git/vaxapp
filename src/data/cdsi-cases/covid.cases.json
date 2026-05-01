@@ -1,0 +1,37 @@
+{
+  "antigen": "COVID",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "COVID-19 multiple series (Moderna, Pfizer, Novavax, mixed); routine ≥6mo",
+  "auditedAt": "2026-04-30",
+  "cases": [
+    {
+      "id": "COVID-001",
+      "description": "≥6mo: annual updated COVID vaccine recommended (SCDM)",
+      "patient": { "ageMonths": 6 },
+      "expect": { "rec": { "vk": "COVID" } },
+      "rationale": "CDSI COVID Start at 6mo-23mo. Code line 506 fires am>=6 && !covidThisSeason."
+    },
+    {
+      "id": "COVID-002",
+      "description": "<6mo: NO COVID rec (too young per FDA)",
+      "patient": { "ageMonths": 4 },
+      "expect": { "rec": { "vk": "COVID", "absent": true } },
+      "rationale": "Code gates am>=6."
+    },
+    {
+      "id": "COVID-003",
+      "description": "Brand list age-appropriate: 6mo-5y → Spikevax only",
+      "patient": { "ageMonths": 12 },
+      "expect": { "rec": { "vk": "COVID" } },
+      "rationale": "Code line 508: am<60 → Spikevax (≥6mo). Comirnaty is ≥5y per FDA."
+    },
+    {
+      "id": "COVID-004",
+      "description": "Brand list age-appropriate: 12y+ → mNexspike & Nuvaxovid available",
+      "patient": { "ageMonths": 144 },
+      "expect": { "rec": { "vk": "COVID" } },
+      "rationale": "Code line 508 includes mNexspike (≥12y) and Nuvaxovid (≥12y, protein subunit non-mRNA option) for am>=144."
+    }
+  ],
+  "summary": { "totalRulesAudited": 4, "matches": 4, "conflicts": 0 }
+}

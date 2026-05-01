@@ -1,0 +1,44 @@
+{
+  "antigen": "VAR",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "Varicella Childhood 2-dose, 13+ 2-dose",
+  "auditedAt": "2026-04-30",
+  "cases": [
+    {
+      "id": "VAR-001",
+      "description": "12mo, no doses → D1 of 2 (routine, ProQuad allowed)",
+      "patient": { "ageMonths": 12 },
+      "expect": { "rec": { "vk": "VAR", "props": { "doseNum": 1, "status": "due" } } },
+      "rationale": "CDSI Varicella Childhood D1 minAge=360d (12mo). Code line 313 fires am 12-15."
+    },
+    {
+      "id": "VAR-002",
+      "description": "60mo (5y), VAR=1 → D2 of 2; minInt 84d (12 weeks, <13y)",
+      "patient": { "ageMonths": 60, "dosesGiven": { "VAR": 1 } },
+      "expect": { "rec": { "vk": "VAR", "props": { "doseNum": 2, "minInt": 84 } } },
+      "rationale": "CDSI Childhood D2 minInt=84d. Code line 318 sets minInt: am>=156 ? 28 : 84."
+    },
+    {
+      "id": "VAR-003",
+      "description": "180mo (15y), VAR=1 → D2 minInt 28d (4 weeks, ≥13y)",
+      "patient": { "ageMonths": 180, "dosesGiven": { "VAR": 1 } },
+      "expect": { "rec": { "vk": "VAR", "props": { "doseNum": 2, "minInt": 28 } } },
+      "rationale": "CDSI 13+ D2 minInt=28d. Code uses am>=156 (13y) threshold."
+    },
+    {
+      "id": "VAR-004",
+      "description": "Pregnancy: VAR contraindicated (live vaccine)",
+      "patient": { "ageMonths": 216, "riskConditions": ["pregnancy"] },
+      "expect": { "rec": { "vk": "VAR", "absent": true } },
+      "rationale": "Code line 311 gated on liveVaxAllowed. Live virus contraindicated in pregnancy. BACKLOG B-1: emit with status='contraindicated' instead."
+    },
+    {
+      "id": "VAR-005",
+      "description": "Severe immunocompromise: VAR contraindicated",
+      "patient": { "ageMonths": 36, "riskConditions": ["immunocomp"] },
+      "expect": { "rec": { "vk": "VAR", "absent": true } },
+      "rationale": "Code: liveVaxAllowed=false when isImmunocomp. Live virus contraindicated."
+    }
+  ],
+  "summary": { "totalRulesAudited": 5, "matches": 5, "conflicts": 0 }
+}

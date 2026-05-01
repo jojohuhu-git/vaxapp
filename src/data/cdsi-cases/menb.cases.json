@@ -1,0 +1,57 @@
+{
+  "antigen": "MenB",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "MeningococcalB 2-dose/3-dose SCDM (4C and FHbp), Risk 3-dose IR (4C and FHbp)",
+  "cases": [
+    {
+      "id": "MENB-001",
+      "description": "Low-risk MenB SCDM gates at 16y (192mo); high-risk gates at 10y (120mo)",
+      "patient": { "ageMonths": 120 },
+      "expect": { "rec": { "vk": "MenB", "absent": true } },
+      "rationale": "RESOLVED 2026-04-27: Low-risk MenB now gated to am>=192 per CDSI MeningococcalB SCDM minAge=5840d (16y). Patients 10-15y see no MenB rec unless high-risk. menbStart variable in code now switches based on hr."
+    },
+    {
+      "id": "MENB-002",
+      "description": "High-risk MenB at 10y (asplenia/complement/HIV) — IR series starts at 3650d (10y)",
+      "patient": { "ageMonths": 120, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "MenB", "props": { "doseNum": 1, "status": "risk-based" } } },
+      "rationale": "CDSI Risk 3-dose IR D1 minAge=3650d (10y). Code line 462-466 fires for am>=120 + hr. Matches."
+    },
+    {
+      "id": "MENB-003",
+      "description": "MenB-4C dose 2: minInt 28d after D1 (4C uses 2-dose routine for low-risk)",
+      "patient": { "ageMonths": 192, "dosesGiven": { "MenB": 1 }, "brands": { "MenB": "Bexsero (MenB-4C, 2-dose series)" } },
+      "expect": { "rec": { "vk": "MenB", "props": { "doseNum": 2, "minInt": 28 } } },
+      "rationale": "CDSI MenB-4C SCDM D2 minInt 28d. Code line 475 sets minInt: is4C ? 28 : ... — matches."
+    },
+    {
+      "id": "MENB-004",
+      "description": "MenB-FHbp 2-dose low-risk: D2 ≥6mo (180d) after D1",
+      "patient": { "ageMonths": 192, "dosesGiven": { "MenB": 1 }, "brands": { "MenB": "Trumenba (MenB-FHbp)" } },
+      "expect": { "rec": { "vk": "MenB", "props": { "doseNum": 2, "minInt": 182 } } },
+      "rationale": "CDSI MenB-FHbp 2-dose SCDM D2 prefInt 180d (or 120d). Code line 474 sets fhbpD2Min=182 for low-risk (off by 2d, 26-week rounding)."
+    },
+    {
+      "id": "MENB-005",
+      "description": "High-risk FHbp accelerated: D2 at 1-2mo after D1 (28d), then D3 at 6mo from D1",
+      "patient": { "ageMonths": 120, "dosesGiven": { "MenB": 1 }, "brands": { "MenB": "Trumenba (MenB-FHbp)" }, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "MenB", "props": { "doseNum": 2, "minInt": 28 } } },
+      "rationale": "CDSI Risk 3-dose IR FHbp D2 minInt 28d (accelerated). Code line 474 sets fhbpD2Min=28 when hr."
+    },
+    {
+      "id": "MENB-006",
+      "description": "High-risk MenB revaccination D4: 1y (365d) after primary",
+      "patient": { "ageMonths": 120, "dosesGiven": { "MenB": 3 }, "brands": { "MenB": "Trumenba (MenB-FHbp)" }, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "MenB", "props": { "doseNum": 4, "minInt": 365, "status": "risk-based" } } },
+      "rationale": "RESOLVED 2026-04-27: high-risk MenB revaccination block added in recommendations.js, parallel to MenACWY high-risk revaccination. CDSI Risk 3-dose IR D4 prefInt=365d. First booster 1y after primary."
+    },
+    {
+      "id": "MENB-007",
+      "description": "High-risk MenB ongoing revaccination D5+: every 2y (730d)",
+      "patient": { "ageMonths": 144, "dosesGiven": { "MenB": 4 }, "brands": { "MenB": "Trumenba (MenB-FHbp)" }, "riskConditions": ["asplenia"] },
+      "expect": { "rec": { "vk": "MenB", "props": { "doseNum": 5, "minInt": 730, "status": "risk-based" } } },
+      "rationale": "CDSI Risk 3-dose IR D5 prefInt=730d (2y). Revaccination block in code uses 730d for D5+ (after first 1y booster)."
+    }
+  ],
+  "summary": { "totalRulesAudited": 7, "matches": 7, "conflicts": 0, "behaviorAdded": 2, "notes": "MENB-001 resolved by gating low-risk to 16y. MENB-006/007 resolved by adding high-risk revaccination block (1y first, 2y ongoing). Both align with CDSI MeningococcalB Risk IR series." }
+}

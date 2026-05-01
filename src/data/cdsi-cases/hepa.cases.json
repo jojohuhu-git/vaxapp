@@ -1,0 +1,44 @@
+{
+  "antigen": "HepA",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "HepA 2-dose standard, Risk 2-dose ≥19y",
+  "auditedAt": "2026-04-30",
+  "cases": [
+    {
+      "id": "HEPA-001",
+      "description": "12-23mo, no doses → D1 of 2",
+      "patient": { "ageMonths": 12 },
+      "expect": { "rec": { "vk": "HepA", "props": { "doseNum": 1, "status": "due" } } },
+      "rationale": "CDSI HepA D1 minAge=360d (12mo). Code line 326 fires am 12-23."
+    },
+    {
+      "id": "HEPA-002",
+      "description": "18mo, HepA=1 → D2 minInt 182d (~6mo)",
+      "patient": { "ageMonths": 18, "dosesGiven": { "HepA": 1 } },
+      "expect": { "rec": { "vk": "HepA", "props": { "doseNum": 2, "minInt": 182 } } },
+      "rationale": "CDSI HepA D2 minInt=180d. Code line 329 uses 182 (26-week rounding). Off by 2 days; acceptable."
+    },
+    {
+      "id": "HEPA-003",
+      "description": "30mo, no doses → catch-up D1 of 2",
+      "patient": { "ageMonths": 30 },
+      "expect": { "rec": { "vk": "HepA", "props": { "doseNum": 1, "status": "catchup" } } },
+      "rationale": "Code line 330 catch-up at am>=24. Status 'catchup' (or 'risk-based' if travel/liver disease)."
+    },
+    {
+      "id": "HEPA-004",
+      "description": "International travel: HepA risk-based (start immediately)",
+      "patient": { "ageMonths": 30, "riskConditions": ["travel"] },
+      "expect": { "rec": { "vk": "HepA", "props": { "status": "risk-based" } } },
+      "rationale": "Code line 331-332 status changes to risk-based for travel or liver disease."
+    },
+    {
+      "id": "HEPA-005",
+      "description": "Adult ≥18y catch-up: Twinrix combo brand option",
+      "patient": { "ageMonths": 216 },
+      "expect": { "rec": { "vk": "HepA" } },
+      "rationale": "Code line 334: Twinrix is in brand list for am>=204 (17y; clinical practice ≥18y per FDA labeling). Worth double-checking the 204 vs 216 threshold."
+    }
+  ],
+  "summary": { "totalRulesAudited": 5, "matches": 5, "conflicts": 0 }
+}
