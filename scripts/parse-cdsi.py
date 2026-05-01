@@ -34,6 +34,17 @@ DISEASE_FILES = {
     "Polio":          "AntigenSupportingData- Polio-508.xlsx",
     "Hib":            "AntigenSupportingData- Hib-508.xlsx",
     "Pneumococcal":   "AntigenSupportingData- Pneumococcal-508.xlsx",
+    # Round-2 audit additions (2026-04-30):
+    "Rotavirus":      "AntigenSupportingData- Rotavirus-508.xlsx",
+    "Measles":        "AntigenSupportingData- Measles-508.xlsx",
+    "Mumps":          "AntigenSupportingData- Mumps-508.xlsx",
+    "Rubella":        "AntigenSupportingData- Rubella-508.xlsx",
+    "Varicella":      "AntigenSupportingData- Varicella-508.xlsx",
+    "HepA":           "AntigenSupportingData- HepA-508.xlsx",
+    "HPV":            "AntigenSupportingData- HPV-508.xlsx",
+    "RSV":            "AntigenSupportingData- RSV-508.xlsx",
+    "Influenza":      "AntigenSupportingData- Influenza-508.xlsx",
+    "COVID":          "AntigenSupportingData- COVID-19-508.xlsx",
 }
 
 # How PediVax vaccine products map to CDSI disease antigens.
@@ -66,6 +77,24 @@ VACCINE_PRODUCTS = {
     "PPSV23":  {"covers": ["Pneumococcal"],
                 "seriesFilter": "PPSV",
                 "ageRange": "≥2y after PCV when PCV15/13 used; high-risk only"},
+    # Round-2 audit additions (2026-04-30):
+    "RV":      {"covers": ["Rotavirus"],
+                "ageRange": "2mo (start by 14w6d; complete by 8mo0d)",
+                "notes": "Rotarix (RV1) 2-dose; RotaTeq (RV5) 3-dose. Brands NOT interchangeable."},
+    "MMR":     {"covers": ["Measles", "Mumps", "Rubella"],
+                "ageRange": "12mo (D1) and 4-6y (D2); travel 6-11mo (extra dose, doesn't count)"},
+    "VAR":     {"covers": ["Varicella"],
+                "ageRange": "12mo (D1) and 4-6y (D2)"},
+    "HepA":    {"covers": ["HepA"],
+                "ageRange": "12-23mo (D1); 6+mo later for D2"},
+    "HPV":     {"covers": ["HPV"],
+                "ageRange": "Routine 11-12y (can start 9y); catch-up through 26y; SCDM 27-45y"},
+    "RSV":     {"covers": ["RSV"],
+                "ageRange": "Infant nirsevimab <8mo; high-risk 2nd season 8-19mo; maternal Abrysvo 32-36w pregnancy"},
+    "Flu":     {"covers": ["Influenza"],
+                "ageRange": "Annual ≥6mo; first-ever <9y needs 2 doses"},
+    "COVID":   {"covers": ["COVID"],
+                "ageRange": "Annual ≥6mo (Spikevax), ≥5y (Comirnaty), ≥12y (mNexspike/Nuvaxovid)"},
 }
 
 UNIT_DAYS = {"day": 1, "days": 1, "week": 7, "weeks": 7,

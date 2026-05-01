@@ -1,0 +1,37 @@
+{
+  "antigen": "RSV",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "RSV 1-dose (infant nirsevimab), Risk under 20 months, Risk Pregnant 1-dose (Abrysvo)",
+  "auditedAt": "2026-04-30",
+  "cases": [
+    {
+      "id": "RSV-001",
+      "description": "Newborn (<8mo): nirsevimab D1",
+      "patient": { "ageMonths": 0 },
+      "expect": { "rec": { "vk": "RSV", "props": { "doseNum": 1, "status": "due" } } },
+      "rationale": "CDSI RSV 1-dose minAge=0d, maxAge=240d (8mo). Code line 82 fires am<8."
+    },
+    {
+      "id": "RSV-002",
+      "description": "≥8mo without high-risk: NO RSV rec",
+      "patient": { "ageMonths": 8 },
+      "expect": { "rec": { "vk": "RSV", "absent": true } },
+      "rationale": "CDSI 1-dose maxAge=240d. Code gates am<8."
+    },
+    {
+      "id": "RSV-003",
+      "description": "8-19mo + rsv_risk (preterm/CHD/CLD/immunocomp): 2nd-season nirsevimab",
+      "patient": { "ageMonths": 12, "riskConditions": ["rsv_risk"] },
+      "expect": { "rec": { "vk": "RSV", "props": { "status": "risk-based" } } },
+      "rationale": "CDSI Risk under 20 months series: maxAge=600d (~20mo). Code line 84 gates am 8-19 + rsv_risk."
+    },
+    {
+      "id": "RSV-004",
+      "description": "Pregnant ≥16y with maternal_rsv risk → Abrysvo",
+      "patient": { "ageMonths": 216, "riskConditions": ["maternal_rsv"] },
+      "expect": { "rec": { "vk": "RSV", "props": { "status": "risk-based" } } },
+      "rationale": "CDSI Risk Pregnant 1-dose (Abrysvo). Code line 77 fires am>=192 + maternal_rsv."
+    }
+  ],
+  "summary": { "totalRulesAudited": 4, "matches": 4, "conflicts": 0 }
+}

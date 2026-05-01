@@ -1,9 +1,44 @@
 {
   "antigen": "HPV",
   "cdsiVersion": "4.6",
-  "cdsiSource": "Out-of-scope for CDSI extraction (HPV not in 10-antigen audit set), but fix verified against CDC ACIP HPV guidance",
+  "cdsiSource": "HPV 2-dose (start <15y), 3-dose (start ≥15y or immunocompromised), Risk 2/3-dose",
   "auditedAt": "2026-04-30",
   "cases": [
+    {
+      "id": "HPV-001",
+      "description": "11y (132mo), no doses → routine D1; 2-dose series (started <15y)",
+      "patient": { "ageMonths": 132 },
+      "expect": { "rec": { "vk": "HPV", "props": { "doseNum": 1, "status": "due" } } },
+      "rationale": "CDSI HPV 2-dose: minAgeToStart 9y (3285d), maxAgeToStart 15y (5475d). Code line 369 hpvStart=132 (11y routine)."
+    },
+    {
+      "id": "HPV-002",
+      "description": "11y, HPV=1 → D2 minInt 150d (5 months); 2-dose series",
+      "patient": { "ageMonths": 132, "dosesGiven": { "HPV": 1 } },
+      "expect": { "rec": { "vk": "HPV", "props": { "doseNum": 2, "minInt": 150 } } },
+      "rationale": "CDSI 2-dose D2 minInt=150d. Code line 393 sets minInt: ys && !immuno ? 150 : 28."
+    },
+    {
+      "id": "HPV-003",
+      "description": "Sexual abuse history: HPV recommended starting at age 9 (108mo)",
+      "patient": { "ageMonths": 108, "riskConditions": ["sexual_abuse"] },
+      "expect": { "rec": { "vk": "HPV", "props": { "doseNum": 1 } } },
+      "rationale": "Code line 369 hpvStart = 108 when sexual_abuse risk. CDSI Risk 2-dose minAgeToStart=0 (any age ≥9y allowed)."
+    },
+    {
+      "id": "HPV-004",
+      "description": "Immunocompromised (HIV): 3-dose series even if started <15y",
+      "patient": { "ageMonths": 132, "dosesGiven": { "HPV": 1 }, "riskConditions": ["hiv"], "cd4": 30 },
+      "expect": { "rec": { "vk": "HPV", "props": { "doseNum": 2, "minInt": 28 } } },
+      "rationale": "CDSI HPV Risk 3-dose (immunocomp): D2 minInt=28d. Code line 393 minInt = ys && !immuno ? 150 : 28 → 28 because immuno=true."
+    },
+    {
+      "id": "HPV-005",
+      "description": "180mo (15y), no doses → 3-dose series (started ≥15y)",
+      "patient": { "ageMonths": 180 },
+      "expect": { "rec": { "vk": "HPV", "props": { "doseNum": 1 } } },
+      "rationale": "CDSI 3-dose minAgeToStart=5475d (15y). Code line 374: ys = firstHpvAgeDays < 180*30.4 — at am=180 with no doses, ys=false → 3-dose."
+    },
     {
       "id": "HPV-G1",
       "description": "Catch-up cutoff at 27y birthday (am=324mo), not 26y birthday (am=312mo)",
@@ -19,5 +54,5 @@
       "rationale": "At exactly 27y, patient enters SCDM window. Both isCatchup26 and isShared2745 → status 'recommended'. Note: hpvStatus is 'recommended' for both arms; differentiator is the description string."
     }
   ],
-  "summary": { "totalRulesAudited": 2, "matches": 2, "conflicts": 0, "bugsFixed": 1, "source": "great-gates AUDIT.md G1" }
+  "summary": { "totalRulesAudited": 7, "matches": 7, "conflicts": 0, "bugsFixed": 1, "source": "great-gates AUDIT.md G1 + 2026-04-30 expanded audit" }
 }

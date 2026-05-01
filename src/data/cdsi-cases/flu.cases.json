@@ -1,0 +1,44 @@
+{
+  "antigen": "Flu",
+  "cdsiVersion": "4.6",
+  "cdsiSource": "Influenza Standard 2-dose (first-ever <9y)",
+  "auditedAt": "2026-04-30",
+  "cases": [
+    {
+      "id": "FLU-001",
+      "description": "≥6mo: annual flu vaccine recommended",
+      "patient": { "ageMonths": 6 },
+      "expect": { "rec": { "vk": "Flu", "props": { "doseNum": 1, "status": "due" } } },
+      "rationale": "CDSI Flu D1 minAge=180d (6mo). Code line 267 fires am>=6."
+    },
+    {
+      "id": "FLU-002",
+      "description": "First-ever flu in <9y patient → 2-dose series this season",
+      "patient": { "ageMonths": 24 },
+      "expect": { "rec": { "vk": "Flu" } },
+      "rationale": "Code line 268-269: firstEver = flu===0 && am<108. Note in rec text mentions 2 doses ≥4 weeks apart."
+    },
+    {
+      "id": "FLU-003",
+      "description": "Egg allergy: any age-appropriate IIV/ccIIV per ACIP 2023+",
+      "patient": { "ageMonths": 60, "riskConditions": ["egg_allergy"] },
+      "expect": { "rec": { "vk": "Flu" } },
+      "rationale": "Code line 270 mentions ACIP 2023+ guidance: egg allergy doesn't change recommended brand. Standard egg-based IIV acceptable."
+    },
+    {
+      "id": "FLU-004",
+      "description": "Pregnancy: LAIV (FluMist) contraindicated; IIV only",
+      "patient": { "ageMonths": 216, "riskConditions": ["pregnancy"] },
+      "expect": { "rec": { "vk": "Flu" } },
+      "rationale": "Code line 262: noLAIV true for pregnancy. Brand list excludes FluMist. ✓"
+    },
+    {
+      "id": "FLU-005",
+      "description": "<6mo: NO flu rec (too young)",
+      "patient": { "ageMonths": 4 },
+      "expect": { "rec": { "vk": "Flu", "absent": true } },
+      "rationale": "Code line 267 gates am>=6."
+    }
+  ],
+  "summary": { "totalRulesAudited": 5, "matches": 5, "conflicts": 0 }
+}

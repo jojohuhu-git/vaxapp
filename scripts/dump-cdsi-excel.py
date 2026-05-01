@@ -33,6 +33,17 @@ ANTIGEN_FILES = {
     "Hib":     ["AntigenSupportingData- Hib-508.xlsx"],
     "PCV":     ["AntigenSupportingData- Pneumococcal-508.xlsx"],
     "PPSV23":  ["AntigenSupportingData- Pneumococcal-508.xlsx"],
+    # Round-2 audit additions (2026-04-30):
+    "RV":      ["AntigenSupportingData- Rotavirus-508.xlsx"],
+    "MMR":     ["AntigenSupportingData- Measles-508.xlsx",
+                "AntigenSupportingData- Mumps-508.xlsx",
+                "AntigenSupportingData- Rubella-508.xlsx"],
+    "VAR":     ["AntigenSupportingData- Varicella-508.xlsx"],
+    "HepA":    ["AntigenSupportingData- HepA-508.xlsx"],
+    "HPV":     ["AntigenSupportingData- HPV-508.xlsx"],
+    "RSV":     ["AntigenSupportingData- RSV-508.xlsx"],
+    "Flu":     ["AntigenSupportingData- Influenza-508.xlsx"],
+    "COVID":   ["AntigenSupportingData- COVID-19-508.xlsx"],
 }
 
 # Cross-reference files (loaded once, shared)
