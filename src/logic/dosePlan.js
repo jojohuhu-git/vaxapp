@@ -280,14 +280,20 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
     case "VAR": return 2;
     case "HepA": return 2;
     case "Tdap": {
-      // ≥7y unvaccinated catch-up needs 3 doses (Tdap + 2 Td/Tdap at 4w/6mo)
-      // per ACIP catch-up Table 2. Outside the catch-up scenario, Tdap is a
-      // single routine dose (decennial booster handled separately).
+      // ACIP catch-up Table 2 + immunize.org p2055:
+      //   - ≥7y unvaccinated → 3-dose primary catch-up (Tdap + Td/Tdap at
+      //     4w + Td/Tdap at 6mo).
+      //   - First catch-up dose at age 7-9y (am 84-119) → ALSO give routine
+      //     11-12y Tdap → 4 total doses.
+      //   - First catch-up dose at age 10y+ (am ≥ 120) → catch-up Tdap
+      //     serves as the routine adolescent dose → 3 total doses.
       const dt = (hist.DTaP || []).filter(d => d.given).length;
       const tdapHist = (hist.Tdap || []).filter(d => d.given).length;
       const totalTetanus = dt + tdapHist;
-      if (am >= 84 && totalTetanus < 3) return 3 - dt; // 3-dose catch-up minus prior pediatric
-      return 1;
+      if (am < 84 || totalTetanus >= 3) return 1; // routine single Tdap or decennial
+      const firstAtAge7to9 = am < 120 && totalTetanus === 0;
+      const targetTotal = firstAtAge7to9 ? 4 : 3;
+      return targetTotal - dt; // remaining via Tdap-keyed projection
     }
     case "HPV": {
       // Per ACIP: 2-dose series if starting <15y AND not immunocompromised; 3-dose otherwise.

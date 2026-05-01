@@ -45,7 +45,25 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
     case 'DTaP':
       return am >= 84 ? null : { totalDoses: 5 };
 
-    case 'Tdap': return (am >= 84 && dc(hist, 'Tdap') === 0) ? { totalDoses: 1 } : null;
+    case 'Tdap': {
+      // ACIP catch-up Table 2 + immunize.org p2055:
+      //   - ≥7y unvaccinated needs 3-dose primary catch-up (Tdap + Td/Tdap
+      //     at 4w + Td/Tdap at 6mo).
+      //   - If first catch-up dose given at age 7-9y (am 84-119), ALSO give
+      //     the routine 11-12y Tdap → 4 total doses.
+      //   - If first catch-up dose given at age 10y+ (am ≥ 120), the catch-up
+      //     Tdap satisfies the routine adolescent dose → 3 total doses.
+      const tdapHist = dc(hist, 'Tdap');
+      const dtHist = dc(hist, 'DTaP');
+      const totalTetanus = tdapHist + dtHist;
+      if (am < 84) return null;
+      if (totalTetanus >= 3 && tdapHist >= 1) return null; // series complete
+      // 3-dose primary; +1 routine 11-12y if first dose was at 7-9y
+      const firstAtAge7to9 = am < 120 && totalTetanus === 0;
+      const targetTotal = firstAtAge7to9 ? 4 : 3;
+      const remaining = targetTotal - totalTetanus;
+      return remaining > 0 ? { totalDoses: tdapHist + remaining } : null;
+    }
 
     case 'Hib': {
       if (am >= 60) return hr ? { totalDoses: dc(hist, 'Hib') + 1 } : null;

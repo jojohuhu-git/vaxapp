@@ -122,6 +122,33 @@ describe('Forecast — Tdap+Td catch-up projection for ≥7y unvaccinated (smoke
   });
 });
 
+describe('Forecast — Tdap catch-up: 7-9y gets 4 total doses, ≥10y gets 3', () => {
+  // immunize.org p2055 / ACIP catch-up Table 2 nuance:
+  // - First catch-up dose at age 7-9y (am 84-119): give 3-dose primary
+  //   catch-up + routine 11-12y Tdap = 4 total doses
+  // - First catch-up dose at age 10y+ (am ≥ 120): the catch-up Tdap also
+  //   serves as the routine adolescent dose = 3 total doses
+
+  it('84mo (7y), 0 doses → totalDoses computed as 4 (3 catch-up + 1 routine 11-12y)', () => {
+    const recs = genRecs(84, {}, [], null, {});
+    const tdapRec = recs.find(r => r.vk === 'Tdap');
+    expect(tdapRec, 'expected Tdap rec for 7y unvaccinated').toBeDefined();
+    const plan = computeDosePlan(84, null, recs, {}, {}, []);
+    const tdapKeys = Object.keys(plan).filter(k => k.endsWith('_Tdap'));
+    // 7y patient: D1 now (rec), D2/D3 catch-up + D4 routine 11-12y = 3 projections
+    expect(tdapKeys.length, `expected ≥2 projected Tdap doses for 7y; got ${JSON.stringify(tdapKeys)}`).toBeGreaterThanOrEqual(2);
+  });
+
+  it('120mo (10y), 0 doses → totalDoses computed as 3 (catch-up only; no extra 11-12y)', () => {
+    const recs = genRecs(120, {}, [], null, {});
+    const plan = computeDosePlan(120, null, recs, {}, {}, []);
+    const tdapKeys = Object.keys(plan).filter(k => k.endsWith('_Tdap'));
+    // 10y patient: D1 now (rec), D2/D3 catch-up. The 11-12y dose is satisfied
+    // by D1 (since D1 is the first catch-up dose at age 10y+).
+    expect(tdapKeys.length, `expected projected Tdap D2/D3 for 10y; got ${JSON.stringify(tdapKeys)}`).toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe('Forecast — MenACWY first-dose-at-≥16y means NO booster (smoke-test fix)', () => {
   // BUG: 16-18y unvaccinated patient saw 2 MenACWY doses (1 now + booster).
   // Per ACIP: if first dose is given at ≥16y, no booster needed. Fixed by

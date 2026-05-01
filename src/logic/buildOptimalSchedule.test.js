@@ -58,7 +58,7 @@ printResult(resA);
 ok(Array.isArray(resA),   'returns Visit[] (no more NEEDS_HUMAN_REVIEW)');
 ok(dosesOf(resA,'PPSV23').length === 2, 'PPSV23 D1 + D2 scheduled (asplenia → 2-dose)');
 ok(dosesOf(resA,'PCV').length === 1,    'PCV 1 catch-up dose (high-risk ≥2y)');
-ok(dosesOf(resA,'Tdap').length === 1,   'Tdap D1 scheduled (am=120 ≥ 84; DTaP → null)');
+ok(dosesOf(resA,'Tdap').length === 3,   'Tdap 3-dose primary catch-up (am=120; ACIP Table 2: Tdap+Td+Td)');
 ok(dosesOf(resA,'DTaP').length === 0,   'DTaP 0 doses — suppressed for ≥7y; Tdap handles it');
 ok(dosesOf(resA,'HPV').length === 2,    'HPV 2-dose path (am=120, first dose age <15y)');
 ok(dosesOf(resA,'HepB').length === 3,   'HepB full 3-dose series');
@@ -200,7 +200,7 @@ if (varE.length === 2) {
 
 // DTaP suppressed; Tdap present for 16y
 ok(dosesOf(resE,'DTaP').length === 0, 'DTaP suppressed for ≥7y');
-ok(dosesOf(resE,'Tdap').length === 1, 'Tdap D1 present (≥7y catch-up)');
+ok(dosesOf(resE,'Tdap').length === 3, 'Tdap 3-dose primary catch-up at 16y (ACIP Table 2)');
 
 // HPV 3-dose for 16y patient
 ok(dosesOf(resE,'HPV').length === 3, 'HPV 3-dose path (first dose ≥15y)');
