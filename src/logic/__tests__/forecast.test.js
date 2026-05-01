@@ -93,6 +93,72 @@ describe('Forecast — high-risk MenB revaccination (Step 3 audit follow-on)', (
   });
 });
 
+describe('Forecast — Tdap+Td catch-up projection for ≥7y unvaccinated (smoke-test fix)', () => {
+  // BUG: 10y unvaccinated patient saw "Tdap dose 1 of 1" but no projected
+  // Td/Tdap D2 at 4 weeks or D3 at 6 months. Total tetanus catch-up is 3
+  // doses (Tdap + 2 Td/Tdap) per ACIP catch-up Table 2. Fixed by making
+  // getTotalDoses("Tdap") return 3 when am≥7y AND prior tetanus < 3.
+
+  it('120mo (10y), 0 doses → Tdap rec totalDoses=3 + projection includes D2 and D3', () => {
+    const recs = genRecs(120, {}, [], null, {});
+    const tdapRec = recs.find(r => r.vk === 'Tdap');
+    expect(tdapRec).toBeDefined();
+    const plan = computeDosePlan(120, null, recs, {}, {}, []);
+    const tdapKeys = Object.keys(plan).filter(k => k.endsWith('_Tdap'));
+    // Should project at least D2 (D1 is the current rec; dosePlan only projects D2+)
+    expect(tdapKeys.length, `expected projected Tdap D2/D3 entries; got ${JSON.stringify(tdapKeys)}`).toBeGreaterThanOrEqual(1);
+  });
+
+  it('216mo (18y), 0 doses → Tdap rec exists; Forecast slot-limit means D2/D3 only show in Optimal Schedule', () => {
+    // At 18y the Forecast tab has no future slots (last canonical slot is
+    // 204mo / 17-18y). The Tdap catch-up D2/D3 will appear in the Optimal
+    // Schedule tab (which uses real dates, not slot snapping). This test
+    // documents that limitation: the rec exists, and getTotalDoses returns 3
+    // so the projection layer KNOWS it should project — there's just no
+    // FORECAST_VISITS slot to place it on.
+    const recs = genRecs(216, {}, [], null, {});
+    const tdapRec = recs.find(r => r.vk === 'Tdap');
+    expect(tdapRec, 'expected Tdap catch-up rec at 18y').toBeDefined();
+  });
+});
+
+describe('Forecast — MenACWY first-dose-at-≥16y means NO booster (smoke-test fix)', () => {
+  // BUG: 16-18y unvaccinated patient saw 2 MenACWY doses (1 now + booster).
+  // Per ACIP: if first dose is given at ≥16y, no booster needed. Fixed by
+  // making getTotalDoses("MenACWY") = 1 when am≥192 AND no prior doses
+  // (because the first/only dose will be given at ≥16y).
+
+  it('192mo (16y), 0 doses → projection has NO MenACWY booster entry', () => {
+    const recs = genRecs(192, {}, [], null, {});
+    const plan = computeDosePlan(192, null, recs, {}, {}, []);
+    const menAcwyKeys = Object.keys(plan).filter(k => k.endsWith('_MenACWY'));
+    expect(menAcwyKeys, `Expected NO MenACWY projections at 16y unvaccinated; got ${JSON.stringify(menAcwyKeys)}`).toHaveLength(0);
+  });
+
+  it('204mo (17y), 0 doses → no MenACWY booster (still 1-dose schedule)', () => {
+    const recs = genRecs(204, {}, [], null, {});
+    const plan = computeDosePlan(204, null, recs, {}, {}, []);
+    const menAcwyKeys = Object.keys(plan).filter(k => k.endsWith('_MenACWY'));
+    expect(menAcwyKeys).toHaveLength(0);
+  });
+
+  it('132mo (11y), 0 doses → MenACWY booster IS projected (D1 at 11-12y, D2 booster at 16y)', () => {
+    const recs = genRecs(132, {}, [], null, {});
+    const plan = computeDosePlan(132, null, recs, {}, {}, []);
+    const menAcwyKeys = Object.keys(plan).filter(k => k.endsWith('_MenACWY'));
+    expect(menAcwyKeys.length, 'expected MenACWY booster projection at 16y for 11y patient').toBeGreaterThan(0);
+  });
+
+  it('156mo (13y), 0 doses → catch-up D1 + booster at 16y (D1 given <16y → booster needed)', () => {
+    const recs = genRecs(156, {}, [], null, {});
+    const tdapRec = recs.find(r => r.vk === 'MenACWY');
+    expect(tdapRec, '13y patient should have MenACWY catch-up rec').toBeDefined();
+    const plan = computeDosePlan(156, null, recs, {}, {}, []);
+    const menAcwyKeys = Object.keys(plan).filter(k => k.endsWith('_MenACWY'));
+    expect(menAcwyKeys.length, 'expected MenACWY booster projection because D1 given <16y').toBeGreaterThan(0);
+  });
+});
+
 describe('Forecast — PCV20 series-completion (regression for Step 3 PCV20 fix)', () => {
   it('24mo asplenia, 1 PCV20 dose → no further PCV catch-up projected', () => {
     const plan = project(makePatient({

@@ -97,7 +97,7 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
     // given until the min-interval elapses. In that case anchor at the number
     // of countable doses already given so the projection emits D2 at the next
     // eligible visit rather than skipping straight to D3.
-    const totalDoses = getTotalDoses(vk, rec, fcBrands, am, hist, risks);
+    const totalDoses = getTotalDoses(vk, rec, fcBrands, am, hist, risks, dob);
     const givenCountable = (hist[vk] || []).filter(d => d && d.given).length;
     const lastGivenPeek = (hist[vk] || []).filter(d => d && d.given && (d.date || d.ageDays != null)).slice(-1)[0];
     let lastGivenAgeM = null;
@@ -246,7 +246,7 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
 }
 
 /** Get total doses in series for a vaccine, accounting for brand/age/risk */
-export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) {
+export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], dob = "") {
   switch (vk) {
     case "HepB": {
       // Heplisav-B is a 2-dose series; all other HepB brands are 3-dose
@@ -279,7 +279,16 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) 
     case "MMR": return 2;
     case "VAR": return 2;
     case "HepA": return 2;
-    case "Tdap": return 1;
+    case "Tdap": {
+      // ≥7y unvaccinated catch-up needs 3 doses (Tdap + 2 Td/Tdap at 4w/6mo)
+      // per ACIP catch-up Table 2. Outside the catch-up scenario, Tdap is a
+      // single routine dose (decennial booster handled separately).
+      const dt = (hist.DTaP || []).filter(d => d.given).length;
+      const tdapHist = (hist.Tdap || []).filter(d => d.given).length;
+      const totalTetanus = dt + tdapHist;
+      if (am >= 84 && totalTetanus < 3) return 3 - dt; // 3-dose catch-up minus prior pediatric
+      return 1;
+    }
     case "HPV": {
       // Per ACIP: 2-dose series if starting <15y AND not immunocompromised; 3-dose otherwise.
       // The rec carries doseNum+note; seed recs emitted at the first eligible visit (~11–12y)
@@ -288,7 +297,29 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) 
       if (rec.dose?.includes("3 of 3") || rec.dose?.includes("3-dose") || rec.note?.includes("3-dose")) return 3;
       return 2;
     }
-    case "MenACWY": return 2;
+    case "MenACWY": {
+      // Per ACIP: routine 2-dose (D1 at 11-12y, booster at 16y).
+      // If first dose is given at age ≥16y, NO booster needed → 1 dose total.
+      // High-risk patients (asplenia, complement, HIV, microbiologist,
+      // complement_inhibitor) follow ongoing revaccination — handled by
+      // genRecs separately; treat as 2 here for projection.
+      const isHRMen = risks.some(r => ["asplenia", "complement", "complement_inhibitor", "hiv", "microbiologist"].includes(r));
+      if (isHRMen) return 2;
+      const givenMen = (hist.MenACWY || []).filter(d => d.given);
+      if (givenMen.length > 0) {
+        // First dose age ≥16y (192mo) → series complete after that 1 dose.
+        const first = givenMen[0];
+        let firstAgeM = null;
+        if (first.ageDays != null) firstAgeM = Number(first.ageDays) / 30.4;
+        else if (first.date && dob) firstAgeM = (new Date(first.date) - new Date(dob)) / (1000 * 60 * 60 * 24 * 30.4);
+        if (firstAgeM != null && firstAgeM >= 192) return 1;
+      } else if (am >= 192) {
+        // No prior dose AND patient is already ≥16y → first dose now will
+        // also be the only dose (no booster needed).
+        return 1;
+      }
+      return 2;
+    }
     case "MenB": {
       // Antigen family + risk determine total doses:
       //   • MenB-4C (Bexsero, Penmenvy): always 2 doses (≥1m apart)
