@@ -149,6 +149,30 @@ describe('Forecast — Tdap catch-up: 7-9y gets 4 total doses, ≥10y gets 3', (
   });
 });
 
+describe('Forecast — Flu 2-dose first-season projection (2026-05-02 fix)', () => {
+  // BUG: forecast skipped Flu projection entirely. For children <9y with <2
+  // lifetime doses, the 2nd dose at 28d needs to appear on the forecast.
+
+  it('5y (am=60), 0 doses → projects Flu D2', () => {
+    const plan = project(makePatient({ ageMonths: 60 }));
+    const fluKeys = Object.keys(plan).filter(k => k.endsWith('_Flu'));
+    expect(fluKeys.length, `expected projected Flu D2; got ${JSON.stringify(fluKeys)}`).toBeGreaterThanOrEqual(1);
+  });
+
+  it('9y (am=108), 0 doses → annual single dose only (no 2-dose pattern past age cutoff)', () => {
+    const plan = project(makePatient({ ageMonths: 108 }));
+    const fluKeys = Object.keys(plan).filter(k => k.endsWith('_Flu'));
+    expect(fluKeys.length).toBe(0);
+  });
+
+  it('5y (am=60), 2 lifetime doses → annual only', () => {
+    const p = makePatient({ ageMonths: 60, dosesGiven: { Flu: 2 } });
+    const plan = project(p);
+    const fluKeys = Object.keys(plan).filter(k => k.endsWith('_Flu'));
+    expect(fluKeys.length).toBe(0);
+  });
+});
+
 describe('Forecast — MenACWY first-dose-at-≥16y means NO booster (smoke-test fix)', () => {
   // BUG: 16-18y unvaccinated patient saw 2 MenACWY doses (1 now + booster).
   // Per ACIP: if first dose is given at ≥16y, no booster needed. Fixed by
