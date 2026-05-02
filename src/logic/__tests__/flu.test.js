@@ -21,4 +21,31 @@ describe('Flu — annual, age gate, contraindications', () => {
   });
 });
 
+describe('Flu — 2-dose first-season rule for kids <9y who have <2 lifetime doses', () => {
+  // CDSI: children <9y need 2 lifetime flu doses. A child who got 1 dose
+  // last season and is back this season needs the 2nd this season — they
+  // are NOT yet "primed" because they haven't reached 2 lifetime doses.
+  // Bug-fix (preserved-from-prior-session 2026-05-01): code previously
+  // emitted "first-ever 2 doses" only when flu===0; extended to flu < 2.
+
+  it('5y (am=60), 1 lifetime dose → still in 2-dose first-season schedule', () => {
+    const r = expectRec(run(makePatient({ ageMonths: 60, dosesGiven: { Flu: 1 } })), 'Flu');
+    expect(r.dose).toMatch(/2 doses this season/);
+    expect(r.minInt).toBe(28);
+  });
+
+  it('5y (am=60), 2 lifetime doses → annual (no longer first-season)', () => {
+    const r = expectRec(run(makePatient({ ageMonths: 60, dosesGiven: { Flu: 2 } })), 'Flu');
+    expect(r.dose).toMatch(/[Aa]nnual/);
+    expect(r.minInt).toBeNull();
+  });
+
+  it('9y (am=108) edge: NOT in first-season rule even with 0 doses', () => {
+    const r = expectRec(run(makePatient({ ageMonths: 108 })), 'Flu');
+    expect(r.dose).toMatch(/[Aa]nnual/);
+  });
+});
+
+import { expect } from 'vitest';
+
 antigenScaffold('Flu');

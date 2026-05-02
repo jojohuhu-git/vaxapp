@@ -265,7 +265,9 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     ? ["IIV4 (any age-appropriate inactivated)", "Flucelvax Quadrivalent (ccIIV4, egg-free)"]
     : ["IIV4 (any age-appropriate inactivated)", "Flucelvax Quadrivalent (ccIIV4, egg-free)", "FluMist Quadrivalent (LAIV4, \u22652y healthy non-pregnant)"];
   if (am >= 6 && !fluThisSeason) {
-    const firstEver = flu === 0 && am < 108;
+    // CDSI: children <9y need 2 lifetime flu doses. Treat any kid <9y with
+    // fewer than 2 lifetime doses as needing the 2-dose-this-season pattern.
+    const firstEver = flu < 2 && am < 108;
     r("Flu", firstEver ? "2 doses this season (\u22654 weeks apart, first-ever)" : "Annual influenza dose", 1, "due",
       `Annual flu vaccine for all \u22656 months. ${firstEver ? "First-ever flu vaccine in children <9y requires 2 doses \u22654 weeks apart. " : ""}${noLAIV ? "LAIV (FluMist) contraindicated \u2014 use inactivated IIV only. " : "FluMist acceptable for healthy non-pregnant \u22652y. "}${eggAllergy ? "Egg allergy: Per ACIP 2023+ updated guidance, any licensed age-appropriate influenza vaccine (including standard egg-based IIV) may be administered regardless of egg allergy severity. No additional precautions or extended observation beyond standard 15-minute post-vaccination period are required. Egg-free Flucelvax remains an option if preferred." : ""}`,
       fluBrands, { minInt: firstEver ? 28 : null });
@@ -409,15 +411,20 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     // be in catch-up. CDC: catch-up recommended through age 26 years.
     const isCatchup26 = am >= 228 && am < 324; // 19y–26y11m
     const isShared2745 = am >= 324; // 27y–45y
-    const hpvStatus = (isCatchup26 || isShared2745) ? "recommended" : "due";
-    const sharedNote = isShared2745
-      ? "ACIP 2019: shared clinical decision-making for ages 27\u201345y. Greatest benefit before first sexual exposure; discuss individual benefit vs cost. 3-dose series."
-      : "Shared clinical decision-making for ages 19\u201326y. 3-dose series (0, 1\u20132, 6 months). Greatest benefit when given before first sexual exposure.";
+    // ACIP: 19\u201326y is standard catch-up (strongly recommended), NOT shared
+    // clinical decision. Shared decision applies only to 27\u201345y.
+    // Bug-fix (preserved-from-prior-session 2026-05-01): hpvStatus was
+    // "recommended" for both ranges, which the UI rendered as "Shared
+    // Clinical Decision" for 19-26y patients. ACIP says 19-26y is catch-up.
+    const hpvStatus = isShared2745 ? "recommended" : isCatchup26 ? "catchup" : "due";
+    const sharedNote = "ACIP 2019: shared clinical decision-making for ages 27\u201345y. Greatest benefit before first sexual exposure; discuss individual benefit vs cost. 3-dose series.";
+    const catchup26Note = "Catch-up 19\u201326 years: HPV vaccination is strongly recommended for all persons through age 26 years who were not adequately vaccinated. " +
+      (immuno ? "3-dose series required (immunocompromised): doses at 0, 1\u20132, 6 months." : ys ? "2-dose series (started <15y): minimum 5 months between doses." : "3-dose series: doses at 0, 1\u20132, 6 months.");
     if (hpv === 0)
       r("HPV",
-        isShared2745 ? "Shared decision \u2014 dose 1 (27\u201345y)" : isCatchup26 ? "Catch-up \u2014 dose 1 (shared decision, 19\u201326y)" : `Dose 1 (${risks.includes("sexual_abuse") ? "9y+ \u2014 sexual abuse history" : "routine 11\u201312y"})`,
+        isShared2745 ? "Shared decision \u2014 dose 1 (27\u201345y)" : isCatchup26 ? "Catch-up \u2014 dose 1 (19\u201326y)" : `Dose 1 (${risks.includes("sexual_abuse") ? "9y+ \u2014 sexual abuse history" : "routine 11\u201312y"})`,
         1, hpvStatus,
-        isShared2745 || isCatchup26 ? sharedNote : immuno ? "3-dose series required (immunocompromised \u2014 even if started <15y): doses at 0, 1\u20132, 6 months." : ys ? "Starting <15y: 2-dose series (0, 6\u201312 months). Minimum 5 months between doses." : "Starting \u226515y: 3-dose series (0, 1\u20132, 6 months).",
+        isShared2745 ? sharedNote : isCatchup26 ? catchup26Note : immuno ? "3-dose series required (immunocompromised \u2014 even if started <15y): doses at 0, 1\u20132, 6 months." : ys ? "Starting <15y: 2-dose series (0, 6\u201312 months). Minimum 5 months between doses." : "Starting \u226515y: 3-dose series (0, 1\u20132, 6 months).",
         ["Gardasil 9 (HPV, 9-valent)"]);
     else if (hpv === 1)
       r("HPV", immuno ? "Dose 2 of 3" : ys ? "Dose 2 of 2 (\u22655 months after dose 1)" : "Dose 2 of 3", 2, hpvStatus, "Min from dose 1: 5 months (2-dose) or 4 weeks (3-dose)." + hpvDobWarning, ["Gardasil 9 (HPV, 9-valent)"], { minInt: ys && !immuno ? 150 : 28 });
