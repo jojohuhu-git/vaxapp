@@ -269,7 +269,13 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) 
       if (hibHistBrand?.startsWith("PedvaxHIB")) return 3;
       return 4;
     }
-    case "PCV": return 4;
+    case "PCV": {
+      const isHRPCV = (risks || []).some(r => ["asplenia","hiv","immunocomp","cochlear","chronic_heart","chronic_lung","chronic_kidney","diabetes","chronic_liver"].includes(r));
+      const givenPCV = (hist?.PCV || []).filter(d => d.given).length;
+      // Healthy ≥24m: CDC Table 2 allows only 1–2 doses in catch-up (not a full 4-dose series)
+      if (am >= 24 && !isHRPCV) return Math.min(4, givenPCV + 1);
+      return 4;
+    }
     case "PPSV23": return 1; // genRecs handles dose 2 separately for asplenia/immunocomp
     case "IPV": return am >= 216 ? 3 : 4; // adults (≥18y) need only 3-dose catch-up series
     case "MMR": return 2;

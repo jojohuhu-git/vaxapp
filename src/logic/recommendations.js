@@ -118,12 +118,8 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("DTaP", `Catch-up \u2014 dose ${Math.min(dt + 1, 5)} of 5`, Math.min(dt + 1, 5), "catchup",
       `Incomplete DTaP series. Give remaining doses. Min 4w for early doses; \u22656m for dose 4; dose 5 needed if dose 4 was before age 4y.`,
       ["Kinrix (DTaP+IPV, 4\u20136y only)", "Quadracel (DTaP+IPV, 4\u20136y only)", "Daptacel (DTaP only)", "Infanrix (DTaP only)"], { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
-  } else if (am >= 84 && dt < 5) {
-    // ≥7y: use Tdap for any remaining doses
-    r("DTaP", "Catch-up \u2014 Tdap (\u22657 years, use instead of DTaP)", Math.min(dt + 1, 5), "catchup",
-      `At age \u22657 years, Tdap replaces DTaP for catch-up. Give 1 Tdap dose. Complete any remaining tetanus/diphtheria doses with Td at least 4 weeks later. Dose 5 waived if dose 4 given at \u22654y and \u22656m after dose 3.`,
-      ["Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"], { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   }
+  // ≥7y with incomplete DTaP: the Tdap section below handles catch-up via r("Tdap",...). DTaP window is closed; forecast shows "Expired" for that column.
 
   // ── Hib ───────────────────────────────────────────────────────
   const hib = dc(hist, "Hib"); const hibb = anyBrand(hist, "Hib"); const isPed = hibb.includes("PedvaxHIB"); const hibPrim = isPed ? 2 : 3;
@@ -190,9 +186,26 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("PCV", needBooster ? "Dose 4 \u2014 PCV booster (12\u201315 months)" : "Catch-up \u2014 PCV (complete primary + booster)", pcv + 1, needBooster ? "due" : "catchup",
       needBooster ? "Booster dose at 12\u201315 months. Min 8 weeks after dose 3." : "Complete remaining primary doses first (min 4w apart), then booster (min 8w after prior).",
       pcvBrands, { minInt: needBooster ? 56 : 28, bt: pcvNote, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
-  } else if (am >= 16 && am <= 59 && pcv < 4) {
-    r("PCV", `Catch-up \u2014 PCV (16\u201359 months)`, pcv + 1, isHighRiskPCV ? "risk-based" : "catchup",
-      `Catch-up PCV series. Doses needed: ${4 - pcv}. Min 8 weeks between doses when catching up. ${isHighRiskPCV ? "High-risk: after completing PCV series, add PPSV23 \u22658 weeks later if PCV15 was used (see separate PPSV23 recommendation)." : ""}`,
+  } else if (am >= 16 && am <= 23 && pcv < 4) {
+    // 16–23m: CDC Table 2 — healthy max 2 doses total (8w apart); high-risk up to 4.
+    const healthyMax = isHighRiskPCV ? 4 : 2;
+    if (pcv < healthyMax) {
+      const isFinal = !isHighRiskPCV && pcv === 1;
+      r("PCV", `Catch-up \u2014 PCV dose ${pcv + 1}${isFinal ? " (final)" : ""} (16\u201323 months)`, pcv + 1, isHighRiskPCV ? "risk-based" : "catchup",
+        isHighRiskPCV
+          ? `High-risk 16\u201323 months: up to 4 doses, min 8 weeks apart. Add PPSV23 \u22658w after PCV series if PCV15 used.`
+          : `CDC Table 2: healthy children 16\u201323 months need at most 2 doses, min 8 weeks apart. ${pcv === 0 ? "Give dose 1 now; dose 2 (final) \u22658 weeks later." : "This is the final dose; min 8 weeks from last dose."}`,
+        pcvBrands, { minInt: 56, bt: pcvNote, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+    }
+  } else if (am >= 24 && am <= 59 && !isHighRiskPCV && pcv === 0) {
+    // Healthy ≥24m, no prior doses: CDC Table 2 — 1 dose only (no further doses needed after first dose at ≥24m)
+    r("PCV", "Catch-up \u2014 PCV dose 1 of 1 (\u226524 months, healthy)", 1, "catchup",
+      "CDC Table 2: healthy children who start PCV at \u226524 months need just 1 dose. No further doses needed after this dose.",
+      pcvBrands, { bt: pcvNote, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+  } else if (am >= 24 && am <= 59 && !isHighRiskPCV && pcv >= 1 && pcv < 4) {
+    // Healthy ≥24m with prior doses from infancy: 1 final catch-up dose
+    r("PCV", `Catch-up \u2014 PCV final dose (\u226524 months, healthy)`, pcv + 1, "catchup",
+      "CDC Table 2: 1 final catch-up dose needed. Min 8 weeks from last dose. No further doses after this.",
       pcvBrands, { minInt: 56, bt: pcvNote, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 24 && isHighRiskPCV && !pcvSeriesComplete) {
     r("PCV", "Risk-based PCV (\u22652 years, high-risk)", pcv + 1, "risk-based",
