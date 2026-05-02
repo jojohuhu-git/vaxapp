@@ -51,12 +51,15 @@ export function orderedBrandsForVisit(vk, doseNum, visitM, dueVksAtVisit, recBra
   const standaloneOpts = [];
 
   // Fallback: if no recBrands supplied (e.g. projected future dose where the
-  // recommendation engine hasn't fired for this visit), use the full brand set
-  // from VBR so the dropdown still offers every age/dose-appropriate option —
-  // including combos whose "other" antigen may already be complete (Kinrix /
-  // Quadracel for DTaP D5 when IPV D4 is already done).
+  // recommendation engine hasn't fired for this visit), offer the standalone
+  // brand set so the dropdown isn't empty. Combos are intentionally OMITTED
+  // from this fallback — combo eligibility is driven by the first loop below
+  // (which checks `dueVksAtVisit` for the other antigen). This prevents
+  // Penbraya/Penmenvy from appearing in MenB-only future-visit pickers when
+  // MenACWY isn't due, and the analogous Kinrix/Quadracel/Pediarix/etc.
+  // bleed-through. Bug fix 2026-05-02.
   if ((!recBrands || !recBrands.length) && VBR[vk]) {
-    recBrands = [...(VBR[vk].s || []), ...(VBR[vk].c || [])];
+    recBrands = [...(VBR[vk].s || [])];
   }
 
   // Add combo options from COMBOS that are age-appropriate and cover this vk + at least 1 other due vk
