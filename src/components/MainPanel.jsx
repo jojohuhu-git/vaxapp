@@ -7,6 +7,7 @@ import RecTab from './RecTab';
 import RegTab from './RegTab';
 import ForecastTab from './ForecastTab';
 import CatchUpTab from './CatchUpTab';
+import OptimalScheduleTab from './OptimalScheduleTab';
 
 export default function MainPanel() {
   const { state } = useApp();
@@ -44,6 +45,7 @@ export default function MainPanel() {
       {state.tab === "regimen" && <RegTab recs={recs} />}
       {state.tab === "forecast" && <ForecastTab recs={recs} />}
       {state.tab === "catchup" && <CatchUpTab />}
+      {state.tab === "optimal" && <OptimalScheduleTab />}
     </div>
   );
 }

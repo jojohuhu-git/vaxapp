@@ -5,6 +5,7 @@ const TABS = [
   { id: "regimen", label: "Regimen Optimizer" },
   { id: "forecast", label: "Full Forecast" },
   { id: "catchup", label: "Catch-up Table" },
+  { id: "optimal", label: "Optimal Schedule" },
 ];
 
 export default function TabBar() {
