@@ -65,20 +65,28 @@ export default function RecCard({ rec, index }) {
   const isDone = false; // recs are only generated for non-complete vaccines
 
   // Total doses + remaining (computed from history + state).
-  // Annual vaccines (Flu, COVID) → seasonal (no fixed total).
+  // Flu/COVID are normally annual but Flu first-season needs 2-dose pattern
+  // for kids <9y with <2 lifetime doses. getTotalDoses("Flu") returns 2 in
+  // that case, 1 otherwise.
   let seriesSummary = null;
-  if (rec.vk !== 'Flu' && rec.vk !== 'COVID' && rec.doseNum != null) {
+  if (rec.doseNum != null) {
     const totalDoses = getTotalDoses(rec.vk, rec, state.fcBrands ?? {}, state.am, state.hist, state.risks, state.dob);
-    if (totalDoses && rec.doseNum >= 1) {
+    if (totalDoses && rec.doseNum >= 1 && totalDoses >= rec.doseNum) {
       const remainingAfter = Math.max(0, totalDoses - rec.doseNum);
       const ctx = doseContext(rec.status);
       const ctxStr = ctx ? `${ctx} · ` : '';
-      seriesSummary = remainingAfter > 0
-        ? `${ctxStr}Dose ${rec.doseNum} of ${totalDoses} · ${remainingAfter} more dose${remainingAfter === 1 ? '' : 's'} after this`
-        : `${ctxStr}Dose ${rec.doseNum} of ${totalDoses} · final dose of series`;
+      // For annual Flu/COVID (totalDoses === 1 and not first-season), prefer
+      // the seasonal copy over the bare "Dose 1 of 1" framing.
+      if ((rec.vk === 'Flu' || rec.vk === 'COVID') && totalDoses === 1) {
+        seriesSummary = 'Annual / seasonal — recommended every flu/COVID season';
+      } else {
+        seriesSummary = remainingAfter > 0
+          ? `${ctxStr}Dose ${rec.doseNum} of ${totalDoses} · ${remainingAfter} more dose${remainingAfter === 1 ? '' : 's'} after this`
+          : `${ctxStr}Dose ${rec.doseNum} of ${totalDoses} · final dose of series`;
+      }
+    } else if (rec.vk === 'Flu' || rec.vk === 'COVID') {
+      seriesSummary = 'Annual / seasonal — recommended every flu/COVID season';
     }
-  } else if (rec.vk === 'Flu' || rec.vk === 'COVID') {
-    seriesSummary = 'Annual / seasonal — recommended every flu/COVID season';
   }
   const cadence = BOOSTER_CADENCE[rec.vk];
 
