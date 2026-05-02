@@ -363,7 +363,11 @@ export default function ForecastTab({ recs }) {
               const rowClass = isCurr ? "curr" : isPast ? "past" : "";
 
               // Generate recs for this visit's age to determine dose numbers
-              const visitRecs = genRecs(visit.m, validHist, state.risks, state.dob);
+              // Pass fcBrands so per-visit recs reflect the user's brand picks
+              // (e.g. PCV20 → suppress PPSV23; combo brands at one visit affect
+              // family-locked downstream doses). Same plumbing fix that landed
+              // in dosePlan.js seeds loop earlier.
+              const visitRecs = genRecs(visit.m, validHist, state.risks, state.dob, { fcBrands: state.fcBrands });
               const visitRecMap = {};
               visitRecs.forEach(r => { visitRecMap[r.vk] = r; });
 

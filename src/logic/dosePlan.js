@@ -87,7 +87,16 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
     if (!spec) continue;
 
     // Skip annual vaccines — they don't have a multi-dose series to project
-    if (vk === "Flu" || vk === "COVID") continue;
+    // EXCEPT Flu first-season 2-dose pattern (children <9y with <2 lifetime
+    // doses need 2 doses ≥28d apart THIS season). For that case, project D2
+    // at 28 days. Otherwise (annual repeats), skip.
+    if (vk === "COVID") continue;
+    if (vk === "Flu") {
+      const fluCount = (hist.Flu || []).filter(d => d.given).length;
+      const isFirstSeason2Dose = fluCount < 2 && am < 108 && rec.doseNum === 1;
+      if (!isFirstSeason2Dose) continue;
+      // Fall through to projection: totalDoses=2, minInt=28
+    }
 
     // Determine the starting anchor dose. Normally this is rec.doseNum (the
     // dose due at the current visit — the loop below projects d = startDose+1
@@ -257,6 +266,13 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
       return 3;
     }
     case "RSV": return 1;
+    case "Flu": {
+      // Children <9y need 2 lifetime flu doses. If patient has fewer than 2,
+      // and is <9y (am < 108), this season is a 2-dose schedule. Otherwise
+      // it's the annual single dose.
+      const fluCount = (hist.Flu || []).filter(d => d.given).length;
+      return (fluCount < 2 && am < 108) ? 2 : 1;
+    }
     case "RV": {
       // Check forecast brand selection first, then fall back to history brand
       const rvFcBrand = Object.entries(fcBrands).find(([k, v]) => k.endsWith("_RV") && v);
