@@ -78,7 +78,7 @@ export const VBR = { // vaccine brands — combo entries include (contents) for 
 export const COMBOS = {
   Vaxelis:   {c:["DTaP","IPV","Hib","HepB"],  minM:1.5, maxM:48,  propagateMaxM:6,  desc:"DTaP + IPV + Hib (PRP-OMP) + HepB (doses 1–3 only at 2/4/6 mo; NOT for Hib booster). Hib component is PRP-OMP — preferred for AI/AN."},
   Pentacel:  {c:["DTaP","IPV","Hib"],          minM:1.5, maxM:59,  propagateMaxM:18, desc:"DTaP + IPV + Hib (PRP-T) (doses 1–4 of DTaP/IPV at 2/4/6/15–18 mo; doses 1–3 of Hib primary)."},
-  Pediarix:  {c:["DTaP","HepB","IPV"],         minM:1.5, maxM:83,  propagateMaxM:6,  desc:"DTaP + HepB + IPV (doses 1–3 only at 2/4/6 mo)"},
+  Pediarix:  {c:["DTaP","HepB","IPV"],         minM:1.5, maxM:83,                    desc:"DTaP + HepB + IPV (doses 1–3; ages 6 wks–6 years). Valid for catch-up at any age within this window."},
   Kinrix:    {c:["DTaP","IPV"],                minM:48,  maxM:83,                    desc:"DTaP + IPV (dose 5 DTaP + dose 4 IPV, age 4–6y ONLY)"},
   Quadracel: {c:["DTaP","IPV"],                minM:48,  maxM:83,                    desc:"DTaP + IPV (dose 5 DTaP + dose 4 IPV, age 4–6y ONLY)"},
   ProQuad:   {c:["MMR","VAR"],                 minM:12,  maxM:155,                   desc:"MMR + Varicella (dose 1 or 2; ages 12 months–12 years)"},
