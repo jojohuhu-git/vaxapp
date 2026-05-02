@@ -41,10 +41,10 @@
     },
     {
       "id": "HPV-G1",
-      "description": "Catch-up cutoff at 27y birthday (am=324mo), not 26y birthday (am=312mo)",
+      "description": "26y8m (am=320) is catch-up status, not Shared Clinical Decision (catch-up window 19-26y)",
       "patient": { "ageMonths": 320, "dosesGiven": {} },
-      "expect": { "rec": { "vk": "HPV", "props": { "status": "recommended" } } },
-      "rationale": "Bug from great-gates AUDIT G1: previous code `am > 312` made 26y1m-26y11m patients display as 27-45y SCDM. CDC: catch-up through age 26y. Fixed by switching to `am >= 228 && am < 324` for catch-up window. Status 'recommended' (catch-up) — note text varies."
+      "expect": { "rec": { "vk": "HPV", "props": { "status": "catchup" } } },
+      "rationale": "Two stacked fixes (great-gates AUDIT G1 + preserved-from-prior-session HPV status fix): (1) catch-up window extended through 26y11m via `am < 324`; (2) hpvStatus for the catch-up window is now 'catchup' (was 'recommended', which UI rendered as 'Shared Clinical Decision' — wrong for 19-26y per ACIP)."
     },
     {
       "id": "HPV-G1b",
