@@ -489,6 +489,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     } else if (menb === 2) {
       const mb = anyBrand(hist, "MenB");
       const isFHbp2 = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
+      const is4C2  = mb.startsWith("Bexsero")   || mb.startsWith("Penmenvy");
       // Trumenba/Penbraya: high-risk patients need 3-dose accelerated regardless;
       // low-risk patients on the 2-dose schedule are already complete.
       if (isFHbp2 && hr) {
@@ -499,7 +500,21 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         r("MenB", "Dose 3 of 3 (Trumenba/Penbraya accelerated)", 3, "due",
           "MenB-FHbp dose 3: \u22656 months after dose 1 (accelerated schedule). If using 2-dose schedule (\u22656m apart), series is already complete at 2 doses.",
           mb ? [mb] : ["Trumenba (MenB-FHbp)"], { minInt: 112 });
+      } else if (is4C2 && hr) {
+        // 4C primary series complete (2 doses). High-risk: revaccinate 1 year after series completion.
+        r("MenB", "Revaccination \u2014 dose 3 (high-risk, 1 year after series)", 3, "risk-based",
+          "ACIP: high-risk patients (asplenia, complement deficiency, HIV) who completed MenB-4C series should receive a booster 1 year after series completion, then every 2\u20133 years as long as high-risk status persists.",
+          mb.startsWith("Bexsero") ? ["Bexsero (MenB-4C)"] : ["Penmenvy (MenACWY+MenB-4C)"],
+          { minInt: 365, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
       }
+    } else if (hr && menb >= 3) {
+      const mb = anyBrand(hist, "MenB");
+      // Series complete (FHbp accelerated D3 given, or 4C revax dose given).
+      // High-risk: continue revaccinating every 2\u20133 years.
+      r("MenB", `Revaccination \u2014 dose ${menb + 1} (high-risk, every 2\u20133 years)`, menb + 1, "risk-based",
+        "ACIP: high-risk patients should continue MenB revaccination every 2\u20133 years as long as high-risk status persists.",
+        mb ? [mb] : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
+        { minInt: 730, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
     }
   }
 
