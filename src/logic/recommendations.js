@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, doseAgeDays } from './stateHelpers.js';
+import { dc, lastDate, anyBrand, highRisk } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
 import { REFS } from '../data/refs.js';
 
@@ -172,7 +172,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ── PCV (conjugate: PCV13/PCV15/PCV20) ───────────────────────
   // PPSV23 is now tracked separately under hist["PPSV23"] — dc(hist,"PCV") counts
   // only conjugate doses, preventing PPSV23 from masking an incomplete PCV series.
-  const pcv = dc(hist, "PCV"); const pcvb = anyBrand(hist, "PCV");
+  const pcv = dc(hist, "PCV");
   const ppsv23 = dc(hist, "PPSV23");
   const isHighRiskPCV = risks.some(x => ["asplenia", "hiv", "immunocomp", "cochlear", "chronic_heart", "chronic_lung", "chronic_kidney", "diabetes", "chronic_liver"].includes(x));
   // PCV20 = series complete after 1 dose (no PPSV23 needed). PCV15/PCV13 require PPSV23 follow-up.
@@ -265,7 +265,9 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     ? ["IIV4 (any age-appropriate inactivated)", "Flucelvax Quadrivalent (ccIIV4, egg-free)"]
     : ["IIV4 (any age-appropriate inactivated)", "Flucelvax Quadrivalent (ccIIV4, egg-free)", "FluMist Quadrivalent (LAIV4, \u22652y healthy non-pregnant)"];
   if (am >= 6 && !fluThisSeason) {
-    const firstEver = flu === 0 && am < 108;
+    // CDSI: children <9y need 2 doses if they haven't received ≥2 lifetime flu doses.
+    // flu < 2 covers both first-ever (flu===0) and the "got 1 dose last season" case.
+    const firstEver = flu < 2 && am < 108;
     r("Flu", firstEver ? "2 doses this season (\u22654 weeks apart, first-ever)" : "Annual influenza dose", 1, "due",
       `Annual flu vaccine for all \u22656 months. ${firstEver ? "First-ever flu vaccine in children <9y requires 2 doses \u22654 weeks apart. " : ""}${noLAIV ? "LAIV (FluMist) contraindicated \u2014 use inactivated IIV only. " : "FluMist acceptable for healthy non-pregnant \u22652y. "}${eggAllergy ? "Egg allergy: Per ACIP 2023+ updated guidance, any licensed age-appropriate influenza vaccine (including standard egg-based IIV) may be administered regardless of egg allergy severity. No additional precautions or extended observation beyond standard 15-minute post-vaccination period are required. Egg-free Flucelvax remains an option if preferred." : ""}`,
       fluBrands, { minInt: firstEver ? 28 : null });
@@ -379,15 +381,16 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       : "";
     const isCatchup26 = am > 216 && am <= 312; // 19–26y: catch-up (still strongly recommended)
     const isShared2745 = am > 312; // 27–45y: shared clinical decision only
-    const hpvStatus = (isCatchup26 || isShared2745) ? "recommended" : "due";
-    const sharedNote = isShared2745
-      ? "ACIP 2019: shared clinical decision-making for ages 27\u201345y. Greatest benefit before first sexual exposure; discuss individual benefit vs cost. 3-dose series."
-      : "Shared clinical decision-making for ages 19\u201326y. 3-dose series (0, 1\u20132, 6 months). Greatest benefit when given before first sexual exposure.";
+    // CDSI: 19\u201326y is standard catch-up, NOT shared decision. Shared decision starts at 27y.
+    const hpvStatus = isShared2745 ? "recommended" : isCatchup26 ? "catchup" : "due";
+    const sharedNote = "ACIP 2019: shared clinical decision-making for ages 27\u201345y. Greatest benefit before first sexual exposure; discuss individual benefit vs cost. 3-dose series.";
+    const catchup26Note = "Catch-up 19\u201326 years: HPV vaccination is strongly recommended for all persons through age 26 years who were not adequately vaccinated. " +
+      (immuno ? "3-dose series required (immunocompromised): doses at 0, 1\u20132, 6 months." : ys ? "2-dose series (started <15y): minimum 5 months between doses." : "3-dose series: doses at 0, 1\u20132, 6 months.");
     if (hpv === 0)
       r("HPV",
-        isShared2745 ? "Shared decision \u2014 dose 1 (27\u201345y)" : isCatchup26 ? "Catch-up \u2014 dose 1 (shared decision, 19\u201326y)" : `Dose 1 (${risks.includes("sexual_abuse") ? "9y+ \u2014 sexual abuse history" : "routine 11\u201312y"})`,
+        isShared2745 ? "Shared decision \u2014 dose 1 (27\u201345y)" : isCatchup26 ? "Catch-up \u2014 dose 1 (19\u201326y)" : `Dose 1 (${risks.includes("sexual_abuse") ? "9y+ \u2014 sexual abuse history" : "routine 11\u201312y"})`,
         1, hpvStatus,
-        isShared2745 || isCatchup26 ? sharedNote : immuno ? "3-dose series required (immunocompromised \u2014 even if started <15y): doses at 0, 1\u20132, 6 months." : ys ? "Starting <15y: 2-dose series (0, 6\u201312 months). Minimum 5 months between doses." : "Starting \u226515y: 3-dose series (0, 1\u20132, 6 months).",
+        isShared2745 ? sharedNote : isCatchup26 ? catchup26Note : immuno ? "3-dose series required (immunocompromised \u2014 even if started <15y): doses at 0, 1\u20132, 6 months." : ys ? "Starting <15y: 2-dose series (0, 6\u201312 months). Minimum 5 months between doses." : "Starting \u226515y: 3-dose series (0, 1\u20132, 6 months).",
         ["Gardasil 9 (HPV, 9-valent)"]);
     else if (hpv === 1)
       r("HPV", immuno ? "Dose 2 of 3" : ys ? "Dose 2 of 2 (\u22655 months after dose 1)" : "Dose 2 of 3", 2, hpvStatus, "Min from dose 1: 5 months (2-dose) or 4 weeks (3-dose)." + hpvDobWarning, ["Gardasil 9 (HPV, 9-valent)"], { minInt: ys && !immuno ? 150 : 28 });
@@ -458,8 +461,9 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   }
 
   // ── MenB ──────────────────────────────────────────────────────
+  // High-risk patients: min age 10y (120m). Non-high-risk shared decision: ACIP preferred 16–23y.
   if (am >= 120) {
-    if (menb === 0) {
+    if (menb === 0 && (hr || am >= 192)) {
       r("MenB", hr ? "Dose 1 \u2014 risk-based (high-risk)" : "Dose 1 \u2014 shared clinical decision (preferred 16\u201323y)", 1, hr ? "risk-based" : "recommended",
         hr ? "Risk-based for high-risk patients. Bexsero or Penmenvy (MenB-4C): 2 doses (0, \u22651 month apart). Trumenba or Penbraya (MenB-FHbp): 2 doses \u22656m apart (or accelerated 3-dose). Antigen families (4C vs FHbp) are NOT interchangeable." : "Shared clinical decision making, preferred 16\u201318y. MenB-4C (Bexsero/Penmenvy): 2 doses \u22651m apart. MenB-FHbp (Trumenba/Penbraya): 2 doses \u22656m apart (or accelerated 3-dose). Penbraya/Penmenvy if MenACWY also starting.",
         men === 0 ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenACWY too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenACWY too (4C family)", "Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"] : ["Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"],
