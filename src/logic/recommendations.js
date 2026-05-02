@@ -549,14 +549,20 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       const isFHbp2 = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
       // Trumenba/Penbraya: high-risk patients need 3-dose accelerated regardless;
       // low-risk patients on the 2-dose schedule are already complete.
+      // FHbp family brands: standalone Trumenba + combo Penbraya. List BOTH
+      // so the clinician can choose to switch off the combo for D3 even if
+      // D1/D2 used a combo. Bug-fix 2026-05-02: previously emitted only
+      // [mb] (the prior brand) which restricted the picker to combo-only
+      // when Penbraya was used for earlier doses.
+      const fhbpBrands = ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp)"];
       if (isFHbp2 && hr) {
         r("MenB", "Dose 3 of 3 (FHbp accelerated, high-risk)", 3, "risk-based",
           "MenB-FHbp dose 3: \u22656 months after dose 1 AND \u22654 months after dose 2 (accelerated 3-dose 0/1\u20132/6m schedule). Required for high-risk patients (asplenia, complement deficiency, HIV).",
-          mb ? [mb] : ["Trumenba (MenB-FHbp)"], { minInt: 112 });
+          fhbpBrands, { minInt: 112 });
       } else if (isFHbp2) {
         r("MenB", "Dose 3 of 3 (Trumenba/Penbraya accelerated)", 3, "due",
           "MenB-FHbp dose 3: \u22656 months after dose 1 (accelerated schedule). If using 2-dose schedule (\u22656m apart), series is already complete at 2 doses.",
-          mb ? [mb] : ["Trumenba (MenB-FHbp)"], { minInt: 112 });
+          fhbpBrands, { minInt: 112 });
       }
     }
     // High-risk MenB revaccination after primary series complete.

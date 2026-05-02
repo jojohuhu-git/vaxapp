@@ -171,6 +171,37 @@ describe('MenACWY booster brand list (B-3: drop combos when MenB complete)', () 
   });
 });
 
+describe('MenB D3 brand list — both single and combo always offered (2026-05-02 fix)', () => {
+  // BUG: D3 emit was `mb ? [mb] : [default]` — when patient had Penbraya
+  // (combo) for D1, D3 brand list was ONLY ["Penbraya"]. Picker showed
+  // combo-only, no way to switch to single Trumenba for D3.
+
+  it('120mo asplenia, 2 Penbraya doses → MenB D3 brand list includes BOTH Trumenba and Penbraya', () => {
+    const p = makePatient({
+      ageMonths: 120,
+      dosesGiven: { MenB: 2 },
+      brands: { MenB: 'Penbraya (MenACWY+MenB-FHbp)' },
+      riskConditions: ['asplenia'],
+    });
+    const r = recFor(run(p), 'MenB');
+    expect(r.doseNum).toBe(3);
+    expect(r.brands.some(b => b.startsWith('Trumenba'))).toBe(true);
+    expect(r.brands.some(b => b.startsWith('Penbraya'))).toBe(true);
+  });
+
+  it('120mo asplenia, 2 Trumenba doses → MenB D3 brand list still includes both', () => {
+    const p = makePatient({
+      ageMonths: 120,
+      dosesGiven: { MenB: 2 },
+      brands: { MenB: 'Trumenba (MenB-FHbp)' },
+      riskConditions: ['asplenia'],
+    });
+    const r = recFor(run(p), 'MenB');
+    expect(r.brands.some(b => b.startsWith('Trumenba'))).toBe(true);
+    expect(r.brands.some(b => b.startsWith('Penbraya'))).toBe(true);
+  });
+});
+
 describe('MenACWY/MenB — new risk factors (B-A4 harvest)', () => {
   it('120mo complement_inhibitor → MenB rec (high-risk gating)', () => {
     const p = makePatient({ ageMonths: 120, riskConditions: ['complement_inhibitor'] });
