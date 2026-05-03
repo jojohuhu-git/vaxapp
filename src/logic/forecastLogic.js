@@ -66,10 +66,11 @@ export function orderedBrandsForVisit(vk, doseNum, visitM, dueVksAtVisit, recBra
   function comboValidForDose(name) {
     if ((name === "Vaxelis" || name === "Pediarix") && vk === "DTaP" && doseNum >= 4) return false;
     if ((name === "Vaxelis" || name === "Pediarix") && vk === "HepB" && doseNum >= 4) return false;
-    if (name === "Vaxelis" && vk === "Hib" && doseNum >= 4) return false;
+    if (name === "Vaxelis" && vk === "Hib" && doseNum >= 4) return false;   // Vaxelis NOT for Hib booster (PRP-OMP series done in 3 doses)
     if (name === "Vaxelis" && vk === "IPV" && doseNum >= 4) return false;
     if (name === "Pediarix" && vk === "IPV" && doseNum >= 4) return false;
-    if (name === "Pentacel" && vk === "Hib" && doseNum >= 4) return false;
+    if (name === "Pentacel" && vk === "DTaP" && doseNum >= 5) return false;  // Pentacel is NOT for DTaP D5; use Kinrix/Quadracel
+    if (name === "Pentacel" && vk === "IPV" && doseNum >= 4) return false;   // IPV D4 final at 4-6y pairs with DTaP D5; use Kinrix/Quadracel
     if ((name === "Kinrix" || name === "Quadracel")) {
       if (vk === "DTaP" && doseNum !== 5) return false;
       if (vk === "IPV" && doseNum !== 4) return false;
@@ -108,10 +109,15 @@ export function orderedBrandsForVisit(vk, doseNum, visitM, dueVksAtVisit, recBra
         // Check if already in comboOpts
         const cn = Object.keys(COMBOS).find(cn => b.startsWith(cn));
         if (cn && !comboOpts.some(co => co.name === cn)) {
-          // Rec-listed combo not in our combo list (maybe doesn't cover another due vk)
-          // Still include it since the rec engine approved it
+          // Rec-listed combo not in our combo list (maybe doesn't cover another due vk).
+          // Include it when the rec engine approved it — EXCEPT for MenACWY+MenB combos
+          // (Penbraya/Penmenvy), which must have BOTH components due at this visit.
+          // Other combos (Kinrix/Quadracel) are allowed when one component is already
+          // complete because ACIP explicitly permits the extra DTaP/IPV dose at 4-6y.
           const c = COMBOS[cn];
           if (c && visitM >= c.minM && visitM <= c.maxM && comboValidForDose(cn)) {
+            const otherDue2 = c.c.filter(v => v !== vk && dueVksAtVisit.includes(v));
+            if ((c.c.includes("MenACWY") || c.c.includes("MenB")) && otherDue2.length === 0) continue;
             const label = `${cn} (covers ${c.c.join(" + ")})`;
             if (!seen.has(label)) {
               seen.add(label);

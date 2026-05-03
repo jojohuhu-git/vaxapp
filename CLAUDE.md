@@ -27,7 +27,106 @@ Common lint errors to fix before committing:
 - Missing PropTypes (`react/prop-types`) — add `/* eslint-disable react/prop-types */` at top of file; existing components in this repo do not use PropTypes
 - Unescaped entities in JSX text (`react/no-unescaped-entities`) — wrap text in `{' ... '}` or escape `'` as `\'` inside a string expression
 
-## Recommendation engine
+## Vaccine guidance priority
+
+**Always use ACIP/CDC/AAP/immunize.org over FDA package inserts.**
+Package inserts are considered out of date. FDA-labeled age ranges may be more restrictive than current ACIP guidance.
+Never revert to FDA-labeled ages without explicit instruction.
+
+## Combo vaccine rules (ACIP, verified 2026-05-02)
+
+Source: ACIP, immunize.org (not FDA package inserts).
+
+### Age ranges and dose limits — canonical reference
+
+| Combo | Components | Min age | Max age | DTaP doses | IPV doses | Hib doses | HepB doses |
+|---|---|---|---|---|---|---|---|
+| **Pediarix** | DTaP+HepB+IPV | 6 wks | 6 yrs (83m) | 1–3 only | 1–3 only | — | 1–3 only |
+| **Vaxelis** | DTaP+IPV+Hib+HepB | 6 wks | 6 yrs (83m) | 1–3 only | 1–3 only | 1–3 only (NOT booster) | 1–3 only |
+| **Pentacel** | DTaP+IPV+Hib | 6 wks | 6 yrs (83m) | 1–4 only | 1–3 only* | 1–4 (incl. booster) | — |
+| **Kinrix** | DTaP+IPV | 4 yrs | 6 yrs (83m) | D5 ONLY | D4 ONLY | — | — |
+| **Quadracel** | DTaP+IPV | 4 yrs | 6 yrs (83m) | D5 ONLY | D4 ONLY | — | — |
+| **Daptacel** | DTaP only | 6 wks | 6 yrs (83m) | 1–5 | — | — | — |
+| **Infanrix** | DTaP only | 6 wks | 6 yrs (83m) | 1–5 | — | — | — |
+| **Penbraya** | MenACWY+MenB-FHbp | 10 yrs | 25 yrs | — | — | — | — |
+| **Penmenvy** | MenACWY+MenB-4C | 10 yrs | 25 yrs | — | — | — | — |
+
+*Pentacel IPV: D4 via Pentacel is acceptable at 15–18m, but at the 4–6y booster visit IPV D4 must pair with DTaP D5 → use Kinrix/Quadracel instead.
+
+### Hard constraints enforced in forecastLogic.js `comboValidForDose`
+
+```
+Vaxelis/Pediarix + DTaP → block at doseNum ≥ 4
+Vaxelis/Pediarix + HepB → block at doseNum ≥ 4
+Vaxelis/Pediarix + IPV  → block at doseNum ≥ 4
+Vaxelis + Hib           → block at doseNum ≥ 4  (PRP-OMP series done in 3 doses)
+Pentacel + DTaP         → block at doseNum ≥ 5  (NOT for DTaP D5)
+Pentacel + IPV          → block at doseNum ≥ 4  (at 4–6y, IPV D4 must go with DTaP D5 via Kinrix/Quadracel)
+Kinrix/Quadracel + DTaP → only at doseNum == 5
+Kinrix/Quadracel + IPV  → only at doseNum == 4
+```
+
+**Never remove these gates** — they prevent clinically wrong combinations.
+
+### `propagateMaxM` policy
+
+Do NOT add `propagateMaxM` to Pediarix, Vaxelis, or Pentacel. These combos are valid for catch-up at any age within their `maxM` window. The `comboValidForDose` dose-number gates already enforce the per-dose limits. Removing `propagateMaxM` is what allows the Full Forecast to offer these brands for catch-up patients older than the routine schedule ages.
+
+Kinrix and Quadracel have `minM:48` (not `propagateMaxM`) because they are genuinely restricted to the 4–6y visit.
+
+### COMBOS entries — `maxM` values
+
+`maxM` in `vaccineData.js` uses ACIP-recommended ages, not FDA labels.
+
+| Combo | maxM (months) | Equals |
+|---|---|---|
+| Pediarix | 83 | just before 7th birthday |
+| Vaxelis | 83 | just before 7th birthday (ACIP; FDA says 4y but ACIP overrides) |
+| Pentacel | 83 | just before 7th birthday (ACIP; FDA says 4y but ACIP overrides) |
+| Kinrix | 83 | just before 7th birthday |
+| Quadracel | 83 | just before 7th birthday |
+| Penbraya | 312 | through age 25 |
+| Penmenvy | 312 | through age 25 |
+
+### Penbraya/Penmenvy in Full Forecast
+
+These combos must only appear when **BOTH** MenACWY and MenB are due at the same visit. `forecastLogic.js` path 1 already enforces `otherDue.length > 0`. Path 2 (rec-listed combo fallback) was fixed to add:
+
+```js
+const otherDue2 = c.c.filter(v => v !== vk && dueVksAtVisit.includes(v));
+if ((c.c.includes("MenACWY") || c.c.includes("MenB")) && otherDue2.length === 0) continue;
+```
+
+Do not remove this check. The rec engine lists Penbraya/Penmenvy in brands as a hint when the other series hasn't started, but the forecast must not show them unless both are genuinely scheduled.
+
+### Kinrix/Quadracel special case
+
+These combos are allowed in Full Forecast path 2 (rec-listed) even when IPV is "already complete" at the 4–6y visit. ACIP explicitly permits the extra IPV dose at the 4–6y booster visit. This is handled by the comment in forecastLogic.js explaining why path 2 doesn't require `otherDue.length > 0` for non-MenACWY combos.
+
+### Hib combo notes
+
+- **Vaxelis**: Contains Hib PRP-OMP. PRP-OMP series = 3 doses total (2 primary + 1 booster). The booster (dose 3) is doses 1–3 of Vaxelis. Vaxelis is **NOT** for Hib dose 4+ because the PRP-OMP series is complete after 3 doses.
+- **Pentacel**: Contains Hib PRP-T. PRP-T series = 4 doses (3 primary + 1 booster). Pentacel D4 at 15–18m covers the Hib booster. **Pentacel IS approved for the Hib booster.**
+
+### Brand lists by rec branch — expected combos per column
+
+| Branch | DTaP | HepB | IPV | Hib |
+|---|---|---|---|---|
+| Primary 2–6m (D1–D3) | Pediarix, Pentacel, Vaxelis | Pediarix, Vaxelis | Pediarix, Pentacel, Vaxelis | Pentacel, Vaxelis |
+| Primary D2 1–4m | — | Pediarix, Vaxelis | — | — |
+| Primary D3 6–18m | — | Pediarix, Vaxelis | — | — |
+| Catch-up 7–18m (D1–D3) | Pediarix, Pentacel, Vaxelis | — | Pediarix, Pentacel, Vaxelis | Pentacel, Vaxelis |
+| D4 booster 12–18m | Pentacel only | — | — | Pentacel (booster OK) |
+| Catch-up 19–47m D1–D3 | Pediarix, Pentacel, Vaxelis | Pediarix, Vaxelis | Pediarix, Pentacel, Vaxelis | (standalone) |
+| Catch-up 19–47m D4 | Pentacel only | — | — | — |
+| Catch-up 48–83m D1–D3 | Pediarix, Pentacel, Vaxelis | Pediarix, Vaxelis | Pediarix, Pentacel, Vaxelis | — |
+| Catch-up 48–83m D4 | Pentacel only | — | — | — |
+| DTaP D5 / IPV D4 4–6y | Kinrix, Quadracel | — | Kinrix, Quadracel | — |
+| HepB catch-up >4m (≤83m) | — | Pediarix, Vaxelis | — | — |
+| Hib booster 12–15m | — | — | — | Pentacel (yes), no Vaxelis |
+| Hib 16–59m catch-up | — | — | — | standalone only |
+
+
 
 Core file: `src/logic/recommendations.js`
 

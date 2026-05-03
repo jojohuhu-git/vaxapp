@@ -68,7 +68,9 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   else if (hb < hbTotal && am >= 1)
     r("HepB", `Catch-up \u2014 dose ${hb + 1} of ${hbTotal}`, hb + 1, "catchup",
       `Complete ${hbTotal}-dose HepB series${hbIsHeplisav ? " (Heplisav-B)" : ""}. Doses remaining: ${hbTotal - hb}.${hbIsHeplisav ? " Heplisav-B: dose 2 \u22651 month after dose 1." : " Min 4w between D1\u2192D2; min 8w D2\u2192D3; min 16w D1\u2192D3; min age 24 weeks for final dose."}${!hbIsHeplisav && am >= 132 ? " Adolescents 11\u201315y: 2-dose adult Recombivax HB option (0,6m apart)." : ""}${!hbIsHeplisav && am >= 216 ? " \u226518y: Heplisav-B (2-dose) or Twinrix." : ""}`,
-      am >= 216 ? ["Engerix-B", "Recombivax HB", "Heplisav-B (\u226518y, 2-dose)", "Twinrix (HepA+HepB, \u226518y)"] : ["Engerix-B", "Recombivax HB"],
+      am >= 216 ? ["Engerix-B", "Recombivax HB", "Heplisav-B (\u226518y, 2-dose)", "Twinrix (HepA+HepB, \u226518y)"]
+        : (!hbIsHeplisav && am <= 83) ? ["Engerix-B", "Recombivax HB", "Pediarix (DTaP+HepB+IPV)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"]
+        : ["Engerix-B", "Recombivax HB"],
       { minInt: hbIsHeplisav ? 28 : null, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
 
   // ── RSV ───────────────────────────────────────────────────────
@@ -108,16 +110,23 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("DTaP", "Dose 4 (booster, 15\u201318 months)", 4, "due", "Min 6 months from dose 3. May give as early as 12 months if \u22656 months since dose 3.", ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 182 });
   } else if (am >= 19 && am <= 47 && dt < 4) {
     // Catch-up 19–47 months: need doses to complete primary + booster
-    r("DTaP", `Catch-up \u2014 dose ${Math.min(dt + 1, 4)} of ${dt < 3 ? "5 (primary incomplete)" : "4 (booster)"}`, Math.min(dt + 1, 4), "catchup",
+    r("DTaP", `Catch-up \u2014 dose ${dt + 1} of ${dt < 3 ? "5 (primary incomplete)" : "4 (booster)"}`, dt + 1, "catchup",
       `Complete catch-up per CDC Table 2. If doses 1\u20133 not complete, give remaining primary doses (min 4w apart). Then booster (dose 4) \u22656m after dose 3.`,
-      ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"], { minInt: dt < 3 ? 28 : 182, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      dt < 3
+        ? ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"]
+        : ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"],
+      { minInt: dt < 3 ? 28 : 182, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 48 && am <= 83 && dt === 4) {
     r("DTaP", "Dose 5 (4\u20136 year booster)", 5, am <= 72 ? "due" : "catchup", "Not needed if dose 4 was at \u22654 years AND \u22656 months after dose 3.", ["Kinrix (DTaP+IPV, 4\u20136y only)", "Quadracel (DTaP+IPV, 4\u20136y only)", "Daptacel (DTaP only)", "Infanrix (DTaP only)"], { bt: "Kinrix or Quadracel = DTaP+IPV in one injection at the 4\u20136y visit." });
   } else if (am >= 48 && am <= 83 && dt < 4) {
-    // 4–6y with incomplete series: catch-up
-    r("DTaP", `Catch-up \u2014 dose ${Math.min(dt + 1, 5)} of 5`, Math.min(dt + 1, 5), "catchup",
-      `Incomplete DTaP series. Give remaining doses. Min 4w for early doses; \u22656m for dose 4; dose 5 needed if dose 4 was before age 4y.`,
-      ["Kinrix (DTaP+IPV, 4\u20136y only)", "Quadracel (DTaP+IPV, 4\u20136y only)", "Daptacel (DTaP only)", "Infanrix (DTaP only)"], { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+    // 4–6y with incomplete primary or pre-booster: catch-up
+    // Kinrix/Quadracel are ONLY for DTaP D5 + IPV D4 — not for D1–D4 catch-up.
+    r("DTaP", `Catch-up \u2014 dose ${dt + 1} of 5`, dt + 1, "catchup",
+      `Incomplete DTaP series at 4\u20136y. Give remaining doses. Min 4w for early doses; \u22656m for dose 4; dose 5 needed if dose 4 was before age 4y.`,
+      dt < 3
+        ? ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"]
+        : ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"],
+      { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   }
   // ≥7y with incomplete DTaP: the Tdap section below handles catch-up via r("Tdap",...). DTaP window is closed; forecast shows "Expired" for that column.
 
@@ -136,7 +145,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       `7\u201311 months: if behind, give remaining doses now. Min 4 weeks between doses. Complete by 12\u201315m with booster.`,
       hibComboBrands, { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 12 && am <= 15 && hib >= hibPrim && hib < (isPed ? 3 : 4)) {
-    r("Hib", "Booster (12\u201315 months)", hib + 1, "due", "Booster at 12\u201315 months. Min 8 weeks after prior dose. Vaxelis NOT approved for booster.", ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { minInt: 56 });
+    r("Hib", "Booster (12\u201315 months)", hib + 1, "due", "Booster at 12\u201315 months. Min 8 weeks after prior dose. Pentacel OK for booster (PRP-T dose 4). Vaxelis NOT for booster (PRP-OMP series complete in 3 doses).", ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 56 });
   } else if (am >= 12 && am <= 15 && hib < hibPrim) {
     // 12–15m with incomplete primary: catch-up primary doses then booster
     r("Hib", `Catch-up \u2014 dose ${hib + 1} (12\u201315 months, primary incomplete)`, hib + 1, "catchup",
@@ -248,14 +257,14 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       ipv < 2 ? "Behind on primary IPV series. Give next dose now, min 4 weeks from last dose." : "Third dose at 6\u201318 months. Min 4 weeks from dose 2 if <4 years.",
       ipvBrands, { minInt: 28, refUrl2: ipv < 2 ? REFS.catchup.url : null, refLabel2: ipv < 2 ? REFS.catchup.label : null });
   } else if (am >= 19 && am <= 47 && ipv < 3) {
-    r("IPV", `Catch-up \u2014 dose ${ipv + 1} of 4`, ipv + 1, "catchup", `Complete IPV catch-up. Min 4 weeks between doses if <4 years.`, ["IPOL (IPV only)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+    r("IPV", `Catch-up \u2014 dose ${ipv + 1} of 4`, ipv + 1, "catchup", `Complete IPV catch-up. Min 4 weeks between doses if <4 years.`, ["IPOL (IPV only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"], { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 48 && am <= 72 && ipv === 3) {
     r("IPV", "Dose 4 \u2014 final booster (4\u20136 years)", 4, "due", "Final dose. Min 6 months from dose 3. Min age 4 years.", ["IPOL (IPV only)", "Kinrix (DTaP+IPV, 4\u20136y) \u2014 preferred", "Quadracel (DTaP+IPV, 4\u20136y) \u2014 preferred"], { bt: "Kinrix or Quadracel = IPV+DTaP in one injection at the 4\u20136y visit." });
   } else if (am >= 48 && am <= 72 && ipv < 3) {
     // 4–6y with incomplete primary: catch-up
     r("IPV", `Catch-up \u2014 dose ${ipv + 1} of 4`, ipv + 1, "catchup",
-      `Incomplete IPV series at 4\u20136y. Give remaining doses. Min 4 weeks between doses; final dose \u22656 months after prior.`,
-      ["IPOL (IPV only)", "Kinrix (DTaP+IPV, 4\u20136y)", "Quadracel (DTaP+IPV, 4\u20136y)"], { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      `Incomplete IPV series at 4\u20136y. Give remaining doses. Min 4 weeks between doses if <4y; final dose \u22656 months after prior dose.`,
+      ["IPOL (IPV only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"], { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am > 72 && ipv < (am >= 216 ? 3 : 4)) {
     // Adults ≥18y (216m): 3-dose catch-up series is complete. Children 7–17y: 4 doses required.
     const ipvTotal = am >= 216 ? 3 : 4;
