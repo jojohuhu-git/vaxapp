@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 // OptimalScheduleTab.jsx — renders the output of buildOptimalSchedule()
 // Shows earliest-completion visit plan with per-dose binding constraints.
 // Three modes: fewestVisits | earliestCompletion | fewestInjections.
@@ -249,7 +250,6 @@ export default function OptimalScheduleTab() {
 
   // ── VISIT[] — clean schedule ───────────────────────────────────
   if (Array.isArray(result)) {
-    const allDoses = result.flatMap(v => v.items);
     // Count physical injections: each non-combo item = 1, each combo = 1
     const totalInjections = result.reduce((sum, v) => sum + v.items.length, 0);
     const lastDate = result.at(-1)?.date;

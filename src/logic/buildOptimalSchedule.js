@@ -350,7 +350,6 @@ function substituteCombos(visit, dob) {
   let changed = true;
   while (changed) {
     changed = false;
-    const presentAntigens = new Set(visit.items.filter(it => !it._combo).map(it => it.vk));
     let bestCombo = null;
     let bestCoverage = 0;
     for (const [comboName, def] of Object.entries(COMBOS)) {
