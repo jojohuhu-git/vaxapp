@@ -66,11 +66,7 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
   for (let vi = (currVisitIdx >= 0 ? currVisitIdx + 1 : 0); vi < FORECAST_VISITS.length; vi++) {
     const v = FORECAST_VISITS[vi];
     if (v.m <= am) continue;
-    // B-8 fix (2026-04-30): pass fcBrands so future-visit genRecs evaluations
-    // see the user's brand selections. Without this, PPSV23 could be seeded
-    // as a future projection even when PCV20 was selected (PCV20 covers
-    // PPSV serotypes; no PPSV23 follow-up needed).
-    const vr = genRecs(v.m, hist, risks, dob, { fcBrands });
+    const vr = genRecs(v.m, hist, risks, dob);
     for (const r of vr) {
       if (seededVks.has(r.vk)) continue;
       // Only first-dose emissions can kick off projection of remaining doses.
@@ -86,17 +82,9 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
     const spec = MIN_INT[vk];
     if (!spec) continue;
 
-    // Skip annual vaccines — they don't have a multi-dose series to project
-    // EXCEPT Flu first-season 2-dose pattern (children <9y with <2 lifetime
-    // doses need 2 doses ≥28d apart THIS season). For that case, project D2
-    // at 28 days. Otherwise (annual repeats), skip.
+    // Skip annual vaccines (COVID: single annual dose). Flu is NOT skipped here
+    // because children <9y with <2 lifetime doses need a 2nd dose projected.
     if (vk === "COVID") continue;
-    if (vk === "Flu") {
-      const fluCount = (hist.Flu || []).filter(d => d.given).length;
-      const isFirstSeason2Dose = fluCount < 2 && am < 108 && rec.doseNum === 1;
-      if (!isFirstSeason2Dose) continue;
-      // Fall through to projection: totalDoses=2, minInt=28
-    }
 
     // Determine the starting anchor dose. Normally this is rec.doseNum (the
     // dose due at the current visit — the loop below projects d = startDose+1
@@ -106,7 +94,7 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
     // given until the min-interval elapses. In that case anchor at the number
     // of countable doses already given so the projection emits D2 at the next
     // eligible visit rather than skipping straight to D3.
-    const totalDoses = getTotalDoses(vk, rec, fcBrands, am, hist, risks, dob);
+    const totalDoses = getTotalDoses(vk, rec, fcBrands, am, hist, risks);
     const givenCountable = (hist[vk] || []).filter(d => d && d.given).length;
     const lastGivenPeek = (hist[vk] || []).filter(d => d && d.given && (d.date || d.ageDays != null)).slice(-1)[0];
     let lastGivenAgeM = null;
@@ -255,7 +243,7 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
 }
 
 /** Get total doses in series for a vaccine, accounting for brand/age/risk */
-export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], dob = "") {
+export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) {
   switch (vk) {
     case "HepB": {
       // Heplisav-B is a 2-dose series; all other HepB brands are 3-dose
@@ -266,13 +254,6 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
       return 3;
     }
     case "RSV": return 1;
-    case "Flu": {
-      // Children <9y need 2 lifetime flu doses. If patient has fewer than 2,
-      // and is <9y (am < 108), this season is a 2-dose schedule. Otherwise
-      // it's the annual single dose.
-      const fluCount = (hist.Flu || []).filter(d => d.given).length;
-      return (fluCount < 2 && am < 108) ? 2 : 1;
-    }
     case "RV": {
       // Check forecast brand selection first, then fall back to history brand
       const rvFcBrand = Object.entries(fcBrands).find(([k, v]) => k.endsWith("_RV") && v);
@@ -289,27 +270,25 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
       if (hibHistBrand?.startsWith("PedvaxHIB")) return 3;
       return 4;
     }
-    case "PCV": return 4;
+    case "PCV": {
+      const isHRPCV = (risks || []).some(r => ["asplenia","hiv","immunocomp","cochlear","chronic_heart","chronic_lung","chronic_kidney","diabetes","chronic_liver"].includes(r));
+      const givenPCV = (hist?.PCV || []).filter(d => d.given).length;
+      // Healthy ≥24m: CDC Table 2 allows only 1–2 doses in catch-up (not a full 4-dose series)
+      if (am >= 24 && !isHRPCV) return Math.min(4, givenPCV + 1);
+      return 4;
+    }
     case "PPSV23": return 1; // genRecs handles dose 2 separately for asplenia/immunocomp
     case "IPV": return am >= 216 ? 3 : 4; // adults (≥18y) need only 3-dose catch-up series
     case "MMR": return 2;
     case "VAR": return 2;
     case "HepA": return 2;
     case "Tdap": {
-      // ACIP catch-up Table 2 + immunize.org p2055:
-      //   - ≥7y unvaccinated → 3-dose primary catch-up (Tdap + Td/Tdap at
-      //     4w + Td/Tdap at 6mo).
-      //   - First catch-up dose at age 7-9y (am 84-119) → ALSO give routine
-      //     11-12y Tdap → 4 total doses.
-      //   - First catch-up dose at age 10y+ (am ≥ 120) → catch-up Tdap
-      //     serves as the routine adolescent dose → 3 total doses.
-      const dt = (hist.DTaP || []).filter(d => d.given).length;
-      const tdapHist = (hist.Tdap || []).filter(d => d.given).length;
-      const totalTetanus = dt + tdapHist;
-      if (am < 84 || totalTetanus >= 3) return 1; // routine single Tdap or decennial
-      const firstAtAge7to9 = am < 120 && totalTetanus === 0;
-      const targetTotal = firstAtAge7to9 ? 4 : 3;
-      return targetTotal - dt; // remaining via Tdap-keyed projection
+      const dtCount = (hist?.DTaP || []).filter(d => d.given).length;
+      const tdapCount = (hist?.Tdap || []).filter(d => d.given).length;
+      const totalTet = dtCount + tdapCount;
+      if (totalTet >= 3) return 1; // series complete — decennial only
+      if (am >= 84 && am < 120) return 4; // 7–9y: 3 catch-up + 1 routine 11–12y
+      return 3; // ≥10y: catch-up D1 serves as routine — 3 total
     }
     case "HPV": {
       // Per ACIP: 2-dose series if starting <15y AND not immunocompromised; 3-dose otherwise.
@@ -320,27 +299,16 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
       return 2;
     }
     case "MenACWY": {
-      // Per ACIP: routine 2-dose (D1 at 11-12y, booster at 16y).
-      // If first dose is given at age ≥16y, NO booster needed → 1 dose total.
-      // High-risk patients (asplenia, complement, HIV, microbiologist,
-      // complement_inhibitor) follow ongoing revaccination — handled by
-      // genRecs separately; treat as 2 here for projection.
-      const isHRMen = risks.some(r => ["asplenia", "complement", "complement_inhibitor", "hiv", "microbiologist"].includes(r));
-      if (isHRMen) return 2;
-      const givenMen = (hist.MenACWY || []).filter(d => d.given);
-      if (givenMen.length > 0) {
-        // First dose age ≥16y (192mo) → series complete after that 1 dose.
-        const first = givenMen[0];
-        let firstAgeM = null;
-        if (first.ageDays != null) firstAgeM = Number(first.ageDays) / 30.4;
-        else if (first.date && dob) firstAgeM = (new Date(first.date) - new Date(dob)) / (1000 * 60 * 60 * 24 * 30.4);
-        if (firstAgeM != null && firstAgeM >= 192) return 1;
-      } else if (am >= 192) {
-        // No prior dose AND patient is already ≥16y → first dose now will
-        // also be the only dose (no booster needed).
-        return 1;
-      }
+      const givenMenACWY = (hist?.MenACWY || []).filter(d => d.given).length;
+      // First dose given at ≥16y (am≥192, no prior doses): no booster needed per ACIP
+      if (am >= 192 && givenMenACWY === 0) return 1;
       return 2;
+    }
+    case "Flu": {
+      const fluCount = (hist?.Flu || []).filter(d => d.given).length;
+      // Children <9y with <2 lifetime doses need 2 doses in first-ever season
+      if (fluCount < 2 && am < 108) return 2;
+      return 1;
     }
     case "MenB": {
       // Antigen family + risk determine total doses:
