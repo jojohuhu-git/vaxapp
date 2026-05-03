@@ -1,5 +1,17 @@
 # PediVax — Claude Code Guidance
 
+## Five-surface verification rule (READ FIRST)
+
+The recommendation engine has **five output surfaces** that share logic but diverge subtly. Any fix to vaccine logic MUST be verified across all five before being declared complete:
+
+1. **Vaccine list / Recommendations tab** — `genRecs()` in `src/logic/recommendations.js`
+2. **Regimen optimizer** — `src/logic/regimens.js` + `comboAnalyzer.js`
+3. **Full forecast** — `src/logic/forecastLogic.js`
+4. **Catch-up table** — catch-up branches inside `genRecs()`
+5. **Optimal schedule** — `src/logic/buildOptimalSchedule.js` (uses its own internal `seriesDoses()`, **not** `genRecs` — most common leak point)
+
+Before claiming any fix is done: write or update a test that asserts the scenario against all five surfaces. If a surface diverges, mirror the fix there too. Do not ship single-surface fixes.
+
 ## Worktree vs. main repo paths
 
 **Always edit the worktree, never the main repo root.**

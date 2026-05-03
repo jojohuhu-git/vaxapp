@@ -470,6 +470,14 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("MenACWY", "Dose 1 (routine, 11\u201312 years)", 1, "due", "Routine at 11\u201312y. Booster at 16y. Use Penbraya if also starting MenB.",
       (menb === 0 && (hr || am >= 192)) ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenB too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenB too (4C family)", "Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"] : ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
       { bt: menb === 0 ? "Penbraya (MenB-FHbp) and Penmenvy (MenB-4C) both cover MenACWY+MenB in one injection. Pick the one whose MenB antigen matches the family you intend to complete the series with (FHbp \u2194 Trumenba, 4C \u2194 Bexsero)." : undefined });
+  } else if (isHighRiskMen && am >= 24 && men === 1) {
+    // High-risk D2 primary fires before the generic 16–18y booster branch so that
+    // asplenia/complement/HIV patients completing their primary series are labeled
+    // 'risk-based' rather than the routine 'due' booster.
+    r("MenACWY", "Dose 2 of 2 (high-risk primary series, \u22658 weeks after dose 1)", 2, "risk-based",
+      "High-risk patients \u22652y (asplenia, HIV, complement deficiency): complete 2-dose primary series \u22658 weeks after dose 1. Then revaccinate every 3\u20135 years.",
+      ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
+      { minInt: 56, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
   } else if (am >= 192 && am <= 216 && men === 1) {
     r("MenACWY", am <= 204 ? "Booster (16 years)" : "Booster catch-up (17\u201318 years)", 2, "due",
       "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y. High-risk: booster every 3\u20135 years.",
@@ -484,15 +492,19 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       risks.includes("college") ? "catchup" : "risk-based",
       risks.includes("college") ? "First-year dormitory: give 1 dose if not vaccinated at \u226516y." : "High-risk (asplenia, HIV, complement deficiency): 2-dose primary series 8 weeks apart; then boost every 3\u20135 years.",
       ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"]);
-  } else if (isHighRiskMen && am >= 24 && men === 1) {
-    // Dose 2 of high-risk primary series. The booster/catch-up arm (am 192–216) is
-    // earlier in the else-if chain, so this only fires outside that age window —
-    // i.e. for high-risk patients <16y or ≥19y who got dose 1 and still need
-    // to complete the primary series.
-    r("MenACWY", "Dose 2 of 2 (high-risk primary series, \u22658 weeks after dose 1)", 2, "risk-based",
-      "High-risk patients \u22652y (asplenia, HIV, complement deficiency): complete 2-dose primary series \u22658 weeks after dose 1. Then revaccinate every 3\u20135 years.",
+  } else if (am >= 24 && men === 0 && (risks.includes("travel") || risks.includes("outbreak") || risks.includes("exposure"))) {
+    // Travel/exposure-only risk: ACIP specifies 1 dose only (not a 2-dose medical primary).
+    // Medical HR (asplenia, complement, HIV) is caught by earlier isHighRiskMen branches.
+    r("MenACWY", "Risk-based \u2014 travel/exposure (1 dose)", 1, "risk-based",
+      "ACIP: travelers to/residents of hyperendemic areas or persons with close contact with cases: 1 dose MenACWY. If a medical high-risk indication also applies (asplenia, complement deficiency, HIV), use the 2-dose primary series instead.",
       ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { minInt: 56, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+      { refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+  } else if (am >= 228 && am < 264 && men === 0) {
+    // 19\u201321y non-risk, unvaccinated: shared clinical decision (1 dose; no booster needed at \u226516y).
+    r("MenACWY", "Shared clinical decision \u2014 1 dose (19\u201321 years)", 1, "recommended",
+      "ACIP: shared clinical decision-making for unvaccinated adults 19\u201321 years. Consider 1 dose MenACWY. A single dose given at \u226516y is sufficient \u2014 no booster needed.",
+      ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
+      { refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
   } else if (isHighRiskMen && am >= 24 && men >= 2) {
     // Primary series complete; high-risk patients need revaccination every 3–5 years.
     r("MenACWY", `Revaccination dose ${men + 1} (high-risk, every 3\u20135 years)`, men + 1, "risk-based",
@@ -504,7 +516,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ── MenB ──────────────────────────────────────────────────────
   // High-risk patients: min age 10y (120m). Non-high-risk shared decision: ACIP preferred 16–23y.
   if (am >= 120) {
-    if (menb === 0 && (hr || am >= 192)) {
+    if (menb === 0 && (hr || (am >= 192 && am <= 276))) {
       r("MenB", hr ? "Dose 1 \u2014 risk-based (high-risk)" : "Dose 1 \u2014 shared clinical decision (preferred 16\u201323y)", 1, hr ? "risk-based" : "recommended",
         hr ? "Risk-based for high-risk patients. Bexsero or Penmenvy (MenB-4C): 2 doses (0, \u22651 month apart). Trumenba or Penbraya (MenB-FHbp): 2 doses \u22656m apart (or accelerated 3-dose). Antigen families (4C vs FHbp) are NOT interchangeable." : "Shared clinical decision making, preferred 16\u201318y. MenB-4C (Bexsero/Penmenvy): 2 doses \u22651m apart. MenB-FHbp (Trumenba/Penbraya): 2 doses \u22656m apart (or accelerated 3-dose). Penbraya/Penmenvy if MenACWY also starting.",
         men === 0 ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenACWY too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenACWY too (4C family)", "Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"] : ["Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"],
@@ -568,6 +580,44 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   if (am >= 6 && !covidThisSeason)
     r("COVID", "Updated annual COVID-19 vaccine", 1, "recommended", "Shared clinical decision-making. Annual updated vaccine especially recommended for immunocompromised, chronic illness, household contacts of vulnerable persons.",
       am < 60 ? ["Spikevax (COVID-19, \u22656mo)"] : am < 144 ? ["Spikevax (COVID-19, \u22656mo)", "Comirnaty (COVID-19, \u22655y)"] : ["Comirnaty (COVID-19, \u22655y)", "Spikevax (COVID-19, \u22656mo)", "mNexspike (COVID-19, \u226512y)", "Nuvaxovid (COVID-19, \u226512y, protein subunit \u2014 non-mRNA option)"]);
+
+  // \u2500\u2500 Conditional combo brand filter \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // Some combos (Penbraya, Penmenvy) only make sense when ALL their component
+  // antigens are eligible NOW at the same visit. The rec engine emits them as
+  // brand hints on individual MenACWY / MenB recs, but if the other antigen
+  // has no eligible-today rec in this batch, strip the combo from the list.
+  // Single source of truth \u2014 every downstream surface (recs tab, forecast,
+  // optimizer, optimal schedule) consumes pre-filtered brand strings.
+  // To add a new conditional combo, extend COMBO_REQUIRES_CODUE.
+  //
+  // "Eligible NOW" = status is due/catchup/risk-based AND minInt is satisfied
+  // (prevDate + minInt days <= today). A revax rec emitted with minInt 1095d
+  // 1 month after the last dose is NOT eligible today and must NOT count
+  // toward combo co-due eligibility.
+  const COMBO_REQUIRES_CODUE = {
+    Penbraya: ["MenACWY", "MenB"],
+    Penmenvy: ["MenACWY", "MenB"],
+  };
+  const todayMs = (today ? new Date(today + 'T00:00:00') : new Date()).getTime();
+  function isEligibleNow(rc) {
+    if (!["due", "catchup", "risk-based", "recommended"].includes(rc.status)) return false;
+    if (!rc.minInt || !rc.prevDate) return true;
+    const prev = new Date(rc.prevDate + 'T00:00:00').getTime();
+    return prev + rc.minInt * 86400000 <= todayMs;
+  }
+  const dueVksInBatch = new Set(recs.filter(isEligibleNow).map(rc => rc.vk));
+  for (const rc of recs) {
+    if (!Array.isArray(rc.brands)) continue;
+    rc.brands = rc.brands.filter(b => {
+      for (const [combo, requires] of Object.entries(COMBO_REQUIRES_CODUE)) {
+        if (b.startsWith(combo)) {
+          const others = requires.filter(v => v !== rc.vk);
+          if (others.some(v => !dueVksInBatch.has(v))) return false;
+        }
+      }
+      return true;
+    });
+  }
 
   return recs;
 }

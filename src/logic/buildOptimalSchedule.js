@@ -108,16 +108,33 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
       return { totalDoses: (firstDoseAge < 5475 && !isImmunocomp) ? 2 : 3 };
     }
 
-    case 'MenACWY':
-      return isHRMen
-        ? { totalDoses: 2 }
-        : (am >= 132 ? { totalDoses: 2 } : null);
+    case 'MenACWY': {
+      if (isHRMen) return { totalDoses: 2 };
+      if (am < 132) return null;
+      const givenMen = dc(hist, 'MenACWY');
+      // Non-risk, beyond 22y (264m) with no doses: no routine indication.
+      if (am > 264 && givenMen === 0) return null;
+      // Non-risk, >18y with a prior dose: series is complete — no booster needed without date info.
+      if (am > 216 && givenMen >= 1) return null;
+      // Non-risk, ≥16y starting fresh: 1 dose is the complete series (no booster required).
+      if (am >= 192 && givenMen === 0) return { totalDoses: 1 };
+      return { totalDoses: 2 };
+    }
 
     case 'MenB': {
       if (am < 120) return null;
+      const givenMenB = dc(hist, 'MenB');
+      if (!isHRMen) {
+        // Non-risk shared decision: 16–23y (192–276m) only.
+        if (am < 192) return null;
+        // Don't start a new series after 23y for non-risk patients.
+        if (am > 276 && givenMenB === 0) return null;
+      }
       const mb     = resolveBrand('MenB', fcBrands, hist) || '';
       const isFHbp = mb.startsWith('Trumenba') || mb.startsWith('Penbraya');
-      return { totalDoses: isFHbp && hr ? 3 : 2 };
+      // High-risk without a brand selected: default to 3-dose accelerated (FHbp) schedule.
+      if (isHRMen && !mb) return { totalDoses: 3 };
+      return { totalDoses: isFHbp && isHRMen ? 3 : 2 };
     }
 
     case 'COVID': return am >= 6 ? { totalDoses: 1 } : null;
