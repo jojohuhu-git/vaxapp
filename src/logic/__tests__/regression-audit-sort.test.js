@@ -9,7 +9,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { auditAll } from "../validation.js";
+import { auditAll, validatedHistory } from "../validation.js";
+import { genRecs } from "../recommendations.js";
 
 // Patient: DOB 2008-09-16 (17yo)
 // HepB series:
@@ -87,5 +88,121 @@ describe("auditAll — dose ordering", () => {
     const minAgeErr = errors.find(e => e.vk === "HepB" && e.type === "min_age");
     expect(minAgeErr).toBeDefined();
     expect(minAgeErr.severity).toBe("err");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// validatedHistory + genRecs — the recommendation engine must count all valid
+// doses correctly regardless of entry order.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Patient: DOB 2008-09-16, age 204m (~17y)
+const AM = 204;
+
+function initHist(overrides = {}) {
+  // Build a minimal hist object with the vaccines under test
+  return {
+    HepB:  [],
+    HepA:  [],
+    IPV:   [],
+    MMR:   [],
+    VAR:   [],
+    DTaP:  [],
+    Tdap:  [],
+    Hib:   [],
+    PCV:   [],
+    PPSV23:[],
+    RV:    [],
+    RSV:   [],
+    HPV:   [],
+    MenACWY:[],
+    MenB:  [],
+    Flu:   [],
+    COVID: [],
+    ...overrides,
+  };
+}
+
+function recsForVk(hist, vk) {
+  const vh = validatedHistory(hist, DOB);
+  return genRecs(AM, vh, [], DOB, {}).filter(r => r.vk === vk);
+}
+
+describe("validatedHistory + genRecs — series completion regardless of entry order", () => {
+  // ── HepB ──────────────────────────────────────────────────────────────────
+  it("HepB 4 doses entered latest-first → series complete, no rec emitted", () => {
+    const hist = initHist({
+      HepB: [
+        { given: true, mode: "date", date: "2009-08-07", brand: "" }, // entered 1st (latest)
+        { given: true, mode: "date", date: "2009-05-08", brand: "" },
+        { given: true, mode: "date", date: "2008-11-06", brand: "" },
+        { given: true, mode: "date", date: "2008-09-30", brand: "" }, // entered last (earliest)
+      ],
+    });
+    const recs = recsForVk(hist, "HepB");
+    expect(recs).toHaveLength(0);
+  });
+
+  it("HepB 4 doses entered chronologically → series complete, no rec emitted", () => {
+    const hist = initHist({
+      HepB: [
+        { given: true, mode: "date", date: "2008-09-30", brand: "" },
+        { given: true, mode: "date", date: "2008-11-06", brand: "" },
+        { given: true, mode: "date", date: "2009-05-08", brand: "" },
+        { given: true, mode: "date", date: "2009-08-07", brand: "" },
+      ],
+    });
+    const recs = recsForVk(hist, "HepB");
+    expect(recs).toHaveLength(0);
+  });
+
+  // ── HepA ──────────────────────────────────────────────────────────────────
+  it("HepA 2 doses entered latest-first → series complete, no rec emitted", () => {
+    const hist = initHist({
+      HepA: [
+        { given: true, mode: "date", date: "2010-07-26", brand: "" }, // entered 1st (latest)
+        { given: true, mode: "date", date: "2009-12-11", brand: "" }, // entered 2nd (earliest)
+      ],
+    });
+    const recs = recsForVk(hist, "HepA");
+    expect(recs).toHaveLength(0);
+  });
+
+  // ── IPV ───────────────────────────────────────────────────────────────────
+  it("IPV 4 doses entered latest-first → series complete, no rec emitted", () => {
+    const hist = initHist({
+      IPV: [
+        { given: true, mode: "date", date: "2014-08-01", brand: "" }, // entered 1st (latest)
+        { given: true, mode: "date", date: "2009-05-08", brand: "" },
+        { given: true, mode: "date", date: "2009-01-16", brand: "" },
+        { given: true, mode: "date", date: "2008-11-06", brand: "" }, // entered last (earliest)
+      ],
+    });
+    const recs = recsForVk(hist, "IPV");
+    expect(recs).toHaveLength(0);
+  });
+
+  // ── MMR ───────────────────────────────────────────────────────────────────
+  it("MMR 2 doses entered latest-first → series complete, no rec emitted", () => {
+    const hist = initHist({
+      MMR: [
+        { given: true, mode: "date", date: "2014-08-01", brand: "" }, // entered 1st (latest)
+        { given: true, mode: "date", date: "2009-12-11", brand: "" }, // entered 2nd (earliest)
+      ],
+    });
+    const recs = recsForVk(hist, "MMR");
+    expect(recs).toHaveLength(0);
+  });
+
+  // ── VAR ───────────────────────────────────────────────────────────────────
+  it("VAR 2 doses entered latest-first → series complete, no rec emitted", () => {
+    const hist = initHist({
+      VAR: [
+        { given: true, mode: "date", date: "2014-08-01", brand: "" }, // entered 1st (latest)
+        { given: true, mode: "date", date: "2009-12-11", brand: "" }, // entered 2nd (earliest)
+      ],
+    });
+    const recs = recsForVk(hist, "VAR");
+    expect(recs).toHaveLength(0);
   });
 });

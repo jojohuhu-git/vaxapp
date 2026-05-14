@@ -294,9 +294,15 @@ export function auditAll(hist, dob) {
 export function validatedHistory(hist, dob) {
   const out = {};
   for (const vk of VAX_KEYS) {
-    const doses = hist[vk] || [];
+    // Sort chronologically before validating so doses entered in any order
+    // (e.g. latest-first) don't produce false negative-interval failures that
+    // cause valid doses to be silently dropped from the series count.
+    const rawDoses = hist[vk] || [];
+    const sortedWithIdx = sortDosesByDate(rawDoses, dob);
+    // Reconstruct a flat array in sorted order; we only need the dose objects
+    // here (not the originalIndex) because validatedHistory builds a new array.
+    const doses = sortedWithIdx.map(x => x.dose);
     const kept = [];
-    const givenDated = doses.filter(d => d.given && d.mode !== "unknown");
     let validIdx = 0;
     for (const dose of doses) {
       if (!dose.given) { kept.push(dose); continue; }
