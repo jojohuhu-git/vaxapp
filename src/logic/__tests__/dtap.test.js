@@ -101,41 +101,52 @@ describe('DTaP — age cap at 7 years (THE bug that keeps resurfacing)', () => {
 });
 
 describe('DTaP — catch-up at 4–6y (48–83 months)', () => {
-  // USER-CONFIRMED RULE: Daptacel, Infanrix, Pediarix, Pentacel, and Vaxelis
-  // are approved 6 weeks through 6 years. Kinrix and Quadracel are 4 years
-  // through 6 years only. All 7 brands should appear in the 48–83mo catch-up
-  // brand list when DTaP is incomplete.
-  //
-  // BUG: Pentacel (and Pediarix, Vaxelis) regression — they keep getting
-  // dropped from this brand list. Locking it in.
+  // Per ACIP/CLAUDE.md: at DTaP D4 (3 doses given), only Daptacel, Infanrix,
+  // and Pentacel are valid. Pediarix/Vaxelis are blocked at dose 4+.
+  // Kinrix/Quadracel are only for DTaP D5 (with IPV D4) — not D4.
 
-  it('60mo (5y), 3 DTaP doses → brand list includes Pentacel', () => {
+  it('60mo (5y), 3 DTaP doses → brand list includes Pentacel (D4 booster)', () => {
     const recs = run(makePatient({ ageMonths: 60, dosesGiven: { DTaP: 3 } }));
     expectBrand(recs, 'DTaP', 'Pentacel');
   });
 
-  it('60mo (5y), 3 DTaP doses → brand list includes Pediarix', () => {
+  it('60mo (5y), 3 DTaP doses → Pediarix absent (blocked at D4+)', () => {
     const recs = run(makePatient({ ageMonths: 60, dosesGiven: { DTaP: 3 } }));
-    expectBrand(recs, 'DTaP', 'Pediarix');
+    expectNoBrand(recs, 'DTaP', 'Pediarix');
   });
 
-  it('60mo (5y), 3 DTaP doses → brand list includes Vaxelis', () => {
+  it('60mo (5y), 3 DTaP doses → Vaxelis absent (blocked at D4+)', () => {
     const recs = run(makePatient({ ageMonths: 60, dosesGiven: { DTaP: 3 } }));
-    expectBrand(recs, 'DTaP', 'Vaxelis');
+    expectNoBrand(recs, 'DTaP', 'Vaxelis');
   });
 
-  it('60mo (5y), 3 DTaP doses → brand list includes all 7 approved brands', () => {
+  it('60mo (5y), 3 DTaP doses → brand list is Daptacel, Infanrix, Pentacel only', () => {
     const recs = run(makePatient({ ageMonths: 60, dosesGiven: { DTaP: 3 } }));
-    for (const b of ['Daptacel', 'Infanrix', 'Pediarix', 'Pentacel', 'Vaxelis', 'Kinrix', 'Quadracel']) {
+    for (const b of ['Daptacel', 'Infanrix', 'Pentacel']) {
       expectBrand(recs, 'DTaP', b);
+    }
+    for (const b of ['Pediarix', 'Vaxelis', 'Kinrix', 'Quadracel']) {
+      expectNoBrand(recs, 'DTaP', b);
     }
   });
 
-  it('72mo (6y), 3 DTaP doses → still age-eligible for all 7 brands', () => {
+  it('72mo (6y), 3 DTaP doses → D4 brand list is Daptacel, Infanrix, Pentacel only', () => {
     const recs = run(makePatient({ ageMonths: 72, dosesGiven: { DTaP: 3 } }));
-    for (const b of ['Daptacel', 'Infanrix', 'Pediarix', 'Pentacel', 'Vaxelis', 'Kinrix', 'Quadracel']) {
+    for (const b of ['Daptacel', 'Infanrix', 'Pentacel']) {
       expectBrand(recs, 'DTaP', b);
     }
+    for (const b of ['Pediarix', 'Vaxelis', 'Kinrix', 'Quadracel']) {
+      expectNoBrand(recs, 'DTaP', b);
+    }
+  });
+
+  it('60mo (5y), 4 DTaP doses → D5 brand list includes Kinrix and Quadracel', () => {
+    const recs = run(makePatient({ ageMonths: 60, dosesGiven: { DTaP: 4 } }));
+    expectBrand(recs, 'DTaP', 'Kinrix');
+    expectBrand(recs, 'DTaP', 'Quadracel');
+    expectNoBrand(recs, 'DTaP', 'Pentacel');
+    expectNoBrand(recs, 'DTaP', 'Pediarix');
+    expectNoBrand(recs, 'DTaP', 'Vaxelis');
   });
 });
 

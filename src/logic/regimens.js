@@ -2,6 +2,7 @@
 // ║  REGIMEN OPTIMIZER                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
 import { COMBOS, VBR } from '../data/vaccineData.js';
+import { comboFitsDose } from './brandRules.js';
 
 /**
  * Build regimen options (fewest injections, fewest brands, single-antigen).
@@ -33,21 +34,14 @@ export function buildRegimens(recs, am) {
   const needed = [...neededSet];
   if (!needed.length) return [];
 
-  // Dose-number-aware combo validity. Vaxelis is FDA-labeled for doses 1–3 of
-  // DTaP/IPV/Hib/HepB. If any covered vk in `needed` is being given as dose ≥4,
-  // Vaxelis is excluded — even though its maxM=48 months would otherwise allow it.
+  // Dose-number-aware combo validity — delegates to brandRules.comboFitsDose.
+  // Do NOT add brand/dose logic here; edit brandRules.COMBO_DOSE_GATES instead.
   function comboAllowedByDose(name, c) {
-    if (name === "Vaxelis") {
-      for (const v of c.c) {
-        if (needed.includes(v) && (doseNumByVk[v] ?? 0) >= 4) return false;
+    for (const v of c.c) {
+      if (needed.includes(v)) {
+        const dn = doseNumByVk[v];
+        if (dn != null && !comboFitsDose(name, v, dn)) return false;
       }
-    }
-    if (name === "Kinrix" || name === "Quadracel") {
-      // Labeled DTaP D5 + IPV D4 only (4–6y). If we know the dose numbers and
-      // they don't match, exclude.
-      const dt = doseNumByVk.DTaP, ipv = doseNumByVk.IPV;
-      if (dt != null && dt !== 5) return false;
-      if (ipv != null && ipv !== 4) return false;
     }
     return true;
   }

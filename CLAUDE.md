@@ -12,6 +12,114 @@ The recommendation engine has **five output surfaces** that share logic but dive
 
 Before claiming any fix is done: write or update a test that asserts the scenario against all five surfaces. If a surface diverges, mirror the fix there too. Do not ship single-surface fixes.
 
+## Brand validity — single source of truth
+
+**`src/logic/brandRules.js`** is the canonical gate for all combo-brand dose eligibility. Never add local brand/dose checks in individual surfaces.
+
+### Exports
+
+- **`comboFitsDose(comboName, antigen, doseNum)`** — returns `true` iff the combo is licensed for the given antigen at that dose number. Driven by `COMBO_DOSE_GATES`.
+- **`isBrandValidForDose({ brandKey, vk, doseNum, ageMonths, dueVks })`** — full gate including age windows and co-admin requirements (e.g. Penbraya requires MenB co-due).
+
+### Surface wiring
+
+| Surface | Delegates via |
+|---|---|
+| `forecastLogic.js` | `comboFitsDose` (thin `comboValidForDose` wrapper) |
+| `regimens.js` | `comboFitsDose` (in `comboAllowedByDose`) |
+| `buildOptimalSchedule.js` | `comboFitsDose` (imported directly) |
+| `recommendations.js` | brand lists are hardcoded per branch but must not contradict `comboFitsDose` |
+
+The invariant property test `src/logic/__tests__/brand-indication-invariants.test.js` verifies all surfaces against `comboFitsDose` exhaustively. If it fails, fix `COMBO_DOSE_GATES` — never add surface-local workarounds.
+
+### Multi-antigen combo validity (Penbraya/Penmenvy and friends)
+
+For combos covering multiple antigens, the validity check must pass for **every** co-due antigen — not just the current vk being processed. `orderedBrandsForVisit` accepts a `doseNumByVk` map and `comboValidForDose` iterates `c.c`, calling `comboFitsDose(name, antigen, doseNumByVk[antigen])` for each antigen that's in `dueVksAtVisit`.
+
+Example: at a visit where MenB D1 is due AND MenACWY revaccination D5 is due (e.g. 10yo asplenia who completed the high-risk MenACWY primary series), Penbraya/Penmenvy must NOT appear in the MenB brand list. They fit MenB D1 (range [1,2]) but not MenACWY D5 — multi-antigen check rejects.
+
+Scenarios verified by `regression-meningococcal-combo.test.js`:
+- 10yo asplenia, 4 MenACWY given → combos blocked
+- 12yo asplenia, 2 MenACWY given (HR primary done) → combos blocked
+- 16yo non-HR with 1 MenACWY given (booster D2 + MenB D1) → **combos allowed** (both at D1/D2)
+- 10yo asplenia both empty → combos allowed
+
+When the UI `ForecastTab` builds `doseNumByVk`, it must derive from the SAME `visitRecMap` used for `dueVksAtVisit` so the engine sees a consistent snapshot. Any UI redesign that changes how the visit table is rendered must continue to pass an accurate `doseNumByVk` — the rule lives in `forecastLogic.js`, not the UI.
+
+### MenB antigen-family lock (interchangeability)
+
+MenB products are NOT interchangeable across antigen families:
+- **MenB-4C family**: Bexsero, Penmenvy
+- **MenB-FHbp family**: Trumenba, Penbraya
+
+Once MenB D1 is given as a 4C product, D2/D3 must be a 4C product (Bexsero or Penmenvy). Once given as FHbp, D2/D3 must be FHbp (Trumenba or Penbraya). `forecastLogic.brandFamily()` returns the family; the lock is enforced by filtering brand options when `earlierBrand` is non-empty AND `VBR[vk].lock` is true.
+
+### Future-visit brand lists must use the projection, not genRecs-with-current-history
+
+The Full Forecast cell rendering computes `dueVksAtVisit` and `doseNumByVk` per visit row. These feed `orderedBrandsForVisit` for combo validity checks (Penbraya needs MenACWY+MenB both due, Kinrix needs DTaP=5+IPV=4, etc.).
+
+For **future** visit rows (visit.m > am), these MUST be derived from `dosePlan` — the projection's actual dose count at that future visit — NOT from `genRecs(visit.m, currentHistory)`. Example: at the 4y row for an empty 2yo, the projection emits DTaP D5 + IPV D4 (after filling in catch-up D1–D4), but `genRecs(54, {}, [])` says "DTaP D1 catch-up". Using genRecs causes Kinrix/Quadracel (DTaP+IPV combos for D5+D4 at 4–6y) to get filtered out by the dose-number gate — even though the chip correctly says "Dose 5 of 5".
+
+In `ForecastTab.jsx`, derive both via:
+```js
+const planFcKey = (v) => visit.isCatchup
+  ? (visit.catchupDoseKeys?.[v] ?? `${visit.m}_${v}`)
+  : `${visit.m}_${v}`;
+const dueVksAtVisit = visit.std.filter(vk =>
+  !!dosePlan[planFcKey(vk)] || !!visitRecMap[vk]
+);
+const doseNumByVk = {};
+for (const v of dueVksAtVisit) {
+  const projDose = dosePlan[planFcKey(v)];
+  if (projDose?.doseNum != null) doseNumByVk[v] = projDose.doseNum;
+  else if (visitRecMap[v]?.doseNum != null) doseNumByVk[v] = visitRecMap[v].doseNum;
+}
+```
+
+For the **current** visit (visit.m === am), the projection has no entry for the dose being given right now (the projection loop starts at startDose+1) — fall back to `visitRecMap[vk].doseNum`. The fallback path handles this. Verified by `ForecastTab.rendering.test.jsx` "future-visit brand list reflects projection".
+
+### Moved-dose brand validity must use the moved age, not the original visit age
+
+When a user clicks "earliest" on a projected dose, Case 3 in `ForecastTab.jsx` continues rendering at the original visit's row (with a "→ moved" indicator + brand dropdown + revert button). The brand dropdown must call `orderedBrandsForVisit` with **`info.ageM`** (the moved-to age) as the `visitM` argument — NOT `visit.m` (the original row's age). Otherwise age-windowed combos like Kinrix/Quadracel (≥4y) remain selectable even when the dose moves to <4y → the clinician can pick a brand whose age window doesn't include the actual administration date. CLINICAL SAFETY.
+
+```js
+// CASE 3 in ForecastTab.jsx
+const bOpts3 = orderedBrandsForVisit(
+  vk, proj ? proj.doseNum : dn3,
+  info.ageM,            // ← moved-to age, NOT visit.m
+  dueVksAtVisit, rec3?.brands, "", doseNumByVk
+);
+```
+
+Verified by `ForecastTab.rendering.test.jsx` "moved-dose brand validity".
+
+### DTaP → Tdap age cutoff (no DTaP at ≥7y)
+
+ACIP licenses DTaP only through age 6y (83m). At ≥7y (84m+), the remaining tetanus doses must be given as Tdap. Three layers enforce this:
+
+1. **`recommendations.js`**: never emits `r("DTaP", ...)` for `am >= 84` — always uses `r("Tdap", ...)` (already enforced).
+2. **`dosePlan.js` `getTotalDoses("DTaP")`**: when `am >= 84`, returns the given count so the projection loop short-circuits (`startDose >= totalDoses`).
+3. **`dosePlan.js` projection loop**: per-iteration guard `if (vk === "DTaP" && actualAge >= 84) break;` — stops projecting DTaP doses that would land at the 11–12y/16y/17–18y FORECAST_VISITS slots.
+4. **`buildOptimalSchedule.js` `seriesDoses("DTaP")`**: returns `null` when `am >= 84`.
+
+The Tdap seed-scan in `computeDosePlan` independently emits Tdap recs at future visits, so transitioning DTaP→Tdap requires no explicit hand-off. Verified by `regression-dtap-tdap-7y.test.js`.
+
+### COMBO_DOSE_GATES — current values
+
+```js
+Vaxelis:   { DTaP: [1,3], IPV: [1,3], Hib: [1,3], HepB: [1,3] }
+Pediarix:  { DTaP: [1,3], HepB: [1,3], IPV: [1,3] }
+Pentacel:  { DTaP: [1,4], IPV: [1,3], Hib: [1,4] }
+Kinrix:    { DTaP: [5,5], IPV: [4,4] }
+Quadracel: { DTaP: [5,5], IPV: [4,4] }
+ProQuad:   { MMR: [1,2], VAR: [1,2] }
+Penbraya:  { MenACWY: [1,2], MenB: [1,2] }
+Penmenvy:  { MenACWY: [1,2], MenB: [1,2] }
+Twinrix:   { HepA: [1,null], HepB: [1,null] }
+```
+
+Note: Pentacel+IPV is [1,3] — at the 4-6y booster visit, IPV D4 must pair with DTaP D5 via Kinrix/Quadracel, not Pentacel.
+
 ## Worktree vs. main repo paths
 
 **Always edit the worktree, never the main repo root.**
@@ -227,8 +335,46 @@ When pulling Optimal Schedule files from another commit, do NOT overwrite `recom
 ## Testing
 
 - Framework: **Vitest** (`npm test` = `vitest run`, `npm run test:watch` = `vitest`)
-- Config: `vite.config.js` → `test: { environment: 'node' }`
-- Test files: `src/tests/*.test.js`
+- Default environment: `node` (for logic-engine tests). UI rendering tests opt
+  into happy-dom per file with `// @vitest-environment happy-dom` at the top.
+- Setup file: `src/test-setup.js` (loads jest-dom matchers, RTL cleanup).
+- Test files: `src/tests/*.test.js`, `src/logic/__tests__/*.test.js`,
+  `src/components/__tests__/*.test.jsx` (UI rendering).
+
+### Two layers of tests — both required
+
+**Logic tests** (default `node` environment) — exercise pure functions:
+`genRecs`, `computeDosePlan`, `buildRegimens`, `buildOptimalSchedule`,
+`buildVisitTimeline`, `applyScheduledEarly`. These verify the math is right.
+
+**UI rendering tests** (`happy-dom`) — exercise the actual table the clinician
+sees. Use the helper at `src/test-helpers/renderForecast.jsx`:
+```jsx
+const { container, dispatch } = renderForecast({ am: 24, dob: '2025-05-08' });
+const cell = getCellByVk(container, '4 years', 'IPV');
+```
+The helper mocks `@react-pdf/renderer` (which can't run in happy-dom) and seeds
+state via the `RESTORE_STATE` action so tests don't need to add props to
+AppProvider. Existing rendering suites:
+- `src/components/__tests__/ForecastTab.smoke.test.jsx` — minimal mount check.
+- `src/components/__tests__/ForecastTab.rendering.test.jsx` — high-value cases:
+  IPV D4 earliest collision, brand cascade, catch-up row vk isolation, earliest
+  button suppression at current visit.
+
+**When to add a UI test (mandatory)**:
+- A bug report where the user describes what they SEE on the screen, not what
+  the engine returns. The IPV D4 collision was invisible to 654 logic tests
+  because the `dosePlan` was correct — the bug lived in `ForecastTab.jsx`.
+- Any change to `ForecastTab.jsx`, `OptimalScheduleTab.jsx`, the `AppContext`
+  reducer (especially `FC_BRAND_CHANGE` cascade), or scheduled-early flow.
+- New cell-rendering paths (CASE 1/2/2.5/3 in ForecastTab).
+
+**Verification protocol for "this fix is done"**:
+1. Logic test asserting the engine returns the right data.
+2. UI rendering test asserting the cell shows what it should AND that
+   neighboring cells aren't broken (e.g. unrelated catch-up row not leaking).
+3. Manually confirm the regression test fails when the fix is reverted —
+   if it doesn't, the test isn't actually guarding the behavior.
 
 ### CDC Table 2 catch-up tests (children 4m–6y)
 
@@ -253,3 +399,180 @@ Known engine behavior to keep in mind when writing tests:
 ## Package dependencies
 
 `@react-pdf/renderer ^4.5.1` is required for PDF download in OptimalScheduleTab.
+
+---
+
+## Bugs fixed in this session (2026-05-14)
+
+### PCV booster missing at 16–23m when primary series complete (pcv === 3)
+In the `am >= 16 && am <= 23` block, `healthyMax = 2` blocked the D4 booster when a child had 3 prior PCV doses (full primary series at 2/4/6m). `pcv < healthyMax` → `3 < 2` → false → no rec emitted. The child appeared "complete" at 18m but dosePlan projected a catch-up dose at 2y.
+
+Fix in `recommendations.js` (lines 199–217):
+```js
+const needsBooster = pcv === 3;
+const healthyMax = (isHighRiskPCV || needsBooster) ? 4 : 2;
+if (pcv < healthyMax) {
+  const isFinal = !isHighRiskPCV && !needsBooster && pcv === 1;
+  // label and note differ based on needsBooster
+}
+```
+
+### Tdap ordering bug for partially-vaccinated patients ≥13y
+The branch `else if (am > 144 && tdap === 0)` was catching patients with 1–2 prior DTaP doses (totalTetanus = 1 or 2), showing them "dose 1 of 3" instead of "dose 2/3 of 3". The correct catch-up branch for partial series is `am > 144 && totalTetanus >= 1 && totalTetanus < 3` (lower in the chain).
+
+Fix: restrict the condition to `am > 144 && tdap === 0 && (totalTetanus === 0 || totalTetanus >= 3)`.
+
+Also improved the note for unvaccinated (totalTetanus === 0): now says "Unvaccinated: complete 3-dose primary series (Tdap + Td at ≥4 weeks + Td at 6 months). Then Td every 10 years."
+
+### Clinical note on Tdap "dose 1 of 3" — this is correct per ACIP
+For a completely unvaccinated patient ≥13y (totalTetanus === 0), ACIP requires a full 3-dose primary catch-up series (Tdap → Td at ≥4w → Td at 6m). "Dose 1 of 3" is clinically correct. If the profile is a vaccinated teen who missed only the Tdap booster (i.e., has 5 DTaP in history), the app correctly shows "dose 1 of 1".
+
+## BrandScheduleTab
+
+New 6th tab added — a static reference (no dynamic computation) showing 3 pre-computed infant vaccine strategy schedules for healthy children from birth to 6y:
+
+- **Pediarix strategy** — DTaP+HepB+IPV combo at 2/4/6m (Hib separate, 4-dose PRP-T)
+- **Vaxelis strategy** — DTaP+IPV+Hib+HepB combo at 2/4/6m (PRP-OMP Hib, 3-dose series; no Hib booster injection needed)
+- **Pentacel strategy** — DTaP+IPV+Hib combo; D4 at 15m covers DTaP D4+Hib D4+IPV in one shot (HepB separate)
+
+Files:
+- `src/components/BrandScheduleTab.jsx` — static table with `VISIT_ROWS`, `ADOLESCENT_ROWS`, `TOTALS`, `STRAT` color themes
+- Wired in `src/components/TabBar.jsx` (`{ id: "brandschedule", label: "Brand Schedules" }`) and `src/components/MainPanel.jsx`
+
+Injection totals through 18m: Pediarix 19, Vaxelis 14 ★, Pentacel 16.
+
+## Editing recommendations.js — Unicode escape issue
+
+`recommendations.js` source uses **literal `\uXXXX` escape sequences** inside JS template literals (e.g. `—` for em-dash, `–` for en-dash, `≥` for ≥). The comments use real UTF-8 characters. The Edit tool cannot match these strings because it renders the escape sequences as characters before comparing.
+
+**Always use Python to edit recommendations.js:**
+```python
+with open('src/logic/recommendations.js', 'r') as f:
+    content = f.read()
+old = '...raw string with \\u2014 as literal 6-char escape...'
+new = '...replacement...'
+content = content.replace(old, new, 1)
+with open('src/logic/recommendations.js', 'w') as f:
+    f.write(content)
+```
+
+Verify via `xxd` or `python3 -c "print(repr(...))"` if a match fails.
+
+## Reference improvement project
+
+### Goal
+Add specific, scenario-appropriate references to each rec branch in `recommendations.js` so the "why" section in the Full Forecast is clinically informative, especially for catch-up and edge-case scenarios.
+
+### Priority order per user (2026-05-14)
+1. CDC schedule notes (`https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-{vaccine}`) — primary for routine doses
+2. AAP immunization schedule — secondary for routine doses (only HepB has an AAP URL in refs.js currently)
+3. immunize.org Ask the Experts — tertiary / already default via `REFS[vk].url`
+4. ACIP MMWRs — for catch-up and edge cases where generic CDC Table 2 link isn't specific enough
+
+### Refs data file
+`src/data/refs.js` — single source of truth for all reference URLs. Each vaccine entry has:
+- `url` / `label` — immunize.org Ask the Experts (used as default by `r()` function)
+- `cdcUrl` / `cdcLabel` — CDC child/adolescent schedule notes anchor (exists for all vaccines)
+- `immUrl` / `immLabel` — immunize.org vaccine resources page
+- `aapUrl` / `aapLabel` — AAP schedule PDF (currently **only HepB** has this)
+- Tdap also has: `mmwrUrl` / `mmwrLabel` (CDC MMWR 2020) and `pmcUrl` / `pmcLabel` (PMC7367039)
+- HepB also has: `mmwrUrl` / `mmwrLabel` (ACIP HepB MMWR 2018 — `https://www.cdc.gov/mmwr/volumes/67/rr/rr6701a1.htm`) — in refs.js but not yet wired to any rec call (no spare ref slot in the catch-up branch)
+
+The `r()` helper signature: `refUrl` defaults to `REFS[vk].url`; `refUrl2` is opt-in only.
+
+### Phase 1 — Tdap ✅ COMPLETE
+All 8 Tdap scenarios have refs wired. Summary:
+
+| Scenarios | `refUrl` | `refUrl2` |
+|---|---|---|
+| 7–10y incomplete / catch-up D2–D3 | `REFS.Tdap.cdcUrl` (CDC notes) | `REFS.Tdap.pmcUrl` (PMC/MMWR 2020) |
+| Routine 11–12y | `REFS.Tdap.cdcUrl` | — |
+| ≥13y unvaccinated OR booster-only | `REFS.Tdap.cdcUrl` | `REFS.Tdap.pmcUrl` |
+| ≥13y catch-up D2–D3 | `REFS.Tdap.cdcUrl` | `REFS.Tdap.pmcUrl` |
+| Pregnancy (each pregnancy) | `REFS.Tdap.url` (immunize.org, existing) | `REFS.Tdap.pmcUrl` |
+| Wound prophylaxis | `REFS.Tdap.url` (existing) | `REFS.Tdap.pmcUrl` |
+| Decennial booster | `REFS.Tdap.url` (existing) | `REFS.Tdap.cdcUrl` |
+
+ACIP Tdap MMWR 2020: `https://www.cdc.gov/mmwr/volumes/69/wr/mm6903a5.htm`
+PMC version: `https://pmc.ncbi.nlm.nih.gov/articles/PMC7367039/`
+
+### Phase 2 — Infant primary series (HepB, RV, DTaP, Hib, PCV, IPV) ✅ COMPLETE (2026-05-14)
+
+**Proposal B implemented**: CDC schedule notes (`cdcUrl`) is now the primary `refUrl` for all 33 infant primary series rec calls. immunize.org is `refUrl2` for routine/risk-based doses; CDC catch-up Table 2 is `refUrl2` for catch-up branches.
+
+**Pattern applied:**
+- Routine/risk-based doses: `refUrl = REFS[vk].cdcUrl`, `refUrl2 = REFS[vk].url` (immunize.org)
+- Catch-up branches: `refUrl = REFS[vk].cdcUrl`, `refUrl2 = REFS.catchup.url` (unchanged — CDC Table 2 stays)
+
+**Vaccines covered (33 rec calls total):**
+- HepB: birth D1, D2 (1–4m), D3 (6–18m), catch-up (all ages)
+- RV: D1, D2+
+- DTaP: primary D1–D3, D4 booster, D5 4–6y, catch-up 7–18m, catch-up 19–47m, catch-up 48–83m
+- Hib: primary, booster 12–15m, catch-up 7–11m, catch-up 12–15m incomplete, catch-up 16–59m unvaccinated, catch-up 16–59m partial, risk-based HSCT, risk-based ≥5y
+- PCV: primary D1–D3, catch-up 7–11m, booster/catch-up 12–23m, 16–23m healthy, catch-up ≥24m D1 of 1, catch-up ≥24m final, risk-based ≥2y
+- IPV: primary D1–D2, D3/catch-up, catch-up 19–47m, D4 booster 4–6y, catch-up 4–6y, catch-up >72m
+
+**HepB MMWR 2018**: URL verified live (`https://www.cdc.gov/mmwr/volumes/67/rr/rr6701a1.htm`), added to `REFS.HepB` in `refs.js` as `mmwrUrl`/`mmwrLabel`. Not yet wired to any rec call — the catch-up branch has no spare ref slot. Wire it in a future revision if the catch-up branch is split by age.
+
+**Implementation notes:**
+- All edits done via Python (Unicode escape issue — see "Editing recommendations.js" section)
+- 674 tests pass after all changes
+
+### Phase 3 — Adolescent vaccines (HPV, MenACWY, MenB, Flu, COVID) ✅ COMPLETE (2026-05-14)
+
+**Pattern applied (Proposal B):** routine/risk-based → `refUrl = cdcUrl`, `refUrl2 = immunize.org url`; catch-up → `refUrl = cdcUrl`, `refUrl2 = REFS.catchup.url` (already present on most).
+
+**24 replacements across 5 vaccines:**
+
+- **Flu (2)**: D1 annual/first-ever + D2 second-of-two — added `refUrl: REFS.Flu.cdcUrl`, `refUrl2: REFS.Flu.url`
+- **HPV (3)**: D1, D2, D3 — added `refUrl: REFS.HPV.cdcUrl`, `refUrl2: REFS.HPV.url`
+- **MenACWY (12)**:
+  - Infant HR 2–6m, 7–11m, 12–23m unvax, 12–23m booster: upgraded `.url` → `.cdcUrl` + added `refUrl2`
+  - Routine 11–12y D1: added refs to `bt` opts
+  - HR D2 ≥2y: upgraded `.url` → `.cdcUrl` + added `refUrl2`
+  - Booster 16–18y: added refs to `{ minInt: 56 }` opts
+  - Catch-up 13–18y: new opts object (was bare brand list)
+  - College/HR: new opts object (was bare brand list)
+  - Travel/exposure: upgraded `.url` → `.cdcUrl` + added `refUrl2`
+  - Shared 19–21y: upgraded `.url` → `.cdcUrl` + added `refUrl2`
+  - HR revaccination: upgraded `.url` → `.cdcUrl` + added `refUrl2`
+- **MenB (6)**:
+  - D1: added refs to `bt` opts
+  - D2: added refs to `{ minInt: ... }` opts
+  - D3 FHbp HR + non-HR: added refs to `{ minInt: 112 }` opts
+  - **BUG FIXED: Revax D3 4C HR and D4+ HR** were using `REFS.MenACWY.url` — changed to `REFS.MenB.cdcUrl` + `refUrl2: REFS.MenB.url`
+- **COVID (1)**: added `refUrl: REFS.COVID.cdcUrl`, `refUrl2: REFS.COVID.url`
+
+- All edits done via Python (Unicode escape issue — see "Editing recommendations.js" section)
+- 674 tests pass after all changes
+
+### Phase 4 — Risk-based and remaining vaccines (RSV, MMR, VAR, HepA, PPSV23) ✅ COMPLETE (2026-05-14)
+
+**Scope expanded from original plan**: found 10 rec calls with no `refUrl` + 2 PPSV23 upgrades = 16 total changes.
+
+**Pattern applied (Proposal B):**
+- Routine/due: `refUrl = cdcUrl`, `refUrl2 = immunize.org`
+- Catch-up: `refUrl = cdcUrl`, `refUrl2 = REFS.catchup.url`
+- Risk-based: `refUrl = cdcUrl`, `refUrl2 = immunize.org`
+
+**Changes per vaccine:**
+- **RSV (3)**: maternal Abrysvo, routine infant nirsevimab, 2nd-season high-risk — all got `refUrl: REFS.RSV.cdcUrl`
+- **MMR (4)**: D1 routine (added to `bt` opts), D1 catch-up (added primary cdcUrl), D2 booster (added to `{ minInt: 28 }`), D2 catch-up (added primary cdcUrl)
+- **VAR (4)**: D1 routine (new opts), D1 catch-up (added primary cdcUrl), D2 booster (added to minInt opts), D2 catch-up (added primary cdcUrl)
+- **HepA (3)**: D1 routine (new opts), D2 (added to `{ minInt: 182 }`), catch-up/risk-based (new opts)
+- **PPSV23 (2)**: D1 upgrade from `.url` → `.cdcUrl` as primary (kept ppsv23 secondary); D2 upgrade from `.url` → `.cdcUrl` + added `refUrl2`
+
+- All edits done via Python with absolute path + fsync (file persistence issue diagnosed — relative paths caused writes to be lost when subsequent scripts re-read the pre-write state)
+- 674 tests pass after all changes
+
+### Phase 5 — Dead-link sweep of all existing REFS entries ✅ COMPLETE (2026-05-14)
+
+Checked all 55 unique URLs in `src/data/refs.js` — all return HTTP 200.
+
+**Two dead fragment anchors found and fixed in `refs.js`:**
+- `REFS.Flu.cdcUrl`: `#note-influenza` → `#note-flu` (CDC page uses `note-flu`)
+- `REFS.Tdap.cdcUrl`: `#note-tdap-td` → `#note-tdap` (CDC page uses `note-tdap`)
+
+All other anchors (`note-hepb`, `note-rotavirus`, `note-dtap`, `note-hib`, `note-pneumo`, `note-polio`, `note-mmr`, `note-varicella`, `note-hepa`, `note-hpv`, `note-mening`, `note-mening-b`) verified present on the live CDC page.
+
+674 tests pass after changes.

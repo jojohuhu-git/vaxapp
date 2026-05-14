@@ -6,6 +6,7 @@ const TABS = [
   { id: "forecast", label: "Full Forecast" },
   { id: "catchup", label: "Catch-up Table" },
   { id: "optimal", label: "Optimal Schedule" },
+  { id: "brandschedule", label: "Brand Schedules" },
 ];
 
 export default function TabBar() {

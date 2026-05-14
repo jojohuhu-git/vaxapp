@@ -60,18 +60,18 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   const hbIsHeplisav = hbBrand?.startsWith("Heplisav-B");
   const hbTotal = hbIsHeplisav ? 2 : 3;
   if (am === 0 && hb === 0)
-    r("HepB", "Dose 1 (birth)", 1, "due", "Within 24h of birth (\u22652000g). Mother HBsAg+: also HBIG within 12h.", ["Engerix-B", "Recombivax HB"]);
+    r("HepB", "Dose 1 (birth)", 1, "due", "Within 24h of birth (\u22652000g). Mother HBsAg+: also HBIG within 12h.", ["Engerix-B", "Recombivax HB"], { refUrl: REFS.HepB.cdcUrl, refLabel: REFS.HepB.cdcLabel, refUrl2: REFS.HepB.url, refLabel2: REFS.HepB.label });
   else if (am >= 1 && am <= 4 && hb === 1)
-    r("HepB", "Dose 2 (1\u20134 months)", 2, "due", "Min 4 weeks from dose 1.", ["Engerix-B", "Recombivax HB", "Pediarix (DTaP+HepB+IPV)", "Vaxelis (DTaP+IPV+Hib+HepB)"], { minInt: 28 });
+    r("HepB", "Dose 2 (1\u20134 months)", 2, "due", "Min 4 weeks from dose 1.", ["Engerix-B", "Recombivax HB", "Pediarix (DTaP+HepB+IPV)", "Vaxelis (DTaP+IPV+Hib+HepB)"], { minInt: 28, refUrl: REFS.HepB.cdcUrl, refLabel: REFS.HepB.cdcLabel, refUrl2: REFS.HepB.url, refLabel2: REFS.HepB.label });
   else if (am >= 6 && am <= 18 && hb === 2 && !hbIsHeplisav)
-    r("HepB", "Dose 3 (6\u201318 months)", 3, "due", "Min 8 weeks from dose 2; min 16 weeks from dose 1; min age 24 weeks.", ["Engerix-B", "Recombivax HB", "Pediarix (DTaP+HepB+IPV)", "Vaxelis (DTaP+IPV+Hib+HepB)"], { minInt: 56 });
+    r("HepB", "Dose 3 (6\u201318 months)", 3, "due", "Min 8 weeks from dose 2; min 16 weeks from dose 1; min age 24 weeks.", ["Engerix-B", "Recombivax HB", "Pediarix (DTaP+HepB+IPV)", "Vaxelis (DTaP+IPV+Hib+HepB)"], { minInt: 56, refUrl: REFS.HepB.cdcUrl, refLabel: REFS.HepB.cdcLabel, refUrl2: REFS.HepB.url, refLabel2: REFS.HepB.label });
   else if (hb < hbTotal && am >= 1)
     r("HepB", `Catch-up \u2014 dose ${hb + 1} of ${hbTotal}`, hb + 1, "catchup",
       `Complete ${hbTotal}-dose HepB series${hbIsHeplisav ? " (Heplisav-B)" : ""}. Doses remaining: ${hbTotal - hb}.${hbIsHeplisav ? " Heplisav-B: dose 2 \u22651 month after dose 1." : " Min 4w between D1\u2192D2; min 8w D2\u2192D3; min 16w D1\u2192D3; min age 24 weeks for final dose."}${!hbIsHeplisav && am >= 132 ? " Adolescents 11\u201315y: 2-dose adult Recombivax HB option (0,6m apart)." : ""}${!hbIsHeplisav && am >= 216 ? " \u226518y: Heplisav-B (2-dose) or Twinrix." : ""}`,
       am >= 216 ? ["Engerix-B", "Recombivax HB", "Heplisav-B (\u226518y, 2-dose)", "Twinrix (HepA+HepB, \u226518y)"]
         : (!hbIsHeplisav && am <= 83) ? ["Engerix-B", "Recombivax HB", "Pediarix (DTaP+HepB+IPV)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"]
         : ["Engerix-B", "Recombivax HB"],
-      { minInt: hbIsHeplisav ? 28 : null, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      { minInt: hbIsHeplisav ? 28 : null, refUrl: REFS.HepB.cdcUrl, refLabel: REFS.HepB.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
 
   // ── RSV ───────────────────────────────────────────────────────
   const rsv = dc(hist, "RSV");
@@ -79,12 +79,12 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   if (risks.includes("maternal_rsv") && am >= 192 && rsv === 0)
     r("RSV", "Abrysvo \u2014 maternal RSV vaccine (32\u201336 weeks gestation)", 1, "risk-based",
       "Maternal RSV vaccination: 1 dose Abrysvo (RSVpreF, Pfizer) at 32\u201336 weeks gestation per pregnancy. Protects newborn via maternal antibody transfer. Do not administer to the infant separately if the mother received Abrysvo within 14 days of delivery.",
-      ["Abrysvo (RSVpreF, Pfizer) \u2014 1 dose at 32\u201336 weeks gestation"]);
+      ["Abrysvo (RSVpreF, Pfizer) \u2014 1 dose at 32\u201336 weeks gestation"], { refUrl: REFS.RSV.cdcUrl, refLabel: REFS.RSV.cdcLabel, refUrl2: REFS.RSV.url, refLabel2: REFS.RSV.label });
   // Infant nirsevimab (Beyfortus)
   else if (am < 8 && rsv === 0)
-    r("RSV", "Nirsevimab (1 dose)", 1, "due", "All infants <8 months entering first RSV season. 50mg if <5kg; 100mg if \u22655kg. Monoclonal antibody (not a traditional vaccine).", ["Beyfortus (nirsevimab)"]);
+    r("RSV", "Nirsevimab (1 dose)", 1, "due", "All infants <8 months entering first RSV season. 50mg if <5kg; 100mg if \u22655kg. Monoclonal antibody (not a traditional vaccine).", ["Beyfortus (nirsevimab)"], { refUrl: REFS.RSV.cdcUrl, refLabel: REFS.RSV.cdcLabel, refUrl2: REFS.RSV.url, refLabel2: REFS.RSV.label });
   else if (am >= 8 && am < 20 && rsv === 0 && risks.includes("rsv_risk"))
-    r("RSV", "Nirsevimab \u2014 2nd season (high-risk only)", 1, "risk-based", "High-risk 8\u201319 months: prematurity, CHD, CLD, immunocompromise entering 2nd RSV season. 100mg.", ["Beyfortus (nirsevimab, 100mg)"]);
+    r("RSV", "Nirsevimab \u2014 2nd season (high-risk only)", 1, "risk-based", "High-risk 8\u201319 months: prematurity, CHD, CLD, immunocompromise entering 2nd RSV season. 100mg.", ["Beyfortus (nirsevimab, 100mg)"], { refUrl: REFS.RSV.cdcUrl, refLabel: REFS.RSV.cdcLabel, refUrl2: REFS.RSV.url, refLabel2: REFS.RSV.label });
 
   // ── RV ────────────────────────────────────────────────────────
   const rv = dc(hist, "RV"); const rvb = anyBrand(hist, "RV"); const rvMax = rvb.includes("Rotarix") ? 2 : 3;
@@ -93,21 +93,21 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     if (rv === 0 && am > 3.5) {
       /* Too late to start — no recommendation, age window closed */
     } else if (rv === 0)
-      r("RV", "Dose 1 (must start by 14w6d)", 1, "due", "Min age 6 weeks. Must start by 14 weeks 6 days. Rotarix=2 doses; RotaTeq=3 doses. NEVER interchange brands.", ["Rotarix (RV1) \u2014 2-dose series", "RotaTeq (RV5) \u2014 3-dose series"], { bt: "Choose ONE brand at dose 1 and never switch \u2014 brands are NOT interchangeable.", textFrag: "maximum age for the first dose" });
+      r("RV", "Dose 1 (must start by 14w6d)", 1, "due", "Min age 6 weeks. Must start by 14 weeks 6 days. Rotarix=2 doses; RotaTeq=3 doses. NEVER interchange brands.", ["Rotarix (RV1) \u2014 2-dose series", "RotaTeq (RV5) \u2014 3-dose series"], { bt: "Choose ONE brand at dose 1 and never switch \u2014 brands are NOT interchangeable.", textFrag: "maximum age for the first dose", refUrl: REFS.RV.cdcUrl, refLabel: REFS.RV.cdcLabel, refUrl2: REFS.RV.url, refLabel2: REFS.RV.label });
     else
-      r("RV", `Dose ${rv + 1} (${rvb || "same brand as D1"})`, rv + 1, "due", `Same brand as dose 1. Min 4 weeks between doses. Max age for any dose: 8 months 0 days.`, rvb ? [rvb] : ["Rotarix", "RotaTeq"], { minInt: 28, textFrag: "maximum age for the final dose" });
+      r("RV", `Dose ${rv + 1} (${rvb || "same brand as D1"})`, rv + 1, "due", `Same brand as dose 1. Min 4 weeks between doses. Max age for any dose: 8 months 0 days.`, rvb ? [rvb] : ["Rotarix", "RotaTeq"], { minInt: 28, textFrag: "maximum age for the final dose", refUrl: REFS.RV.cdcUrl, refLabel: REFS.RV.cdcLabel, refUrl2: REFS.RV.url, refLabel2: REFS.RV.label });
   }
 
   // ── DTaP / Tdap ───────────────────────────────────────────────
   const dt = dc(hist, "DTaP");
   const primaryBrands = ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"];
   if (am >= 2 && am <= 6 && dt < 3) {
-    r("DTaP", `Dose ${dt + 1} of 5 (primary series)`, dt + 1, "due", "Primary series at 2, 4, 6 months. Min 4 weeks between doses.", primaryBrands, { minInt: 28, bt: "Vaxelis covers DTaP+IPV+Hib+HepB in one injection. Pediarix covers DTaP+HepB+IPV." });
+    r("DTaP", `Dose ${dt + 1} of 5 (primary series)`, dt + 1, "due", "Primary series at 2, 4, 6 months. Min 4 weeks between doses.", primaryBrands, { minInt: 28, bt: "Vaxelis covers DTaP+IPV+Hib+HepB in one injection. Pediarix covers DTaP+HepB+IPV.", refUrl: REFS.DTaP.cdcUrl, refLabel: REFS.DTaP.cdcLabel, refUrl2: REFS.DTaP.url, refLabel2: REFS.DTaP.label });
   } else if (am >= 7 && am <= 18 && dt < 3) {
     // Catch-up: missed primary doses, still under 18m
-    r("DTaP", `Catch-up \u2014 dose ${dt + 1} of 5 (primary)`, dt + 1, "catchup", `Primary series not complete. Give dose ${dt + 1} now. Min 4 weeks from prior dose.`, dt < 3 ? primaryBrands : ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+    r("DTaP", `Catch-up \u2014 dose ${dt + 1} of 5 (primary)`, dt + 1, "catchup", `Primary series not complete. Give dose ${dt + 1} now. Min 4 weeks from prior dose.`, dt < 3 ? primaryBrands : ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 28, refUrl: REFS.DTaP.cdcUrl, refLabel: REFS.DTaP.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 12 && am <= 18 && dt === 3) {
-    r("DTaP", "Dose 4 (booster, 15\u201318 months)", 4, "due", "Min 6 months from dose 3. May give as early as 12 months if \u22656 months since dose 3.", ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 182 });
+    r("DTaP", "Dose 4 (booster, 15\u201318 months)", 4, "due", "Min 6 months from dose 3. May give as early as 12 months if \u22656 months since dose 3.", ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 182, refUrl: REFS.DTaP.cdcUrl, refLabel: REFS.DTaP.cdcLabel, refUrl2: REFS.DTaP.url, refLabel2: REFS.DTaP.label });
   } else if (am >= 19 && am <= 47 && dt < 4) {
     // Catch-up 19–47 months: need doses to complete primary + booster
     r("DTaP", `Catch-up \u2014 dose ${dt + 1} of ${dt < 3 ? "5 (primary incomplete)" : "4 (booster)"}`, dt + 1, "catchup",
@@ -115,17 +115,19 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       dt < 3
         ? ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"]
         : ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"],
-      { minInt: dt < 3 ? 28 : 182, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      { minInt: dt < 3 ? 28 : 182, refUrl: REFS.DTaP.cdcUrl, refLabel: REFS.DTaP.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 48 && am <= 83 && dt === 4) {
-    r("DTaP", "Dose 5 (4\u20136 year booster)", 5, am <= 72 ? "due" : "catchup", "Not needed if dose 4 was at \u22654 years AND \u22656 months after dose 3.", ["Kinrix (DTaP+IPV, 4\u20136y only)", "Quadracel (DTaP+IPV, 4\u20136y only)", "Daptacel (DTaP only)", "Infanrix (DTaP only)"], { bt: "Kinrix or Quadracel = DTaP+IPV in one injection at the 4\u20136y visit." });
+    r("DTaP", "Dose 5 (4\u20136 year booster)", 5, am <= 72 ? "due" : "catchup", "Not needed if dose 4 was at \u22654 years AND \u22656 months after dose 3.", ["Kinrix (DTaP+IPV, 4\u20136y only)", "Quadracel (DTaP+IPV, 4\u20136y only)", "Daptacel (DTaP only)", "Infanrix (DTaP only)"], { bt: "Kinrix or Quadracel = DTaP+IPV in one injection at the 4\u20136y visit.", refUrl: REFS.DTaP.cdcUrl, refLabel: REFS.DTaP.cdcLabel, refUrl2: REFS.DTaP.url, refLabel2: REFS.DTaP.label });
   } else if (am >= 48 && am <= 83 && dt < 4) {
     // 4–6y with incomplete primary or pre-booster: catch-up.
-    // All 7 age-appropriate brands offered (user-confirmed ACIP rule: all valid 4–6y).
-    // forecastLogic.comboValidForDose enforces dose-level gates (Kinrix/Quadracel D5 only).
+    // Kinrix/Quadracel are ONLY for DTaP D5 + IPV D4 — never for D1–D4 catch-up.
+    // Per CLAUDE.md: D1–D3 → Pediarix/Pentacel/Vaxelis; D4 → Pentacel only.
     r("DTaP", `Catch-up \u2014 dose ${dt + 1} of 5`, dt + 1, "catchup",
       `Incomplete DTaP series at 4\u20136y. Give remaining doses. Min 4w for early doses; \u22656m for dose 4; dose 5 needed if dose 4 was before age 4y.`,
-      ["Kinrix (DTaP+IPV, 4\u20136y only)", "Quadracel (DTaP+IPV, 4\u20136y only)", "Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"],
-      { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      dt < 3
+        ? ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"]
+        : ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"],
+      { refUrl: REFS.DTaP.cdcUrl, refLabel: REFS.DTaP.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   }
   // ≥7y with incomplete DTaP: the Tdap section below handles catch-up via r("Tdap",...). DTaP window is closed; forecast shows "Expired" for that column.
 
@@ -137,40 +139,40 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   if (am >= 2 && am <= 6 && hib < hibPrim) {
     r("Hib", `Dose ${hib + 1} of ${hibPrim} (primary)`, hib + 1, "due",
       isPed ? "PedvaxHIB (PRP-OMP): only 2 primary doses (2 & 4 months). No 6-month dose needed." : "PRP-T brands: 3 primary doses (2, 4, 6 months).",
-      hibComboBrands, { minInt: 28, bt: risks.includes("alaska_native") ? "PedvaxHIB or Vaxelis preferred for AI/AN per ACIP." : "PedvaxHIB needs only 3 total doses; PRP-T brands need 4. Vaxelis NOT approved for booster." });
+      hibComboBrands, { minInt: 28, bt: risks.includes("alaska_native") ? "PedvaxHIB or Vaxelis preferred for AI/AN per ACIP." : "PedvaxHIB needs only 3 total doses; PRP-T brands need 4. Vaxelis NOT approved for booster.", refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.Hib.url, refLabel2: REFS.Hib.label });
   } else if (am >= 7 && am <= 11 && hib < hibPrim) {
     // Catch-up 7–11 months with incomplete primary
     r("Hib", `Catch-up \u2014 dose ${hib + 1} of primary series`, hib + 1, "catchup",
       `7\u201311 months: if behind, give remaining doses now. Min 4 weeks between doses. Complete by 12\u201315m with booster.`,
-      hibComboBrands, { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      hibComboBrands, { minInt: 28, refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 12 && am <= 15 && hib >= hibPrim && hib < (isPed ? 3 : 4)) {
-    r("Hib", "Booster (12\u201315 months)", hib + 1, "due", "Booster at 12\u201315 months. Min 8 weeks after prior dose. Pentacel OK for booster (PRP-T dose 4). Vaxelis NOT for booster (PRP-OMP series complete in 3 doses).", ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 56 });
+    r("Hib", "Booster (12\u201315 months)", hib + 1, "due", "Booster at 12\u201315 months. Min 8 weeks after prior dose. Pentacel OK for booster (PRP-T dose 4). Vaxelis NOT for booster (PRP-OMP series complete in 3 doses).", ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 56, refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.Hib.url, refLabel2: REFS.Hib.label });
   } else if (am >= 12 && am <= 15 && hib < hibPrim) {
     // 12–15m with incomplete primary: catch-up primary doses then booster
     r("Hib", `Catch-up \u2014 dose ${hib + 1} (12\u201315 months, primary incomplete)`, hib + 1, "catchup",
       `Incomplete Hib primary series at 12\u201315 months. Give remaining primary doses (min 4w apart), then booster (min 8w after last dose). Vaxelis NOT approved for booster.`,
-      hibComboBrands, { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      hibComboBrands, { minInt: 28, refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 16 && am < 60 && hib === 0) {
     // 16–59m unvaccinated: 1 dose catch-up
     r("Hib", "Catch-up \u2014 1 dose (16\u201359 months, unvaccinated)", 1, "catchup",
       `Unvaccinated 16\u201359 months: give 1 dose of any Hib vaccine. Partially vaccinated: see CDC catch-up Table 2.`,
-      ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 16 && am < 60 && hib > 0 && hib < (isPed ? 3 : 4)) {
     // Partially vaccinated 16–59m: ACIP Table 2 — age ≥15m with ≥1 prior dose needs only 1 final dose
     r("Hib", `Catch-up \u2014 1 final dose (16\u201359 months)`, hib + 1, "catchup",
       `Age \u226515 months with \u22651 prior Hib dose: 1 additional dose needed (ACIP catch-up Table 2). Min 8 weeks from last dose.`,
-      ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { minInt: 56, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { minInt: 56, refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 60 && risks.includes("hsct") && hib < 3) {
     // HSCT: 3-dose reset regardless of prior history
     r("Hib", `Risk-based \u2014 dose ${hib + 1} of 3 (HSCT, 3-dose reset)`, hib + 1, "risk-based",
       "HSCT: 3-dose series regardless of prior vaccination history (6\u201312 months post-transplant, 4 weeks between doses). Enter only post-transplant doses in history.",
-      ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { minInt: 28 });
+      ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { minInt: 28, refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.Hib.url, refLabel2: REFS.Hib.label });
   } else if (am >= 60 && !risks.includes("hsct") && hib < (isPed ? 3 : 4) && hr) {
     r("Hib", hib === 0 ? "Risk-based \u2014 1 dose (\u22655 years, high-risk)" : `Risk-based \u2014 dose ${hib + 1} (\u22655 years, incomplete series)`, hib + 1, "risk-based",
       hib === 0
         ? "Asplenia, HIV, immunocompromise: 1 dose for unvaccinated high-risk patients \u22655 years."
         : `Incomplete Hib series in high-risk patient \u22655 years. Give dose ${hib + 1} to complete series.`,
-      ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { minInt: 56 });
+      ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { minInt: 56, refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.Hib.url, refLabel2: REFS.Hib.label });
   }
 
   // ── PCV (conjugate: PCV13/PCV15/PCV20) ───────────────────────
@@ -186,40 +188,48 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   const pcvBrands = ["Prevnar 20 (PCV20) \u2014 preferred", "Vaxneuvance (PCV15)", "Prevnar 13 (PCV13) \u2014 only if PCV20/PCV15 unavailable"];
   const pcvNote = `PCV20 preferred \u2014 covers 20 serotypes; no PPSV23 needed afterward. If PCV15 used for high-risk patients: add PPSV23 \u22658 weeks after completing PCV series (minimum age 2 years). PCV13 still used if PCV20/PCV15 unavailable or specific clinical indication.`;
   if (am >= 2 && am <= 6 && pcv < 3) {
-    r("PCV", `Dose ${pcv + 1} of 4 (PCV primary, ${am === 2 ? "2" : am === 4 ? "4" : "6"} months)`, pcv + 1, "due", "Primary series at 2, 4, 6 months. Min 4 weeks between doses.", pcvBrands, { minInt: 28, bt: pcvNote, refUrl: REFS.PCV.url, refLabel: REFS.PCV.label });
+    r("PCV", `Dose ${pcv + 1} of 4 (PCV primary, ${am === 2 ? "2" : am === 4 ? "4" : "6"} months)`, pcv + 1, "due", "Primary series at 2, 4, 6 months. Min 4 weeks between doses.", pcvBrands, { minInt: 28, bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
   } else if (am >= 7 && am <= 11 && pcv < 3) {
-    r("PCV", `Catch-up \u2014 PCV dose ${pcv + 1} (7\u201311 months)`, pcv + 1, "catchup", "7\u201311 months behind: give remaining primary doses \u22654 weeks apart. Booster still needed at 12\u201315m.", pcvBrands, { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+    r("PCV", `Catch-up \u2014 PCV dose ${pcv + 1} (7\u201311 months)`, pcv + 1, "catchup", "7\u201311 months behind: give remaining primary doses \u22654 weeks apart. Booster still needed at 12\u201315m.", pcvBrands, { minInt: 28, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 12 && am <= 15 && pcv < 4) {
     const needBooster = pcv >= 3;
     r("PCV", needBooster ? "Dose 4 \u2014 PCV booster (12\u201315 months)" : "Catch-up \u2014 PCV (complete primary + booster)", pcv + 1, needBooster ? "due" : "catchup",
       needBooster ? "Booster dose at 12\u201315 months. Min 8 weeks after dose 3." : "Complete remaining primary doses first (min 4w apart), then booster (min 8w after prior).",
-      pcvBrands, { minInt: needBooster ? 56 : 28, bt: pcvNote, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      pcvBrands, { minInt: needBooster ? 56 : 28, bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 16 && am <= 23 && pcv < 4) {
     // 16–23m: CDC Table 2 — healthy max 2 doses total (8w apart); high-risk up to 4.
-    const healthyMax = isHighRiskPCV ? 4 : 2;
+    // Exception: pcv===3 means primary series complete at 2/4/6m but booster overdue.
+    const needsBooster = pcv === 3;
+    const healthyMax = (isHighRiskPCV || needsBooster) ? 4 : 2;
     if (pcv < healthyMax) {
-      const isFinal = !isHighRiskPCV && pcv === 1;
-      r("PCV", `Catch-up \u2014 PCV dose ${pcv + 1}${isFinal ? " (final)" : ""} (16\u201323 months)`, pcv + 1, isHighRiskPCV ? "risk-based" : "catchup",
-        isHighRiskPCV
-          ? `High-risk 16\u201323 months: up to 4 doses, min 8 weeks apart. Add PPSV23 \u22658w after PCV series if PCV15 used.`
-          : `CDC Table 2: healthy children 16\u201323 months need at most 2 doses, min 8 weeks apart. ${pcv === 0 ? "Give dose 1 now; dose 2 (final) \u22658 weeks later." : "This is the final dose; min 8 weeks from last dose."}`,
-        pcvBrands, { minInt: 56, bt: pcvNote, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      const isFinal = !isHighRiskPCV && !needsBooster && pcv === 1;
+      r("PCV",
+        needsBooster
+          ? `Catch-up \u2014 PCV booster (dose 4, 16\u201323 months)`
+          : `Catch-up \u2014 PCV dose ${pcv + 1}${isFinal ? " (final)" : ""} (16\u201323 months)`,
+        pcv + 1, isHighRiskPCV ? "risk-based" : "catchup",
+        needsBooster
+          ? `Primary series complete (3 doses). Booster overdue \u2014 was due at 12\u201315 months. Min 8 weeks from last dose.`
+          : isHighRiskPCV
+            ? `High-risk 16\u201323 months: up to 4 doses, min 8 weeks apart. Add PPSV23 \u22658w after PCV series if PCV15 used.`
+            : `CDC Table 2: healthy children 16\u201323 months need at most 2 doses, min 8 weeks apart. ${pcv === 0 ? "Give dose 1 now; dose 2 (final) \u22658 weeks later." : "This is the final dose; min 8 weeks from last dose."}`,
+        pcvBrands, { minInt: 56, bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
     }
   } else if (am >= 24 && am <= 59 && !isHighRiskPCV && pcv === 0) {
     // Healthy ≥24m, no prior doses: CDC Table 2 — 1 dose only (no further doses needed after first dose at ≥24m)
     r("PCV", "Catch-up \u2014 PCV dose 1 of 1 (\u226524 months, healthy)", 1, "catchup",
       "CDC Table 2: healthy children who start PCV at \u226524 months need just 1 dose. No further doses needed after this dose.",
-      pcvBrands, { bt: pcvNote, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      pcvBrands, { bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 24 && am <= 59 && !isHighRiskPCV && pcv >= 1 && pcv < 4) {
     // Healthy ≥24m with prior doses from infancy: 1 final catch-up dose
     r("PCV", `Catch-up \u2014 PCV final dose (\u226524 months, healthy)`, pcv + 1, "catchup",
       "CDC Table 2: 1 final catch-up dose needed. Min 8 weeks from last dose. No further doses after this.",
-      pcvBrands, { minInt: 56, bt: pcvNote, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      pcvBrands, { minInt: 56, bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 24 && isHighRiskPCV && !pcvSeriesComplete) {
     r("PCV", "Risk-based PCV (\u22652 years, high-risk)", pcv + 1, "risk-based",
       "High-risk \u22652y: 1 dose PCV20 (preferred). If PCV15 used: add PPSV23 \u22658 weeks later (see separate PPSV23 recommendation). Avoid PCV13 unless PCV20/PCV15 unavailable.",
       ["Prevnar 20 (PCV20) \u2014 preferred for high-risk \u22652y", "Vaxneuvance (PCV15) \u2014 follow with PPSV23 \u22658w later"],
-      { refUrl: REFS.PCV.url, refLabel: REFS.PCV.label });
+      { refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
   }
 
   // ── PPSV23 (polysaccharide, Pneumovax 23) — separate from PCV ─
@@ -232,8 +242,8 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         "High-risk patients \u22652 years who completed PCV15 or PCV13: give 1 dose PPSV23 \u22658 weeks after the final PCV dose. Min age 2 years. Not needed if PCV20 was used (PCV20 already covers PPSV23 serotypes).",
         ["Pneumovax 23 (PPSV23)"],
         { minInt: 56, prevDate: lastDate(hist, "PCV"),
-          refUrl: REFS.PPSV23.url, refLabel: REFS.PPSV23.label,
-          refUrl2: REFS.ppsv23.url, refLabel2: REFS.ppsv23.label });
+          refUrl: REFS.PPSV23.cdcUrl, refLabel: REFS.PPSV23.cdcLabel,
+          refUrl2: REFS.PPSV23.url, refLabel2: REFS.PPSV23.label });
     }
     // Dose 2: asplenia, immunocompromise, or HIV only — min 5 years after dose 1
     if (ppsv23 === 1 && risks.some(x => ["asplenia", "immunocomp", "hiv"].includes(x))) {
@@ -241,7 +251,8 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         "Second PPSV23 dose for asplenia (functional or anatomic) or immunocompromise: min 5 years after the first PPSV23 dose. Revaccinate every 5 years as long as high-risk status persists.",
         ["Pneumovax 23 (PPSV23)"],
         { minInt: 1825,
-          refUrl: REFS.PPSV23.url, refLabel: REFS.PPSV23.label });
+          refUrl: REFS.PPSV23.cdcUrl, refLabel: REFS.PPSV23.cdcLabel,
+          refUrl2: REFS.PPSV23.url, refLabel2: REFS.PPSV23.label });
     }
   }
 
@@ -249,21 +260,21 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   const ipv = dc(hist, "IPV");
   const ipvBrands = ["IPOL (IPV only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"];
   if (am >= 2 && am <= 4 && ipv < 2) {
-    r("IPV", `Dose ${ipv + 1} of 4 (primary)`, ipv + 1, "due", "At 2 and 4 months. Min 4 weeks between doses.", ipvBrands, { minInt: 28 });
+    r("IPV", `Dose ${ipv + 1} of 4 (primary)`, ipv + 1, "due", "At 2 and 4 months. Min 4 weeks between doses.", ipvBrands, { minInt: 28, refUrl: REFS.IPV.cdcUrl, refLabel: REFS.IPV.cdcLabel, refUrl2: REFS.IPV.url, refLabel2: REFS.IPV.label });
   } else if (am >= 5 && am <= 18 && ipv < 3) {
     // Catch-up or dose 3
     r("IPV", `${ipv < 2 ? "Catch-up \u2014 " : ""}Dose ${ipv + 1} of 4`, ipv + 1, ipv < 2 ? "catchup" : "due",
       ipv < 2 ? "Behind on primary IPV series. Give next dose now, min 4 weeks from last dose." : "Third dose at 6\u201318 months. Min 4 weeks from dose 2 if <4 years.",
-      ipvBrands, { minInt: 28, refUrl2: ipv < 2 ? REFS.catchup.url : null, refLabel2: ipv < 2 ? REFS.catchup.label : null });
+      ipvBrands, { minInt: 28, refUrl: REFS.IPV.cdcUrl, refLabel: REFS.IPV.cdcLabel, refUrl2: ipv < 2 ? REFS.catchup.url : null, refLabel2: ipv < 2 ? REFS.catchup.label : null });
   } else if (am >= 19 && am <= 47 && ipv < 3) {
-    r("IPV", `Catch-up \u2014 dose ${ipv + 1} of 4`, ipv + 1, "catchup", `Complete IPV catch-up. Min 4 weeks between doses if <4 years.`, ["IPOL (IPV only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"], { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+    r("IPV", `Catch-up \u2014 dose ${ipv + 1} of 4`, ipv + 1, "catchup", `Complete IPV catch-up. Min 4 weeks between doses if <4 years.`, ["IPOL (IPV only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"], { minInt: 28, refUrl: REFS.IPV.cdcUrl, refLabel: REFS.IPV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 48 && am <= 72 && ipv === 3) {
-    r("IPV", "Dose 4 \u2014 final booster (4\u20136 years)", 4, "due", "Final dose. Min 6 months from dose 3. Min age 4 years.", ["IPOL (IPV only)", "Kinrix (DTaP+IPV, 4\u20136y) \u2014 preferred", "Quadracel (DTaP+IPV, 4\u20136y) \u2014 preferred"], { bt: "Kinrix or Quadracel = IPV+DTaP in one injection at the 4\u20136y visit." });
+    r("IPV", "Dose 4 \u2014 final booster (4\u20136 years)", 4, "due", "Final dose. Min 6 months from dose 3. Min age 4 years.", ["IPOL (IPV only)", "Kinrix (DTaP+IPV, 4\u20136y) \u2014 preferred", "Quadracel (DTaP+IPV, 4\u20136y) \u2014 preferred"], { bt: "Kinrix or Quadracel = IPV+DTaP in one injection at the 4\u20136y visit.", refUrl: REFS.IPV.cdcUrl, refLabel: REFS.IPV.cdcLabel, refUrl2: REFS.IPV.url, refLabel2: REFS.IPV.label });
   } else if (am >= 48 && am <= 72 && ipv < 3) {
     // 4–6y with incomplete primary: catch-up
     r("IPV", `Catch-up \u2014 dose ${ipv + 1} of 4`, ipv + 1, "catchup",
       `Incomplete IPV series at 4\u20136y. Give remaining doses. Min 4 weeks between doses if <4y; final dose \u22656 months after prior dose.`,
-      ["IPOL (IPV only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"], { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      ["IPOL (IPV only)", "Pediarix (DTaP+HepB+IPV)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133)"], { minInt: 28, refUrl: REFS.IPV.cdcUrl, refLabel: REFS.IPV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am > 72 && ipv < (am >= 216 ? 3 : 4)) {
     // Adults ≥18y (216m): 3-dose catch-up series is complete. Children 7–17y: 4 doses required.
     const ipvTotal = am >= 216 ? 3 : 4;
@@ -271,7 +282,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       ipvTotal === 3
         ? "Adults \u226518y: 3-dose catch-up series (0, \u22654w, \u22656m). Series complete after 3 doses."
         : "Final dose must be at \u22654 years AND \u22656 months after prior dose. Series complete after 4 doses.",
-      ["IPOL (IPV only)"], { minInt: 182, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      ["IPOL (IPV only)"], { minInt: 182, refUrl: REFS.IPV.cdcUrl, refLabel: REFS.IPV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   }
 
   // ── Influenza ─────────────────────────────────────────────────
@@ -291,12 +302,12 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     const firstEver = flu < 2 && am < 108;
     r("Flu", firstEver ? "2 doses this season (\u22654 weeks apart, first-ever)" : "Annual influenza dose", 1, "due",
       `Annual flu vaccine for all \u22656 months. ${firstEver ? "First-ever flu vaccine in children <9y requires 2 doses \u22654 weeks apart. " : ""}${noLAIV ? "LAIV (FluMist) contraindicated \u2014 use inactivated IIV only. " : "FluMist acceptable for healthy non-pregnant \u22652y. "}${eggAllergy ? "Egg allergy: Per ACIP 2023+ updated guidance, any licensed age-appropriate influenza vaccine (including standard egg-based IIV) may be administered regardless of egg allergy severity. No additional precautions or extended observation beyond standard 15-minute post-vaccination period are required. Egg-free Flucelvax remains an option if preferred." : ""}`,
-      fluBrands, { minInt: firstEver ? 28 : null });
+      fluBrands, { minInt: firstEver ? 28 : null, refUrl: REFS.Flu.cdcUrl, refLabel: REFS.Flu.cdcLabel, refUrl2: REFS.Flu.url, refLabel2: REFS.Flu.label });
   } else if (am >= 6 && am < 108 && fluThisSeason && flu === 1) {
     // First-ever flu season for child <9y: dose 1 was given this season, dose 2 still needed.
     r("Flu", "Dose 2 of 2 (\u22654 weeks after dose 1 \u2014 first-ever season)", 2, "due",
       "Children <9y receiving flu vaccine for the first time need 2 doses \u22654 weeks apart in the same season.",
-      fluBrands, { minInt: 28 });
+      fluBrands, { minInt: 28, refUrl: REFS.Flu.cdcUrl, refLabel: REFS.Flu.cdcLabel, refUrl2: REFS.Flu.url, refLabel2: REFS.Flu.label });
   }
 
   // ── MMR ───────────────────────────────────────────────────────
@@ -320,13 +331,13 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   if (liveVaxAllowed) {
     const mmrBrands1 = var_ === 0 && !isHIV ? ["ProQuad (MMR+VAR/MMRV) — 1 shot covers both", "M-M-R II (MMR only)", "Priorix (MMR only)"] : ["M-M-R II (MMR only)", "Priorix (MMR only)", "ProQuad (MMR+VAR/MMRV)"];
     if (am >= 12 && am <= 15 && mmr === 0) {
-      r("MMR", "Dose 1 (12–15 months)", 1, "due", "First dose 12–15 months." + liveVaxContra, mmrBrands1, { bt: var_ === 0 && !isHIV ? "ProQuad gives MMR+VAR in one injection. Note: slightly higher febrile seizure risk at 12–23 months vs separate injections — discuss with caregiver." : undefined });
+      r("MMR", "Dose 1 (12–15 months)", 1, "due", "First dose 12–15 months." + liveVaxContra, mmrBrands1, { bt: var_ === 0 && !isHIV ? "ProQuad gives MMR+VAR in one injection. Note: slightly higher febrile seizure risk at 12–23 months vs separate injections — discuss with caregiver." : undefined, refUrl: REFS.MMR.cdcUrl, refLabel: REFS.MMR.cdcLabel, refUrl2: REFS.MMR.url, refLabel2: REFS.MMR.label });
     } else if (am >= 16 && mmr === 0) {
-      r("MMR", `Catch-up — dose 1 of 2`, 1, "catchup", "Give 1 dose now. Second dose ≥4 weeks later. Two doses needed for full protection." + liveVaxContra, ["M-M-R II (MMR only)", "Priorix (MMR only)"], { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      r("MMR", `Catch-up — dose 1 of 2`, 1, "catchup", "Give 1 dose now. Second dose ≥4 weeks later. Two doses needed for full protection." + liveVaxContra, ["M-M-R II (MMR only)", "Priorix (MMR only)"], { refUrl: REFS.MMR.cdcUrl, refLabel: REFS.MMR.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
     } else if (mmr === 1 && am >= 48 && am <= 72) {
-      r("MMR", "Dose 2 (4–6 year booster)", 2, "due", "Min 4 weeks after dose 1." + liveVaxContra, var_ < 2 ? ["ProQuad (MMR+VAR/MMRV) — preferred if VAR dose 2 also due", "M-M-R II (MMR only)", "Priorix (MMR only)"] : ["M-M-R II (MMR only)", "Priorix (MMR only)", "ProQuad (MMR+VAR/MMRV, ≤12y)"], { minInt: 28 });
+      r("MMR", "Dose 2 (4–6 year booster)", 2, "due", "Min 4 weeks after dose 1." + liveVaxContra, var_ < 2 ? ["ProQuad (MMR+VAR/MMRV) — preferred if VAR dose 2 also due", "M-M-R II (MMR only)", "Priorix (MMR only)"] : ["M-M-R II (MMR only)", "Priorix (MMR only)", "ProQuad (MMR+VAR/MMRV, ≤12y)"], { minInt: 28, refUrl: REFS.MMR.cdcUrl, refLabel: REFS.MMR.cdcLabel, refUrl2: REFS.MMR.url, refLabel2: REFS.MMR.label });
     } else if (mmr === 1 && (am < 48 || am > 72)) {
-      r("MMR", "Catch-up — dose 2 of 2", 2, "catchup", "Min 4 weeks after dose 1." + liveVaxContra, ["M-M-R II (MMR only)", "Priorix (MMR only)"], { minInt: 28, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      r("MMR", "Catch-up — dose 2 of 2", 2, "catchup", "Min 4 weeks after dose 1." + liveVaxContra, ["M-M-R II (MMR only)", "Priorix (MMR only)"], { minInt: 28, refUrl: REFS.MMR.cdcUrl, refLabel: REFS.MMR.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
     }
   }
 
@@ -334,11 +345,11 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   if (liveVaxAllowed) {
     const varBrands1 = mmr === 0 && !isHIV ? ["ProQuad (MMR+VAR/MMRV) — preferred", "Varivax (VAR only)"] : ["Varivax (VAR only)", "ProQuad (MMR+VAR/MMRV, if MMR also due)"];
     if (am >= 12 && am <= 15 && var_ === 0) {
-      r("VAR", "Dose 1 (12–15 months)", 1, "due", "First dose 12–15 months." + liveVaxContra, varBrands1);
+      r("VAR", "Dose 1 (12–15 months)", 1, "due", "First dose 12–15 months." + liveVaxContra, varBrands1, { refUrl: REFS.VAR.cdcUrl, refLabel: REFS.VAR.cdcLabel, refUrl2: REFS.VAR.url, refLabel2: REFS.VAR.label });
     } else if (am >= 16 && var_ === 0) {
-      r("VAR", "Catch-up — dose 1 of 2", 1, "catchup", "Give 1 dose now. Second dose ≥3 months later (<13y) or ≥4 weeks later (≥13y). Two doses required." + liveVaxContra, ["Varivax (VAR only)"], { refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+      r("VAR", "Catch-up — dose 1 of 2", 1, "catchup", "Give 1 dose now. Second dose ≥3 months later (<13y) or ≥4 weeks later (≥13y). Two doses required." + liveVaxContra, ["Varivax (VAR only)"], { refUrl: REFS.VAR.cdcUrl, refLabel: REFS.VAR.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
     } else if (var_ === 1 && am >= 48 && am <= 72) {
-      r("VAR", "Dose 2 (4–6 year booster)", 2, "due", (am >= 156 ? "≥13y: min 4 weeks after dose 1." : "Min 3 months after dose 1 (<13y).") + liveVaxContra, mmr === 1 ? ["ProQuad (MMR+VAR/MMRV, ≤12y) — preferred if MMR dose 2 also due", "Varivax (VAR only)"] : ["Varivax (VAR only)", "ProQuad (MMR+VAR/MMRV, ≤12y)"], { minInt: am >= 156 ? 28 : 84 });
+      r("VAR", "Dose 2 (4–6 year booster)", 2, "due", (am >= 156 ? "≥13y: min 4 weeks after dose 1." : "Min 3 months after dose 1 (<13y).") + liveVaxContra, mmr === 1 ? ["ProQuad (MMR+VAR/MMRV, ≤12y) — preferred if MMR dose 2 also due", "Varivax (VAR only)"] : ["Varivax (VAR only)", "ProQuad (MMR+VAR/MMRV, ≤12y)"], { minInt: am >= 156 ? 28 : 84, refUrl: REFS.VAR.cdcUrl, refLabel: REFS.VAR.cdcLabel, refUrl2: REFS.VAR.url, refLabel2: REFS.VAR.label });
     } else if (var_ === 1 && (am < 48 || am > 72)) {
       r("VAR", "Catch-up — dose 2 of 2", 2, "catchup", (am >= 156 ? "≥13y: min 4 weeks." : "Min 3 months after dose 1.") + liveVaxContra, ["Varivax (VAR only)"], { minInt: am >= 156 ? 28 : 84, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
     }
@@ -347,14 +358,14 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ── HepA ──────────────────────────────────────────────────────
   const ha = dc(hist, "HepA");
   if (am >= 12 && am < 24 && ha === 0) {
-    r("HepA", "Dose 1 (12\u201323 months)", 1, "due", "First dose at 12\u201323 months. Second dose follows 6\u201318 months later.", ["Havrix (HepA only)", "Vaqta (HepA only)"]);
+    r("HepA", "Dose 1 (12\u201323 months)", 1, "due", "First dose at 12\u201323 months. Second dose follows 6\u201318 months later.", ["Havrix (HepA only)", "Vaqta (HepA only)"], { refUrl: REFS.HepA.cdcUrl, refLabel: REFS.HepA.cdcLabel, refUrl2: REFS.HepA.url, refLabel2: REFS.HepA.label });
   } else if (am >= 18 && ha === 1) {
-    r("HepA", "Dose 2 (\u22656 months after dose 1)", 2, "due", "Min 6 months after dose 1.", am >= 204 ? ["Havrix (HepA only)", "Vaqta (HepA only)", "Twinrix (HepA+HepB, \u226518y)"] : ["Havrix (HepA only)", "Vaqta (HepA only)"], { minInt: 182 });
+    r("HepA", "Dose 2 (\u22656 months after dose 1)", 2, "due", "Min 6 months after dose 1.", am >= 204 ? ["Havrix (HepA only)", "Vaqta (HepA only)", "Twinrix (HepA+HepB, \u226518y)"] : ["Havrix (HepA only)", "Vaqta (HepA only)"], { minInt: 182, refUrl: REFS.HepA.cdcUrl, refLabel: REFS.HepA.cdcLabel, refUrl2: REFS.HepA.url, refLabel2: REFS.HepA.label });
   } else if (am >= 24 && ha === 0) {
     const travel = risks.includes("travel"); const liverDz = risks.includes("chronic_liver") || risks.includes("hcv");
     r("HepA", "Catch-up/risk-based \u2014 dose 1 of 2", 1, (travel || liverDz) ? "risk-based" : "catchup",
       `Catch-up 2-dose series (\u22656 months apart). ${travel ? "Travel to endemic areas: begin immediately \u2014 even 1 dose provides some protection. " : ""}${liverDz ? "Recommended for all with chronic liver disease or HCV. " : ""}`,
-      am >= 204 ? ["Havrix (HepA only)", "Vaqta (HepA only)", "Twinrix (HepA+HepB, \u226518y)"] : ["Havrix (HepA only)", "Vaqta (HepA only)"]);
+      am >= 204 ? ["Havrix (HepA only)", "Vaqta (HepA only)", "Twinrix (HepA+HepB, \u226518y)"] : ["Havrix (HepA only)", "Vaqta (HepA only)"], { refUrl: REFS.HepA.cdcUrl, refLabel: REFS.HepA.cdcLabel, refUrl2: REFS.HepA.url, refLabel2: REFS.HepA.label });
   }
 
   // ── Tdap ──────────────────────────────────────────────────────
@@ -362,43 +373,43 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   const isPreg = risks.includes("pregnancy");
   const totalTetanus = dt + tdap; // total tetanus-containing doses for catch-up tracking
   if (am >= 84 && am <= 131 && tdap === 0 && dt < 5) {
-    r("Tdap", "Catch-up Tdap (7\u201310 years, incomplete DTaP)", 1, "catchup", "Age 7\u201310y with incomplete DTaP series: give 1 Tdap. Use only Adacel (\u22657y). Remaining Td booster doses as needed.", ["Adacel (Tdap, \u22657y)"]);
+    r("Tdap", "Catch-up Tdap (7\u201310 years, incomplete DTaP)", 1, "catchup", "Age 7\u201310y with incomplete DTaP series: give 1 Tdap. Use only Adacel (\u22657y). Remaining Td booster doses as needed.", ["Adacel (Tdap, \u22657y)"], { refUrl: REFS.Tdap.cdcUrl, refLabel: REFS.Tdap.cdcLabel, refUrl2: REFS.Tdap.pmcUrl, refLabel2: REFS.Tdap.pmcLabel });
   } else if (am >= 84 && am <= 131 && totalTetanus >= 1 && totalTetanus < 3) {
     // Continue 3-dose catch-up series (D2 or D3) for 7\u201310y patients
     r("Tdap", `Catch-up \u2014 dose ${totalTetanus + 1} of 3 (7\u201310 years, catch-up series)`, totalTetanus + 1, "catchup",
       `Complete 3-dose tetanus/diphtheria catch-up series. Dose ${totalTetanus + 1} of 3. ${totalTetanus === 1 ? "Min 4 weeks after previous dose." : "Min 6 months after dose 2."}`,
       totalTetanus === 1 ? ["Adacel (Tdap, \u22657y)", "Td (generic)"] : ["Td (generic)", "Adacel (Tdap, \u22657y)"],
-      { minInt: totalTetanus === 1 ? 28 : 180 });
+      { minInt: totalTetanus === 1 ? 28 : 180, refUrl: REFS.Tdap.cdcUrl, refLabel: REFS.Tdap.cdcLabel, refUrl2: REFS.Tdap.pmcUrl, refLabel2: REFS.Tdap.pmcLabel });
   } else if (am >= 132 && am <= 144 && tdap === 0) {
-    r("Tdap", "Dose 1 (routine, 11\u201312 years)", 1, "due", "Single Tdap at 11\u201312 years. Then Td every 10 years.", ["Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"]);
-  } else if (am > 144 && tdap === 0) {
+    r("Tdap", "Dose 1 (routine, 11\u201312 years)", 1, "due", "Single Tdap at 11\u201312 years. Then Td every 10 years.", ["Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"], { refUrl: REFS.Tdap.cdcUrl, refLabel: REFS.Tdap.cdcLabel });
+  } else if (am > 144 && tdap === 0 && (totalTetanus === 0 || totalTetanus >= 3)) {
     r("Tdap", isPreg ? "Tdap (pregnancy \u2014 27\u201336 weeks each pregnancy)" : "Catch-up Tdap (\u226513 years)", 1, isPreg ? "due" : "catchup",
-      isPreg ? "Give 1 dose Tdap during each pregnancy, preferably at 27\u201336 weeks gestation, regardless of prior Tdap history. Protects newborn via maternal antibody transfer (pertussis). Use Adacel or Boostrix." : "Give 1 Tdap if not received. Then Td every 10 years.",
-      ["Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"]);
+      isPreg ? "Give 1 dose Tdap during each pregnancy, preferably at 27\u201336 weeks gestation, regardless of prior Tdap history. Protects newborn via maternal antibody transfer (pertussis). Use Adacel or Boostrix." : totalTetanus === 0 ? "Unvaccinated: complete 3-dose primary series (Tdap + Td at \u22654 weeks + Td at 6 months). Then Td every 10 years." : "Give 1 Tdap if not received. Then Td every 10 years.",
+      ["Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"], { refUrl: REFS.Tdap.cdcUrl, refLabel: REFS.Tdap.cdcLabel, refUrl2: REFS.Tdap.pmcUrl, refLabel2: REFS.Tdap.pmcLabel });
   } else if (am > 144 && isPreg) {
     // Pregnancy: Tdap every pregnancy regardless of prior history
     r("Tdap", "Tdap (pregnancy \u2014 27\u201336 weeks, each pregnancy)", tdap + 1, "due",
       "Give 1 dose Tdap during each pregnancy at 27\u201336 weeks gestation, even if Tdap was received previously. Protects newborn via maternal antibody transfer (pertussis).",
       ["Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"],
-      { refUrl: REFS.Tdap?.url, refLabel: REFS.Tdap?.label });
+      { refUrl: REFS.Tdap?.url, refLabel: REFS.Tdap?.label, refUrl2: REFS.Tdap.pmcUrl, refLabel2: REFS.Tdap.pmcLabel });
   } else if (am > 144 && risks.includes("wound_prophylaxis") && totalTetanus >= 3) {
     // Wound prophylaxis: 5-year interval (1826d) instead of 10-year decennial
     r("Tdap", "Td/Tdap \u2014 wound prophylaxis (5-year interval)", tdap + 1, "risk-based",
       "ACIP wound management: tetanus prophylaxis for wounds if last dose >5 years ago. 5-year interval applies rather than standard 10-year decennial.",
       ["Td (generic)", "Adacel (Tdap, \u22657y) \u2014 preferred if pertussis boost indicated", "Boostrix (Tdap, \u226510y) \u2014 preferred if pertussis boost indicated"],
-      { minInt: 1826, refUrl: REFS.Tdap?.url, refLabel: REFS.Tdap?.label });
+      { minInt: 1826, refUrl: REFS.Tdap?.url, refLabel: REFS.Tdap?.label, refUrl2: REFS.Tdap.pmcUrl, refLabel2: REFS.Tdap.pmcLabel });
   } else if (am > 144 && totalTetanus >= 1 && totalTetanus < 3) {
     // Continue 3-dose catch-up series (D2 or D3) for \u226513y patients
     r("Tdap", `Catch-up \u2014 dose ${totalTetanus + 1} of 3 (\u226513 years, catch-up series)`, totalTetanus + 1, "catchup",
       `Complete 3-dose tetanus/diphtheria catch-up series. Dose ${totalTetanus + 1} of 3. ${totalTetanus === 1 ? "Min 4 weeks after previous dose (Tdap or Td)." : "Min 6 months after dose 2."}`,
       ["Td (generic)", "Adacel (Tdap, \u22657y)", "Boostrix (Tdap, \u226510y)"],
-      { minInt: totalTetanus === 1 ? 28 : 180 });
+      { minInt: totalTetanus === 1 ? 28 : 180, refUrl: REFS.Tdap.cdcUrl, refLabel: REFS.Tdap.cdcLabel, refUrl2: REFS.Tdap.pmcUrl, refLabel2: REFS.Tdap.pmcLabel });
   } else if (am > 144 && tdap >= 1) {
     // Decennial Td/Tdap booster every 10 years (3652 days)
     r("Tdap", "Td/Tdap booster (every 10 years)", tdap + 1, "due",
       "ACIP: after primary Tdap, give a Td or Tdap booster every 10 years. Tdap is preferred when a pertussis-containing booster is clinically indicated.",
       ["Td (generic)", "Adacel (Tdap, \u22657y) \u2014 preferred if pertussis boost indicated", "Boostrix (Tdap, \u226510y) \u2014 preferred if pertussis boost indicated"],
-      { minInt: 3652, refUrl: REFS.Tdap?.url, refLabel: REFS.Tdap?.label });
+      { minInt: 3652, refUrl: REFS.Tdap?.url, refLabel: REFS.Tdap?.label, refUrl2: REFS.Tdap.cdcUrl, refLabel2: REFS.Tdap.cdcLabel });
   }
 
   // ── HPV ───────────────────────────────────────────────────────
@@ -431,11 +442,11 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         isShared2745 ? "Shared decision \u2014 dose 1 (27\u201345y)" : isCatchup26 ? "Catch-up \u2014 dose 1 (19\u201326y)" : `Dose 1 (${risks.includes("sexual_abuse") ? "9y+ \u2014 sexual abuse history" : "routine 11\u201312y"})`,
         1, hpvStatus,
         isShared2745 ? sharedNote : isCatchup26 ? catchup26Note : immuno ? "3-dose series required (immunocompromised \u2014 even if started <15y): doses at 0, 1\u20132, 6 months." : ys ? "Starting <15y: 2-dose series (0, 6\u201312 months). Minimum 5 months between doses." : "Starting \u226515y: 3-dose series (0, 1\u20132, 6 months).",
-        ["Gardasil 9 (HPV, 9-valent)"]);
+        ["Gardasil 9 (HPV, 9-valent)"], { refUrl: REFS.HPV.cdcUrl, refLabel: REFS.HPV.cdcLabel, refUrl2: REFS.HPV.url, refLabel2: REFS.HPV.label });
     else if (hpv === 1)
-      r("HPV", immuno ? "Dose 2 of 3" : ys ? "Dose 2 of 2 (\u22655 months after dose 1)" : "Dose 2 of 3", 2, hpvStatus, "Min from dose 1: 5 months (2-dose) or 4 weeks (3-dose)." + hpvDobWarning, ["Gardasil 9 (HPV, 9-valent)"], { minInt: ys && !immuno ? 150 : 28 });
+      r("HPV", immuno ? "Dose 2 of 3" : ys ? "Dose 2 of 2 (\u22655 months after dose 1)" : "Dose 2 of 3", 2, hpvStatus, "Min from dose 1: 5 months (2-dose) or 4 weeks (3-dose)." + hpvDobWarning, ["Gardasil 9 (HPV, 9-valent)"], { minInt: ys && !immuno ? 150 : 28, refUrl: REFS.HPV.cdcUrl, refLabel: REFS.HPV.cdcLabel, refUrl2: REFS.HPV.url, refLabel2: REFS.HPV.label });
     else if (hpv === 2 && (immuno || !ys))
-      r("HPV", "Dose 3 of 3", 3, hpvStatus, "Min 12 weeks from dose 2; \u22655 months from dose 1." + hpvDobWarning, ["Gardasil 9 (HPV, 9-valent)"], { minInt: 84 });
+      r("HPV", "Dose 3 of 3", 3, hpvStatus, "Min 12 weeks from dose 2; \u22655 months from dose 1." + hpvDobWarning, ["Gardasil 9 (HPV, 9-valent)"], { minInt: 84, refUrl: REFS.HPV.cdcUrl, refLabel: REFS.HPV.cdcLabel, refUrl2: REFS.HPV.url, refLabel2: REFS.HPV.label });
   }
 
   // ── MenACWY ───────────────────────────────────────────────────
@@ -447,29 +458,29 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("MenACWY", `Dose ${men + 1} of 3 (infant high-risk, primary series)`, men + 1, "risk-based",
       "High-risk infants (asplenia, complement deficiency, HIV): 3-dose primary series at 2, 4, 6 months with Menveo (MenACWY-CRM). Only Menveo is FDA-approved for infants \u22652 months. Min 4 weeks between doses. Give 4th dose (booster) at 12 months.",
       ["Menveo (MenACWY-CRM, \u22652 months \u2014 only approved brand for infants)"],
-      { minInt: 28, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+      { minInt: 28, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (isHighRiskMen && am >= 7 && am < 12 && men < 2) {
     // Starting 7–11m: 2-dose primary, then booster
     r("MenACWY", `Dose ${men + 1} of 2 (infant high-risk, 7\u201311 months)`, men + 1, "risk-based",
       "High-risk infants starting MenACWY at 7\u201311 months: 2-dose primary series (min 3 months apart). Give booster 12 months after completing primary series.",
       ["Menveo (MenACWY-CRM, \u22652 months)"],
-      { minInt: 91, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+      { minInt: 91, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (isHighRiskMen && am >= 12 && am < 24 && men === 0) {
     // 12–23m high-risk, never vaccinated: start 2-dose primary series now
     r("MenACWY", "Dose 1 of 2 (infant high-risk, unvaccinated 12–23 months)", 1, "risk-based",
       "High-risk children 12–23 months with no prior MenACWY: give 2-dose primary series ≥8 weeks apart (Menveo or MenQuadfi), then revaccinate every 3–5 years.",
       ["Menveo (MenACWY-CRM, ≥2 months)", "MenQuadfi (MenACWY-TT, ≥2 years)"],
-      { minInt: 56, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+      { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (isHighRiskMen && am >= 12 && am < 24 && men > 0 && men < 4) {
     // 12m booster: for primary-series completers (either the 6m 3-dose or 7-11m 2-dose path)
     r("MenACWY", `Dose ${men + 1} (infant high-risk, 12\u201323 months booster)`, men + 1, "risk-based",
       "Booster dose at 12\u201323 months for high-risk infants who completed the primary MenACWY series. Min 8 weeks after last primary dose. Then revaccinate every 3\u20135 years.",
       ["Menveo (MenACWY-CRM, \u22652 months)", "MenQuadfi (MenACWY-TT, \u22652 years)"],
-      { minInt: 56, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+      { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 132 && am <= 144 && men === 0) {
     r("MenACWY", "Dose 1 (routine, 11\u201312 years)", 1, "due", "Routine at 11\u201312y. Booster at 16y. Use Penbraya if also starting MenB.",
       (menb === 0 && (hr || am >= 192)) ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenB too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenB too (4C family)", "Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"] : ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { bt: menb === 0 ? "Penbraya (MenB-FHbp) and Penmenvy (MenB-4C) both cover MenACWY+MenB in one injection. Pick the one whose MenB antigen matches the family you intend to complete the series with (FHbp \u2194 Trumenba, 4C \u2194 Bexsero)." : undefined });
+      { bt: menb === 0 ? "Penbraya (MenB-FHbp) and Penmenvy (MenB-4C) both cover MenACWY+MenB in one injection. Pick the one whose MenB antigen matches the family you intend to complete the series with (FHbp \u2194 Trumenba, 4C \u2194 Bexsero)." : undefined, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (isHighRiskMen && am >= 24 && men === 1) {
     // High-risk D2 primary fires before the generic 16–18y booster branch so that
     // asplenia/complement/HIV patients completing their primary series are labeled
@@ -477,40 +488,40 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("MenACWY", "Dose 2 of 2 (high-risk primary series, \u22658 weeks after dose 1)", 2, "risk-based",
       "High-risk patients \u22652y (asplenia, HIV, complement deficiency): complete 2-dose primary series \u22658 weeks after dose 1. Then revaccinate every 3\u20135 years.",
       ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { minInt: 56, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+      { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 192 && am <= 216 && men === 1) {
     r("MenACWY", am <= 204 ? "Booster (16 years)" : "Booster catch-up (17\u201318 years)", 2, "due",
       "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y. High-risk: booster every 3\u20135 years.",
       menb < 2 ? ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)", "Penbraya (MenACWY+MenB-FHbp) \u2014 if MenB also due", "Penmenvy (MenACWY+MenB-4C) \u2014 if MenB also due"] : ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { minInt: 56 });
+      { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am > 144 && am <= 216 && men === 0) {
     r("MenACWY", am < 192 ? "Catch-up (13\u201315 years)" : "Catch-up (16\u201318 years)", 1, "catchup",
       am < 192 ? "Give 1 dose if not yet received. Booster at 16y if first dose given before 16y." : "Give 1 dose now. If first dose at \u226516y, no booster needed.",
-      ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"]);
+      ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"], { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men === 0 && (hr || risks.includes("college"))) {
     r("MenACWY", risks.includes("college") ? "Catch-up \u2014 college entry" : "Risk-based \u2014 high-risk", 1,
       risks.includes("college") ? "catchup" : "risk-based",
       risks.includes("college") ? "First-year dormitory: give 1 dose if not vaccinated at \u226516y." : "High-risk (asplenia, HIV, complement deficiency): 2-dose primary series 8 weeks apart; then boost every 3\u20135 years.",
-      ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"]);
+      ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"], { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men === 0 && (risks.includes("travel") || risks.includes("outbreak") || risks.includes("exposure"))) {
     // Travel/exposure-only risk: ACIP specifies 1 dose only (not a 2-dose medical primary).
     // Medical HR (asplenia, complement, HIV) is caught by earlier isHighRiskMen branches.
     r("MenACWY", "Risk-based \u2014 travel/exposure (1 dose)", 1, "risk-based",
       "ACIP: travelers to/residents of hyperendemic areas or persons with close contact with cases: 1 dose MenACWY. If a medical high-risk indication also applies (asplenia, complement deficiency, HIV), use the 2-dose primary series instead.",
       ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+      { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 228 && am < 264 && men === 0) {
     // 19\u201321y non-risk, unvaccinated: shared clinical decision (1 dose; no booster needed at \u226516y).
     r("MenACWY", "Shared clinical decision \u2014 1 dose (19\u201321 years)", 1, "recommended",
       "ACIP: shared clinical decision-making for unvaccinated adults 19\u201321 years. Consider 1 dose MenACWY. A single dose given at \u226516y is sufficient \u2014 no booster needed.",
       ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+      { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (isHighRiskMen && am >= 24 && men >= 2) {
     // Primary series complete; high-risk patients need revaccination every 3–5 years.
     r("MenACWY", `Revaccination dose ${men + 1} (high-risk, every 3\u20135 years)`, men + 1, "risk-based",
       "ACIP: high-risk patients (asplenia, complement deficiency, HIV) who completed MenACWY primary series should receive a booster every 3\u20135 years.",
       ["Menveo (MenACWY-CRM, \u22652m)", "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { minInt: 1095, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+      { minInt: 1095, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   }
 
   // ── MenB ──────────────────────────────────────────────────────
@@ -520,7 +531,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       r("MenB", hr ? "Dose 1 \u2014 risk-based (high-risk)" : "Dose 1 \u2014 shared clinical decision (preferred 16\u201323y)", 1, hr ? "risk-based" : "recommended",
         hr ? "Risk-based for high-risk patients. Bexsero or Penmenvy (MenB-4C): 2 doses (0, \u22651 month apart). Trumenba or Penbraya (MenB-FHbp): 2 doses \u22656m apart (or accelerated 3-dose). Antigen families (4C vs FHbp) are NOT interchangeable." : "Shared clinical decision making, preferred 16\u201318y. MenB-4C (Bexsero/Penmenvy): 2 doses \u22651m apart. MenB-FHbp (Trumenba/Penbraya): 2 doses \u22656m apart (or accelerated 3-dose). Penbraya/Penmenvy if MenACWY also starting.",
         men === 0 ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenACWY too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenACWY too (4C family)", "Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"] : ["Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"],
-        { bt: "Two antigen families: 4C (Bexsero, Penmenvy) and FHbp (Trumenba, Penbraya). Within a family products are interchangeable; across families they are NOT. Complete the series within one family." });
+        { bt: "Two antigen families: 4C (Bexsero, Penmenvy) and FHbp (Trumenba, Penbraya). Within a family products are interchangeable; across families they are NOT. Complete the series within one family.", refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
     } else if (menb === 1 && (hr || am >= 192)) {
       const mb = anyBrand(hist, "MenB");
       // Antigen-family awareness: 4C (Bexsero/Penmenvy) vs FHbp (Trumenba/Penbraya).
@@ -538,7 +549,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         is4C ? ["Bexsero (MenB-4C)", "Penmenvy (MenACWY+MenB-4C)"]
           : isFHbp ? ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp)"]
           : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
-        { minInt: is4C ? 28 : fhbpD2Min });
+        { minInt: is4C ? 28 : fhbpD2Min, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
     } else if (menb === 2) {
       const mb = anyBrand(hist, "MenB");
       const isFHbp2 = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
@@ -548,17 +559,17 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       if (isFHbp2 && hr) {
         r("MenB", "Dose 3 of 3 (FHbp accelerated, high-risk)", 3, "risk-based",
           "MenB-FHbp dose 3: \u22656 months after dose 1 AND \u22654 months after dose 2 (accelerated 3-dose 0/1\u20132/6m schedule). Required for high-risk patients (asplenia, complement deficiency, HIV).",
-          ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp, \u226510y)"], { minInt: 112 });
+          ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp, \u226510y)"], { minInt: 112, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
       } else if (isFHbp2) {
         r("MenB", "Dose 3 of 3 (Trumenba/Penbraya accelerated)", 3, "due",
           "MenB-FHbp dose 3: \u22656 months after dose 1 (accelerated schedule). If using 2-dose schedule (\u22656m apart), series is already complete at 2 doses.",
-          ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp, \u226510y)"], { minInt: 112 });
+          ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp, \u226510y)"], { minInt: 112, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
       } else if (is4C2 && hr) {
         // 4C primary series complete (2 doses). High-risk: revaccinate 1 year after series completion.
         r("MenB", "Revaccination \u2014 dose 3 (high-risk, 1 year after series)", 3, "risk-based",
           "ACIP: high-risk patients (asplenia, complement deficiency, HIV) who completed MenB-4C series should receive a booster 1 year after series completion, then every 2\u20133 years as long as high-risk status persists.",
           mb.startsWith("Bexsero") ? ["Bexsero (MenB-4C)"] : ["Penmenvy (MenACWY+MenB-4C)"],
-          { minInt: 365, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+          { minInt: 365, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
       }
     } else if (hr && menb >= 3) {
       const mb = anyBrand(hist, "MenB");
@@ -569,7 +580,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       r("MenB", `Revaccination \u2014 dose ${menb + 1} (high-risk, ${menb === 3 && isFHbpRevax ? "1 year after primary" : "every 2\u20133 years"})`, menb + 1, "risk-based",
         "ACIP: high-risk patients should continue MenB revaccination every 2\u20133 years as long as high-risk status persists.",
         mb ? [mb] : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
-        { minInt: revaxMinInt, refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label });
+        { minInt: revaxMinInt, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
     }
   }
 
@@ -579,7 +590,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     && fluSeasonYear(lastDate(hist, "COVID")) === currSeason;
   if (am >= 6 && !covidThisSeason)
     r("COVID", "Updated annual COVID-19 vaccine", 1, "recommended", "Shared clinical decision-making. Annual updated vaccine especially recommended for immunocompromised, chronic illness, household contacts of vulnerable persons.",
-      am < 60 ? ["Spikevax (COVID-19, \u22656mo)"] : am < 144 ? ["Spikevax (COVID-19, \u22656mo)", "Comirnaty (COVID-19, \u22655y)"] : ["Comirnaty (COVID-19, \u22655y)", "Spikevax (COVID-19, \u22656mo)", "mNexspike (COVID-19, \u226512y)", "Nuvaxovid (COVID-19, \u226512y, protein subunit \u2014 non-mRNA option)"]);
+      am < 60 ? ["Spikevax (COVID-19, \u22656mo)"] : am < 144 ? ["Spikevax (COVID-19, \u22656mo)", "Comirnaty (COVID-19, \u22655y)"] : ["Comirnaty (COVID-19, \u22655y)", "Spikevax (COVID-19, \u22656mo)", "mNexspike (COVID-19, \u226512y)", "Nuvaxovid (COVID-19, \u226512y, protein subunit \u2014 non-mRNA option)"], { refUrl: REFS.COVID.cdcUrl, refLabel: REFS.COVID.cdcLabel, refUrl2: REFS.COVID.url, refLabel2: REFS.COVID.label });
 
   // \u2500\u2500 Conditional combo brand filter \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   // Some combos (Penbraya, Penmenvy) only make sense when ALL their component
