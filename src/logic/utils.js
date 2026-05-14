@@ -32,6 +32,41 @@ export function fmtDateInput(iso) {
   return `${m}/${d}/${y}`;
 }
 
+/**
+ * Compute the effective ISO date for a dose so doses can be sorted
+ * chronologically regardless of input order. Returns "" if no date can be
+ * derived (mode "unknown", empty date, age mode without dob, etc.).
+ */
+export function doseEffectiveDate(dose, dob) {
+  if (!dose) return "";
+  if (dose.mode === "date" && isD(dose.date)) return dose.date;
+  if (dose.mode === "age" && dose.ageDays != null && isD(dob)) {
+    return addD(dob, dose.ageDays);
+  }
+  return "";
+}
+
+/**
+ * Return a chronologically sorted view of a dose array without mutating the
+ * source. Each entry carries its `originalIndex` so callers can still dispatch
+ * UPDATE_DOSE / REMOVE_DOSE against the correct underlying array slot
+ * (preserves combo-vaccine cascade behavior which is index-based across vk's).
+ * Doses with no derivable date (unknown mode, missing date) sort to the end
+ * in original insertion order.
+ */
+export function sortDosesByDate(doses, dob) {
+  return (doses || [])
+    .map((dose, originalIndex) => ({ dose, originalIndex }))
+    .sort((a, b) => {
+      const da = doseEffectiveDate(a.dose, dob);
+      const db = doseEffectiveDate(b.dose, dob);
+      if (!da && !db) return a.originalIndex - b.originalIndex;
+      if (!da) return 1;
+      if (!db) return -1;
+      return da.localeCompare(db);
+    });
+}
+
 /** Parse user-entered date string (flexible: MM/DD/YYYY, M/D/YYYY, YYYY-MM-DD) to ISO YYYY-MM-DD. */
 export function parseDateInput(s) {
   if (!s) return "";

@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { isD, dBetween, addD, fmtD } from './utils.js';
+import { isD, dBetween, addD, fmtD, sortDosesByDate } from './utils.js';
 import { doseAgeDays, doseDate, GRACE } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
@@ -174,7 +174,12 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob) {
 export function auditAll(hist, dob) {
   const errors = [];
   for (const vk of VAX_KEYS) {
-    const doses = (hist[vk] || []).filter(d => d.given);
+    // Sort doses chronologically before validating. Without this, doses entered
+    // out of order (e.g. user types the most recent dose first) produce false
+    // "must repeat" errors because interval math reads negative day counts.
+    const doses = sortDosesByDate(hist[vk] || [], dob)
+      .map(x => x.dose)
+      .filter(d => d.given);
 
     // Brand mixing
     if (vk === "RV" || vk === "MenB") {

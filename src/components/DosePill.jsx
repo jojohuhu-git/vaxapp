@@ -4,8 +4,12 @@ import { AGE_OPTS } from '../data/ageOptions';
 import { validateDose } from '../logic/validation';
 import { fmtDateInput, parseDateInput } from '../logic/utils';
 
-export default function DosePill({ vk, index, dose, prevDose, dob }) {
+export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob }) {
   const { dispatch } = useApp();
+  // index = logical (chronological) dose number for validation messages
+  // dispatchIndex = original array index in state.hist[vk] for reducer actions
+  // (defaults to index for back-compat with any caller that hasn't been updated)
+  const di = dispatchIndex != null ? dispatchIndex : index;
 
   const vr = validateDose(vk, index, dose, prevDose, dob);
   const pillClass = dose.mode === "unknown"
@@ -33,7 +37,7 @@ export default function DosePill({ vk, index, dose, prevDose, dob }) {
       <button
         className="dmode-btn"
         title={`Mode: ${dose.mode}. Click to cycle.`}
-        onClick={() => dispatch({ type: "TOGGLE_MODE", payload: { vk, index } })}
+        onClick={() => dispatch({ type: "TOGGLE_MODE", payload: { vk, index: di } })}
       >
         {modeIcon}
       </button>
@@ -47,14 +51,14 @@ export default function DosePill({ vk, index, dose, prevDose, dob }) {
           onChange={e => {
             const iso = parseDateInput(e.target.value);
             if (iso) {
-              dispatch({ type: "UPDATE_DOSE", payload: { vk, index, field: "date", value: iso } });
+              dispatch({ type: "UPDATE_DOSE", payload: { vk, index: di, field: "date", value: iso } });
             } else if (e.target.value === "") {
-              dispatch({ type: "UPDATE_DOSE", payload: { vk, index, field: "date", value: "" } });
+              dispatch({ type: "UPDATE_DOSE", payload: { vk, index: di, field: "date", value: "" } });
             }
           }}
           onBlur={e => {
             const iso = parseDateInput(e.target.value);
-            dispatch({ type: "UPDATE_DOSE", payload: { vk, index, field: "date", value: iso } });
+            dispatch({ type: "UPDATE_DOSE", payload: { vk, index: di, field: "date", value: iso } });
           }}
         />
       )}
@@ -65,7 +69,7 @@ export default function DosePill({ vk, index, dose, prevDose, dob }) {
           value={dose.ageDays != null ? String(dose.ageDays) : ""}
           onChange={e => {
             const v = e.target.value;
-            dispatch({ type: "UPDATE_DOSE", payload: { vk, index, field: "ageDays", value: v ? Number(v) : null } });
+            dispatch({ type: "UPDATE_DOSE", payload: { vk, index: di, field: "ageDays", value: v ? Number(v) : null } });
           }}
         >
           <option value="">Age...</option>
@@ -82,7 +86,7 @@ export default function DosePill({ vk, index, dose, prevDose, dob }) {
       <select
         className="brand-sel"
         value={dose.brand}
-        onChange={e => dispatch({ type: "UPDATE_DOSE", payload: { vk, index, field: "brand", value: e.target.value } })}
+        onChange={e => dispatch({ type: "UPDATE_DOSE", payload: { vk, index: di, field: "brand", value: e.target.value } })}
       >
         <option value="">Brand...</option>
         {brands.map(b => (
@@ -93,7 +97,7 @@ export default function DosePill({ vk, index, dose, prevDose, dob }) {
       <button
         className="rmbtn"
         title="Remove dose"
-        onClick={() => dispatch({ type: "REMOVE_DOSE", payload: { vk, index } })}
+        onClick={() => dispatch({ type: "REMOVE_DOSE", payload: { vk, index: di } })}
       >
         &times;
       </button>
