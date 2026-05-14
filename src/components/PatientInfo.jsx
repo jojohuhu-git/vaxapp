@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { fmtDateInput, parseDateInput } from '../logic/utils';
 
+function applyDateMask(digits) {
+  const d = digits.slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return d.slice(0, 2) + '/' + d.slice(2);
+  return d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4);
+}
+
 const AGE_OPTIONS = [
   { value: "", label: "Select age..." },
   { value: "0", label: "Birth" },
@@ -81,23 +88,35 @@ export default function PatientInfo() {
           placeholder="MM/DD/YYYY"
           value={dobRaw}
           onChange={e => {
-            const raw = e.target.value;
-            // Always update local buffer so partial typing (e.g. "04/25/2")
-            // is preserved between keystrokes.
-            setDobRaw(raw);
-            // Eagerly sync to store whenever a complete, valid date is typed.
-            const iso = parseDateInput(raw);
+            const digits = e.target.value.replace(/\D/g, '');
+            const masked = applyDateMask(digits);
+            setDobRaw(masked);
+            const iso = parseDateInput(masked);
             if (iso) {
               dispatch({ type: "SET_DOB", payload: iso });
-            } else if (raw === "") {
+            } else if (masked === "") {
               dispatch({ type: "SET_DOB", payload: "" });
             }
           }}
+          onKeyDown={e => {
+            if (e.key === "Backspace") {
+              const pos = e.target.selectionStart;
+              if (pos === 3 || pos === 6) {
+                e.preventDefault();
+                const digits = dobRaw.replace(/\D/g, '');
+                const digitIdx = pos === 3 ? 1 : 3;
+                const newDigits = digits.slice(0, digitIdx) + digits.slice(digitIdx + 1);
+                const masked = applyDateMask(newDigits);
+                setDobRaw(masked);
+                const iso = parseDateInput(masked);
+                if (iso) dispatch({ type: "SET_DOB", payload: iso });
+                else if (masked === "") dispatch({ type: "SET_DOB", payload: "" });
+              }
+            }
+          }}
           onBlur={e => {
-            // On blur: attempt final parse and normalize the display value.
             const iso = parseDateInput(e.target.value);
             dispatch({ type: "SET_DOB", payload: iso });
-            // Reformat to canonical MM/DD/YYYY (or clear if invalid).
             setDobRaw(fmtDateInput(iso));
           }}
         />

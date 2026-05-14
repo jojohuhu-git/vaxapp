@@ -107,7 +107,12 @@ export default function QuickAdd() {
   }
 
   function handleDateKeyDown(e) {
-    if (e.key === "Enter") { handleAdd(); return; }
+    if (e.key === "Enter") {
+      // stopPropagation prevents the container's onKeyDown from also firing handleAdd
+      e.stopPropagation();
+      handleAdd();
+      return;
+    }
     if (e.key === "Backspace") {
       const pos = e.target.selectionStart;
       // If cursor is right after a slash, skip the slash and delete the preceding digit
