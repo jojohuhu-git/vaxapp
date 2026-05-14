@@ -11,6 +11,7 @@ export const VAX_META = {
   VAR:     {n:"Varicella",         ab:"VAR",     c:"#16a085"},
   HepA:    {n:"Hepatitis A",       ab:"HepA",    c:"#7f8c8d"},
   Tdap:    {n:"Tdap",              ab:"Tdap",    c:"#2980b9"},
+  Td:      {n:"Td (tetanus-diphtheria)", ab:"Td", c:"#1a6b9e"},
   HPV:     {n:"HPV",               ab:"HPV",     c:"#6c3483"},
   MenACWY: {n:"MenACWY",           ab:"MenACWY", c:"#8e44ad"},
   MenB:    {n:"MenB",              ab:"MenB",    c:"#d35400"},
@@ -39,6 +40,7 @@ export const VAX_KEYS = [
   "VAR",     // 12 months ─┘ MMRV combo (ProQuad)
   "HepA",    // 12 months
   "Tdap",    // 11–12 years
+  "Td",      // decennial booster / catch-up series
   "HPV",     // 11–12 years
   "MenACWY", // 11–12 years ─┐
   "MenB",    // 10–16 years  ─┘ MenACWYB combos (Penbraya / Penmenvy)
@@ -63,6 +65,7 @@ export const VBR = { // vaccine brands — combo entries include (contents) for 
   VAR:     {s:["Varivax (VAR only)"], c:["ProQuad (MMR+VAR/MMRV, 12m–12y)"]},
   HepA:    {s:["Havrix (HepA only)","Vaqta (HepA only)"], c:["Twinrix (HepA+HepB, ≥18y)"]},
   Tdap:    {s:["Adacel (Tdap, ≥7y)","Boostrix (Tdap, ≥10y)"], c:[]},
+  Td:      {s:["Tenivac (Td, ≥7y)","Decavac (Td, ≥7y)","Td (generic, ≥7y)"], c:[]},
   HPV:     {s:["Gardasil 9 (HPV, 9-valent)"], c:[]},
   MenACWY: {s:["Menveo (MenACWY-CRM, ≥2m)","MenQuadfi (MenACWY-TT, ≥2y)"], c:["Penbraya (MenACWY+MenB-FHbp, ≥10y)","Penmenvy (MenACWY+MenB-4C, ≥10y)"]},
   MenB:    {s:["Bexsero (MenB-4C)","Trumenba (MenB-FHbp)"], c:["Penbraya (MenACWY+MenB-FHbp, ≥10y)","Penmenvy (MenACWY+MenB-4C, ≥10y)"], lock:true},
