@@ -100,6 +100,12 @@ export const REFS = {
     pmcUrl:"https://pmc.ncbi.nlm.nih.gov/articles/PMC7367039/",
     pmcLabel:"ACIP Tdap Catch-up Recommendations (PMC/MMWR 2020)"
   },
+  Td:      {
+    label:"immunize.org: Tetanus (Td) — Ask the Experts",
+    url:"https://www.immunize.org/ask-experts/topic/tetanus/",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-tdap",
+    cdcLabel:"CDC Tdap/Td Schedule Notes"
+  },
   HPV:     {
     label:"immunize.org: HPV — Ask the Experts",
     url:"https://www.immunize.org/ask-experts/topic/hpv/",
