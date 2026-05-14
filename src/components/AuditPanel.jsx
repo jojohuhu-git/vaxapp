@@ -3,7 +3,7 @@ import { auditAll } from '../logic/validation';
 
 export default function AuditPanel() {
   const { state } = useApp();
-  const errors = auditAll(state.hist, state.dob);
+  const errors = auditAll(state.hist, state.dob, state.risks);
   const errCount = errors.filter(e => e.severity === "err").length;
   const warnCount = errors.filter(e => e.severity === "warn" || e.severity === "grace" || e.severity === "offLabel").length;
 

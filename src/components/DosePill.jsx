@@ -4,7 +4,7 @@ import { validateDose } from '../logic/validation';
 import { fmtDateInput } from '../logic/utils';
 
 /* eslint-disable react/prop-types */
-export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob }) {
+export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob, isExtra }) {
   const { dispatch } = useApp();
   const di = dispatchIndex != null ? dispatchIndex : index;
 
@@ -13,13 +13,13 @@ export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob
     ? "dpill p-unknown"
     : vr.err
       ? "dpill p-err"
-      : vr.grace
+      : (vr.grace || isExtra)
         ? "dpill p-grace"
         : (dose.date || dose.ageDays != null)
           ? "dpill p-ok"
           : "dpill";
 
-  const statusIcon = vr.err ? "⚠️" : vr.grace ? "⚖️" : dose.mode === "unknown" ? "❓" : "✅";
+  const statusIcon = vr.err ? "⚠️" : (vr.grace || isExtra) ? "⚖️" : dose.mode === "unknown" ? "❓" : "✅";
 
   let dateLabel = "";
   if (dose.mode === "date") {
