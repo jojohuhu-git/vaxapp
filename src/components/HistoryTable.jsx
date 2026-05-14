@@ -1,5 +1,6 @@
 import { useApp } from '../context/AppContext';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData';
+import { sortDosesByDate } from '../logic/utils';
 import DosePill from './DosePill';
 
 export default function HistoryTable() {
@@ -18,7 +19,11 @@ export default function HistoryTable() {
         <tbody>
           {VAX_KEYS.map(vk => {
             const meta = VAX_META[vk];
-            const doses = state.hist[vk] || [];
+            const rawDoses = state.hist[vk] || [];
+            // Render doses in chronological order (oldest -> newest, unknowns
+            // last). originalIndex is preserved so per-pill dispatch still
+            // targets the correct slot in state.hist[vk].
+            const sorted = sortDosesByDate(rawDoses, state.dob);
             return (
               <tr key={vk}>
                 <td>
@@ -28,20 +33,21 @@ export default function HistoryTable() {
                 </td>
                 <td>
                   <div className="drow">
-                    {doses.map((dose, i) => {
-                      const prev = i > 0 ? doses[i - 1] : null;
+                    {sorted.map(({ dose, originalIndex }, i) => {
+                      const prev = i > 0 ? sorted[i - 1].dose : null;
                       return (
                         <DosePill
-                          key={`${vk}-${i}`}
+                          key={`${vk}-${originalIndex}`}
                           vk={vk}
                           index={i}
+                          dispatchIndex={originalIndex}
                           dose={dose}
                           prevDose={prev}
                           dob={state.dob}
                         />
                       );
                     })}
-                    {doses.length === 0 && (
+                    {sorted.length === 0 && (
                       <span style={{ fontSize: 10, color: "#bbb" }}>No doses</span>
                     )}
                   </div>
