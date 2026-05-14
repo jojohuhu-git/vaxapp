@@ -23,26 +23,35 @@ function constraintColor(label = '') {
   return '#e3edfa'; // default: interval
 }
 
+function humanLabel(label = '') {
+  if (!label) return '';
+  if (label.includes('combo:'))         return 'combo';
+  if (label.includes('live-vax'))       return 'live vax gap';
+  if (label.includes('today'))          return 'today';
+  if (label.includes('BRAND_MIN'))      return 'brand min age';
+  if (label.includes('d1Cross'))        return 'dose 1 floor';
+  if (label.includes('prevVax'))        return 'live vax';
+  if (label.includes('iCond'))          return 'age-adjusted interval';
+  if (label.includes('iByTotalDoses'))  return 'series-path interval';
+  if (label.includes('minByDose') || label.includes('minD')) return 'min age';
+  if (label.includes('MIN_INT'))        return 'min interval';
+  return 'interval';
+}
+
 function ConstraintChip({ label }) {
-  // Shorten long labels for display
-  const short = label
-    .replace('MIN_INT.', '')
-    .replace('BRAND_MIN.', 'brand:')
-    .replace('iByTotalDoses', 'iByTotal')
-    .replace('d1Cross', 'from D1')
-    .replace('prevVax', 'after prev-vax');
+  if (!label) return null;
   return (
     <span style={{
       display: 'inline-block',
       fontSize: 9,
       padding: '1px 5px',
-      borderRadius: 10,
+      borderRadius: 2,
       background: constraintColor(label),
       color: '#444',
       marginLeft: 4,
       whiteSpace: 'nowrap',
     }}>
-      {short}
+      {humanLabel(label)}
     </span>
   );
 }
@@ -304,17 +313,17 @@ export default function OptimalScheduleTab() {
         {/* Legend */}
         <div style={{ marginTop: 8, fontSize: 10, color: '#888', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {[
-            ['today',   'today anchor'],
-            ['MIN_INT', 'min interval'],
-            ['minD',    'min age'],
-            ['from D1', 'cross-dose D1 floor'],
-            ['after prev-vax', 'cross-vaccine floor'],
-            ['iCond',   'age-conditional interval'],
-            ['iByTotal','path-specific interval'],
-            ['brand:',  'brand min age'],
+            ['today',        'today'],
+            ['MIN_INT',      'min interval'],
+            ['minD',         'min age'],
+            ['d1Cross',      'dose 1 floor'],
+            ['prevVax',      'live vax'],
+            ['iCond',        'age-adjusted interval'],
+            ['iByTotalDoses','series-path interval'],
+            ['BRAND_MIN',    'brand min age'],
           ].map(([key, label]) => (
             <span key={key} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 5, background: constraintColor(key) }} />
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: constraintColor(key) }} />
               {label}
             </span>
           ))}

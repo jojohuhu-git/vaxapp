@@ -278,7 +278,7 @@ export default function ForecastTab({ recs }) {
                   fileName="pedivax-shot-list.pdf"
                   style={{
                     fontSize: 11, padding: "4px 10px", background: "#1a3a6b", color: "#fff",
-                    borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap",
+                    borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
                     textDecoration: "none", display: "inline-block",
                   }}
                 >
@@ -289,7 +289,7 @@ export default function ForecastTab({ recs }) {
                 onClick={() => dispatch({ type: "RESET_FORECAST" })}
                 style={{
                   fontSize: 11, padding: "4px 10px", background: "#fff", color: "#8b1a1a",
-                  border: "1px solid #d4b0b0", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap",
+                  border: "1px solid #d4b0b0", borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
                 }}
               >
                 Reset Forecast
@@ -299,7 +299,7 @@ export default function ForecastTab({ recs }) {
                 fileName="pedivax-forecast.pdf"
                 style={{
                   fontSize: 11, padding: "4px 10px", background: "#2e7d32", color: "#fff",
-                  borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap",
+                  borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
                   textDecoration: "none", display: "inline-block",
                 }}
               >
@@ -561,7 +561,7 @@ export default function ForecastTab({ recs }) {
                                   type: "FC_BRAND_CHANGE",
                                   payload: { visitM: info.visitM, vk, brandName: e.target.value },
                                 })}
-                                style={{ fontSize: 8.5, maxWidth: 120, padding: "1px 2px", border: "1px solid #ddd", borderRadius: 3 }}
+                                style={{ fontSize: 10, maxWidth: 130, padding: "1px 3px", border: "1px solid #ddd", borderRadius: 1 }}
                               />
                             )}
                           </div>
@@ -642,7 +642,7 @@ export default function ForecastTab({ recs }) {
                                 bOpts={bOpts3}
                                 value={disp3}
                                 onChange={e => dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: visit.m, vk, brandName: e.target.value } })}
-                                style={{ fontSize: 8.5, maxWidth: 120, padding: "1px 2px", border: "1px solid #ddd", borderRadius: 3 }}
+                                style={{ fontSize: 10, maxWidth: 130, padding: "1px 3px", border: "1px solid #ddd", borderRadius: 1 }}
                               />
                             )}
                             <button
@@ -856,7 +856,7 @@ export default function ForecastTab({ recs }) {
                                 type: "FC_BRAND_CHANGE",
                                 payload: { visitM: visit.m, vk, brandName: e.target.value }
                               })}
-                              style={{ fontSize: 8.5, maxWidth: 120, padding: "1px 2px", border: "1px solid #ddd", borderRadius: 3 }}
+                              style={{ fontSize: 10, maxWidth: 130, padding: "1px 3px", border: "1px solid #ddd", borderRadius: 1 }}
                             />
                           )}
                           {displayBrand && displayBrand.includes("(covers") && (
