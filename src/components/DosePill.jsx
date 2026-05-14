@@ -19,8 +19,6 @@ export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob
           ? "dpill p-ok"
           : "dpill";
 
-  const statusIcon = vr.err ? "⚠️" : (vr.grace || isExtra) ? "⚖️" : dose.mode === "unknown" ? "❓" : "✅";
-
   let dateLabel = "";
   if (dose.mode === "date") {
     dateLabel = fmtDateInput(dose.date) || "—";
@@ -33,8 +31,7 @@ export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob
 
   return (
     <span className={pillClass}>
-      <span className="pill-ico">{statusIcon}</span>
-      <span style={{ fontSize: 10.5, padding: "0 3px" }}>{dateLabel}</span>
+      <span>{dateLabel}</span>
       {dose.brand && (
         <span style={{ fontSize: 10, color: "#666", padding: "0 2px" }}>{dose.brand}</span>
       )}
