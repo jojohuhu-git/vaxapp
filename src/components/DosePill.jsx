@@ -1,14 +1,11 @@
 import { useApp } from '../context/AppContext';
-import { VBR } from '../data/vaccineData';
 import { AGE_OPTS } from '../data/ageOptions';
 import { validateDose } from '../logic/validation';
-import { fmtDateInput, parseDateInput } from '../logic/utils';
+import { fmtDateInput } from '../logic/utils';
 
+/* eslint-disable react/prop-types */
 export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob }) {
   const { dispatch } = useApp();
-  // index = logical (chronological) dose number for validation messages
-  // dispatchIndex = original array index in state.hist[vk] for reducer actions
-  // (defaults to index for back-compat with any caller that hasn't been updated)
   const di = dispatchIndex != null ? dispatchIndex : index;
 
   const vr = validateDose(vk, index, dose, prevDose, dob);
@@ -22,78 +19,25 @@ export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob
           ? "dpill p-ok"
           : "dpill";
 
-  const modeLabels = { date: "\u{1F4C5}", age: "\u{1F522}", unknown: "?" };
-  const modeIcon = modeLabels[dose.mode] || "\u{1F4C5}";
+  const statusIcon = vr.err ? "⚠️" : vr.grace ? "⚖️" : dose.mode === "unknown" ? "❓" : "✅";
 
-  // Brand options: standalone + combo
-  const brands = [...(VBR[vk]?.s || []), ...(VBR[vk]?.c || [])];
+  let dateLabel = "";
+  if (dose.mode === "date") {
+    dateLabel = fmtDateInput(dose.date) || "—";
+  } else if (dose.mode === "age") {
+    const opt = AGE_OPTS.find(o => String(o.v) === String(dose.ageDays));
+    dateLabel = opt ? opt.l : dose.ageDays != null ? `~${dose.ageDays}d` : "—";
+  } else {
+    dateLabel = "Unknown";
+  }
 
   return (
     <span className={pillClass}>
-      <span className="pill-ico">
-        {vr.err ? "\u26A0\uFE0F" : vr.grace ? "\u2696\uFE0F" : dose.mode === "unknown" ? "\u2753" : "\u2705"}
-      </span>
-
-      <button
-        className="dmode-btn"
-        title={`Mode: ${dose.mode}. Click to cycle.`}
-        onClick={() => dispatch({ type: "TOGGLE_MODE", payload: { vk, index: di } })}
-      >
-        {modeIcon}
-      </button>
-
-      {dose.mode === "date" && (
-        <input
-          type="text"
-          className="dose-date-input"
-          placeholder="MM/DD/YYYY"
-          value={fmtDateInput(dose.date)}
-          onChange={e => {
-            const iso = parseDateInput(e.target.value);
-            if (iso) {
-              dispatch({ type: "UPDATE_DOSE", payload: { vk, index: di, field: "date", value: iso } });
-            } else if (e.target.value === "") {
-              dispatch({ type: "UPDATE_DOSE", payload: { vk, index: di, field: "date", value: "" } });
-            }
-          }}
-          onBlur={e => {
-            const iso = parseDateInput(e.target.value);
-            dispatch({ type: "UPDATE_DOSE", payload: { vk, index: di, field: "date", value: iso } });
-          }}
-        />
+      <span className="pill-ico">{statusIcon}</span>
+      <span style={{ fontSize: 10.5, padding: "0 3px" }}>{dateLabel}</span>
+      {dose.brand && (
+        <span style={{ fontSize: 10, color: "#666", padding: "0 2px" }}>{dose.brand}</span>
       )}
-
-      {dose.mode === "age" && (
-        <select
-          className="age-sel"
-          value={dose.ageDays != null ? String(dose.ageDays) : ""}
-          onChange={e => {
-            const v = e.target.value;
-            dispatch({ type: "UPDATE_DOSE", payload: { vk, index: di, field: "ageDays", value: v ? Number(v) : null } });
-          }}
-        >
-          <option value="">Age...</option>
-          {AGE_OPTS.map(o => (
-            <option key={o.v} value={o.v}>{o.l}</option>
-          ))}
-        </select>
-      )}
-
-      {dose.mode === "unknown" && (
-        <span style={{ fontSize: 10, color: "#888", padding: "0 4px" }}>unknown</span>
-      )}
-
-      <select
-        className="brand-sel"
-        value={dose.brand}
-        onChange={e => dispatch({ type: "UPDATE_DOSE", payload: { vk, index: di, field: "brand", value: e.target.value } })}
-      >
-        <option value="">Brand...</option>
-        {brands.map(b => (
-          <option key={b} value={b}>{b}</option>
-        ))}
-      </select>
-
       <button
         className="rmbtn"
         title="Remove dose"

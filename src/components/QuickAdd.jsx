@@ -2,7 +2,15 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { VBR, VAX_META, VAX_KEYS, COMBO_COVERS } from '../data/vaccineData';
 import { AGE_OPTS } from '../data/ageOptions';
-import { fmtDateInput, parseDateInput } from '../logic/utils';
+import { parseDateInput } from '../logic/utils';
+
+/** Apply MM/DD/YYYY mask to a raw digit string (up to 8 digits). */
+function applyDateMask(digits) {
+  const d = digits.slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return d.slice(0, 2) + '/' + d.slice(2);
+  return d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4);
+}
 
 export default function QuickAdd() {
   const { dispatch } = useApp();
@@ -11,6 +19,7 @@ export default function QuickAdd() {
   const [dateVal, setDateVal] = useState("");
   const [ageDays, setAgeDays] = useState("");
   const [msg, setMsg] = useState("");
+  const [dateError, setDateError] = useState("");
 
   // Build brands grouped by vaccine, plus a combo group
   const brandsByVk = {};
@@ -35,12 +44,16 @@ export default function QuickAdd() {
   });
 
   function handleAdd() {
-    if (!brand) { setMsg("Select a brand."); return; }
+    setDateError("");
+    setMsg("");
 
     const dateIso = mode === "date" ? parseDateInput(dateVal) : "";
     const ageNum = mode === "age" && ageDays ? Number(ageDays) : null;
 
-    if (mode === "date" && !dateIso) { setMsg("Enter a valid date (MM/DD/YYYY)."); return; }
+    if (mode === "date" && !dateIso) {
+      setDateError("Enter a valid date (MM/DD/YYYY).");
+      return;
+    }
     if (mode === "age" && ageNum == null) { setMsg("Select an approximate age."); return; }
 
     // Resolve brand to target vaccine keys
@@ -53,14 +66,17 @@ export default function QuickAdd() {
         targets.push({ vk, brand: comboBrand || brand });
       }
     } else {
-      // Find which vk this standalone brand belongs to
       const entry = allBrands.find(b => b.label === brand);
       if (entry) {
         targets.push({ vk: entry.vk, brand });
       }
     }
 
-    if (!targets.length) { setMsg("Could not resolve brand to a vaccine."); return; }
+    if (!targets.length) {
+      if (!brand) { setMsg("Select a brand."); return; }
+      setMsg("Could not resolve brand to a vaccine.");
+      return;
+    }
 
     dispatch({
       type: "QUICK_ADD",
@@ -78,15 +94,45 @@ export default function QuickAdd() {
     setAgeDays("");
   }
 
+  function handleKeyDown(e) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    handleAdd();
+  }
+
+  function handleDateChange(e) {
+    setDateError("");
+    const digits = e.target.value.replace(/\D/g, '');
+    setDateVal(applyDateMask(digits));
+  }
+
+  function handleDateKeyDown(e) {
+    if (e.key === "Enter") { handleAdd(); return; }
+    if (e.key === "Backspace") {
+      const pos = e.target.selectionStart;
+      // If cursor is right after a slash, skip the slash and delete the preceding digit
+      if (pos === 3 || pos === 6) {
+        e.preventDefault();
+        const digits = dateVal.replace(/\D/g, '');
+        const digitIdx = pos === 3 ? 1 : 3;
+        const newDigits = digits.slice(0, digitIdx) + digits.slice(digitIdx + 1);
+        setDateVal(applyDateMask(newDigits));
+      }
+    }
+  }
+
   return (
-    <div style={{ marginBottom: 10, padding: "8px 10px", background: "#f4f2ee", borderRadius: 6, border: "1px solid #ddd" }}>
+    <div
+      style={{ marginBottom: 10, padding: "8px 10px", background: "#f4f2ee", borderRadius: 6, border: "1px solid #ddd" }}
+      onKeyDown={handleKeyDown}
+    >
       <div style={{ fontSize: 10, fontWeight: 700, color: "#555", textTransform: "uppercase", marginBottom: 5 }}>
         Quick Add Dose
       </div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "flex-end" }}>
         <select
           value={brand}
-          onChange={e => setBrand(e.target.value)}
+          onChange={e => { setBrand(e.target.value); setMsg(""); }}
           style={{ flex: "1 1 160px", fontSize: 11, padding: "4px 6px" }}
         >
           <option value="">Select brand...</option>
@@ -108,7 +154,7 @@ export default function QuickAdd() {
 
         <select
           value={mode}
-          onChange={e => setMode(e.target.value)}
+          onChange={e => { setMode(e.target.value); setMsg(""); setDateError(""); }}
           style={{ width: 70, fontSize: 11, padding: "4px 4px" }}
         >
           <option value="date">Date</option>
@@ -117,27 +163,25 @@ export default function QuickAdd() {
         </select>
 
         {mode === "date" && (
-          <input
-            type="text"
-            placeholder="MM/DD/YYYY"
-            value={fmtDateInput(dateVal) || dateVal}
-            onChange={e => {
-              const raw = e.target.value;
-              const iso = parseDateInput(raw);
-              setDateVal(iso || raw);
-            }}
-            onBlur={e => {
-              const iso = parseDateInput(e.target.value);
-              setDateVal(iso);
-            }}
-            style={{ width: 95, fontSize: 11, padding: "4px 6px" }}
-          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <input
+              type="text"
+              placeholder="MM/DD/YYYY"
+              value={dateVal}
+              onChange={handleDateChange}
+              onKeyDown={handleDateKeyDown}
+              style={{ width: 95, fontSize: 11, padding: "4px 6px", borderColor: dateError ? "#c0392b" : undefined }}
+            />
+            {dateError && (
+              <span style={{ fontSize: 10, color: "#c0392b" }}>{dateError}</span>
+            )}
+          </div>
         )}
 
         {mode === "age" && (
           <select
             value={ageDays}
-            onChange={e => setAgeDays(e.target.value)}
+            onChange={e => { setAgeDays(e.target.value); setMsg(""); }}
             style={{ width: 100, fontSize: 11, padding: "4px 4px" }}
           >
             <option value="">Age...</option>
