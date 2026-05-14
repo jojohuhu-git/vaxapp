@@ -2,6 +2,7 @@
 // All 9 table-gap items resolved; returns Visit[] for fully-computable schedules.
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { COMBOS } from '../data/vaccineData.js';
+import { comboFitsDose } from './brandRules.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
 
@@ -75,7 +76,14 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
         const done = (hist.PCV || []).some(x => x.given && x.brand?.startsWith('Prevnar 20'));
         return done ? null : { totalDoses: 1 };
       }
-      return am < 24 ? { totalDoses: 4 } : null;
+      if (am < 24) return { totalDoses: 4 };
+      // Healthy 24–59m unvaccinated: CDC Table 2 catch-up = 1 dose. genRecs
+      // emits this but buildOptimalSchedule used to skip it. Bug fix 2026-05-07.
+      if (am < 60) {
+        const givenPCV = dc(hist, 'PCV');
+        return givenPCV === 0 ? { totalDoses: 1 } : null;
+      }
+      return null;
     }
 
     case 'PPSV23': {
@@ -408,25 +416,5 @@ function ageInMonths(dob, date) {
   return (_d(date) - _d(dob)) / (1000 * 60 * 60 * 24 * 30.4375);
 }
 
-// Combo eligibility per antigen+doseNum. Most combos are doses 1–3 or 1–4.
-// Kinrix/Quadracel are dose-5 DTaP / dose-4 IPV at age 4–6y only.
-// Vaxelis is doses 1–3 only (no booster).
-// Pentacel is doses 1–4 of DTaP/IPV, doses 1–3 of Hib.
-function comboFitsDose(comboName, antigen, doseNum) {
-  if (comboName === 'Vaxelis') return doseNum <= 3;
-  if (comboName === 'Pentacel') {
-    if (antigen === 'Hib') return doseNum <= 3;
-    return doseNum <= 4;
-  }
-  if (comboName === 'Pediarix') return doseNum <= 3;
-  if (comboName === 'Kinrix' || comboName === 'Quadracel') {
-    // Kinrix/Quadracel: DTaP dose 5 + IPV dose 4
-    if (antigen === 'DTaP') return doseNum === 5;
-    if (antigen === 'IPV') return doseNum === 4;
-    return false;
-  }
-  if (comboName === 'ProQuad') return doseNum <= 2;
-  if (comboName === 'Penbraya' || comboName === 'Penmenvy') return doseNum <= 2;
-  if (comboName === 'Twinrix') return true;
-  return true;
-}
+// comboFitsDose is imported from brandRules.js — single source of truth.
+// Do NOT inline dose-range logic here; edit brandRules.COMBO_DOSE_GATES instead.

@@ -9,10 +9,16 @@ export const FORECAST_VISITS = [
   {l:"15 months",  m:15,  std:["HepB","DTaP","Hib","PCV","IPV","MMR","VAR","Flu"]},
   {l:"18 months",  m:18,  std:["HepB","HepA","DTaP","Hib","PCV","IPV","MMR","VAR","Flu"]},
   {l:"2 years",    m:24,  std:["HepB","HepA","DTaP","Hib","PCV","PPSV23","IPV","MMR","VAR","Flu"]},
-  {l:"4–6 years",  m:54,  std:["HepB","DTaP","IPV","MMR","VAR","HepA","Hib","PCV","PPSV23","Flu"]},
-  {l:"11–12 years",m:132, std:["HepB","DTaP","Tdap","HPV","MenACWY","IPV","MMR","VAR","HepA","Flu","COVID"]},
+  // Range slots replaced with the ACIP-preferred routine age (single number).
+  // Per ACIP all vaccines at these visits share one preferred age, so collapsing
+  // is safe (no convenience smushing). visit.m kept at original anchors so
+  // existing projection logic and tests are unaffected; only the display label
+  // changes here. If a future vaccine genuinely needs a separate age within the
+  // window, add a new FORECAST_VISITS row rather than reverting to a range.
+  {l:"4 years",    m:54,  std:["HepB","DTaP","IPV","MMR","VAR","HepA","Hib","PCV","PPSV23","Flu"]},
+  {l:"11 years",   m:132, std:["HepB","DTaP","Tdap","HPV","MenACWY","IPV","MMR","VAR","HepA","Flu","COVID"]},
   {l:"16 years",   m:192, std:["HepB","DTaP","MenACWY","MenB","HPV","IPV","MMR","VAR","HepA","Flu","COVID"]},
-  {l:"17–18 years",m:204, std:["HepB","DTaP","IPV","MMR","VAR","HepA","Flu","COVID"]},
+  {l:"17 years",   m:204, std:["HepB","DTaP","IPV","MMR","VAR","HepA","Flu","COVID"]},
 ];
 
 // Forecast recommended brand display per vaccine + dose

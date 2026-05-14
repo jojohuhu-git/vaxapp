@@ -1,11 +1,42 @@
+/* eslint-disable react/prop-types */
+import { useState } from 'react';
+import { PDFDownloadLink } from '@react-pdf/renderer';
 import { useApp } from '../context/AppContext';
-import { FORECAST_VISITS, FC_BRANDS } from '../data/forecastData';
+import { FORECAST_VISITS } from '../data/forecastData';
 import { VAX_META, COMBO_COVERS, VAX_KEYS } from '../data/vaccineData';
 import { genRecs } from '../logic/recommendations';
-import { orderedBrandsForVisit } from '../logic/forecastLogic';
+import { orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly } from '../logic/forecastLogic';
 import { dc } from '../logic/stateHelpers';
 import { computeDosePlan, fmtProjection, fmtEarliestDate, getTotalDoses } from '../logic/dosePlan';
 import { validatedHistory } from '../logic/validation';
+import { addD } from '../logic/utils';
+import ForecastPDF from './ForecastPDF';
+import ShotListPDF from './ShotListPDF';
+
+// Grouped brand dropdown: combination vaccines in one optgroup, standalones in another.
+// Falls back to a flat list when only one type is present (no empty groups).
+function BrandSelect({ bOpts, value, onChange, style, className }) {
+  const combos = bOpts.filter(bo => bo.antigenCount > 1);
+  const standalones = bOpts.filter(bo => bo.antigenCount <= 1);
+  const hasGroups = combos.length > 0 && standalones.length > 0;
+  return (
+    <select value={value} onChange={onChange} style={style} className={className}>
+      <option value="">Brand…</option>
+      {hasGroups ? (
+        <>
+          <optgroup label="— Combination Vaccines —">
+            {combos.map(bo => <option key={bo.label} value={bo.label}>{bo.label}</option>)}
+          </optgroup>
+          <optgroup label="— Standalone —">
+            {standalones.map(bo => <option key={bo.label} value={bo.label}>{bo.label}</option>)}
+          </optgroup>
+        </>
+      ) : (
+        bOpts.map(bo => <option key={bo.label} value={bo.label}>{bo.label}</option>)
+      )}
+    </select>
+  );
+}
 
 function resolveDropdownBrand(selectedBrand, brandOpts) {
   if (!selectedBrand) return "";
@@ -18,12 +49,14 @@ function resolveDropdownBrand(selectedBrand, brandOpts) {
   return selectedBrand;
 }
 
-function fmtAge(am) {
-  if (am >= 12) {
-    const y = Math.floor(am / 12), mo = am % 12;
-    return y + " year" + (y !== 1 ? "s" : "") + (mo ? " " + mo + " month" + (mo !== 1 ? "s" : "") : "");
-  }
-  return am + " month" + (am !== 1 ? "s" : "");
+
+// Short date for the date sub-label under each visit row. Returns "" when
+// no DOB is set so the sub-label is omitted.
+function visitDateLabel(dob, visitM) {
+  if (!dob) return "";
+  const iso = addD(dob, Math.round(visitM * 30.4375));
+  if (!iso) return "";
+  return new Date(iso + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function fmtDateShort(iso) {
@@ -31,189 +64,64 @@ function fmtDateShort(iso) {
   return new Date(iso + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-// ── Download HTML builder ──────────────────────────────────────
+// ── PDF row precomputation ─────────────────────────────────────
+// Returns a flat array of visit rows (isScheduledEarly excluded) with
+// items[] = [{vk, chip, date}] for vaccines due at that row.
 
-function buildPatientForecastHTML(state, allVks, recs) {
-  const am = state.am;
+function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fcBrands, risks }) {
+  const isAnnual = vk => vk === 'Flu' || vk === 'COVID';
   const currentRecMap = {};
   recs.forEach(r => { currentRecMap[r.vk] = r; });
-  const validHistHTML = validatedHistory(state.hist, state.dob);
-  const dosePlan = computeDosePlan(am, state.dob, recs, state.fcBrands, validHistHTML, state.risks);
-  const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  const dobStr = state.dob ? fmtDateShort(state.dob) : "";
 
-  // ── Build vaccine timeline: one row per vaccine, all doses ──
-  const vaccineRows = [];
-  const seen = new Set();
+  return visits
+    .filter(v => !v.isScheduledEarly)
+    .map(visit => {
+      const isCurr = visit.m === am;
+      const isPast  = visit.m < am && !isCurr;
+      const items = [];
 
-  // Current recs first
-  recs.forEach(r => {
-    if (seen.has(r.vk)) return;
-    seen.add(r.vk);
-    const name = VAX_META[r.vk]?.n || r.vk;
-    // Brand selections are stored under the patient's actual age (am) when
-    // am doesn't align with a FORECAST_VISITS slot — match the synthetic
-    // "Now" visit used by the rendered table.
-    const exactVisit = FORECAST_VISITS.find(v => v.m === am);
-    const fcKey = exactVisit ? `${exactVisit.m}_${r.vk}` : `${am}_${r.vk}`;
-    const selBrand = fcKey ? (state.fcBrands[fcKey] || "") : "";
-    const brandStr = selBrand ? selBrand.split(" (")[0] : "";
+      for (const vk of allVks) {
+        if (visit.isCatchup && !visit.std.includes(vk)) continue;
 
-    const statusLabel = r.status === "catchup" ? "Catch-up" : r.status === "risk-based" ? "Risk-based" : r.status === "recommended" ? "Shared Clinical Decision" : "Due";
+        const fcKey = visit.isCatchup
+          ? visit.catchupDoseKeys?.[vk]
+          : `${visit.m}_${vk}`;
+        const proj = fcKey ? dosePlan[fcKey] : null;
 
-    // Current dose
-    const currentDose = {
-      num: r.doseNum,
-      dose: r.dose,
-      status: statusLabel,
-      statusCls: r.status,
-      brand: brandStr || (r.brands?.[0]?.split(" (")[0] || ""),
-      when: "Now",
-      note: r.note || "",
-    };
-
-    // Projected future doses
-    const futureDoses = [];
-    for (const [key, proj] of Object.entries(dosePlan)) {
-      if (key.endsWith(`_${r.vk}`)) {
-        const visitM = parseInt(key.split("_")[0]);
-        const visit = FORECAST_VISITS.find(v => v.m === visitM);
-        futureDoses.push({
-          num: proj.doseNum,
-          dose: `Dose ${proj.doseNum}`,
-          status: "Scheduled",
-          statusCls: "scheduled",
-          brand: brandStr || (r.brands?.[0]?.split(" (")[0] || ""),
-          when: proj.dueDate ? fmtDateShort(proj.dueDate) : `At ${visit?.l || `~${proj.dueAge}m`}`,
-          note: "",
-        });
+        if (isCurr) {
+          const rec = currentRecMap[vk];
+          if (!rec) continue;
+          const total = getTotalDoses(vk, rec, fcBrands, am, validHist, risks);
+          const qualifier = rec.status === 'catchup' ? ' catch-up'
+            : rec.status === 'recommended' ? ' SCD' : '';
+          const chip = isAnnual(vk) ? 'Annual'
+            : total > 1 ? `D${rec.doseNum}/${total}${qualifier}`
+            : `D${rec.doseNum}${qualifier}`;
+          const currBrand = fcKey ? (fcBrands[fcKey] || '') : '';
+          items.push({ vk, chip, date: '', brand: currBrand });
+        } else if (proj) {
+          const chip = isAnnual(vk) ? 'Annual'
+            : proj.totalDoses > 1 ? `D${proj.doseNum}/${proj.totalDoses}`
+            : `D${proj.doseNum}`;
+          let date = '';
+          if (proj.dueDate && dob) {
+            date = new Date(proj.dueDate + 'T12:00:00').toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric', year: 'numeric',
+            });
+          }
+          const brand = fcKey ? (fcBrands[fcKey] || '') : '';
+          items.push({ vk, chip, date, brand });
+        }
       }
-    }
-    futureDoses.sort((a, b) => a.num - b.num);
 
-    vaccineRows.push({ vk: r.vk, name, currentDose, futureDoses });
-  });
-
-  // ── HTML ──
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Vaccination Schedule — PediVax</title>
-<style>
-  @page { margin: 0.5in; size: letter; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 11px; color: #222; line-height: 1.45; padding: 24px; max-width: 850px; margin: 0 auto; }
-  h1 { font-size: 20px; color: #1a3a2a; margin-bottom: 2px; }
-  .subtitle { font-size: 11px; color: #888; margin-bottom: 16px; }
-  .info-bar { display: flex; gap: 20px; flex-wrap: wrap; padding: 10px 14px; background: #f7faf8; border: 1px solid #d4e6d9; border-radius: 6px; margin-bottom: 20px; font-size: 11px; }
-  .info-bar strong { color: #1a3a2a; }
-  .section { margin-bottom: 22px; }
-  .section-hd { font-size: 13px; font-weight: 700; color: #1a3a2a; padding-bottom: 5px; border-bottom: 2px solid #2e7d32; margin-bottom: 8px; }
-  table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
-  th { background: #2e7d32; color: #fff; padding: 6px 10px; text-align: left; font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
-  td { padding: 5px 10px; border-bottom: 1px solid #e8e8e8; vertical-align: top; }
-  tr:nth-child(even) td { background: #fafcfa; }
-  .vax-name { font-weight: 700; color: #1a3a2a; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 600; white-space: nowrap; }
-  .badge-due { background: #e6f7ef; color: #0e4a30; }
-  .badge-catchup { background: #fdf5e6; color: #7a4e0d; }
-  .badge-risk-based { background: #fdf0ef; color: #8b1a1a; }
-  .badge-recommended { background: #eaf3fb; color: #1a3a6b; }
-  .badge-scheduled { background: #f3f0ff; color: #4a3a8b; }
-  .badge-done { background: #e8f5e9; color: #2e7d32; }
-  .when { font-weight: 600; color: #2e7d32; }
-  .when-future { color: #5b3a9e; }
-  .brand { color: #1a5276; }
-  .note { color: #666; font-size: 9.5px; max-width: 280px; }
-  .arrow { color: #2e7d32; font-size: 13px; vertical-align: middle; margin: 0 2px; }
-  .timeline { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; margin: 6px 0; }
-  .tl-step { display: flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 4px; font-size: 9.5px; font-weight: 600; }
-  .tl-now { background: #e6f7ef; color: #0e4a30; border: 1px solid #a3d9b1; }
-  .tl-next { background: #f3f0ff; color: #4a3a8b; border: 1px solid #c5b8f0; }
-  .tl-arr { color: #999; font-size: 12px; }
-  .card { border: 1px solid #e0e8e2; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
-  .card-hd { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-  .card-name { font-size: 13px; font-weight: 700; }
-  .card-brand { font-size: 10px; color: #1a5276; font-weight: 500; }
-  .card-note { font-size: 10px; color: #666; margin-top: 4px; }
-  .footer { margin-top: 22px; padding-top: 12px; border-top: 1px solid #ddd; font-size: 9.5px; color: #888; }
-  .footer p { margin-bottom: 4px; }
-  @media print { body { padding: 0; } .no-print { display: none; } }
-</style>
-</head>
-<body>
-<h1>Vaccination Schedule</h1>
-<div class="subtitle">Generated by PediVax &mdash; ${dateStr}</div>
-<div class="info-bar">
-  ${dobStr ? `<div><strong>Date of Birth:</strong> ${dobStr}</div>` : ""}
-  <div><strong>Current Age:</strong> ${fmtAge(am)}</div>
-  ${state.risks.length ? `<div><strong>Risk Factors:</strong> ${state.risks.join(", ")}</div>` : ""}
-</div>
-
-${vaccineRows.length ? `
-<div class="section">
-  <div class="section-hd">Vaccines Due Now &amp; Upcoming Doses</div>
-  ${vaccineRows.map(v => {
-    const c = v.currentDose;
-    const hasFuture = v.futureDoses.length > 0;
-    return `<div class="card">
-      <div class="card-hd">
-        <span class="card-name" style="color:${VAX_META[v.vk]?.c || '#333'}">${v.name}</span>
-        <span class="card-brand">${c.brand}</span>
-      </div>
-      <div class="timeline">
-        <span class="tl-step tl-now">${c.dose} &mdash; <span class="when">Now</span></span>
-        ${v.futureDoses.map(f =>
-          `<span class="tl-arr">&rarr;</span><span class="tl-step tl-next">Dose ${f.num} &mdash; <span class="when-future">${f.when}</span></span>`
-        ).join("")}
-      </div>
-      ${c.note ? `<div class="card-note">${c.note}</div>` : ""}
-    </div>`;
-  }).join("")}
-</div>
-` : `<div class="section"><p style="color:#2e7d32;font-weight:600;">All vaccines are up to date.</p></div>`}
-
-<div class="section">
-  <div class="section-hd">Complete Dose Schedule</div>
-  <table>
-    <thead><tr><th>Vaccine</th><th>Dose</th><th>Status</th><th>When</th><th>Brand</th></tr></thead>
-    <tbody>
-      ${vaccineRows.map(v => {
-        const rows = [];
-        const c = v.currentDose;
-        rows.push(`<tr>
-          <td class="vax-name" style="color:${VAX_META[v.vk]?.c || '#333'}">${v.name}</td>
-          <td>${c.dose}</td>
-          <td><span class="badge badge-${c.statusCls}">${c.status}</span></td>
-          <td class="when">Now</td>
-          <td class="brand">${c.brand}</td>
-        </tr>`);
-        v.futureDoses.forEach(f => {
-          rows.push(`<tr>
-            <td></td>
-            <td>${f.dose}</td>
-            <td><span class="badge badge-scheduled">Scheduled</span></td>
-            <td class="when-future">${f.when}</td>
-            <td class="brand">${f.brand}</td>
-          </tr>`);
-        });
-        return rows.join("");
-      }).join("")}
-    </tbody>
-  </table>
-</div>
-
-<div class="footer">
-  <p><strong>Important:</strong> Bring this schedule to every well-child visit. Flu and COVID-19 vaccines are recommended annually and are not shown in the dose timeline above.</p>
-  <p>This schedule is for informational purposes only. Always consult your child's healthcare provider for personalized medical advice.</p>
-  <p>Source: CDC Recommended Child and Adolescent Immunization Schedule, 2025</p>
-</div>
-<div class="no-print" style="margin-top:20px;text-align:center;">
-  <button onclick="window.print()" style="padding:8px 24px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Print / Save as PDF</button>
-</div>
-</body>
-</html>`;
+      return {
+        l: visit.l, m: visit.m,
+        isCatchup: !!visit.isCatchup,
+        isCurr, isPast,
+        date: visitDateLabel(dob, visit.m),
+        items,
+      };
+    });
 }
 
 // ── Main component ─────────────────────────────────────────────
@@ -221,6 +129,12 @@ ${vaccineRows.length ? `
 export default function ForecastTab({ recs }) {
   const { state, dispatch } = useApp();
   const am = state.am;
+
+  const [showPast, setShowPast] = useState(false);
+  // Map<fcKey, {ageM, date, vk, visitM}> — doses moved to earliest eligible date
+  const [scheduledEarliest, setScheduledEarliest] = useState(() => new Map());
+  // vk of the "Why?" card currently expanded in the Today panel (null = all collapsed)
+  const [expandedRationale, setExpandedRationale] = useState(null);
 
   // Build current-age rec map to detect which vaccines are still actionable
   const currentRecMap = {};
@@ -252,7 +166,11 @@ export default function ForecastTab({ recs }) {
   // visit at m=am. The synthetic row owns D1 / current-visit recs at the
   // patient's actual age. Future visit rows still show projected D2+ via
   // the dosePlan as before.
-  const ageMatchesVisit = am >= 0 && FORECAST_VISITS.some(v => v.m === am);
+  // Base timeline: routine FORECAST_VISITS plus any ad-hoc catch-up rows
+  // emitted by computeDosePlan for doses whose earliest age falls between
+  // routine slots (e.g., a 2yo asplenia patient's HepB D2 at 2y 1mo).
+  const baseTimeline = buildVisitTimeline(dosePlan);
+  const ageMatchesVisit = am >= 0 && baseTimeline.some(v => v.m === am);
   const synth = (am >= 0 && !ageMatchesVisit) ? {
     l: am < 12
       ? `Now (${am}m)`
@@ -261,18 +179,17 @@ export default function ForecastTab({ recs }) {
     std: VAX_KEYS,            // accept any vk so the "isStd" gate doesn't hide recs
     _synthetic: true,
   } : null;
-  const visits = synth
-    ? (() => {
-        const out = [];
-        let inserted = false;
-        for (const v of FORECAST_VISITS) {
-          if (!inserted && v.m > am) { out.push(synth); inserted = true; }
-          out.push(v);
-        }
-        if (!inserted) out.push(synth); // am past last visit
-        return out;
-      })()
-    : FORECAST_VISITS;
+  const baseWithSynth = synth ? [...baseTimeline, synth] : [...baseTimeline];
+
+  // Ad-hoc rows for doses the user has moved to their earliest eligible date.
+  // When the moved age coincides with an existing visit (within ~15 days), the
+  // dose is MERGED into that row via _earlyDoses so it appears at the correct
+  // age even when the host row was originally for a different vaccine's
+  // catch-up. See applyScheduledEarly in forecastLogic for the merge semantics.
+  const visits = applyScheduledEarly(baseWithSynth, scheduledEarliest);
+
+  // Exclude scheduled-early rows from the past count (they're always shown).
+  const pastCount = visits.filter(v => v.m < am && !v.isScheduledEarly).length;
 
   // For each vaccine, find the earliest future visit where genRecs first
   // reports the vaccine as due. We render D1 only at that visit and suppress
@@ -298,48 +215,226 @@ export default function ForecastTab({ recs }) {
   FORECAST_VISITS.forEach(v => v.std.forEach(vk => vkSet.add(vk)));
   const allVks = VAX_KEYS.filter(vk => vkSet.has(vk));
 
-  function handleDownload() {
-    const html = buildPatientForecastHTML(state, allVks, recs);
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "vaccination-schedule.html";
-    a.click();
-    URL.revokeObjectURL(url);
+  // Precompute PDF rows from the already-computed visits + dosePlan.
+  const pdfRows = computePDFRows({
+    visits, allVks, dosePlan, recs, validHist,
+    am, dob: state.dob, fcBrands: state.fcBrands, risks: state.risks,
+  });
+
+  // ── Today panel data ─────────────────────────────────────────
+  // Brand pickers in the today panel need the full co-due context.
+  const todayDueVks = recs.map(r => r.vk);
+  const todayDoseNumByVk = {};
+  recs.forEach(r => { todayDoseNumByVk[r.vk] = r.doseNum; });
+
+  // Pre-compute bOpts per rec for the today panel (avoids re-running in the render loop).
+  const todayBOptsByVk = {};
+  for (const rec of recs) {
+    let eb = "";
+    for (const ev of FORECAST_VISITS) {
+      if (ev.m >= am) break;
+      const b = state.fcBrands[`${ev.m}_${rec.vk}`];
+      if (b) { eb = b; break; }
+    }
+    todayBOptsByVk[rec.vk] = orderedBrandsForVisit(rec.vk, rec.doseNum, am, todayDueVks, rec.brands, eb, todayDoseNumByVk);
   }
+  // Deduplicated list of combo bundles available at this visit, sorted by coverage breadth.
+  const visitComboMap = new Map();
+  for (const rec of recs) {
+    for (const bo of (todayBOptsByVk[rec.vk] || [])) {
+      if (bo.antigenCount > 1 && !visitComboMap.has(bo.name)) visitComboMap.set(bo.name, bo);
+    }
+  }
+  const visitCombos = [...visitComboMap.values()].sort((a, b) => b.dueCovered.length - a.dueCovered.length);
+  // Which combo name (if any) is currently active for today's visit.
+  const activeComboName = (() => {
+    for (const vk of todayDueVks) {
+      const brand = state.fcBrands[`${am}_${vk}`] || "";
+      const cn = Object.keys(COMBO_COVERS).find(c => brand.startsWith(c));
+      if (cn) return cn;
+    }
+    return null;
+  })();
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div style={{ fontSize: 11, color: "#888" }}>
-          Full immunization forecast by visit.
-          <span style={{ color: "#2e7d32", fontWeight: 600 }}> Green</span> = completed,
-          <span style={{ color: "#e65100", fontWeight: 600 }}> Orange</span> = catch-up needed,
-          <span style={{ color: "#999", fontWeight: 600, textDecoration: "line-through" }}> Strikethrough</span> = window closed,
-          <span style={{ color: "#5b3a9e", fontWeight: 600 }}> Purple</span> = projected dose.
-          Select brands to auto-plan subsequent dose dates.
+      {/* ── TODAY'S VISIT PANEL ──────────────────────────────────── */}
+      {am >= 0 && (
+        <div className="today-panel">
+          <div className="today-hdr">
+            <div className="today-hdr-left">
+              <span className="today-title">Today&apos;s Visit</span>
+              <span className="today-age">
+                {am < 12 ? `${am}m` : `${Math.floor(am / 12)}y${am % 12 ? ` ${am % 12}m` : ""}`}
+              </span>
+              {state.dob && (
+                <span className="today-visit-date">{visitDateLabel(state.dob, am)}</span>
+              )}
+            </div>
+            <div className="today-actions">
+              {recs.length > 0 && (
+                <PDFDownloadLink
+                  document={<ShotListPDF am={am} dob={state.dob} recs={recs} fcBrands={state.fcBrands} />}
+                  fileName="pedivax-shot-list.pdf"
+                  style={{
+                    fontSize: 11, padding: "4px 10px", background: "#1a3a6b", color: "#fff",
+                    borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap",
+                    textDecoration: "none", display: "inline-block",
+                  }}
+                >
+                  {({ loading }) => loading ? "Preparing…" : "📋 Shot List PDF"}
+                </PDFDownloadLink>
+              )}
+              <button
+                onClick={() => dispatch({ type: "RESET_FORECAST" })}
+                style={{
+                  fontSize: 11, padding: "4px 10px", background: "#fff", color: "#8b1a1a",
+                  border: "1px solid #d4b0b0", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap",
+                }}
+              >
+                Reset Forecast
+              </button>
+              <PDFDownloadLink
+                document={<ForecastPDF am={am} dob={state.dob} risks={state.risks} rows={pdfRows} />}
+                fileName="pedivax-forecast.pdf"
+                style={{
+                  fontSize: 11, padding: "4px 10px", background: "#2e7d32", color: "#fff",
+                  borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap",
+                  textDecoration: "none", display: "inline-block",
+                }}
+              >
+                {({ loading }) => loading ? "Preparing…" : "Download Schedule"}
+              </PDFDownloadLink>
+            </div>
+          </div>
+
+          {recs.length === 0 ? (
+            <div className="today-empty">No vaccines are due at this visit.</div>
+          ) : (
+            <>
+              {/* ── COMBO STRIP ─────────────────────────────────────── */}
+              {visitCombos.length > 0 && (
+                <div className="today-combo-strip">
+                  <span className="today-combo-label">Combine into one injection:</span>
+                  <div className="today-combo-btns">
+                    {visitCombos.map(bo => {
+                      const isActive = activeComboName === bo.name;
+                      return (
+                        <button
+                          key={bo.name}
+                          className={`today-combo-btn${isActive ? " today-combo-btn-active" : ""}`}
+                          title={isActive ? "Click to clear this combo" : `Select ${bo.name} for all ${bo.dueCovered.join(", ")} doses at once`}
+                          onClick={() => {
+                            if (isActive) {
+                              const anchorVk = bo.dueCovered.find(vk => state.fcBrands[`${am}_${vk}`]);
+                              if (anchorVk) dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: am, vk: anchorVk, brandName: "" } });
+                            } else {
+                              dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: am, vk: bo.dueCovered[0], brandName: bo.label } });
+                            }
+                          }}
+                        >
+                          {isActive ? "✓ " : ""}{bo.name}
+                          <span className="today-combo-covers">{bo.dueCovered.join(" + ")}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── PER-VACCINE ROWS ─────────────────────────────────── */}
+              <div className="today-recs">
+                {recs.map(rec => {
+                  const fcKey = `${am}_${rec.vk}`;
+                  const selectedBrand = state.fcBrands[fcKey] || "";
+                  const bOpts = todayBOptsByVk[rec.vk] || [];
+                  const displayBrand = resolveDropdownBrand(selectedBrand, bOpts);
+                  const isExpanded = expandedRationale === rec.vk;
+                  const isAnnual = rec.vk === "Flu" || rec.vk === "COVID";
+                  const totalDoses = getTotalDoses(rec.vk, rec, state.fcBrands, am, validHist, state.risks);
+                  const doseChip = isAnnual ? "Annual" : `Dose ${rec.doseNum}${totalDoses > 1 ? ` of ${totalDoses}` : ""}`;
+                  const statusBadgeClass = rec.status === "due" ? "today-badge-due"
+                    : rec.status === "catchup" ? "today-badge-cu"
+                    : rec.status === "risk-based" ? "today-badge-rb"
+                    : rec.status === "recommended" ? "today-badge-rec"
+                    : "today-badge-due";
+                  const statusText = rec.status === "due" ? "Routine"
+                    : rec.status === "catchup" ? "Catch-up"
+                    : rec.status === "risk-based" ? "Risk-based"
+                    : rec.status === "recommended" ? "Shared decision"
+                    : rec.status;
+                  // When this vk is covered by the active combo, label the picker as auto-filled.
+                  const coveredByCombo = activeComboName && (COMBO_COVERS[activeComboName] || []).includes(rec.vk);
+                  const coversText = displayBrand.match(/covers ([^)]+)/)?.[1];
+
+                  return (
+                    <div key={rec.vk} className="today-rec">
+                      <div className="today-rec-main">
+                        <span className={`today-badge ${statusBadgeClass}`}>{statusText}</span>
+                        <span className="today-vax" style={{ color: VAX_META[rec.vk]?.c }}>
+                          {VAX_META[rec.vk]?.n || rec.vk}
+                        </span>
+                        <span className="today-dose">{doseChip}</span>
+                        {bOpts.length > 0 && (
+                          <>
+                            <BrandSelect
+                              bOpts={bOpts}
+                              value={displayBrand}
+                              onChange={e => dispatch({
+                                type: "FC_BRAND_CHANGE",
+                                payload: { visitM: am, vk: rec.vk, brandName: e.target.value },
+                              })}
+                              className={`today-brand-sel${coveredByCombo && displayBrand ? " today-brand-sel-combo" : ""}`}
+                            />
+                            {coversText && (
+                              <span className="today-covers" title={`This product covers: ${coversText}`}>
+                                +{coversText}
+                              </span>
+                            )}
+                          </>
+                        )}
+                        <button
+                          className="today-why"
+                          onClick={() => setExpandedRationale(isExpanded ? null : rec.vk)}
+                        >
+                          {isExpanded ? "▾ Why" : "▸ Why"}
+                        </button>
+                      </div>
+                      {isExpanded && (
+                        <div className="today-rationale">
+                          {rec.note && <p className="today-note">{rec.note}</p>}
+                          {rec.brandTip && <p className="today-brandtip">💊 {rec.brandTip}</p>}
+                          <div className="today-refs">
+                            {rec.refUrl && (
+                              <a href={rec.refUrl} target="_blank" rel="noreferrer" className="today-ref-link">
+                                🔗 {rec.refLabel}
+                              </a>
+                            )}
+                            {rec.refUrl2 && (
+                              <a href={rec.refUrl2} target="_blank" rel="noreferrer" className="today-ref-link">
+                                🔗 {rec.refLabel2}
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
-        <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
-          <button
-            onClick={() => dispatch({ type: "RESET_FORECAST" })}
-            style={{
-              fontSize: 11, padding: "4px 10px", background: "#fff", color: "#8b1a1a",
-              border: "1px solid #d4b0b0", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap",
-            }}
-          >
-            Reset Forecast
-          </button>
-          <button
-            onClick={handleDownload}
-            style={{
-              fontSize: 11, padding: "4px 10px", background: "#2e7d32", color: "#fff",
-              border: "none", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap",
-            }}
-          >
-            Download Schedule
-          </button>
-        </div>
+      )}
+
+      {/* ── LEGEND ───────────────────────────────────────────────── */}
+      <div style={{ fontSize: 10, color: "#888", marginBottom: 6 }}>
+        Forecast table:
+        <span style={{ color: "#2e7d32", fontWeight: 600 }}> Green</span> = done,
+        <span style={{ color: "#e65100", fontWeight: 600 }}> Orange</span> = catch-up,
+        <span style={{ color: "#999", fontWeight: 600, textDecoration: "line-through" }}> Strikethrough</span> = expired,
+        <span style={{ color: "#5b3a9e", fontWeight: 600 }}> Purple</span> = projected.
+        Hover cells for clinical notes.
       </div>
       <div className="fc-wrap">
         <table className="fc-tbl">
@@ -354,33 +449,212 @@ export default function ForecastTab({ recs }) {
             </tr>
           </thead>
           <tbody>
+            {pastCount > 0 && (
+              <tr className="past-toggle-row">
+                <td colSpan={allVks.length + 1}>
+                  <button className="past-toggle-btn" onClick={() => setShowPast(v => !v)}>
+                    {showPast
+                      ? '▴ Hide past visits'
+                      : `▸ ${pastCount} past visit${pastCount !== 1 ? 's' : ''} — click to show`}
+                  </button>
+                </td>
+              </tr>
+            )}
             {visits.map((visit, vi) => {
-              // With the synthetic "Now" row spliced in at m=am, isCurr is now
-              // a strict equality match — no need for the next-visit interval
-              // hack that previously let a 10y patient land on the 4–6y row.
+              // Hide past rows when collapsed; always show scheduled-early rows.
+              if (visit.m < am && !showPast && !visit.isScheduledEarly) return null;
+
               const isCurr = visit.m === am;
-              const isPast = visit.m < am && !isCurr;
+              // Scheduled-early rows are user-generated future slots; never treat as past.
+              const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
               const rowClass = isCurr ? "curr" : isPast ? "past" : "";
 
-              // Generate recs for this visit's age to determine dose numbers
-              // Pass fcBrands so per-visit recs reflect the user's brand picks
-              // (e.g. PCV20 → suppress PPSV23; combo brands at one visit affect
-              // family-locked downstream doses). Same plumbing fix that landed
-              // in dosePlan.js seeds loop earlier.
+              // Generate recs for this visit's age. Used as a fallback for
+              // dose numbers at the CURRENT and PAST visits (where the engine
+              // hasn't projected ahead). For FUTURE visits we prefer the
+              // dose count the dosePlan projection emits — see below.
               const visitRecs = genRecs(visit.m, validHist, state.risks, state.dob, { fcBrands: state.fcBrands });
               const visitRecMap = {};
               visitRecs.forEach(r => { visitRecMap[r.vk] = r; });
 
-              // Determine which vks are due at this visit
-              const dueVksAtVisit = visit.std.filter(vk => !!visitRecMap[vk]);
+              // dueVksAtVisit + doseNumByVk feed the brand list's combo-validity
+              // checks. They MUST reflect the dose number that will actually be
+              // given at this visit, not what genRecs would say with the
+              // current (un-projected) history.
+              //
+              // Concrete example: at the 4y row for an empty 2yo, the dosePlan
+              // projects DTaP D5 + IPV D4 (after the engine "fills in" D1–D4
+              // catch-up doses). genRecs(54, {}, []) by contrast emits "DTaP D1
+              // catch-up" — so previously the brand list saw DTaP=1 and filtered
+              // out Kinrix/Quadracel (DTaP+IPV combos for D5+D4 at 4–6y). Combo
+              // brands at projected future visits were systematically missing.
+              // Fix: prefer the dosePlan-stored doseNum; fall back to
+              // visitRecMap only when no projection exists (current/past visits).
+              const planFcKey = (v) => visit.isCatchup
+                ? (visit.catchupDoseKeys?.[v] ?? `${visit.m}_${v}`)
+                : `${visit.m}_${v}`;
+              const dueVksAtVisit = visit.std.filter(vk =>
+                !!dosePlan[planFcKey(vk)] || !!visitRecMap[vk]
+              );
+              const doseNumByVk = {};
+              for (const v of dueVksAtVisit) {
+                const projDose = dosePlan[planFcKey(v)];
+                if (projDose?.doseNum != null) {
+                  doseNumByVk[v] = projDose.doseNum;
+                } else if (visitRecMap[v]?.doseNum != null) {
+                  doseNumByVk[v] = visitRecMap[v].doseNum;
+                }
+              }
 
               return (
-                <tr key={vi} className={rowClass}>
-                  <td className="vlbl">{visit.l}</td>
+                <tr key={vi} className={rowClass + (visit.isCatchup ? ' catchup' : '') + (visit.isScheduledEarly ? ' scheduled-early' : '')}>
+                  <td className="vlbl">
+                    <div className="vlbl-age">
+                      {visit.l}
+                      {visit.isCatchup && <span className="vlbl-catchup-tag">catch-up</span>}
+                      {visit.isScheduledEarly && <span className="vlbl-early-tag">earliest</span>}
+                    </div>
+                    {state.dob && (
+                      <div className="vlbl-date">
+                        {visit.isScheduledEarly
+                          ? fmtDateShort(scheduledEarliest.get(visit.earlyFcKey)?.date ?? '')
+                          : visitDateLabel(state.dob, visit.m)}
+                      </div>
+                    )}
+                  </td>
                   {allVks.map(vk => {
+                    // CASE 1: Scheduled-early row — render the moved dose here.
+                    if (visit.isScheduledEarly && vk === visit.earlyVk) {
+                      const origProj = dosePlan[visit.earlyFcKey];
+                      const info = scheduledEarliest.get(visit.earlyFcKey);
+                      if (!origProj || !info) return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
+                      const scheduledDate = info.date && state.dob ? fmtDateShort(info.date) : `~${Math.round(info.ageM)}m`;
+                      const isAnnual = vk === "Flu" || vk === "COVID";
+                      const dChip = isAnnual ? "Annual" : origProj.totalDoses > 1 ? `Dose ${origProj.doseNum} of ${origProj.totalDoses}` : `Dose ${origProj.doseNum}`;
+                      // Brand picker for the moved dose. Standalone scheduled-early
+                      // rows have only one vk on them by definition (the row was
+                      // created because no nearby existing visit could host the
+                      // moved dose). So dueVks/doseNumByVk for combo validity reduce
+                      // to this single antigen — combos won't appear here (they
+                      // need at least one OTHER co-due antigen). Clinicians who
+                      // want a combo brand can still pick it from CASE 3 at the
+                      // original visit row, where the multi-vaccine context lives.
+                      // visitM is info.ageM (the moved-to age) so age-windowed
+                      // combos are correctly excluded.
+                      const dueVksAtMoved1 = [vk];
+                      const doseNumByVkMoved1 = { [vk]: origProj.doseNum };
+                      const bOpts1 = orderedBrandsForVisit(
+                        vk, origProj.doseNum, info.ageM,
+                        dueVksAtMoved1, undefined, "", doseNumByVkMoved1,
+                      );
+                      const disp1 = resolveDropdownBrand(state.fcBrands[visit.earlyFcKey] || "", bOpts1);
+                      return (
+                        <td key={vk} className="vcell">
+                          <div className="fc-cell">
+                            <span className="fch fch-proj">{dChip}</span>
+                            <span className="fc-date fc-date-early">✓ {scheduledDate}</span>
+                            {bOpts1.length > 0 && (
+                              <BrandSelect
+                                bOpts={bOpts1}
+                                value={disp1}
+                                onChange={e => dispatch({
+                                  type: "FC_BRAND_CHANGE",
+                                  payload: { visitM: info.visitM, vk, brandName: e.target.value },
+                                })}
+                                style={{ fontSize: 8.5, maxWidth: 120, padding: "1px 2px", border: "1px solid #ddd", borderRadius: 3 }}
+                              />
+                            )}
+                          </div>
+                        </td>
+                      );
+                    }
+                    // CASE 2: Scheduled-early row — all other vaccines show "—".
+                    if (visit.isScheduledEarly) {
+                      return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
+                    }
+
                     const isStd = visit.std.includes(vk);
-                    const fcKey = `${visit.m}_${vk}`;
+
+                    // CASE 2.5 (merged early): the user moved this vk's dose to the
+                    // earliest eligible date, and that date collided with this row.
+                    // Render the moved-dose indicator inline, BEFORE the catch-up
+                    // !isStd guard would otherwise hide it. The "revert to slot"
+                    // control still lives at the original visit row (CASE 3).
+                    if (visit._earlyDoses?.[vk]) {
+                      const { fcKey: origFcKey, info } = visit._earlyDoses[vk];
+                      const origProj = dosePlan[origFcKey];
+                      if (!origProj) {
+                        return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
+                      }
+                      const movedDate = info.date && state.dob
+                        ? fmtDateShort(info.date)
+                        : `~${Math.round(info.ageM)}m`;
+                      const isAnnualMv = vk === "Flu" || vk === "COVID";
+                      const dChipMv = isAnnualMv
+                        ? "Annual"
+                        : origProj.totalDoses > 1
+                          ? `Dose ${origProj.doseNum} of ${origProj.totalDoses}`
+                          : `Dose ${origProj.doseNum}`;
+                      return (
+                        <td key={vk} className="vcell">
+                          <div className="fc-cell">
+                            <span className="fch fch-proj">{dChipMv}</span>
+                            <span className="fc-date fc-date-early">✓ {movedDate}</span>
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    // Catch-up rows only show vaccines that have actual catch-up doses at
+                    // this age. Without this guard, other vaccines' routine plan entries
+                    // at the same age leak into the catch-up row (e.g. HepB D3 at 15m
+                    // appearing in a VAR-only catch-up row that also happens to be at 15m).
+                    if (visit.isCatchup && !isStd) {
+                      return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
+                    }
+                    // Catch-up rows store dose keys by vk in catchupDoseKeys.
+                    // Routine rows use the standard ${visit.m}_${vk} key.
+                    const fcKey = visit.isCatchup
+                      ? (visit.catchupDoseKeys?.[vk] ?? `${visit.m}_${vk}`)
+                      : `${visit.m}_${vk}`;
                     const proj = dosePlan[fcKey]; // projected dose from plan
+
+                    // CASE 3: Dose moved to earliest row — show indicator + brand dropdown + revert.
+                    if (scheduledEarliest.has(fcKey)) {
+                      const info = scheduledEarliest.get(fcKey);
+                      const movedDate = info.date && state.dob ? fmtDateShort(info.date) : `~${Math.round(info.ageM)}m`;
+                      const rec3 = visitRecMap[vk];
+                      const dn3 = rec3 ? rec3.doseNum : (dc(validHist, vk) + 1);
+                      // Brand validity must use the MOVED age (info.ageM), not
+                      // the original visit's age, so age-windowed combos like
+                      // Kinrix/Quadracel (≥4y) are correctly excluded when the
+                      // dose moves to <4y. Without this, a clinician could
+                      // pick a brand that isn't licensed at the actual date
+                      // the dose will be administered. CLINICAL SAFETY.
+                      const bOpts3 = orderedBrandsForVisit(vk, proj ? proj.doseNum : dn3, info.ageM, dueVksAtVisit, rec3?.brands, "", doseNumByVk);
+                      const disp3 = resolveDropdownBrand(state.fcBrands[fcKey] || "", bOpts3);
+                      return (
+                        <td key={vk} className="vcell">
+                          <div className="fc-cell">
+                            <span className="fch fch-moved">→ {movedDate}</span>
+                            {bOpts3.length > 0 && (
+                              <BrandSelect
+                                bOpts={bOpts3}
+                                value={disp3}
+                                onChange={e => dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: visit.m, vk, brandName: e.target.value } })}
+                                style={{ fontSize: 8.5, maxWidth: 120, padding: "1px 2px", border: "1px solid #ddd", borderRadius: 3 }}
+                              />
+                            )}
+                            <button
+                              className="fc-unschedule-btn"
+                              onClick={() => setScheduledEarliest(prev => { const n = new Map(prev); n.delete(fcKey); return n; })}
+                            >
+                              revert to slot
+                            </button>
+                          </div>
+                        </td>
+                      );
+                    }
 
                     // Skip cell only if vaccine isn't standard at this visit AND has no
                     // projection AND no rec emitted for this visit age (risk-based recs
@@ -467,6 +741,14 @@ export default function ForecastTab({ recs }) {
                           : status === "recommended" ? " (shared clinical decision)"
                             : "";
 
+                    // Earliest-eligible date — shown as a clickable button only when:
+                    // (a) the gap to the routine slot is ≥ 1 month, AND
+                    // (b) the earliest age is still in the future (> am).
+                    // Suppressed for past and current-visit cells.
+                    const earliestLabel = (proj && !isCurr && !isPast && (proj.earliestAge ?? proj.dueAge) > am)
+                      ? fmtEarliestDate(proj, state.dob)
+                      : "";
+
                     // Determine cell status
                     let chipClass = "fch fch-need";
                     let chipText = fmtDose(doseNum);
@@ -539,9 +821,8 @@ export default function ForecastTab({ recs }) {
                     }
 
                     // Brand options for dropdown
-                    const brandOpts = orderedBrandsForVisit(vk, proj ? proj.doseNum : doseNum, visit.m, dueVksAtVisit, rec?.brands, earlierBrand);
+                    const brandOpts = orderedBrandsForVisit(vk, proj ? proj.doseNum : doseNum, visit.m, dueVksAtVisit, rec?.brands, earlierBrand, doseNumByVk);
                     const displayBrand = resolveDropdownBrand(selectedBrand, brandOpts);
-                    const fcBrandTip = FC_BRANDS[vk]?.[proj ? proj.doseNum : doseNum] || "";
 
                     // Show dropdown for current/future with a rec OR projected dose.
                     // Suppress at the current visit when the dose was already
@@ -549,43 +830,34 @@ export default function ForecastTab({ recs }) {
                     const showDropdown = !isPast && (rec || proj) && brandOpts.length > 0
                       && !(isCurr && dosesGivenHere > 0);
 
-                    // Earliest-eligible date: the pure min-interval answer before
-                    // slot-snapping. Only shown for projected doses and only when
-                    // it differs from the slot date by ≥ 1 month.
-                    const earliestLabel = (proj && !isCurr)
-                      ? fmtEarliestDate(proj, state.dob)
-                      : "";
-
                     return (
                       <td key={vk} className="vcell">
                         <div className="fc-cell">
-                          <span className={chipClass}>{chipText}</span>
+                          <span className={chipClass} title={rec?.note || ""}>{chipText}</span>
                           {dateLabel && <span className="fc-date">{dateLabel}</span>}
                           {earliestLabel && (
-                            <span className="fc-earliest" title="Earliest date this dose can be given based on minimum interval">
+                            <button
+                              className="fc-earliest-btn"
+                              title="Move this dose to its earliest eligible date"
+                              onClick={() => setScheduledEarliest(prev => {
+                                const n = new Map(prev);
+                                n.set(fcKey, { ageM: proj.earliestAge, date: proj.earliestDate, vk, visitM: visit.m });
+                                return n;
+                              })}
+                            >
                               earliest: {earliestLabel}
-                            </span>
+                            </button>
                           )}
                           {showDropdown && (
-                            <select
+                            <BrandSelect
+                              bOpts={brandOpts}
                               value={displayBrand}
                               onChange={e => dispatch({
                                 type: "FC_BRAND_CHANGE",
                                 payload: { visitM: visit.m, vk, brandName: e.target.value }
                               })}
-                              style={{
-                                fontSize: 8.5,
-                                maxWidth: 120,
-                                padding: "1px 2px",
-                                border: "1px solid #ddd",
-                                borderRadius: 3,
-                              }}
-                            >
-                              <option value="">Brand...</option>
-                              {brandOpts.map(bo => (
-                                <option key={bo.label} value={bo.label}>{bo.label}</option>
-                              ))}
-                            </select>
+                              style={{ fontSize: 8.5, maxWidth: 120, padding: "1px 2px", border: "1px solid #ddd", borderRadius: 3 }}
+                            />
                           )}
                           {displayBrand && displayBrand.includes("(covers") && (
                             <span className="fc-covers">

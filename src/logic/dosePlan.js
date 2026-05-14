@@ -39,6 +39,14 @@ const ROUTINE = {
 // fall back to interval-only spacing.
 const HIGHRISK_SKIPS_ROUTINE = new Set(["MenACWY", "MenB"]);
 
+// Vaccines where the ACIP routine age for D2+ is advisory (a reminder target),
+// not a clinical floor. When D1 has already been given, D2 can be administered
+// as soon as the minimum interval elapses — projecting it at the routine slot
+// (e.g. MMR D2 at 4-6y) hides the fact that it can be given ~4 weeks later.
+// For these vaccines, use earliestAge (min-interval only) as the catch-up
+// reference so the Full Forecast shows the dose at the soonest eligible date.
+const USE_EARLIEST_FOR_CATCHUP = new Set(["MMR", "VAR", "MenACWY"]);
+
 /**
  * Given the current state, compute projected future dose schedule.
  * Returns an object keyed by `${visitMonth}_${vk}` with:
@@ -179,9 +187,13 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       // are driven by minimum intervals from D1, not calendar anchors.
       const routineAge = getRoutineAge(vk, d, risks);
 
-      // Earliest age = max(prevAge + minInterval in months, routine age for this dose)
       const minIntMonths = minInt ? Math.ceil(minInt / 30.4) : 0;
-      let dueAge = Math.max(prevAge + minIntMonths, routineAge || prevAge + minIntMonths);
+      // earliestAge: pure min-interval answer with no routine floor.
+      // Must be computed before isCatchup so advisory-routine vaccines
+      // (USE_EARLIEST_FOR_CATCHUP) can use it as the catch-up reference.
+      const earliestAge = prevAge + minIntMonths;
+      // dueAge: ACIP-schedule anchor — max(earliest, routine).
+      let dueAge = Math.max(earliestAge, routineAge || earliestAge);
 
       // Find the earliest visit AFTER the previous dose's visit where m >= dueAge
       let visitIdx = -1;
@@ -198,8 +210,23 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       if (visitIdx === -1) break; // no more visit slots
 
       const visit = FORECAST_VISITS[visitIdx];
-      // Use the actual visit age (when the child will be seen) for proper spacing
-      const actualAge = Math.max(visit.m, dueAge);
+      const snappedAge = Math.max(visit.m, dueAge);
+      // For vaccines in USE_EARLIEST_FOR_CATCHUP (MMR, VAR, MenACWY), the
+      // routine age is advisory — not a clinical floor. Once D1 is given,
+      // D2 can be administered as soon as the minimum interval elapses.
+      // Use earliestAge as the catch-up reference so the dose is projected
+      // at the min-interval date rather than years later at the routine slot.
+      const catchupRef = USE_EARLIEST_FOR_CATCHUP.has(vk) ? earliestAge : dueAge;
+      const isCatchup = snappedAge - catchupRef >= 1.5;
+      const actualAge = isCatchup ? catchupRef : snappedAge;
+
+      // DTaP→Tdap age cutoff: at ≥7y (84m), DTaP is no longer ACIP-licensed.
+      // Stop projecting DTaP doses past this age — the Tdap seed-scan emits
+      // Tdap recs at the 11–12y/16y/17–18y FORECAST_VISITS and getTotalDoses
+      // for Tdap accounts for the patient's tetanus history. Without this
+      // break, an unvaccinated 6yo would have D2–D5 projected as DTaP at
+      // ages 11y/16y/17y. Bug fix: 2026-05-07.
+      if (vk === "DTaP" && actualAge >= 84) break;
 
       // Compute dates if DOB available.
       // earliestDate = the minimum-interval answer (prevDate + minInt) — i.e.
@@ -212,30 +239,32 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
         const minDate = addD(prevDate, minInt || 28);
         const ageDate = addD(dob, Math.round(actualAge * 30.4));
         earliestDate = minDate;
-        // Use whichever is later for the scheduled-visit date
-        dueDate = minDate > ageDate ? minDate : ageDate;
+        // For catch-up doses the displayed dueDate IS the earliest date.
+        // For routine doses, use whichever is later (slot might be later
+        // than the minimum interval).
+        dueDate = isCatchup ? minDate : (minDate > ageDate ? minDate : ageDate);
       }
-      // earliestAge — the minimum-interval age in months (pre-slot-snapping).
-      // We store this whether or not DOB is available so the UI can always
-      // show an approximate "can give as early as ~Xy Ym" fallback.
-      const earliestAge = prevAge + minIntMonths; // may be less than actualAge
-
-      const planKey = `${visit.m}_${vk}`;
-      // Carry the series total from the initial (anchor) rec so downstream
-      // renderers show a stable "Dose N of Total". Without this, a projected
-      // HPV D2 at the 16y visit would re-evaluate totalDoses against that
-      // visit's age (≥15y → 3-dose) and display "Dose 2 of 3" even though
-      // the series was started <15y as a 2-dose series.
+      // Plan key prefix: routine doses use the FORECAST_VISITS slot age (so
+      // the existing UI lookup `${visit.m}_${vk}` keeps working). Catch-up
+      // doses use the dose's actual age (rounded to 0.1mo) so the timeline
+      // builder can place them on ad-hoc rows without colliding with
+      // routine-slot keys for the same vaccine.
+      const planKey = isCatchup
+        ? `cu${Math.round(actualAge * 10) / 10}_${vk}`
+        : `${visit.m}_${vk}`;
       plan[planKey] = {
         dueDate, dueAge: actualAge,
         earliestDate, earliestAge,
-        doseNum: d, projected: true, totalDoses,
+        doseNum: d, projected: true, totalDoses, isCatchup,
       };
 
-      // Update prev for next iteration — use visit age for proper interval spacing
-      prevVisitIdx = visitIdx;
+      // Chain anchor: catch-up doses do NOT advance prevVisitIdx (they
+      // didn't actually consume a routine slot), so subsequent doses can
+      // also be catch-up at later ages. Routine doses advance to the
+      // slot they occupied.
+      if (!isCatchup) prevVisitIdx = visitIdx;
       prevAge = actualAge;
-      prevDate = dueDate;
+      prevDate = isCatchup ? earliestDate : dueDate;
     }
   }
 
@@ -262,7 +291,16 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) 
       if (rvHistBrand?.startsWith("Rotarix")) return 2;
       return 3;
     }
-    case "DTaP": return 5;
+    case "DTaP": {
+      // ACIP: DTaP is licensed only through age 6y (83m). At ≥7y (84m+) the
+      // remaining tetanus doses must be Tdap (handled by the Tdap seed-scan).
+      // Returning the given count here makes the projection loop short-circuit
+      // (startDose >= totalDoses) so no DTaP slots are projected at ≥7y.
+      // The projection loop also has a per-iteration guard that breaks when
+      // a projected DTaP dose would land at actualAge >= 84.
+      if (am >= 84) return (hist?.DTaP || []).filter(d => d.given).length;
+      return 5;
+    }
     case "Hib": {
       const hibFcBrand = Object.entries(fcBrands).find(([k, v]) => k.endsWith("_Hib") && v);
       if (hibFcBrand && hibFcBrand[1].includes("PedvaxHIB")) return 3;
@@ -288,7 +326,13 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) 
       const totalTet = dtCount + tdapCount;
       if (totalTet >= 3) return 1; // series complete — decennial only
       if (am >= 84 && am < 120) return 4; // 7–9y: 3 catch-up + 1 routine 11–12y
-      return 3; // ≥10y: catch-up D1 serves as routine — 3 total
+      // Bug A fix: patients younger than Tdap age (am < 84m) will complete their
+      // DTaP series on schedule before reaching 7y. Project only the single routine
+      // Tdap at 11–12y (totalDoses=1). Without this, a 2-month-old with empty
+      // history was treated as an unvaccinated ≥10y catch-up (3 doses) because
+      // getTotalDoses was called with current age and empty hist, not projected hist.
+      if (am < 84) return 1;
+      return 3; // ≥10y catch-up: D1 serves as routine — 3 total
     }
     case "HPV": {
       // Per ACIP: 2-dose series if starting <15y AND not immunocompromised; 3-dose otherwise.

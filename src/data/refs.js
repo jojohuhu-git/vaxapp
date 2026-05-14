@@ -8,7 +8,9 @@ export const REFS = {
     cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-hepb",
     cdcLabel:"CDC HepB Schedule Notes",
     aapUrl:"https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf",
-    aapLabel:"AAP 2024–2025 Immunization Schedule (PDF)"
+    aapLabel:"AAP 2024–2025 Immunization Schedule (PDF)",
+    mmwrUrl:"https://www.cdc.gov/mmwr/volumes/67/rr/rr6701a1.htm",
+    mmwrLabel:"ACIP HepB Vaccination Recommendations (MMWR 2018)"
   },
   RV:      {
     label:"immunize.org: Rotavirus — Ask the Experts",
@@ -57,7 +59,7 @@ export const REFS = {
     url:"https://www.immunize.org/ask-experts/topic/influenza/",
     immUrl:"https://www.immunize.org/vaccines/a-z/influenza/",
     immLabel:"immunize.org: Influenza Vaccine Resources",
-    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-influenza",
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-flu",
     cdcLabel:"CDC Influenza Schedule Notes"
   },
   MMR:     {
@@ -91,8 +93,12 @@ export const REFS = {
     url:"https://www.immunize.org/ask-experts/topic/pertussis/",
     immUrl:"https://www.immunize.org/ask-experts/topic/pertussis/",
     immLabel:"immunize.org: Pertussis (Tdap) — Ask the Experts",
-    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-tdap-td",
-    cdcLabel:"CDC Tdap/Td Schedule Notes"
+    cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-tdap",
+    cdcLabel:"CDC Tdap/Td Schedule Notes",
+    mmwrUrl:"https://www.cdc.gov/mmwr/volumes/69/wr/mm6903a5.htm",
+    mmwrLabel:"ACIP Updated Tdap Recommendations (MMWR 2020)",
+    pmcUrl:"https://pmc.ncbi.nlm.nih.gov/articles/PMC7367039/",
+    pmcLabel:"ACIP Tdap Catch-up Recommendations (PMC/MMWR 2020)"
   },
   HPV:     {
     label:"immunize.org: HPV — Ask the Experts",
