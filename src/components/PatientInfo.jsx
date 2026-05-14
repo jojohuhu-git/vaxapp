@@ -9,52 +9,75 @@ function applyDateMask(digits) {
   return d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4);
 }
 
-const AGE_OPTIONS = [
-  { value: "", label: "Select age..." },
-  { value: "0", label: "Birth" },
-  { value: "1", label: "1 month" },
-  { value: "2", label: "2 months" },
-  { value: "4", label: "4 months" },
-  { value: "6", label: "6 months" },
-  { value: "9", label: "9 months" },
-  { value: "12", label: "12 months" },
-  { value: "15", label: "15 months" },
-  { value: "18", label: "18 months" },
-  { value: "24", label: "2 years" },
-  { value: "36", label: "3 years" },
-  { value: "48", label: "4 years" },
-  { value: "54", label: "4.5 years" },
-  { value: "60", label: "5 years" },
-  { value: "72", label: "6 years" },
-  { value: "84", label: "7 years" },
-  { value: "96", label: "8 years" },
-  { value: "108", label: "9 years" },
-  { value: "120", label: "10 years" },
-  { value: "132", label: "11 years" },
-  { value: "144", label: "12 years" },
-  { value: "156", label: "13 years" },
-  { value: "168", label: "14 years" },
-  { value: "180", label: "15 years" },
-  { value: "192", label: "16 years" },
-  { value: "204", label: "17-18 years" },
-];
+// Build a complete age option list: every month 0–23, then yearly through 25y,
+// then common adult ages up to 50y (for HPV 27–45y and other adult recs).
+const AGE_OPTIONS = (() => {
+  const opts = [{ value: "", label: "Select age..." }];
+  // 0–23 months, every month
+  for (let m = 0; m <= 23; m++) {
+    opts.push({
+      value: String(m),
+      label: m === 0 ? "Birth" : m === 12 ? "12 months (1 year)" : `${m} month${m !== 1 ? 's' : ''}`,
+    });
+  }
+  // 2 years–18 years, every year
+  for (let y = 2; y <= 18; y++) {
+    const m = y * 12;
+    opts.push({ value: String(m), label: `${y} years` });
+    // Insert 4.5y between 4y and 5y
+    if (y === 4) opts.push({ value: "54", label: "4.5 years" });
+  }
+  // 19–25 years (HPV catch-up through 26y, MenACWY shared decision 19–21y)
+  for (let y = 19; y <= 25; y++) {
+    opts.push({ value: String(y * 12), label: `${y} years` });
+  }
+  // Common adult ages for HPV shared decision (27–45y) and other adult recs
+  for (const y of [30, 35, 40, 45, 50]) {
+    opts.push({ value: String(y * 12), label: `${y} years` });
+  }
+  return opts;
+})();
+
+/** Compute age in whole months from an ISO dob string to today. */
+function dobToMonths(dob) {
+  const today = new Date();
+  const birth = new Date(dob);
+  if (isNaN(birth)) return null;
+  let months = (today.getFullYear() - birth.getFullYear()) * 12
+             + (today.getMonth() - birth.getMonth());
+  if (today.getDate() < birth.getDate()) months--;
+  return Math.max(0, months);
+}
 
 export default function PatientInfo() {
   const { state, dispatch } = useApp();
 
-  // Local buffer for the DOB text field. The store holds an ISO date string;
-  // this local state holds whatever the user is currently typing so partial
-  // input (e.g. "04/25/2") doesn't get snapped away on every keystroke.
   const [dobRaw, setDobRaw] = useState(() => fmtDateInput(state.dob));
 
-  // Keep the local buffer in sync when the store DOB changes externally
-  // (e.g. CLEAR_ALL or RESTORE_STATE).
   useEffect(() => {
     setDobRaw(fmtDateInput(state.dob));
   }, [state.dob]);
 
+  // DOB ↔ Age mismatch detection
+  const dobMonths = state.dob ? dobToMonths(state.dob) : null;
+  const ageSet = state.am >= 0;
+  const mismatch = (() => {
+    if (!ageSet || dobMonths === null) return null;
+    const diff = Math.abs(dobMonths - state.am);
+    // Tolerance: 1m for infants, 3m for toddlers, 6m for school-age, 12m for teens+
+    const tolerance = state.am < 24 ? 1 : state.am < 72 ? 3 : state.am < 144 ? 6 : 12;
+    if (diff <= tolerance) return null;
+    const dobYears = Math.floor(dobMonths / 12);
+    const dobRemMonths = dobMonths % 12;
+    const dobLabel = dobMonths < 24
+      ? `${dobMonths} month${dobMonths !== 1 ? 's' : ''}`
+      : dobRemMonths === 0
+        ? `${dobYears} year${dobYears !== 1 ? 's' : ''}`
+        : `${dobYears}y ${dobRemMonths}m`;
+    return `DOB suggests age ${dobLabel} — does not match selected age.`;
+  })();
+
   const showCD4 = state.risks.includes("hiv");
-  // CD4 threshold depends on age: <14y → CD4 percentage; ≥14y → absolute count
   const cd4IsPercent = state.am >= 0 && state.am < 168;
   const cd4Label = cd4IsPercent ? "CD4% (HIV, ages <14y)" : "CD4 count (cells/µL, HIV, ages ≥14y)";
   const cd4Placeholder = cd4IsPercent ? "e.g. 25" : "e.g. 350";
@@ -79,6 +102,15 @@ export default function PatientInfo() {
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
+        {mismatch && (
+          <div style={{
+            marginTop: 4, fontSize: 11, color: "#8B1A1A",
+            background: "#fdf0ef", border: "1px solid #f5b7b1",
+            padding: "3px 7px", borderRadius: 2,
+          }}>
+            ⚠ {mismatch}
+          </div>
+        )}
       </div>
       <div className="field">
         <label htmlFor="dob-inp">Date of Birth (MM/DD/YYYY)</label>
