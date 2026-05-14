@@ -170,8 +170,9 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob) {
  * Audit all vaccine history for errors.
  * @param {object} hist - vaccine history object (keyed by vaccine key)
  * @param {string} dob - patient date of birth (ISO string)
+ * @param {string[]} risks - patient risk factors (used for series-max checks)
  */
-export function auditAll(hist, dob) {
+export function auditAll(hist, dob, risks = []) {
   const errors = [];
   for (const vk of VAX_KEYS) {
     // Sort doses chronologically before validating. Without this, doses entered
@@ -228,6 +229,20 @@ export function auditAll(hist, dob) {
           action: "Verify brand of dose 4. If PedvaxHIB, it was given in error; no further PedvaxHIB needed.",
           refUrl: REFS.Hib.url, refLabel: REFS.Hib.label,
           refUrl2: REFS.Hib.immUrl || null, refLabel2: REFS.Hib.immLabel || null });
+      }
+    }
+
+    // MenACWY series overdose: non-high-risk patients need at most 2 doses
+    if (vk === "MenACWY") {
+      const isHighRiskMen = risks.some(x =>
+        ["asplenia", "complement", "complement_inhibitor", "hiv"].includes(x));
+      if (!isHighRiskMen && doses.length > 2) {
+        errors.push({ vk, type: "series_over", severity: "warn",
+          title: "MenACWY — Extra Dose (series complete for non-high-risk patient)",
+          detail: `${doses.length} MenACWY doses recorded. Non-high-risk patients need only 2 doses: D1 at 11–12 years and a booster at 16 years. A 3rd or later dose is not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`,
+          action: "Verify patient risk status. If no high-risk indication applies, the extra dose is not harmful but was not indicated. Add the appropriate risk factor if the patient is high-risk; those patients require revaccination every 3–5 years.",
+          refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label,
+          refUrl2: REFS.MenACWY.cdcUrl, refLabel2: REFS.MenACWY.cdcLabel });
       }
     }
 
@@ -331,7 +346,6 @@ export function buildAction(r) {
   if (r.type === "brand_min_age") return `Brand minimum age not met. This dose does not count \u2014 repeat with age-appropriate product. Earliest valid date: ${fmtD(r.earliest) || "\u2014"}.`;
   if (r.type === "brand_max_age") return `Brand given outside its approved age range. Dose is off-label and may not be countable. Consider repeating with an age-approved product (e.g., separate M-M-R II + Varivax at \u226513y instead of ProQuad; Tdap instead of DTaP at \u22657y).`;
   if (r.type === "interval" || r.type === "min_age") {
-    const days = (r.msg.match(/only (\d+)d after|given at age (\d+)/) || []);
     return `This dose is INVALID. DO NOT restart the series. Repeat this dose only. Earliest valid date: ${fmtD(r.earliest) || "\u2014"}.`;
   }
   return "Review with CDC catch-up schedule.";

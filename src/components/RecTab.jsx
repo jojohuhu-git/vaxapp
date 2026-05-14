@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useApp } from '../context/AppContext';
 import { auditAll } from '../logic/validation';
 import RecCard from './RecCard';
@@ -14,7 +15,7 @@ const FILTERS = [
 export default function RecTab({ recs }) {
   const { state, dispatch } = useApp();
 
-  const errors = auditAll(state.hist, state.dob);
+  const errors = auditAll(state.hist, state.dob, state.risks);
   const errCount = errors.filter(e => e.severity === "err").length;
 
   // Filter

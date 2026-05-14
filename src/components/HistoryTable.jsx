@@ -3,8 +3,11 @@ import { VAX_KEYS, VAX_META } from '../data/vaccineData';
 import { sortDosesByDate } from '../logic/utils';
 import DosePill from './DosePill';
 
+const HIGH_RISK_MEN = ["asplenia", "complement", "complement_inhibitor", "hiv"];
+
 export default function HistoryTable() {
   const { state } = useApp();
+  const isHighRiskMen = state.risks.some(r => HIGH_RISK_MEN.includes(r));
 
   return (
     <div className="htbl-wrap">
@@ -40,6 +43,7 @@ export default function HistoryTable() {
                           dose={dose}
                           prevDose={prev}
                           dob={state.dob}
+                          isExtra={vk === "MenACWY" && !isHighRiskMen && i >= 2}
                         />
                       );
                     })}
