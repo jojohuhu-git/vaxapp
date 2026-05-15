@@ -7,6 +7,7 @@ export default function AuditPanel() {
   const errors = auditAll(state.hist, state.dob, state.risks);
   const errCount = errors.filter(e => e.severity === "err").length;
   const warnCount = errors.filter(e => e.severity === "warn" || e.severity === "grace" || e.severity === "offLabel").length;
+  const infoCount = errors.filter(e => e.severity === "info").length;
 
   // Group errors by vaccine key
   const grouped = errors.reduce((acc, err) => {
@@ -22,7 +23,8 @@ export default function AuditPanel() {
         Audit
         {errCount > 0 && <span className="sbadge err">{errCount}</span>}
         {warnCount > 0 && <span className="sbadge" style={{ background: "#e67e22" }}>{warnCount}</span>}
-        {errCount === 0 && warnCount === 0 && <span className="sbadge ok">0</span>}
+        {infoCount > 0 && <span className="sbadge info">{infoCount}</span>}
+        {errCount === 0 && warnCount === 0 && infoCount === 0 && <span className="sbadge ok">0</span>}
       </div>
 
       {errors.length === 0 && (
@@ -34,7 +36,8 @@ export default function AuditPanel() {
       {Object.entries(grouped).map(([vk, vkErrors]) => {
         const vaxName = VAX_META[vk]?.n || vk;
         const hasErr = vkErrors.some(e => e.severity === "err");
-        const groupCls = hasErr ? "err-card" : "err-card warn";
+        const hasWarn = vkErrors.some(e => e.severity === "warn" || e.severity === "grace" || e.severity === "offLabel");
+        const groupCls = hasErr ? "err-card" : hasWarn ? "err-card warn" : "err-card info";
 
         return (
           <div key={vk} className={groupCls} style={{ marginBottom: 8 }}>
@@ -55,9 +58,9 @@ export default function AuditPanel() {
                   </div>
                   <div className="err-detail">{err.detail}</div>
                   {err.action && (
-                    <div className="err-action" style={{ marginTop: 4 }}>
-                      <div className="err-albl">
-                        {err.severity === "err" ? "Required Action" : err.severity === "offLabel" ? "Off-Label Guidance" : "Advisory"}
+                    <div className={`err-action${err.severity === "info" ? " err-action-info" : ""}`} style={{ marginTop: 4 }}>
+                      <div className={`err-albl${err.severity === "info" ? " err-albl-info" : ""}`}>
+                        {err.severity === "err" ? "Required Action" : err.severity === "offLabel" ? "Off-Label Guidance" : err.severity === "info" ? "Re-evaluation Note" : "Advisory"}
                       </div>
                       <div className="err-atxt">{err.action}</div>
                     </div>
