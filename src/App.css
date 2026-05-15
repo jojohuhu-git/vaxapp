@@ -86,6 +86,14 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 2px rgba(46,158
 .err-card.offLabel{border-color:var(--pmd);border-left-color:#8e44ad;background:var(--plt);}
 .err-card.info{border-color:var(--bmd);border-left-color:var(--b2);background:var(--blt);}
 .sbadge.info{background:var(--b2);}
+.audit-dose{font-size:11.5px;padding:1px 0;line-height:1.55;color:var(--gy);}
+.audit-dose-invalid{color:var(--r);}
+.audit-dose-invalid strong{color:var(--r);}
+.audit-dose-counts{color:var(--g);}
+.audit-dose-counts strong{color:var(--g);}
+.audit-status{margin-top:8px;padding:7px 10px;border-radius:var(--rads);font-size:11.5px;line-height:1.45;}
+.audit-status-ok{background:var(--glt);border:1px solid var(--gmd);color:var(--g);}
+.audit-status-pending{background:var(--alt);border:1px solid var(--amd);color:var(--a);}
 .err-title{font-size:12px;font-weight:700;color:var(--r);margin-bottom:3px;}
 .err-card.warn .err-title{color:var(--a);}
 .err-card.offLabel .err-title{color:var(--p);}
