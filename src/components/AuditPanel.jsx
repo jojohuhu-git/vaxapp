@@ -105,12 +105,16 @@ function RenumberingCard({ vk, state, doseInfoByNum }) {
           const invalid = t.effectiveN == null;
           const cls = invalid ? 'audit-dose audit-dose-invalid' : 'audit-dose audit-dose-counts';
           const info = invalid ? (doseInfoByNum[t.dn] || { clean: 'does not count toward the series', technical: '' }) : null;
+          const ageLabel = t.ageM != null ? ` (age ~${t.ageM}m)` : '';
           return (
-            <div key={t.dn} className={cls} title={info?.technical || undefined}>
-              <strong>D{t.dn}</strong> — {fmtD(t.date) || '—'} (age ~{t.ageM}m){' '}
+            <div key={t.dn} className={cls}>
+              <strong>D{t.dn}</strong> — {fmtD(t.date) || '—'}{ageLabel}{' '}
               {invalid
                 ? <>— {info.clean}</>
                 : <>— counts as Dose {t.effectiveN} of the series</>}
+              {invalid && info.technical && (
+                <div className="audit-dose-detail">{info.technical}</div>
+              )}
             </div>
           );
         })}
