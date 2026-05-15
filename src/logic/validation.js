@@ -174,6 +174,8 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob) {
  */
 export function auditAll(hist, dob, risks = []) {
   const errors = [];
+  // Pre-compute validated history to detect effective dose renumbering
+  const vh = validatedHistory(hist, dob);
   for (const vk of VAX_KEYS) {
     // Sort doses chronologically before validating. Without this, doses entered
     // out of order (e.g. user types the most recent dose first) produce false
@@ -246,11 +248,23 @@ export function auditAll(hist, dob, risks = []) {
       }
     }
 
+    // Build effective dose-number mapping from validated history so we can detect
+    // doses that are invalid in raw sequence but valid after earlier invalid doses
+    // are dropped (i.e., the dose gets renumbered to a lower effective position).
+    const vhDoses = (vh[vk] || []).filter(d => d.given && d.mode !== "unknown");
+    const effectiveDoseByDate = {};
+    vhDoses.forEach((d, i) => { const dt = doseDate(d, dob); if (dt) effectiveDoseByDate[dt] = i + 1; });
+    const countedDates = new Set(Object.keys(effectiveDoseByDate));
+
     // Per-dose validation
     const datedDoses = doses.filter(d => d.mode !== "unknown");
     datedDoses.forEach((dose, idx) => {
       const prev = idx > 0 ? datedDoses[idx - 1] : null;
       const vr = validateDose(vk, idx, dose, prev, dob);
+      const thisDt = doseDate(dose, dob);
+      // effectiveN: the 1-based position this dose holds in the validated history,
+      // or undefined if it was dropped (truly invalid).
+      const effectiveN = thisDt ? effectiveDoseByDate[thisDt] : undefined;
       if (!vr.ok || vr.grace || vr.offLabel) {
         (vr.results || []).forEach(r => {
           if (r.type === "off_label") {
@@ -260,27 +274,57 @@ export function auditAll(hist, dob, risks = []) {
               refUrl: r.ref || REFS[vk].url, refLabel: REFS[vk].label,
               refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
           } else if (r.err && !r.ok) {
-            // For interval/age errors, use immunize.org Ask the Experts as primary ref,
-            // or a rule-specific override if the validation result carries one.
-            const vkImmUrl = REFS[vk]?.url || null;
-            const vkImmLabel = REFS[vk]?.label || null;
-            const primaryUrl = r.refUrl || REFS[vk].url;
-            const primaryLabel = r.refLabel || REFS[vk].label;
-            const withFrag = r.textFrag ? `${primaryUrl.split("#")[0]}#:~:text=${encodeURIComponent(r.textFrag)}` : primaryUrl;
-            let secondaryUrl = r.type === "interval" ? REFS.interval.url : (r.type === "min_age" ? REFS.catchup.url : vkImmUrl);
-            let secondaryLabel = r.type === "interval" ? REFS.interval.label : (r.type === "min_age" ? REFS.catchup.label : vkImmLabel);
-            // Dedupe: drop secondary if it points to the same base URL as the primary.
-            if (secondaryUrl && primaryUrl && secondaryUrl.split("#")[0] === primaryUrl.split("#")[0]) {
-              secondaryUrl = null;
-              secondaryLabel = null;
+            // Renumbering detection: if this dose IS in validatedHistory (effectiveN defined),
+            // it was flagged only because an earlier invalid dose inflated the raw index/interval.
+            // After dropping that earlier dose, this one is valid — show as informational, not error.
+            const isRenumbered = effectiveN != null;
+            if (isRenumbered) {
+              errors.push({ vk, doseNum: idx + 1, type: "renumbered", severity: "info",
+                title: `${VAX_META[vk].n} \u2014 Dose ${idx + 1} Re-evaluated as Effective Dose ${effectiveN}`,
+                detail: buildRenumberedDetail(r, idx + 1, effectiveN),
+                action: `No action needed. After excluding prior invalid dose(s), this dose counts as Effective Dose ${effectiveN} of the ${VAX_META[vk].n} series and is valid.`,
+                refUrl: REFS[vk].url, refLabel: REFS[vk].label,
+                refUrl2: null, refLabel2: null });
+            } else {
+              // For interval/age errors, use immunize.org Ask the Experts as primary ref,
+              // or a rule-specific override if the validation result carries one.
+              const vkImmUrl = REFS[vk]?.url || null;
+              const vkImmLabel = REFS[vk]?.label || null;
+              const primaryUrl = r.refUrl || REFS[vk].url;
+              const primaryLabel = r.refLabel || REFS[vk].label;
+              const withFrag = r.textFrag ? `${primaryUrl.split("#")[0]}#:~:text=${encodeURIComponent(r.textFrag)}` : primaryUrl;
+              let secondaryUrl = r.type === "interval" ? REFS.interval.url : (r.type === "min_age" ? REFS.catchup.url : vkImmUrl);
+              let secondaryLabel = r.type === "interval" ? REFS.interval.label : (r.type === "min_age" ? REFS.catchup.label : vkImmLabel);
+              // Dedupe: drop secondary if it points to the same base URL as the primary.
+              if (secondaryUrl && primaryUrl && secondaryUrl.split("#")[0] === primaryUrl.split("#")[0]) {
+                secondaryUrl = null;
+                secondaryLabel = null;
+              }
+              // If a later dose was renumbered to fill this invalid dose's series position,
+              // tell the clinician — no repeat of this dose is needed.
+              const firstLaterCounted = datedDoses.slice(idx + 1).find(d => {
+                const dt = doseDate(d, dob);
+                return dt && countedDates.has(dt);
+              });
+              let action, earliest;
+              if (firstLaterCounted) {
+                const rDt = doseDate(firstLaterCounted, dob);
+                const rEffN = effectiveDoseByDate[rDt];
+                const rawLabel = `D${datedDoses.indexOf(firstLaterCounted) + 1}`;
+                action = `This dose is INVALID and does not count toward the series. ${rawLabel} (${fmtD(rDt)}) was re-evaluated as Effective Dose ${rEffN} — no repeat of D${idx + 1} is needed. Check the Recommendations tab for the current series status.`;
+                earliest = null;
+              } else {
+                action = buildAction(r);
+                earliest = r.earliest;
+              }
+              errors.push({ vk, doseNum: idx + 1, type: r.type, severity: "err",
+                title: `${VAX_META[vk].n} \u2014 Dose ${idx + 1} Error (${r.type.replace(/_/g, " ")})`,
+                detail: r.msg,
+                action,
+                earliest,
+                refUrl: withFrag, refLabel: primaryLabel,
+                refUrl2: secondaryUrl, refLabel2: secondaryLabel });
             }
-            errors.push({ vk, doseNum: idx + 1, type: r.type, severity: "err",
-              title: `${VAX_META[vk].n} \u2014 Dose ${idx + 1} Error (${r.type.replace(/_/g, " ")})`,
-              detail: r.msg,
-              action: buildAction(r),
-              earliest: r.earliest,
-              refUrl: withFrag, refLabel: primaryLabel,
-              refUrl2: secondaryUrl, refLabel2: secondaryLabel });
           } else if (r.grace) {
             errors.push({ vk, doseNum: idx + 1, type: r.type, severity: "grace",
               title: `${VAX_META[vk].n} \u2014 Dose ${idx + 1} Within \u22644-Day Grace Period`,
@@ -338,6 +382,17 @@ export function validatedHistory(hist, dob) {
     out[vk] = kept;
   }
   return out;
+}
+
+/** Build detail text for a dose that is valid after prior invalid doses are excluded (renumbered). */
+function buildRenumberedDetail(r, rawDoseNum, effectiveN) {
+  if (r.type === "interval") {
+    return `D${rawDoseNum} was given too soon after the preceding recorded dose, which was itself invalid. After excluding that invalid dose, this dose is evaluated at Effective Dose ${effectiveN} — no prior valid dose exists to measure an interval against, so the interval requirement does not apply here.`;
+  }
+  if (r.type === "min_age") {
+    return `Although flagged for a minimum-age issue at raw position D${rawDoseNum}, this dose is valid after prior invalid doses are excluded from the series count and counts as Effective Dose ${effectiveN}.`;
+  }
+  return `This dose is valid as Effective Dose ${effectiveN} of the series after prior invalid doses are excluded from the count.`;
 }
 
 /** Build action text for a validation result. */
