@@ -576,3 +576,46 @@ Checked all 55 unique URLs in `src/data/refs.js` — all return HTTP 200.
 All other anchors (`note-hepb`, `note-rotavirus`, `note-dtap`, `note-hib`, `note-pneumo`, `note-polio`, `note-mmr`, `note-varicella`, `note-hepa`, `note-hpv`, `note-mening`, `note-mening-b`) verified present on the live CDC page.
 
 674 tests pass after changes.
+
+## UI improvements — 2026-05-15 (PRs #12–#17)
+
+### QuickAdd date input
+- `applyDateMask(digits)` auto-inserts slashes to produce MM/DD/YYYY display.
+- `handleDateKeyDown`: Backspace at cursor position 3 or 6 skips the slash and removes the preceding digit (`e.preventDefault()` + manual digit removal).
+- Enter key in the date field: `e.stopPropagation()` then `handleAdd()` — without `stopPropagation`, the event bubbles to the container `onKeyDown` and fires a second add (double-dose bug).
+- `dateError` state: inline red error below date field on validation failure.
+
+### Doses Recorded — read-only
+`HistoryTable.jsx` no longer renders edit inputs, brand dropdown, mode toggle, or "+ Dose" column. History is pill-only. DosePill shows a plain-text `dateLabel` (date / age / brand).
+
+### MenACWY overdose detection
+- **audit**: `auditAll(hist, dob, risks = [])` — third param required for this check. Non-high-risk patients with ≥3 MenACWY doses get a `series_over` warning.
+- **pill**: `isExtra` prop on DosePill forces `p-grace` (orange) for MenACWY index ≥2 when patient is not high-risk.
+- High-risk MenACWY: `["asplenia","complement","complement_inhibitor","hiv"]`.
+- **Always pass `state.risks`** to `auditAll` — both `AuditPanel.jsx` and `RecTab.jsx` updated.
+
+### Td vaccine
+Added to `vaccineData.js` (VAX_META, VAX_KEYS, VBR), `scheduleRules.js`, `refs.js`.
+`recommendations.js`: `const td = dc(hist, "Td")`, `totalTetanus = dt + tdap + td`.
+**Never omit `td` from `totalTetanus`** — otherwise partially-vaccinated patients who received Td show wrong catch-up dose counts.
+
+### Audit panel — grouped by vaccine
+`AuditPanel.jsx` groups errors by `err.vk` using `reduce()`. One card per vaccine. Card class driven by worst severity (`hasErr ? "err-card" : "err-card warn"`). Sub-entries divided by `borderBottom: "1px solid rgba(0,0,0,.08)"`. Error title strips the vaccine name prefix.
+
+### PatientInfo age dropdown + DOB mismatch
+`AGE_OPTIONS` IIFE:
+- Every month 0–23 (m=12 → "12 months (1 year)")
+- Every year 2–18, 4.5y (54m) inserted between 4y and 5y
+- 19y–25y yearly; 30, 35, 40, 45, 50y adult entries
+
+`dobToMonths(dob)` → whole months from ISO DOB to today. If `|dobMonths - state.am| > tolerance`, inline red warning fires below dropdown.
+- Tolerance: 1m (<24m), 3m (24–72m), 6m (72–144m), 12m (≥144m)
+
+### Style
+- `--rad: 3px`, `--rads: 2px` (was 10px/6px) — rectangles everywhere.
+- Left sidebar: `300px → 396px`, `max-width: 1380px`.
+- Forecast font sizes unified at 10px.
+- Optimal Schedule `humanLabel()` maps raw constraint strings (e.g. `hepA.i[1]=182d`) to plain English.
+
+### Test count after all UI PRs
+**685 tests pass, 3 skipped, 3 todo.**
