@@ -91,6 +91,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 2px rgba(46,158
 .audit-dose-invalid strong{color:var(--r);}
 .audit-dose-counts{color:var(--g);}
 .audit-dose-counts strong{color:var(--g);}
+.audit-dose-detail{font-size:10.5px;opacity:0.7;margin-top:1px;padding-left:2px;}
 .audit-status{margin-top:8px;padding:7px 10px;border-radius:var(--rads);font-size:11.5px;line-height:1.45;}
 .audit-status-ok{background:var(--glt);border:1px solid var(--gmd);color:var(--g);}
 .audit-status-pending{background:var(--alt);border:1px solid var(--amd);color:var(--a);}
