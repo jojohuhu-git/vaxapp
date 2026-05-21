@@ -575,4 +575,58 @@ Checked all 55 unique URLs in `src/data/refs.js` — all return HTTP 200.
 
 All other anchors (`note-hepb`, `note-rotavirus`, `note-dtap`, `note-hib`, `note-pneumo`, `note-polio`, `note-mmr`, `note-varicella`, `note-hepa`, `note-hpv`, `note-mening`, `note-mening-b`) verified present on the live CDC page.
 
+## Audit panel — renumbering logic (2026-05-20)
+
+### The auditAll / validatedHistory relationship
+
+`auditAll(hist, dob, risks)` and `validatedHistory(hist, dob)` are independent functions that must stay in sync:
+
+- **`validatedHistory`** drops invalid doses and re-evaluates remaining doses against the last kept valid dose. It is the canonical filtered history used by the recommendation engine.
+- **`auditAll`** validates raw history in chronological order. Without cross-referencing `validatedHistory`, it produces false interval errors: if D1 is invalid, D2 gets flagged for "interval too short after D1" even though `validatedHistory` already dropped D1 and counted D2 as effective Dose 1.
+
+**The fix (in `src/logic/validation.js`):** `auditAll` now builds an `effectiveDoseByDate` map from `validatedHistory` output at the top of the function. For each error entry it detects whether the dose was renumbered (appears in the validated history at a different position) or truly invalid (dropped entirely), and adjusts severity and action text accordingly:
+
+- Dose dropped by `validatedHistory` but a later dose covers its position → `severity: "err"`, action says "no repeat needed — D[N+1] was re-evaluated as Effective Dose [M]", `earliest: null`
+- Dose kept by `validatedHistory` at a lower effective position → `severity: "info"`, `type: "renumbered"`, "No action needed"
+
+### AuditPanel card types
+
+`src/components/AuditPanel.jsx` renders two card layouts:
+
+**`RenumberingCard`** — used when `vhValid >= 1 && vhValid < rawValid` (at least one dose dropped, at least one kept). Consolidates all `min_age`/`interval`/`renumbered` entries for a vaccine into one card showing:
+- Color-coded dose timeline: red = invalid (`audit-dose-invalid`), green = counts toward series (`audit-dose-counts`)
+- Each invalid line: clean human-readable reason + dimmed secondary line with day-level technical detail (`audit-dose-detail`)
+- Status footer: green (`audit-status-ok`) if series complete per `genRecs`, amber (`audit-status-pending`) if doses remain
+
+**`StandardGroupCard`** — original per-dose layout for vaccines with no renumbering, or for non-renumbering error types (brand_mix, series_over, off_label) on a vaccine that also has a `RenumberingCard`.
+
+### parseDoseReason helper
+
+```js
+parseDoseReason(e) → { clean, technical }
+```
+- `clean`: human-readable one-liner derived from `e.type` + regex on `e.detail`
+  - `min_age`: "given before the 12-month minimum age"
+  - `interval`: "given before the 6-month minimum interval"
+- `technical`: day-level detail always shown as a secondary line beneath the clean reason
+  - e.g. "Age at administration: 279 days (~9 months). ACIP minimum: 365 days (12 months). Shortfall: ~3 months."
+- `fmtDuration(days)`: < 14d → "N days", 14–84d → "~N weeks", > 84d → "~N months"
+
+### Age display guard
+
+`ageM` in the dose timeline can be null if the patient has no DOB entered. Always guard:
+```jsx
+const ageLabel = t.ageM != null ? ` (age ~${t.ageM}m)` : '';
+```
+Never render `(age ~{t.ageM}m)` directly — null renders as blank, producing "age ~m".
+
+### Regression tests
+
+`src/logic/__tests__/regression-audit-renumbering.test.js` — 11 tests covering:
+- HepA D1 invalid (~9m), D2+D3 renumbered → series complete (6 tests)
+- HepA D1+D2 both invalid, D3 becomes effective D1 (4 tests)
+- All-valid baseline (no renumbering regression) (1 test)
+
+Test count: **696** (as of 2026-05-20).
+
 674 tests pass after changes.
