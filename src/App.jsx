@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AppProvider, useApp, getEffectiveAm } from './context/AppContext';
@@ -171,7 +172,7 @@ function AppInner() {
         const decoded = decState(s);
         if (decoded) dispatch({ type: "RESTORE_STATE", payload: decoded });
       }
-    } catch (e) {
+    } catch {
       // ignore URL parse errors
     }
     initialized.current = true;
@@ -187,7 +188,7 @@ function AppInner() {
         const url = `${window.location.pathname}?s=${encodeURIComponent(enc)}`;
         window.history.replaceState(null, "", url);
       }
-    } catch (e) {
+    } catch {
       // ignore encoding errors
     }
   }, [state]);
