@@ -583,6 +583,8 @@ All other anchors (`note-hepb`, `note-rotavirus`, `note-dtap`, `note-hib`, `note
 
 **Tests:** 2,077 passing (146 files) after all UI work.
 
+**Layout change (2026-05-21, commit b6c6479):** Left sidebar removed; replaced with compact `PatientSummaryBar` + `PatientDrawer`. ForecastTab hide-complete/density toggles removed. See "App layout" subsection below.
+
 ### New components
 
 #### `src/components/DateField.jsx`
