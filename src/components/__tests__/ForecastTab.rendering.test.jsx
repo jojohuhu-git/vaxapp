@@ -29,7 +29,7 @@ import {
 // ── Baseline: 2-year-old, no history ───────────────────────────────────────
 describe('ForecastTab — 2yo no history baseline', () => {
   it('renders the routine and catch-up rows expected for an empty 2yo', () => {
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
     const labels = getRowLabels(container);
     // Current visit row + future routine slots
     expect(labels.some(l => l.startsWith('2 years'))).toBe(true);
@@ -43,7 +43,7 @@ describe('ForecastTab — 2yo no history baseline', () => {
   });
 
   it('IPV D4 cell at 4y row shows the projected dose with brand dropdown', () => {
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
     const cell = getCellByVk(container, '4 years', 'IPV');
     expect(cell).not.toBeNull();
     expect(cell.textContent).toMatch(/Dose 4 of 4/);
@@ -55,7 +55,7 @@ describe('ForecastTab — 2yo no history baseline', () => {
 // ── Original IPV D4 collision bug (regression guard) ──────────────────────
 describe('ForecastTab — IPV D4 earliest collision (regression guard)', () => {
   it('clicking earliest on IPV D4 puts the moved dose at the 2y 8mo row', () => {
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
 
     // Find the earliest button in the IPV cell at the 4y row
     const ipvFourYr = getCellByVk(container, '4 years', 'IPV');
@@ -89,7 +89,7 @@ describe('ForecastTab — IPV D4 earliest collision (regression guard)', () => {
 // ── Brand cascade ─────────────────────────────────────────────────────────
 describe('ForecastTab — brand cascade', () => {
   it('selecting Pediarix for DTaP at 2y row fills HepB and IPV at 2y row', () => {
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
 
     const dtapCell = getCellByVk(container, '2 years', 'DTaP');
     const dtapSelect = dtapCell.querySelector('select');
@@ -118,7 +118,7 @@ describe('ForecastTab — catch-up row vk isolation', () => {
     // Regression for the HepB-D3-leaks-into-VAR-catchup bug. The 2y 8mo row is
     // a DTaP-only catch-up for an empty 2yo (no other vaccine has a catch-up
     // dose at exactly 32m). All other vk cells in that row must be "—".
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
     const row = getRowByLabel(container, '2y 8mo');
     expect(row).not.toBeNull();
 
@@ -136,7 +136,7 @@ describe('ForecastTab — catch-up row vk isolation', () => {
 // ── Earliest button suppression ───────────────────────────────────────────
 describe('ForecastTab — earliest button visibility', () => {
   it('does NOT show earliest button at past or current visits', () => {
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
     const currentRow = getRowByLabel(container, '2 years');
     const earliestBtns = currentRow.querySelectorAll('.fc-earliest-btn');
     expect(earliestBtns.length, 'current visit must not offer earliest button').toBe(0);
@@ -155,7 +155,7 @@ describe('ForecastTab — earliest button visibility', () => {
 // "Dose 5 of 5" while the dropdown contained no D5-only combos.
 describe('ForecastTab — future-visit brand list reflects projection', () => {
   it('empty 2yo: 4y row IPV dropdown includes Kinrix/Quadracel (D5+D4 combos)', () => {
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
     const ipvCell = getCellByVk(container, '4 years', 'IPV');
     expect(ipvCell).not.toBeNull();
     const select = ipvCell.querySelector('select');
@@ -172,7 +172,7 @@ describe('ForecastTab — future-visit brand list reflects projection', () => {
   });
 
   it('empty 2yo: 4y row DTaP dropdown includes Kinrix/Quadracel (matched D5)', () => {
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
     const dtapCell = getCellByVk(container, '4 years', 'DTaP');
     const select = dtapCell.querySelector('select');
     const opts = Array.from(select.options).map(o => o.value);
@@ -189,7 +189,7 @@ describe('ForecastTab — future-visit brand list reflects projection', () => {
 // place — without it, Kinrix isn't in the dropdown at 4y to begin with.
 describe('ForecastTab — moved-dose brand validity (clinical safety)', () => {
   it('IPV D4 moved to 32m: Kinrix/Quadracel must NOT remain offered', () => {
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
 
     const ipvFourYr = getCellByVk(container, '4 years', 'IPV');
     const earliestBtn = ipvFourYr.querySelector('.fc-earliest-btn');
@@ -228,7 +228,7 @@ describe('ForecastTab — moved-dose brand validity (clinical safety)', () => {
 // fcKey the original row uses ("54_DTaP"), so both rows stay in sync.
 describe('ForecastTab — standalone scheduled-early row brand picker', () => {
   it('moved DTaP D5 to 3y 2mo: standalone row exposes a brand dropdown', () => {
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
 
     const dtapFourYr = getCellByVk(container, '4 years', 'DTaP');
     const earliestBtn = dtapFourYr.querySelector('.fc-earliest-btn');
@@ -265,7 +265,7 @@ describe('ForecastTab — standalone scheduled-early row brand picker', () => {
 // had to pick it from another column and rely on the cascade. Asymmetric.
 describe('ForecastTab — Hib brand list at 2y catch-up', () => {
   it('Hib dropdown at 2y row must include Vaxelis', () => {
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
     const hibCell = getCellByVk(container, '2 years', 'Hib');
     const select = hibCell.querySelector('select');
     expect(select, 'expected Hib brand dropdown').not.toBeNull();
@@ -280,7 +280,7 @@ describe('ForecastTab — Hib brand list at 2y catch-up', () => {
     // Sanity-symmetric assertion — every column that Vaxelis covers should
     // expose Vaxelis when all four antigens are due. If this assertion fails
     // we have a regression in the broader brand-cascade validity logic.
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
     for (const vk of ['DTaP', 'IPV', 'HepB', 'Hib']) {
       const cell = getCellByVk(container, '2 years', vk);
       const select = cell.querySelector('select');

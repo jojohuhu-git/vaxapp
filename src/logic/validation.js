@@ -15,7 +15,7 @@ import { REFS } from '../data/refs.js';
  * @param {object|null} prevDose - previous dose object or null
  * @param {string} dob - patient date of birth (ISO string)
  */
-export function validateDose(vk, doseIdx, dose, prevDose, dob) {
+export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = null) {
   const spec = MIN_INT[vk];
   if (!spec) return { ok: true };
   const results = [];
@@ -24,8 +24,45 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob) {
   const ageAtDose = doseAgeDays(dose, dob);
   const brand = dose.brand || "";
 
-  // Unknown mode: can't validate timing
+  // Unknown mode: check for impossible min-age conflicts, then skip timing checks
   if (dose.mode === "unknown") {
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const currentAgeDays = isD(dob)
+      ? dBetween(dob, todayISO)
+      : patientAgeDays;
+
+    if (currentAgeDays !== null) {
+      // Vaccine-level min age (D1)
+      if (doseIdx === 0 && spec.minD > 0 && currentAgeDays < spec.minD) {
+        const mos = (spec.minD / 30.4).toFixed(1);
+        const curMos = (currentAgeDays / 30.4).toFixed(1);
+        return { ok: false, err: true, results: [{ type: "min_age_impossible", ok: false, err: true,
+          msg: `Vaccine min age is ${spec.minD} days (~${mos}m). Patient is currently ${currentAgeDays} days old (~${curMos}m) \u2014 this dose could not have been validly given at any point in this patient\u2019s life.`,
+          earliest: isD(dob) ? addD(dob, spec.minD) : null }] };
+      }
+      // Per-dose min age (D2+)
+      if (doseIdx > 0 && Array.isArray(spec.minByDose)) {
+        const minForDose = spec.minByDose[doseIdx] || null;
+        if (minForDose && currentAgeDays < minForDose) {
+          return { ok: false, err: true, results: [{ type: "min_age_impossible", ok: false, err: true,
+            msg: `Dose ${doseIdx + 1} min age is ${minForDose} days (~${(minForDose / 30.4).toFixed(1)}m). Patient is currently ${currentAgeDays} days old (~${(currentAgeDays / 30.4).toFixed(1)}m) \u2014 this dose could not have been validly given.`,
+            earliest: isD(dob) ? addD(dob, minForDose) : null }] };
+        }
+      }
+      // Brand-level min age
+      if (dose.brand) {
+        const bk = Object.keys(BRAND_MIN).find(k => dose.brand.startsWith(k));
+        if (bk) {
+          const bSpec = typeof BRAND_MIN[bk] === "number" ? { d: BRAND_MIN[bk] } : (BRAND_MIN[bk] || {});
+          if (bSpec.d && currentAgeDays < bSpec.d) {
+            return { ok: false, err: true, results: [{ type: "min_age_impossible", ok: false, err: true,
+              msg: `${dose.brand} min age is ${bSpec.d} days (~${(bSpec.d / 30.4).toFixed(1)}m). Patient is currently ${currentAgeDays} days old (~${(currentAgeDays / 30.4).toFixed(1)}m) \u2014 this dose could not have been validly given.`,
+              earliest: isD(dob) ? addD(dob, bSpec.d) : null }] };
+          }
+        }
+      }
+    }
+
     return { ok: true, unknown: true, note: "Date/age unknown \u2014 timing cannot be validated. Series counted by dose number only." };
   }
 
@@ -172,8 +209,12 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob) {
  * @param {string} dob - patient date of birth (ISO string)
  * @param {string[]} risks - patient risk factors (used for series-max checks)
  */
-export function auditAll(hist, dob, risks = []) {
+export function auditAll(hist, dob, risks = [], am = -1) {
   const errors = [];
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const patientAgeDays = isD(dob)
+    ? dBetween(dob, todayISO)
+    : (am >= 0 ? Math.round(am * 30.4) : null);
   for (const vk of VAX_KEYS) {
     // Sort doses chronologically before validating. Without this, doses entered
     // out of order (e.g. user types the most recent dose first) produce false
@@ -246,11 +287,25 @@ export function auditAll(hist, dob, risks = []) {
       }
     }
 
-    // Per-dose validation
+    // Per-dose validation — unknown doses checked only for impossible min-age
     const datedDoses = doses.filter(d => d.mode !== "unknown");
+    doses.filter(d => d.mode === "unknown").forEach((dose, idx) => {
+      const vr = validateDose(vk, idx, dose, null, dob, patientAgeDays);
+      if (!vr.ok && vr.results) {
+        vr.results.filter(r => r.type === "min_age_impossible").forEach(r => {
+          errors.push({ vk, doseNum: idx + 1, type: "min_age_impossible", severity: "err",
+            title: `${VAX_META[vk].n} — Dose ${idx + 1}: Cannot Be Valid (Date Unknown)`,
+            detail: r.msg,
+            action: `Patient has never been old enough for this vaccine. Remove this dose. Earliest valid date: ${fmtD(r.earliest) || "—"}.`,
+            earliest: r.earliest,
+            refUrl: REFS[vk].url, refLabel: REFS[vk].label,
+            refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+        });
+      }
+    });
     datedDoses.forEach((dose, idx) => {
       const prev = idx > 0 ? datedDoses[idx - 1] : null;
-      const vr = validateDose(vk, idx, dose, prev, dob);
+      const vr = validateDose(vk, idx, dose, prev, dob, patientAgeDays);
       if (!vr.ok || vr.grace || vr.offLabel) {
         (vr.results || []).forEach(r => {
           if (r.type === "off_label") {

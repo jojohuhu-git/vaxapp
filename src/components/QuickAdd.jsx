@@ -27,7 +27,10 @@ export default function QuickAdd() {
   const seenCombo = new Set();
   const allBrands = [];
   const seen = new Set();
-  VAX_KEYS.forEach(vk => {
+  const sortedVaxKeys = [...VAX_KEYS].sort((a, b) =>
+    (VAX_META[a]?.n || a).localeCompare(VAX_META[b]?.n || b)
+  );
+  sortedVaxKeys.forEach(vk => {
     const { s, c } = VBR[vk] || {};
     const standalones = [];
     for (const b of (s || [])) {
@@ -141,7 +144,7 @@ export default function QuickAdd() {
           style={{ flex: "1 1 160px", fontSize: 11, padding: "4px 6px" }}
         >
           <option value="">Select brand...</option>
-          {VAX_KEYS.map(vk => brandsByVk[vk] ? (
+          {sortedVaxKeys.map(vk => brandsByVk[vk] ? (
             <optgroup key={vk} label={VAX_META[vk]?.n || vk}>
               {brandsByVk[vk].map(b => (
                 <option key={b.label} value={b.label}>{b.label}</option>

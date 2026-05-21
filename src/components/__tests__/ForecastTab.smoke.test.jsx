@@ -4,7 +4,7 @@ import { renderForecast, getRowLabels } from '../../test-helpers/renderForecast'
 
 describe('ForecastTab smoke test', () => {
   it('mounts with a 2yo and renders the visit table', () => {
-    const { container } = renderForecast({ am: 24, dob: '2025-05-08' });
+    const { container } = renderForecast({ am: 24 });
     const labels = getRowLabels(container);
     expect(labels.length, 'should render at least the routine visit rows').toBeGreaterThan(5);
     expect(labels.some(l => l.startsWith('2 years'))).toBe(true);

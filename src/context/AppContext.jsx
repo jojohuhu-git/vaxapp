@@ -158,8 +158,11 @@ function reducer(state, action) {
       return { ...state, hist: { ...state.hist, [vk]: arr } };
     }
 
-    case "SET_TAB":
-      return { ...state, tab: action.payload, openR: {}, openC: {} };
+    case "SET_TAB": {
+      const validTabs = new Set(["recs", "plan", "forecast"]);
+      const tab = validTabs.has(action.payload) ? action.payload : "recs";
+      return { ...state, tab, openR: {}, openC: {} };
+    }
 
     case "SET_FILTER":
       return { ...state, filter: action.payload };
@@ -307,6 +310,43 @@ function reducer(state, action) {
     default:
       return state;
   }
+}
+
+// ── Effective age selector ─────────────────────────────────────
+/**
+ * Derive the age in months to use for the recommendation engine.
+ * Rules:
+ *   - Only age set (no DOB): use state.am
+ *   - Only DOB set (no age): derive from DOB
+ *   - Both set and they agree within tolerance: use DOB-derived (more precise)
+ *   - Both set and they disagree beyond tolerance: { effectiveAm: -1, conflict: true }
+ *   - Neither set: { effectiveAm: -1, conflict: false }
+ */
+function dobToMonths(dob) {
+  const today = new Date();
+  const birth = new Date(dob);
+  if (isNaN(birth)) return null;
+  let months = (today.getFullYear() - birth.getFullYear()) * 12
+             + (today.getMonth() - birth.getMonth());
+  if (today.getDate() < birth.getDate()) months--;
+  return Math.max(0, months);
+}
+
+export function getEffectiveAm(state) {
+  const manualAm = state.am;
+  const dobAm = state.dob ? dobToMonths(state.dob) : null;
+  const ageSet = manualAm >= 0;
+  const dobSet = dobAm !== null;
+
+  if (!ageSet && !dobSet) return { effectiveAm: -1, conflict: false };
+  if (!ageSet && dobSet)  return { effectiveAm: dobAm, conflict: false };
+  if (ageSet && !dobSet)  return { effectiveAm: manualAm, conflict: false };
+
+  // Both set — check tolerance
+  const ref = manualAm;
+  const tolerance = ref < 24 ? 1 : ref < 72 ? 3 : ref < 144 ? 6 : 12;
+  if (Math.abs(dobAm - manualAm) <= tolerance) return { effectiveAm: dobAm, conflict: false };
+  return { effectiveAm: -1, conflict: true, dobAm, manualAm };
 }
 
 // ── Context + Provider + Hook ──────────────────────────────────

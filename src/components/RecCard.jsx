@@ -1,4 +1,4 @@
-import { useApp } from '../context/AppContext';
+import { useApp, getEffectiveAm } from '../context/AppContext';
 import { VAX_META } from '../data/vaccineData';
 import { CONTRA } from '../data/contraindications';
 import { isD, dBetween, fmtD, addD } from '../logic/utils';
@@ -35,6 +35,7 @@ const STATUS_COLORS = {
 
 export default function RecCard({ rec, index }) {
   const { state, dispatch } = useApp();
+  const { effectiveAm } = getEffectiveAm(state);
   const isOpen = !!state.openR[index];
   const isContraOpen = !!state.openC[index];
   const meta = VAX_META[rec.vk];
@@ -70,7 +71,7 @@ export default function RecCard({ rec, index }) {
   // that case, 1 otherwise.
   let seriesSummary = null;
   if (rec.doseNum != null) {
-    const totalDoses = getTotalDoses(rec.vk, rec, state.fcBrands ?? {}, state.am, state.hist, state.risks, state.dob);
+    const totalDoses = getTotalDoses(rec.vk, rec, state.fcBrands ?? {}, effectiveAm, state.hist, state.risks, state.dob);
     if (totalDoses && rec.doseNum >= 1 && totalDoses >= rec.doseNum) {
       const remainingAfter = Math.max(0, totalDoses - rec.doseNum);
       const ctx = doseContext(rec.status);

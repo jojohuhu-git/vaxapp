@@ -3,7 +3,7 @@
 // Shows earliest-completion visit plan with per-dose binding constraints.
 // Three modes: fewestVisits | earliestCompletion | fewestInjections.
 import { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, getEffectiveAm } from '../context/AppContext';
 import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
 import { validatedHistory } from '../logic/validation';
 import { VAX_META } from '../data/vaccineData';
@@ -142,10 +142,11 @@ export default function OptimalScheduleTab() {
   const { state } = useApp();
   const [mode, setMode] = useState('fewestVisits');
   const validHist = validatedHistory(state.hist, state.dob);
+  const { effectiveAm } = getEffectiveAm(state);
 
   const patient = {
     dob:   state.dob || null,
-    am:    state.am,
+    am:    effectiveAm,
     risks: state.risks ?? [],
     hist:  validHist,
   };

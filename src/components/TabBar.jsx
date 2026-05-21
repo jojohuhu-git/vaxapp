@@ -1,15 +1,12 @@
 import { useApp } from '../context/AppContext';
 
 const TABS = [
-  { id: "recs", label: "Vaccine List" },
-  { id: "regimen", label: "Regimen Optimizer" },
-  { id: "forecast", label: "Full Forecast" },
-  { id: "catchup", label: "Catch-up Table" },
-  { id: "optimal", label: "Optimal Schedule" },
-  { id: "brandschedule", label: "Brand Schedules" },
+  { id: "recs",     label: "Today" },
+  { id: "plan",     label: "Plan" },
+  { id: "forecast", label: "Forecast" },
 ];
 
-export default function TabBar() {
+export default function TabBar({ onReference }) {
   const { state, dispatch } = useApp();
 
   return (
@@ -23,6 +20,14 @@ export default function TabBar() {
           {t.label}
         </button>
       ))}
+      <button
+        className="tab"
+        style={{ marginLeft: 'auto' }}
+        onClick={onReference}
+        title="CDC catch-up table and brand schedule reference"
+      >
+        Reference ↗
+      </button>
     </div>
   );
 }

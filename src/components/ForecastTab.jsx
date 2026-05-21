@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 import { useState } from 'react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
-import { useApp } from '../context/AppContext';
+import { useApp, getEffectiveAm } from '../context/AppContext';
 import { FORECAST_VISITS } from '../data/forecastData';
 import { VAX_META, COMBO_COVERS, VAX_KEYS } from '../data/vaccineData';
 import { genRecs } from '../logic/recommendations';
@@ -128,7 +128,7 @@ function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fc
 
 export default function ForecastTab({ recs }) {
   const { state, dispatch } = useApp();
-  const am = state.am;
+  const am = getEffectiveAm(state).effectiveAm;
 
   const [showPast, setShowPast] = useState(false);
   // Map<fcKey, {ageM, date, vk, visitM}> — doses moved to earliest eligible date
@@ -727,7 +727,7 @@ export default function ForecastTab({ recs }) {
                     // across age-dependent dose counts, e.g. HPV 2-dose started
                     // <15y should stay "of 2" even when D2 lands at 16y).
                     const totalForVk = (proj && proj.totalDoses)
-                      || getTotalDoses(vk, rec || { doseNum, dose: "" }, state.fcBrands, state.am, validHist, state.risks);
+                      || getTotalDoses(vk, rec || { doseNum, dose: "" }, state.fcBrands, am, validHist, state.risks);
                     const isAnnual = vk === "Flu" || vk === "COVID";
                     const fmtDose = (n) => {
                       if (isAnnual) return "Annual";

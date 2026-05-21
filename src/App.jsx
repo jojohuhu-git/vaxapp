@@ -5,11 +5,37 @@ import Header from './components/Header';
 import PatientInfo from './components/PatientInfo';
 import QuickAdd from './components/QuickAdd';
 import HistoryTable from './components/HistoryTable';
-import AuditPanel from './components/AuditPanel';
+import AuditFooter from './components/AuditFooter';
 import RiskGrid from './components/RiskGrid';
 import MainPanel from './components/MainPanel';
 import ShareModal from './components/ShareModal';
 import Disclaimer from './components/Disclaimer';
+
+function CollapsibleCard({ title, children, defaultOpen = true, badge }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="card" style={{ padding: 0 }}>
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '10px 14px', cursor: 'pointer', userSelect: 'none',
+        }}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--g)', textTransform: 'uppercase', letterSpacing: '.7px', flex: 1 }}>
+          {title}
+        </span>
+        {badge}
+        <span style={{ fontSize: 10, color: '#aaa' }}>{open ? '▲' : '▼'}</span>
+      </div>
+      {open && (
+        <div style={{ padding: '0 14px 12px' }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AppInner() {
   const { state, dispatch } = useApp();
@@ -83,27 +109,41 @@ function AppInner() {
 
       <div className="app">
         <div className="sidebar">
-          <PatientInfo />
-          <div className="card">
-            <div className="ctitle">
-              Vaccination History
-            </div>
-            <QuickAdd />
-            <HistoryTable />
-          </div>
-          <div className="card">
-            <div className="ctitle">
-              Schedule Review
-            </div>
-            <AuditPanel />
+          {/* Patient Info — collapsible */}
+          <CollapsibleCard title="① Patient Information" defaultOpen={true}>
+            <PatientInfo inAccordion />
+          </CollapsibleCard>
+
+          {/* Risk Factors — collapsible */}
+          <CollapsibleCard title="Risk Factors" defaultOpen={false}>
             <RiskGrid />
+          </CollapsibleCard>
+
+          {/* Vaccination History — sticky Quick Add + table */}
+          <div className="card" style={{ padding: 0 }}>
+            <div style={{ padding: '10px 14px 0' }}>
+              <div className="ctitle" style={{ marginBottom: 8 }}>Vaccination History</div>
+              {/* Quick Add is sticky within the sidebar scroll container */}
+              <div style={{
+                position: 'sticky', top: 0, zIndex: 10,
+                background: '#fff', paddingBottom: 6, marginBottom: 2,
+              }}>
+                <QuickAdd />
+              </div>
+            </div>
+            <div style={{ padding: '0 14px 12px' }}>
+              <HistoryTable />
+            </div>
           </div>
+
           <Disclaimer />
         </div>
         <div className="main">
           <MainPanel />
         </div>
       </div>
+
+      <AuditFooter />
 
       {showShare && (
         <ShareModal onClose={() => setShowShare(false)} />

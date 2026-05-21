@@ -58,15 +58,14 @@ export default function PatientInfo() {
     setDobRaw(fmtDateInput(state.dob));
   }, [state.dob]);
 
-  // DOB ↔ Age mismatch detection
+  // DOB-derived age label (shown below Age dropdown as a hint when DOB is set)
   const dobMonths = state.dob ? dobToMonths(state.dob) : null;
-  const ageSet = state.am >= 0;
-  const mismatch = (() => {
-    if (!ageSet || dobMonths === null) return null;
+  const dobHint = (() => {
+    if (dobMonths === null) return null;
+    if (state.am < 0) return null; // only show hint if both are set
     const diff = Math.abs(dobMonths - state.am);
-    // Tolerance: 1m for infants, 3m for toddlers, 6m for school-age, 12m for teens+
     const tolerance = state.am < 24 ? 1 : state.am < 72 ? 3 : state.am < 144 ? 6 : 12;
-    if (diff <= tolerance) return null;
+    if (diff <= tolerance) return null; // agree — no hint needed
     const dobYears = Math.floor(dobMonths / 12);
     const dobRemMonths = dobMonths % 12;
     const dobLabel = dobMonths < 24
@@ -74,7 +73,7 @@ export default function PatientInfo() {
       : dobRemMonths === 0
         ? `${dobYears} year${dobYears !== 1 ? 's' : ''}`
         : `${dobYears}y ${dobRemMonths}m`;
-    return `DOB suggests age ${dobLabel} — does not match selected age.`;
+    return `DOB suggests ${dobLabel} — conflict detected.`;
   })();
 
   const showCD4 = state.risks.includes("hiv");
@@ -84,10 +83,7 @@ export default function PatientInfo() {
   const cd4Threshold = cd4IsPercent ? "≥15% allows live vaccines" : "≥200 allows live vaccines";
 
   return (
-    <div className="card">
-      <div className="ctitle">
-        <span>&#x2460;</span> Patient Information
-      </div>
+    <div>
       <div className="field">
         <label htmlFor="age-sel">Age</label>
         <select
@@ -102,13 +98,13 @@ export default function PatientInfo() {
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
-        {mismatch && (
+        {dobHint && (
           <div style={{
             marginTop: 4, fontSize: 11, color: "#8B1A1A",
             background: "#fdf0ef", border: "1px solid #f5b7b1",
             padding: "3px 7px", borderRadius: 2,
           }}>
-            ⚠ {mismatch}
+            ⚠ {dobHint} Resolve in the panel to the right.
           </div>
         )}
       </div>
