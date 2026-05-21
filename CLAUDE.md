@@ -617,12 +617,11 @@ Why? popovers replace internal engine chip labels. Key functions:
 - `WhyPopover` + `WhyButton` — portal-based popover components
 
 #### `src/components/ForecastTab.jsx`
-Five improvements (see detail in HANDOFF.md):
+Two improvements:
 1. **Cell popover** — `CellPopover` portal component; `openCell` state `{ key, rect }`; chips with `rec.note` get `.fch-info` class and are clickable
 2. **Sticky headers** — `.fc-wrap` is `max-height:65vh; overflow-y:auto`; `thead th` sticky; `td.vlbl` sticky left with per-row-type background overrides
-3. **Auto-hide complete columns** — `displayVks = hideComplete ? allVks.filter(vk => planVks.has(vk)) : allVks`; `completeVks = allVks.filter(vk => !planVks.has(vk))`; defaults hidden
-4. **Compact density toggle** — `density` state `'normal'|'compact'`; `fc-tbl-compact` CSS class
-5. **Controls bar** — legend + "N complete vaccines" toggle + Comfortable/Compact buttons
+
+Note: hide-complete + density toggles were **removed** on 2026-05-21 to reclaim space. See memory file `project_forecast_toggles_removed.md` for restore recipe.
 
 ### Portal Popover Pattern (used in OptimalScheduleTab + ForecastTab)
 ```jsx
@@ -649,14 +648,25 @@ Key rules:
 - `e.stopPropagation()` on links inside the popover prevents accidental close
 - `useEffect` Escape-key listener with cleanup in the popover component
 
+### App layout (updated 2026-05-21)
+The two-column sidebar+main layout was replaced with a single-column layout plus a compact patient summary bar.
+
+**`src/App.jsx`**
+- `PatientSummaryBar` — inline bar showing age / DOB / risks / dose count + "Edit ▾" button. Red dot on the button when DOB/age conflict exists.
+- `PatientDrawer` — portal (`createPortal` to `document.body`) that drops from the top; contains `PatientInfo` + `RiskGrid` + `QuickAdd` + `HistoryTable` in a 3-column grid. Closes on ×, backdrop click, or Escape.
+- The old `.sidebar` div and `CollapsibleCard` helper are **removed**.
+- Main content now in `.app-single` (single-column, `max-width:1380px`).
+
+**CSS** — added `.app-single{max-width:1380px;margin:8px auto 0;padding:0 14px 110px;}`. The old `.app` grid rule is kept but unused.
+
 ### CSS additions (src/App.css)
 - `.fc-wrap` — `overflow-y:auto; max-height:65vh; border; border-radius`
 - `.fc-tbl th` — `position:sticky; top:0; z-index:2`
 - `.fc-tbl th.vlbl-th` — `position:sticky; left:0; z-index:3` (corner)
 - `.fc-tbl td.vlbl` — `position:sticky; left:0; z-index:1` + per-row-type bg overrides
 - `.fch-info` — `cursor:pointer` + brightness hover
-- `.fc-tbl-compact *` — reduced padding/font rules for compact mode
 - Past row color changed from `opacity:.5` to explicit `color:#777` so sticky vlbl bg is solid
+- `.app-single` — single-column container replacing `.app` grid
 
 ### Deferred items
 - **After Visit Summary PDF** — provider-facing PDF for the Today panel; significant scope
