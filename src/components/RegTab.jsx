@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, getEffectiveAm } from '../context/AppContext';
 import { buildRegimens } from '../logic/regimens';
 import { analyzeCombo } from '../logic/comboAnalyzer';
 import { VAX_META, COMBOS } from '../data/vaccineData';
@@ -8,8 +8,9 @@ import { brandAgeNotesFor } from '../data/brandAgeNotes';
 export default function RegTab({ recs }) {
   const { state, dispatch } = useApp();
   const [analysis, setAnalysis] = useState(null);
+  const am = getEffectiveAm(state).effectiveAm;
 
-  const regimens = buildRegimens(recs, state.am);
+  const regimens = buildRegimens(recs, am);
 
   // Same inclusion set as the regimen optimizer: every rec that represents a
   // dose to administer at this visit, including risk-based (e.g. asplenia
@@ -38,7 +39,7 @@ export default function RegTab({ recs }) {
   }
 
   function handleAnalyze() {
-    const result = analyzeCombo(state.custSel, state.am);
+    const result = analyzeCombo(state.custSel, am);
     setAnalysis(result);
   }
 
@@ -91,7 +92,6 @@ export default function RegTab({ recs }) {
 
       {/* Combo table — all age-appropriate combos */}
       {(() => {
-        const am = state.am;
         const allCombos = Object.entries(COMBOS).filter(([name, c]) => {
           if (am < c.minM || am > c.maxM) return false;
           if (!comboAllowedByDose(name, c)) return false;

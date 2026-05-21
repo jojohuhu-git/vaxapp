@@ -203,7 +203,9 @@ function StandardGroupCard({ vk, vkErrors }) {
 
 export default function AuditPanel() {
   const { state } = useApp();
-  const errors = auditAll(state.hist, state.dob, state.risks);
+  const errors = auditAll(state.hist, state.dob, state.risks, state.am);
+  const errCount = errors.filter(e => e.severity === "err").length;
+  const warnCount = errors.filter(e => e.severity === "warn" || e.severity === "grace" || e.severity === "offLabel").length;
 
   // Group entries by vaccine key
   const grouped = errors.reduce((acc, err) => {

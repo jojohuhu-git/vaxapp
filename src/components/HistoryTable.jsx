@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData';
 import { sortDosesByDate } from '../logic/utils';
@@ -8,6 +9,12 @@ const HIGH_RISK_MEN = ["asplenia", "complement", "complement_inhibitor", "hiv"];
 export default function HistoryTable() {
   const { state } = useApp();
   const isHighRiskMen = state.risks.some(r => HIGH_RISK_MEN.includes(r));
+  const [showAll, setShowAll] = useState(false);
+
+  const visibleKeys = showAll
+    ? VAX_KEYS
+    : VAX_KEYS.filter(vk => (state.hist[vk] || []).length > 0);
+  const hiddenCount = VAX_KEYS.length - visibleKeys.length;
 
   return (
     <div className="htbl-wrap">
@@ -19,7 +26,26 @@ export default function HistoryTable() {
           </tr>
         </thead>
         <tbody>
-          {VAX_KEYS.map(vk => {
+          {visibleKeys.length === 0 && (
+            <tr>
+              <td colSpan={2} style={{ fontSize: 11, color: '#888', fontStyle: 'italic', padding: '8px 4px' }}>
+                No vaccines recorded yet. Use Quick Add above, or{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowAll(true)}
+                  style={{
+                    background: 'none', border: 'none', padding: 0,
+                    color: '#1a3a6b', textDecoration: 'underline', cursor: 'pointer',
+                    font: 'inherit',
+                  }}
+                >
+                  show all {VAX_KEYS.length} vaccines
+                </button>
+                {' '}to add a dose row directly.
+              </td>
+            </tr>
+          )}
+          {visibleKeys.map(vk => {
             const meta = VAX_META[vk];
             const rawDoses = state.hist[vk] || [];
             const sorted = sortDosesByDate(rawDoses, state.dob);
@@ -57,6 +83,36 @@ export default function HistoryTable() {
           })}
         </tbody>
       </table>
+      {hiddenCount > 0 && (
+        <div style={{ marginTop: 8, textAlign: 'right' }}>
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            style={{
+              fontSize: 11, padding: '4px 10px',
+              background: '#f4f7fb', border: '1px solid #cfd6df',
+              borderRadius: 4, cursor: 'pointer', color: '#1a3a6b',
+            }}
+          >
+            + Show {hiddenCount} more vaccine{hiddenCount !== 1 ? 's' : ''}
+          </button>
+        </div>
+      )}
+      {showAll && hiddenCount === 0 && VAX_KEYS.some(vk => (state.hist[vk] || []).length === 0) && (
+        <div style={{ marginTop: 8, textAlign: 'right' }}>
+          <button
+            type="button"
+            onClick={() => setShowAll(false)}
+            style={{
+              fontSize: 11, padding: '4px 10px',
+              background: '#fff', border: '1px solid #cfd6df',
+              borderRadius: 4, cursor: 'pointer', color: '#555',
+            }}
+          >
+            Hide empty vaccines
+          </button>
+        </div>
+      )}
     </div>
   );
 }

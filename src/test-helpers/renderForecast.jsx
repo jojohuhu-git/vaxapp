@@ -34,7 +34,7 @@ vi.mock('@react-pdf/renderer', () => ({
 }));
 
 import { act, render } from '@testing-library/react';
-import { AppProvider, useApp } from '../context/AppContext';
+import { AppProvider, useApp, getEffectiveAm } from '../context/AppContext';
 import ForecastTab from '../components/ForecastTab';
 import { genRecs } from '../logic/recommendations';
 import { validatedHistory } from '../logic/validation';
@@ -58,13 +58,14 @@ function CaptureDispatch({ onReady }) {
   return null;
 }
 
-// Renders ForecastTab once state.am is set. Recomputes recs the same way
-// MainPanel does so tests exercise the real production flow.
+// Renders ForecastTab once an effective age is known. Recomputes recs the
+// same way MainPanel does so tests exercise the real production flow.
 function ForecastWithRecs() {
   const { state } = useApp();
-  if (state.am < 0) return null;
+  const { effectiveAm, conflict } = getEffectiveAm(state);
+  if (conflict || effectiveAm < 0) return null;
   const validHist = validatedHistory(state.hist, state.dob);
-  const recs = genRecs(state.am, validHist, state.risks, state.dob, {
+  const recs = genRecs(effectiveAm, validHist, state.risks, state.dob, {
     fcBrands: state.fcBrands,
   });
   return <ForecastTab recs={recs} />;

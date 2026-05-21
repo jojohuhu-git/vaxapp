@@ -15,7 +15,7 @@ const FILTERS = [
 export default function RecTab({ recs }) {
   const { state, dispatch } = useApp();
 
-  const errors = auditAll(state.hist, state.dob, state.risks);
+  const errors = auditAll(state.hist, state.dob, state.risks, state.am);
   const errCount = errors.filter(e => e.severity === "err").length;
 
   // Filter

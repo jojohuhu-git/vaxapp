@@ -120,14 +120,14 @@ Twinrix:   { HepA: [1,null], HepB: [1,null] }
 
 Note: Pentacel+IPV is [1,3] — at the 4-6y booster visit, IPV D4 must pair with DTaP D5 via Kinrix/Quadracel, not Pentacel.
 
-## Worktree vs. main repo paths
+## Active branch — where to edit
 
-**Always edit the worktree, never the main repo root.**
+**The active feature branch `feat/ui-improvements` lives in the main repo root.**
 
-- Worktree (active branch): `/Users/joannehuang/Downloads/vaxapp-main/.claude/worktrees/suspicious-satoshi-ada3b6/`
-- Main repo root: `/Users/joannehuang/Downloads/vaxapp-main/` (currently on `fix/menb-d3-brand-list`)
+- **Edit here:** `/Users/joannehuang/Downloads/vaxapp-main/src/`
+- **Do NOT edit:** `.claude/worktrees/` — those worktrees are stale and on different branches
 
-Before editing any file, confirm the path starts with the worktree path above. If you accidentally edit the main repo, restore it with `git checkout -- <file>` from the main repo root.
+Verify before editing: `cd /Users/joannehuang/Downloads/vaxapp-main && git branch` should show `* feat/ui-improvements`.
 
 ## Dev server
 
@@ -630,3 +630,100 @@ Never render `(age ~{t.ageM}m)` directly — null renders as blank, producing "a
 Test count: **696** (as of 2026-05-20).
 
 674 tests pass after changes.
+
+---
+
+## UI Components (added 2026-05-21, branch feat/ui-improvements)
+
+**Tests:** 2,077 passing (146 files) after all UI work.
+
+**Layout change (2026-05-21, commit b6c6479):** Left sidebar removed; replaced with compact `PatientSummaryBar` + `PatientDrawer`. ForecastTab hide-complete/density toggles removed. See "App layout" subsection below.
+
+### New components
+
+#### `src/components/DateField.jsx`
+Reusable masked date input (MM/DD/YYYY) + 📅 calendar picker button.
+- `value`: ISO `"YYYY-MM-DD"` string (or `""`)
+- `onChange(iso)`: always called with an ISO string
+- `width`, `hasError`, `onEnter` optional props
+- Hidden `<input type="date">` is triggered via `showPicker()` from the 📅 button
+- Used by `PatientInfo.jsx` and `QuickAdd.jsx`
+
+#### `src/components/AuditFooter.jsx`
+Fixed bottom strip replacing the old thin count-only bar. Severity-driven filled colors:
+- Red (`#fbe6e6` / `#c0392b`) for errors
+- Amber (`#fff3d6` / `#d68910`) for warnings/advisories  
+- Green (`#e6f5ea` / `#27ae60`) for clean
+Shows inline preview of first 1–2 findings without any click required. Expands to a slide-up detail panel on click.
+
+### Refactored components
+
+#### `src/components/PatientInfo.jsx`
+- `AgeTypeahead` inline combobox: substring filter, full keyboard nav (↑↓ Enter Esc), scrolls active item into view, reverts on outside-click or Escape
+- `DateField` replaces manual masked DOB input
+- DOB/age mismatch hint shown only when diff exceeds a tolerance window
+
+#### `src/components/HistoryTable.jsx`
+Default compact view: only shows rows with recorded doses. "+ Show N more vaccines" / "Hide empty vaccines" toggle.
+
+#### `src/components/OptimalScheduleTab.jsx`
+Why? popovers replace internal engine chip labels. Key functions:
+- `humanDays(d)` — converts days to natural units
+- `explainConstraint(dose, allFlatDoses)` → `{ summary, detail, refUrl, refLabel }`
+- `WhyPopover` + `WhyButton` — portal-based popover components
+
+#### `src/components/ForecastTab.jsx`
+Two improvements:
+1. **Cell popover** — `CellPopover` portal component; `openCell` state `{ key, rect }`; chips with `rec.note` get `.fch-info` class and are clickable
+2. **Sticky headers** — `.fc-wrap` is `max-height:65vh; overflow-y:auto`; `thead th` sticky; `td.vlbl` sticky left with per-row-type background overrides
+
+Note: hide-complete + density toggles were **removed** on 2026-05-21 to reclaim space. See memory file `project_forecast_toggles_removed.md` for restore recipe.
+
+### Portal Popover Pattern (used in OptimalScheduleTab + ForecastTab)
+```jsx
+// Always portal to document.body to escape overflow:hidden containers
+import { createPortal } from 'react-dom';
+
+// Position: capture getBoundingClientRect() in the onClick handler (not via ref)
+onClick={(e) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  setOpenKey(prev => prev === key ? null : key);
+  anchorRectRef.current = rect;
+}}
+
+// In the popover, add window.scrollY/scrollX to rect values for correct
+// absolute positioning inside a scrolling container.
+const top = above
+  ? anchorRect.top + window.scrollY - popH - 8
+  : anchorRect.bottom + window.scrollY + 8;
+```
+
+Key rules:
+- `window.scrollY`/`scrollX` are REQUIRED when the trigger can scroll inside a container
+- Backdrop `div` with `position:fixed; inset:0` closes on outside click
+- `e.stopPropagation()` on links inside the popover prevents accidental close
+- `useEffect` Escape-key listener with cleanup in the popover component
+
+### App layout (updated 2026-05-21)
+The two-column sidebar+main layout was replaced with a single-column layout plus a compact patient summary bar.
+
+**`src/App.jsx`**
+- `PatientSummaryBar` — inline bar showing age / DOB / risks / dose count + "Edit ▾" button. Red dot on the button when DOB/age conflict exists.
+- `PatientDrawer` — portal (`createPortal` to `document.body`) that drops from the top; contains `PatientInfo` + `RiskGrid` + `QuickAdd` + `HistoryTable` in a 3-column grid. Closes on ×, backdrop click, or Escape.
+- The old `.sidebar` div and `CollapsibleCard` helper are **removed**.
+- Main content now in `.app-single` (single-column, `max-width:1380px`).
+
+**CSS** — added `.app-single{max-width:1380px;margin:8px auto 0;padding:0 14px 110px;}`. The old `.app` grid rule is kept but unused.
+
+### CSS additions (src/App.css)
+- `.fc-wrap` — `overflow-y:auto; max-height:65vh; border; border-radius`
+- `.fc-tbl th` — `position:sticky; top:0; z-index:2`
+- `.fc-tbl th.vlbl-th` — `position:sticky; left:0; z-index:3` (corner)
+- `.fc-tbl td.vlbl` — `position:sticky; left:0; z-index:1` + per-row-type bg overrides
+- `.fch-info` — `cursor:pointer` + brightness hover
+- Past row color changed from `opacity:.5` to explicit `color:#777` so sticky vlbl bg is solid
+- `.app-single` — single-column container replacing `.app` grid
+
+### Deferred items
+- **After Visit Summary PDF** — provider-facing PDF for the Today panel; significant scope
+- **Vaccine history upload** — OCR/parse external records; needs backend or WASM OCR

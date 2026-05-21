@@ -1,20 +1,166 @@
+/* eslint-disable react/prop-types */
 import { useState, useEffect, useRef } from 'react';
-import { AppProvider, useApp } from './context/AppContext';
+import { createPortal } from 'react-dom';
+import { AppProvider, useApp, getEffectiveAm } from './context/AppContext';
 import { encState, decState } from './logic/urlState';
+import { RISK_FACTORS } from './data/riskFactors';
 import Header from './components/Header';
 import PatientInfo from './components/PatientInfo';
 import QuickAdd from './components/QuickAdd';
 import HistoryTable from './components/HistoryTable';
-import AuditPanel from './components/AuditPanel';
+import AuditFooter from './components/AuditFooter';
 import RiskGrid from './components/RiskGrid';
 import MainPanel from './components/MainPanel';
 import ShareModal from './components/ShareModal';
 import Disclaimer from './components/Disclaimer';
 
+function fmtAm(am) {
+  if (am < 0) return null;
+  if (am < 24) return `${am}m`;
+  const y = Math.floor(am / 12);
+  const m = am % 12;
+  return m ? `${y}y ${m}m` : `${y}y`;
+}
+
+function PatientDrawer({ onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <>
+      <div
+        style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,.25)' }}
+        onClick={onClose}
+      />
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 401,
+        background: '#fff', borderBottom: '1px solid #d0d7e2',
+        boxShadow: '0 4px 24px rgba(0,0,0,.14)',
+        maxHeight: '85vh', overflowY: 'auto',
+        padding: '16px 20px 20px',
+      }}>
+        <div style={{ maxWidth: 1380, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button
+              onClick={onClose}
+              style={{
+                border: 'none', background: 'none', cursor: 'pointer',
+                fontSize: 20, color: '#888', lineHeight: 1, padding: '0 4px',
+              }}
+            >&times;</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '300px 260px 1fr', gap: 20, alignItems: 'start' }}>
+            <div>
+              <div className="ctitle" style={{ marginBottom: 8 }}>Patient Information</div>
+              <PatientInfo inAccordion />
+            </div>
+            <div>
+              <RiskGrid />
+            </div>
+            <div>
+              <div className="ctitle" style={{ marginBottom: 8 }}>Vaccination History</div>
+              <QuickAdd />
+              <div style={{ marginTop: 8 }}>
+                <HistoryTable />
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <Disclaimer />
+          </div>
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
+function PatientSummaryBar({ onEdit, drawerOpen }) {
+  const { state } = useApp();
+  const { effectiveAm, conflict } = getEffectiveAm(state);
+
+  const ageLabel = conflict
+    ? 'Age conflict'
+    : effectiveAm >= 0
+    ? fmtAm(effectiveAm)
+    : 'No age set';
+
+  const riskLabels = state.risks
+    .map(id => RISK_FACTORS.find(r => r.id === id)?.l || id)
+    .filter(Boolean);
+  const riskText = riskLabels.length === 0
+    ? 'No risk factors'
+    : riskLabels.length <= 2
+    ? riskLabels.join(', ')
+    : `${riskLabels.slice(0, 2).join(', ')} +${riskLabels.length - 2} more`;
+
+  const doseCount = Object.values(state.hist)
+    .reduce((sum, arr) => sum + arr.filter(d => d.given !== false).length, 0);
+
+  const dobLabel = state.dob
+    ? state.dob.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$2/$3/$1')
+    : null;
+
+  return (
+    <div style={{
+      maxWidth: 1380, margin: '8px auto 0', padding: '0 14px',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        background: '#f4f7fb', border: '1px solid #d0d7e2', borderRadius: 8,
+        padding: '7px 14px', fontSize: 12.5,
+      }}>
+        <span style={{ fontWeight: 700, color: '#1a3a6b', minWidth: 60 }}>
+          {effectiveAm >= 0 ? ageLabel : <span style={{ color: '#aaa' }}>{ageLabel}</span>}
+        </span>
+        {dobLabel && (
+          <>
+            <span style={{ color: '#bbb' }}>·</span>
+            <span style={{ color: '#555' }}>DOB {dobLabel}</span>
+          </>
+        )}
+        <span style={{ color: '#bbb' }}>·</span>
+        <span style={{ color: state.risks.length > 0 ? '#8B4513' : '#aaa' }}>
+          {riskText}
+        </span>
+        <span style={{ color: '#bbb' }}>·</span>
+        <span style={{ color: doseCount > 0 ? '#2e7d32' : '#aaa' }}>
+          {doseCount > 0 ? `${doseCount} dose${doseCount !== 1 ? 's' : ''} recorded` : 'No history'}
+        </span>
+        <button
+          onClick={onEdit}
+          style={{
+            marginLeft: 'auto', flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '4px 12px', fontSize: 12, fontWeight: 600,
+            border: '1px solid', borderRadius: 5, cursor: 'pointer',
+            background: drawerOpen ? '#1a3a6b' : '#fff',
+            color: drawerOpen ? '#fff' : '#1a3a6b',
+            borderColor: '#1a3a6b',
+            fontFamily: 'inherit',
+          }}
+        >
+          {conflict && (
+            <span style={{
+              display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
+              background: '#c0392b', flexShrink: 0,
+            }} />
+          )}
+          {drawerOpen ? 'Close ▲' : 'Edit ▾'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AppInner() {
   const { state, dispatch } = useApp();
   const [showShare, setShowShare] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const initialized = useRef(false);
 
   // Restore state from URL on mount
@@ -26,7 +172,7 @@ function AppInner() {
         const decoded = decState(s);
         if (decoded) dispatch({ type: "RESTORE_STATE", payload: decoded });
       }
-    } catch (e) {
+    } catch {
       // ignore URL parse errors
     }
     initialized.current = true;
@@ -42,7 +188,7 @@ function AppInner() {
         const url = `${window.location.pathname}?s=${encodeURIComponent(enc)}`;
         window.history.replaceState(null, "", url);
       }
-    } catch (e) {
+    } catch {
       // ignore encoding errors
     }
   }, [state]);
@@ -81,29 +227,17 @@ function AppInner() {
         </div>
       )}
 
-      <div className="app">
-        <div className="sidebar">
-          <PatientInfo />
-          <div className="card">
-            <div className="ctitle">
-              Vaccination History
-            </div>
-            <QuickAdd />
-            <HistoryTable />
-          </div>
-          <div className="card">
-            <div className="ctitle">
-              Schedule Review
-            </div>
-            <AuditPanel />
-            <RiskGrid />
-          </div>
-          <Disclaimer />
-        </div>
-        <div className="main">
-          <MainPanel />
-        </div>
+      <PatientSummaryBar
+        onEdit={() => setDrawerOpen(v => !v)}
+        drawerOpen={drawerOpen}
+      />
+      {drawerOpen && <PatientDrawer onClose={() => setDrawerOpen(false)} />}
+
+      <div className="app-single">
+        <MainPanel />
       </div>
+
+      <AuditFooter />
 
       {showShare && (
         <ShareModal onClose={() => setShowShare(false)} />
