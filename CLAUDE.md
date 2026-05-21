@@ -120,14 +120,14 @@ Twinrix:   { HepA: [1,null], HepB: [1,null] }
 
 Note: Pentacel+IPV is [1,3] — at the 4-6y booster visit, IPV D4 must pair with DTaP D5 via Kinrix/Quadracel, not Pentacel.
 
-## Worktree vs. main repo paths
+## Active branch — where to edit
 
-**Always edit the worktree, never the main repo root.**
+**The active feature branch `feat/ui-improvements` lives in the main repo root.**
 
-- Worktree (active branch): `/Users/joannehuang/Downloads/vaxapp-main/.claude/worktrees/suspicious-satoshi-ada3b6/`
-- Main repo root: `/Users/joannehuang/Downloads/vaxapp-main/` (currently on `fix/menb-d3-brand-list`)
+- **Edit here:** `/Users/joannehuang/Downloads/vaxapp-main/src/`
+- **Do NOT edit:** `.claude/worktrees/` — those worktrees are stale and on different branches
 
-Before editing any file, confirm the path starts with the worktree path above. If you accidentally edit the main repo, restore it with `git checkout -- <file>` from the main repo root.
+Verify before editing: `cd /Users/joannehuang/Downloads/vaxapp-main && git branch` should show `* feat/ui-improvements`.
 
 ## Dev server
 
@@ -576,3 +576,88 @@ Checked all 55 unique URLs in `src/data/refs.js` — all return HTTP 200.
 All other anchors (`note-hepb`, `note-rotavirus`, `note-dtap`, `note-hib`, `note-pneumo`, `note-polio`, `note-mmr`, `note-varicella`, `note-hepa`, `note-hpv`, `note-mening`, `note-mening-b`) verified present on the live CDC page.
 
 674 tests pass after changes.
+
+---
+
+## UI Components (added 2026-05-21, branch feat/ui-improvements)
+
+**Tests:** 2,077 passing (146 files) after all UI work.
+
+### New components
+
+#### `src/components/DateField.jsx`
+Reusable masked date input (MM/DD/YYYY) + 📅 calendar picker button.
+- `value`: ISO `"YYYY-MM-DD"` string (or `""`)
+- `onChange(iso)`: always called with an ISO string
+- `width`, `hasError`, `onEnter` optional props
+- Hidden `<input type="date">` is triggered via `showPicker()` from the 📅 button
+- Used by `PatientInfo.jsx` and `QuickAdd.jsx`
+
+#### `src/components/AuditFooter.jsx`
+Fixed bottom strip replacing the old thin count-only bar. Severity-driven filled colors:
+- Red (`#fbe6e6` / `#c0392b`) for errors
+- Amber (`#fff3d6` / `#d68910`) for warnings/advisories  
+- Green (`#e6f5ea` / `#27ae60`) for clean
+Shows inline preview of first 1–2 findings without any click required. Expands to a slide-up detail panel on click.
+
+### Refactored components
+
+#### `src/components/PatientInfo.jsx`
+- `AgeTypeahead` inline combobox: substring filter, full keyboard nav (↑↓ Enter Esc), scrolls active item into view, reverts on outside-click or Escape
+- `DateField` replaces manual masked DOB input
+- DOB/age mismatch hint shown only when diff exceeds a tolerance window
+
+#### `src/components/HistoryTable.jsx`
+Default compact view: only shows rows with recorded doses. "+ Show N more vaccines" / "Hide empty vaccines" toggle.
+
+#### `src/components/OptimalScheduleTab.jsx`
+Why? popovers replace internal engine chip labels. Key functions:
+- `humanDays(d)` — converts days to natural units
+- `explainConstraint(dose, allFlatDoses)` → `{ summary, detail, refUrl, refLabel }`
+- `WhyPopover` + `WhyButton` — portal-based popover components
+
+#### `src/components/ForecastTab.jsx`
+Five improvements (see detail in HANDOFF.md):
+1. **Cell popover** — `CellPopover` portal component; `openCell` state `{ key, rect }`; chips with `rec.note` get `.fch-info` class and are clickable
+2. **Sticky headers** — `.fc-wrap` is `max-height:65vh; overflow-y:auto`; `thead th` sticky; `td.vlbl` sticky left with per-row-type background overrides
+3. **Auto-hide complete columns** — `displayVks = hideComplete ? allVks.filter(vk => planVks.has(vk)) : allVks`; `completeVks = allVks.filter(vk => !planVks.has(vk))`; defaults hidden
+4. **Compact density toggle** — `density` state `'normal'|'compact'`; `fc-tbl-compact` CSS class
+5. **Controls bar** — legend + "N complete vaccines" toggle + Comfortable/Compact buttons
+
+### Portal Popover Pattern (used in OptimalScheduleTab + ForecastTab)
+```jsx
+// Always portal to document.body to escape overflow:hidden containers
+import { createPortal } from 'react-dom';
+
+// Position: capture getBoundingClientRect() in the onClick handler (not via ref)
+onClick={(e) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  setOpenKey(prev => prev === key ? null : key);
+  anchorRectRef.current = rect;
+}}
+
+// In the popover, add window.scrollY/scrollX to rect values for correct
+// absolute positioning inside a scrolling container.
+const top = above
+  ? anchorRect.top + window.scrollY - popH - 8
+  : anchorRect.bottom + window.scrollY + 8;
+```
+
+Key rules:
+- `window.scrollY`/`scrollX` are REQUIRED when the trigger can scroll inside a container
+- Backdrop `div` with `position:fixed; inset:0` closes on outside click
+- `e.stopPropagation()` on links inside the popover prevents accidental close
+- `useEffect` Escape-key listener with cleanup in the popover component
+
+### CSS additions (src/App.css)
+- `.fc-wrap` — `overflow-y:auto; max-height:65vh; border; border-radius`
+- `.fc-tbl th` — `position:sticky; top:0; z-index:2`
+- `.fc-tbl th.vlbl-th` — `position:sticky; left:0; z-index:3` (corner)
+- `.fc-tbl td.vlbl` — `position:sticky; left:0; z-index:1` + per-row-type bg overrides
+- `.fch-info` — `cursor:pointer` + brightness hover
+- `.fc-tbl-compact *` — reduced padding/font rules for compact mode
+- Past row color changed from `opacity:.5` to explicit `color:#777` so sticky vlbl bg is solid
+
+### Deferred items
+- **After Visit Summary PDF** — provider-facing PDF for the Today panel; significant scope
+- **Vaccine history upload** — OCR/parse external records; needs backend or WASM OCR
