@@ -2,15 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { VBR, VAX_META, VAX_KEYS, COMBO_COVERS } from '../data/vaccineData';
 import { AGE_OPTS } from '../data/ageOptions';
-import { parseDateInput } from '../logic/utils';
-
-/** Apply MM/DD/YYYY mask to a raw digit string (up to 8 digits). */
-function applyDateMask(digits) {
-  const d = digits.slice(0, 8);
-  if (d.length <= 2) return d;
-  if (d.length <= 4) return d.slice(0, 2) + '/' + d.slice(2);
-  return d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4);
-}
+import DateField from './DateField';
 
 export default function QuickAdd() {
   const { dispatch } = useApp();
@@ -50,7 +42,8 @@ export default function QuickAdd() {
     setDateError("");
     setMsg("");
 
-    const dateIso = mode === "date" ? parseDateInput(dateVal) : "";
+    // dateVal is already ISO ("YYYY-MM-DD") from DateField
+    const dateIso = mode === "date" ? dateVal : "";
     const ageNum = mode === "age" && ageDays ? Number(ageDays) : null;
 
     if (mode === "date" && !dateIso) {
@@ -103,32 +96,6 @@ export default function QuickAdd() {
     handleAdd();
   }
 
-  function handleDateChange(e) {
-    setDateError("");
-    const digits = e.target.value.replace(/\D/g, '');
-    setDateVal(applyDateMask(digits));
-  }
-
-  function handleDateKeyDown(e) {
-    if (e.key === "Enter") {
-      // stopPropagation prevents the container's onKeyDown from also firing handleAdd
-      e.stopPropagation();
-      handleAdd();
-      return;
-    }
-    if (e.key === "Backspace") {
-      const pos = e.target.selectionStart;
-      // If cursor is right after a slash, skip the slash and delete the preceding digit
-      if (pos === 3 || pos === 6) {
-        e.preventDefault();
-        const digits = dateVal.replace(/\D/g, '');
-        const digitIdx = pos === 3 ? 1 : 3;
-        const newDigits = digits.slice(0, digitIdx) + digits.slice(digitIdx + 1);
-        setDateVal(applyDateMask(newDigits));
-      }
-    }
-  }
-
   return (
     <div
       style={{ marginBottom: 10, padding: "8px 10px", background: "#f4f2ee", borderRadius: 6, border: "1px solid #ddd" }}
@@ -172,13 +139,13 @@ export default function QuickAdd() {
 
         {mode === "date" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <input
-              type="text"
-              placeholder="MM/DD/YYYY"
+            <DateField
               value={dateVal}
-              onChange={handleDateChange}
-              onKeyDown={handleDateKeyDown}
-              style={{ width: 95, fontSize: 11, padding: "4px 6px", borderColor: dateError ? "#c0392b" : undefined }}
+              onChange={(iso) => { setDateError(""); setDateVal(iso); }}
+              ariaLabel="Dose date"
+              width={110}
+              hasError={!!dateError}
+              onEnter={handleAdd}
             />
             {dateError && (
               <span style={{ fontSize: 10, color: "#c0392b" }}>{dateError}</span>

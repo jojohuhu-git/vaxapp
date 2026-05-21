@@ -11,12 +11,18 @@ export default function AuditFooter() {
   const warnCount = errors.filter(e => ["warn","grace","offLabel"].includes(e.severity)).length;
   const total = errors.length;
 
-  const badgeColor = errCount > 0 ? "var(--r2)" : warnCount > 0 ? "var(--a2)" : "var(--g3)";
+  // Severity drives a fully-filled background so the strip can't be missed.
+  const tone = errCount > 0
+    ? { bg: "#fbe6e6", border: "#c0392b", fg: "#7a1c1c", icon: "⚠", iconBg: "#c0392b" }
+    : warnCount > 0
+      ? { bg: "#fff3d6", border: "#d68910", fg: "#7a4f00", icon: "!", iconBg: "#d68910" }
+      : { bg: "#e6f5ea", border: "#27ae60", fg: "#1e6c3a", icon: "✓", iconBg: "#27ae60" };
+
   const label = total === 0
-    ? "✓ No schedule issues"
+    ? "No schedule issues detected"
     : errCount > 0
-      ? `⚠ ${errCount} error${errCount !== 1 ? "s" : ""}${warnCount > 0 ? ` · ${warnCount} advisory` : ""}`
-      : `⚠ ${warnCount} advisory${warnCount !== 1 ? "s" : ""}`;
+      ? `${errCount} error${errCount !== 1 ? "s" : ""}${warnCount > 0 ? ` · ${warnCount} advisory` : ""}`
+      : `${warnCount} advisory${warnCount !== 1 ? "s" : ""}`;
 
   const grouped = errors.reduce((acc, err) => {
     const key = err.vk || "_other";
@@ -25,38 +31,74 @@ export default function AuditFooter() {
     return acc;
   }, {});
 
+  // Show inline preview: first 1-2 specific findings so the user sees what's wrong
+  // without having to click. Sorted by severity (errors first).
+  const sorted = [...errors].sort((a, b) => {
+    const sev = (s) => s === "err" ? 0 : 1;
+    return sev(a.severity) - sev(b.severity);
+  });
+  const preview = sorted.slice(0, 2).map(e => {
+    const vname = VAX_META[e.vk]?.n || e.vk || "Schedule";
+    const t = (e.title || "").replace(vname + " — ", "");
+    return `${vname}: ${t}`;
+  });
+  const extraCount = Math.max(0, total - preview.length);
+
   return (
     <>
-      {/* Fixed strip */}
+      {/* Fixed strip — filled background, large icon, inline preview */}
       <div
         style={{
           position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 300,
-          background: "#fff", borderTop: "2px solid " + badgeColor,
-          display: "flex", alignItems: "center", gap: 10,
-          padding: "7px 20px", boxShadow: "0 -2px 8px rgba(0,0,0,.1)",
+          background: tone.bg, borderTop: `3px solid ${tone.border}`,
+          padding: "10px 20px", boxShadow: "0 -2px 12px rgba(0,0,0,.12)",
           cursor: total > 0 ? "pointer" : "default",
         }}
         onClick={() => total > 0 && setOpen(o => !o)}
       >
-        <div style={{
-          fontSize: 12.5, fontWeight: 700,
-          color: errCount > 0 ? "var(--r)" : warnCount > 0 ? "var(--a)" : "var(--g)",
-        }}>
-          Schedule Audit
-        </div>
-        <div style={{ fontSize: 12, color: "#555" }}>{label}</div>
-        {total > 0 && (
-          <div style={{ marginLeft: "auto", fontSize: 11, color: "#888" }}>
-            {open ? "▼ collapse" : "▲ view details"}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: "50%",
+            background: tone.iconBg, color: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 16, fontWeight: 700, flexShrink: 0,
+          }}>
+            {tone.icon}
           </div>
-        )}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{
+              fontSize: 14, fontWeight: 700, color: tone.fg, lineHeight: 1.2,
+            }}>
+              Schedule Audit — {label}
+            </div>
+            {preview.length > 0 && (
+              <div style={{
+                fontSize: 12, color: tone.fg, marginTop: 3, opacity: 0.85,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
+                {preview.join("  ·  ")}
+                {extraCount > 0 && `  ·  +${extraCount} more`}
+              </div>
+            )}
+          </div>
+          {total > 0 && (
+            <div style={{
+              fontSize: 11, color: tone.fg, fontWeight: 600,
+              padding: "4px 10px", border: `1px solid ${tone.border}`,
+              borderRadius: 4, background: "rgba(255,255,255,.5)",
+              flexShrink: 0,
+            }}>
+              {open ? "▼ Collapse" : "▲ View all"}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Overlay panel */}
       {open && (
         <div
           style={{
-            position: "fixed", bottom: 36, left: 0, right: 0, zIndex: 299,
+            position: "fixed", bottom: 64, left: 0, right: 0, zIndex: 299,
             maxHeight: "40vh", overflowY: "auto",
             background: "#fff", borderTop: "1px solid #eee",
             padding: "12px 20px", boxShadow: "0 -4px 16px rgba(0,0,0,.12)",

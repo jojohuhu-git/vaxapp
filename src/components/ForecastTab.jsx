@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { FORECAST_VISITS } from '../data/forecastData';
@@ -35,6 +36,75 @@ function BrandSelect({ bOpts, value, onChange, style, className }) {
         bOpts.map(bo => <option key={bo.label} value={bo.label}>{bo.label}</option>)
       )}
     </select>
+  );
+}
+
+// Portal popover for forecast cells — shows clinical note + CDC references on click.
+function CellPopover({ chipText, rec, anchorRect, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const spaceBelow = window.innerHeight - anchorRect.bottom;
+  const popH = 200;
+  const above = spaceBelow < popH + 20;
+  const top = above
+    ? anchorRect.top + window.scrollY - popH - 8
+    : anchorRect.bottom + window.scrollY + 8;
+  const left = Math.min(
+    Math.max(8, anchorRect.left + window.scrollX - 20),
+    window.innerWidth - 280 - 8,
+  );
+
+  return createPortal(
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 500 }} onClick={onClose} />
+      <div style={{
+        position: 'absolute', top, left, zIndex: 501,
+        background: '#fff', border: '1px solid #c5d0e0',
+        borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,.18)',
+        padding: '10px 14px', width: 272,
+        maxWidth: 'calc(100vw - 16px)', fontSize: 12, lineHeight: 1.5,
+        fontFamily: 'inherit',
+      }}>
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: '#1a3a6b' }}>
+          {chipText}
+        </div>
+        {rec?.note ? (
+          <p style={{ margin: '0 0 6px', color: '#333' }}>{rec.note}</p>
+        ) : (
+          <p style={{ margin: '0 0 4px', color: '#888', fontStyle: 'italic', fontSize: 11 }}>
+            No clinical note available.
+          </p>
+        )}
+        {rec?.brandTip && (
+          <p style={{ margin: '0 0 6px', color: '#555', fontStyle: 'italic', fontSize: 11 }}>
+            💊 {rec.brandTip}
+          </p>
+        )}
+        {(rec?.refUrl || rec?.refUrl2) && (
+          <div style={{ borderTop: '1px solid #eee', paddingTop: 6, marginTop: 4 }}>
+            {rec.refUrl && (
+              <a href={rec.refUrl} target="_blank" rel="noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ display: 'block', fontSize: 11, color: '#1a3a6b', marginBottom: 3, textDecoration: 'none' }}>
+                🔗 {rec.refLabel || 'Reference'}
+              </a>
+            )}
+            {rec.refUrl2 && (
+              <a href={rec.refUrl2} target="_blank" rel="noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ display: 'block', fontSize: 11, color: '#1a3a6b', textDecoration: 'none' }}>
+                🔗 {rec.refLabel2 || 'Reference'}
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    </>,
+    document.body,
   );
 }
 
@@ -135,6 +205,10 @@ export default function ForecastTab({ recs }) {
   const [scheduledEarliest, setScheduledEarliest] = useState(() => new Map());
   // vk of the "Why?" card currently expanded in the Today panel (null = all collapsed)
   const [expandedRationale, setExpandedRationale] = useState(null);
+  // Forecast table controls
+  const [openCell, setOpenCell] = useState(null); // { key: string, rect: DOMRect }
+  const [density, setDensity] = useState('normal'); // 'normal' | 'compact'
+  const [hideComplete, setHideComplete] = useState(true); // auto-hide columns with no future doses
 
   // Build current-age rec map to detect which vaccines are still actionable
   const currentRecMap = {};
@@ -214,6 +288,11 @@ export default function ForecastTab({ recs }) {
   const vkSet = new Set();
   FORECAST_VISITS.forEach(v => v.std.forEach(vk => vkSet.add(vk)));
   const allVks = VAX_KEYS.filter(vk => vkSet.has(vk));
+
+  // Complete columns: vaccines with no future dose projected and no current rec.
+  // Hidden by default to reduce horizontal scroll; toggle to reveal.
+  const completeVks = allVks.filter(vk => !planVks.has(vk));
+  const displayVks = hideComplete ? allVks.filter(vk => planVks.has(vk)) : allVks;
 
   // Precompute PDF rows from the already-computed visits + dosePlan.
   const pdfRows = computePDFRows({
@@ -427,21 +506,55 @@ export default function ForecastTab({ recs }) {
         </div>
       )}
 
-      {/* ── LEGEND ───────────────────────────────────────────────── */}
-      <div style={{ fontSize: 10, color: "#888", marginBottom: 6 }}>
-        Forecast table:
-        <span style={{ color: "#2e7d32", fontWeight: 600 }}> Green</span> = done,
-        <span style={{ color: "#e65100", fontWeight: 600 }}> Orange</span> = catch-up,
-        <span style={{ color: "#999", fontWeight: 600, textDecoration: "line-through" }}> Strikethrough</span> = expired,
-        <span style={{ color: "#5b3a9e", fontWeight: 600 }}> Purple</span> = projected.
-        Hover cells for clinical notes.
+      {/* ── TABLE CONTROLS ───────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+        <div style={{ fontSize: 10, color: '#888' }}>
+          <span style={{ color: '#2e7d32', fontWeight: 600 }}>■</span> done&ensp;
+          <span style={{ color: '#e65100', fontWeight: 600 }}>■</span> catch-up&ensp;
+          <span style={{ color: '#999', fontWeight: 600, textDecoration: 'line-through' }}>■</span> expired&ensp;
+          <span style={{ color: '#5b3a9e', fontWeight: 600 }}>■</span> projected.&ensp;
+          Click a cell for clinical notes.
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+          {completeVks.length > 0 && (
+            <button
+              onClick={() => setHideComplete(v => !v)}
+              style={{
+                fontSize: 10, padding: '3px 8px',
+                border: '1px solid #cfd6df', borderRadius: 4,
+                background: hideComplete ? '#f4f7fb' : '#e8f0fb',
+                color: '#1a3a6b', cursor: 'pointer',
+              }}
+            >
+              {hideComplete
+                ? `+ ${completeVks.length} complete vaccine${completeVks.length !== 1 ? 's' : ''}`
+                : `− Hide complete`}
+            </button>
+          )}
+          <div style={{ display: 'flex', border: '1px solid #cfd6df', borderRadius: 4, overflow: 'hidden' }}>
+            {['normal', 'compact'].map(d => (
+              <button
+                key={d}
+                onClick={() => setDensity(d)}
+                style={{
+                  fontSize: 10, padding: '3px 8px', border: 'none', cursor: 'pointer',
+                  background: density === d ? '#1a3a6b' : '#f4f7fb',
+                  color: density === d ? '#fff' : '#555',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {d === 'normal' ? 'Comfortable' : 'Compact'}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       <div className="fc-wrap">
-        <table className="fc-tbl">
+        <table className={`fc-tbl${density === 'compact' ? ' fc-tbl-compact' : ''}`}>
           <thead>
             <tr>
-              <th>Visit</th>
-              {allVks.map(vk => (
+              <th className="vlbl-th">Visit</th>
+              {displayVks.map(vk => (
                 <th key={vk} className="vcol" style={{ color: VAX_META[vk]?.c }}>
                   {VAX_META[vk]?.ab || vk}
                 </th>
@@ -451,7 +564,7 @@ export default function ForecastTab({ recs }) {
           <tbody>
             {pastCount > 0 && (
               <tr className="past-toggle-row">
-                <td colSpan={allVks.length + 1}>
+                <td colSpan={displayVks.length + 1}>
                   <button className="past-toggle-btn" onClick={() => setShowPast(v => !v)}>
                     {showPast
                       ? '▴ Hide past visits'
@@ -522,7 +635,7 @@ export default function ForecastTab({ recs }) {
                       </div>
                     )}
                   </td>
-                  {allVks.map(vk => {
+                  {displayVks.map(vk => {
                     // CASE 1: Scheduled-early row — render the moved dose here.
                     if (visit.isScheduledEarly && vk === visit.earlyVk) {
                       const origProj = dosePlan[visit.earlyFcKey];
@@ -830,10 +943,29 @@ export default function ForecastTab({ recs }) {
                     const showDropdown = !isPast && (rec || proj) && brandOpts.length > 0
                       && !(isCurr && dosesGivenHere > 0);
 
+                    const cellKey = fcKey;
+                    const hasPopover = !!(rec?.note || rec?.refUrl);
                     return (
                       <td key={vk} className="vcell">
                         <div className="fc-cell">
-                          <span className={chipClass} title={rec?.note || ""}>{chipText}</span>
+                          <span
+                            className={chipClass + (hasPopover ? ' fch-info' : '')}
+                            style={hasPopover ? { cursor: 'pointer' } : undefined}
+                            onClick={hasPopover ? (e) => {
+                              const r = e.currentTarget.getBoundingClientRect();
+                              setOpenCell(prev => prev?.key === cellKey ? null : { key: cellKey, rect: r });
+                            } : undefined}
+                          >
+                            {chipText}
+                          </span>
+                          {openCell?.key === cellKey && hasPopover && (
+                            <CellPopover
+                              chipText={chipText}
+                              rec={rec}
+                              anchorRect={openCell.rect}
+                              onClose={() => setOpenCell(null)}
+                            />
+                          )}
                           {dateLabel && <span className="fc-date">{dateLabel}</span>}
                           {earliestLabel && (
                             <button

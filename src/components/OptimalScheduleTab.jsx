@@ -1,62 +1,250 @@
 /* eslint-disable react/prop-types */
 // OptimalScheduleTab.jsx — renders the output of buildOptimalSchedule()
 // Shows earliest-completion visit plan with per-dose binding constraints.
-// Three modes: fewestVisits | earliestCompletion | fewestInjections.
-import { useState } from 'react';
+// Two modes: fewestVisits | fewestInjections.
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
 import { validatedHistory } from '../logic/validation';
 import { VAX_META } from '../data/vaccineData';
+import { REFS } from '../data/refs';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import SchedulePDF from './SchedulePDF';
 
-// Binding-constraint label → pastel chip color
-function constraintColor(label = '') {
-  if (!label) return '#e0e0e0';
-  if (label.includes('today'))        return '#e8e8e8';
-  if (label.includes('d1Cross'))      return '#fde8cc';
-  if (label.includes('prevVax'))      return '#e8d5f5';
-  if (label.includes('iCond'))        return '#d5eaf5';
-  if (label.includes('iByTotalDoses'))return '#d5f0e8';
-  if (label.includes('BRAND_MIN'))    return '#fce8e8';
-  if (label.includes('minByDose') || label.includes('minD')) return '#fff3cd';
-  return '#e3edfa'; // default: interval
+// Format a duration in days as the most natural unit (whole numbers preferred).
+function humanDays(d) {
+  if (d == null) return '';
+  if (d % 365 === 0 && d >= 365) { const y = d / 365; return `${y} year${y !== 1 ? 's' : ''}`; }
+  if (d >= 365) { const y = (d / 365).toFixed(1); return `${y} years`; }
+  if (d % 30 === 0 && d >= 60) { const m = d / 30; return `${m} months`; }
+  if (d % 7 === 0 && d >= 14) { const w = d / 7; return `${w} weeks`; }
+  return `${d} day${d !== 1 ? 's' : ''}`;
 }
 
-function humanLabel(label = '') {
-  if (!label) return '';
-  if (label.includes('combo:'))         return 'combo';
-  if (label.includes('live-vax'))       return 'live vax gap';
-  if (label.includes('today'))          return 'today';
-  if (label.includes('BRAND_MIN'))      return 'brand min age';
-  if (label.includes('d1Cross'))        return 'dose 1 floor';
-  if (label.includes('prevVax'))        return 'live vax';
-  if (label.includes('iCond'))          return 'age-adjusted interval';
-  if (label.includes('iByTotalDoses'))  return 'series-path interval';
-  if (label.includes('minByDose') || label.includes('minD')) return 'min age';
-  if (label.includes('MIN_INT'))        return 'min interval';
-  return 'interval';
+// Find the most recent earlier dose of the same antigen in the planned schedule
+// (used to render "from DTaP D2 given 2026-03-01" in the popover).
+function findPrevDose(vk, doseNum, allFlatDoses) {
+  return allFlatDoses
+    .filter(d => d.vk === vk && d.doseNum != null && d.doseNum < doseNum)
+    .sort((a, b) => b.doseNum - a.doseNum)[0] || null;
 }
 
-function ConstraintChip({ label }) {
-  if (!label) return null;
-  return (
-    <span style={{
-      display: 'inline-block',
-      fontSize: 9,
-      padding: '1px 5px',
-      borderRadius: 2,
-      background: constraintColor(label),
-      color: '#444',
-      marginLeft: 4,
-      whiteSpace: 'nowrap',
+// Parse the engine's bindingConstraint label into a plain-English explanation.
+// Returns { summary, detail, refUrl, refLabel } for the popover.
+function explainConstraint(dose, allFlatDoses) {
+  const raw = dose.bindingConstraint || '';
+  const vk = dose.vk || (dose.coveredDoses?.[0]?.vk);
+  const doseNum = dose.doseNum;
+  const refUrl = REFS[vk]?.cdcUrl;
+  const refLabel = REFS[vk]?.cdcLabel || 'CDC Schedule Notes';
+
+  // Combo (fewest-injections substitution)
+  if (raw.startsWith('combo:')) {
+    return {
+      summary: `Combo vaccine substitutes ${dose.coveredAntigens?.length || ''} injections`,
+      detail: `${dose.comboName} delivers ${dose.coveredAntigens?.join(', ')} in a single injection. Each component is still bound by its own age and spacing rules; this card just bundles them.`,
+      refUrl, refLabel,
+    };
+  }
+
+  // "today" + optional live-vax co-admin appendix
+  const liveVaxMatch = raw.match(/live-vax co-admin: same day as (\w+) \(gap was (\d+)d\)/);
+  const liveVaxLine = liveVaxMatch
+    ? ` Co-administered same day as ${liveVaxMatch[1]} (live vaccines must be same day or ≥28 days apart).`
+    : '';
+
+  if (raw.startsWith('today')) {
+    return {
+      summary: 'Due today',
+      detail: `No spacing or age rule is delaying this dose — it can be given on the schedule’s start date.${liveVaxLine}`,
+      refUrl, refLabel,
+    };
+  }
+
+  // Numeric extractors
+  const days = parseInt((raw.match(/=(\d+)d/) || [])[1], 10);
+  const hd = humanDays(days);
+
+  // Minimum age
+  if (raw.includes('.minByDose[') || raw.includes('.minD=')) {
+    return {
+      summary: `Minimum age: ${hd}`,
+      detail: `${vk}${doseNum ? ` D${doseNum}` : ''} requires the patient be at least ${hd} old. This is the earliest legal date based on date of birth.${liveVaxLine}`,
+      refUrl, refLabel,
+    };
+  }
+
+  // Dose-1 cross floor
+  if (raw.includes('.d1Cross[')) {
+    const d1 = findPrevDose(vk, 2, allFlatDoses) || allFlatDoses.find(d => d.vk === vk && d.doseNum === 1);
+    return {
+      summary: `${hd} after Dose 1`,
+      detail: `${vk} D${doseNum} must be at least ${hd} after Dose 1${d1?.date ? ` (planned ${d1.date})` : ''}. This is a series-wide floor, independent of the dose-to-dose interval.${liveVaxLine}`,
+      refUrl, refLabel,
+    };
+  }
+
+  // Cross-vaccine floor
+  const prevVaxMatch = raw.match(/\.prevVax\[(\w+)\]=(\d+)d/);
+  if (prevVaxMatch) {
+    return {
+      summary: `${humanDays(parseInt(prevVaxMatch[2], 10))} after ${prevVaxMatch[1]}`,
+      detail: `${vk} must be at least ${humanDays(parseInt(prevVaxMatch[2], 10))} after the patient's most recent ${prevVaxMatch[1]} dose.${liveVaxLine}`,
+      refUrl, refLabel,
+    };
+  }
+
+  // Brand min age
+  const brandMatch = raw.match(/BRAND_MIN\["([^"]+)"\]=(\d+)d/);
+  if (brandMatch) {
+    return {
+      summary: `Brand minimum age: ${humanDays(parseInt(brandMatch[2], 10))}`,
+      detail: `${brandMatch[1]} is licensed only for patients ${humanDays(parseInt(brandMatch[2], 10))} or older. A different brand may be available earlier.${liveVaxLine}`,
+      refUrl, refLabel,
+    };
+  }
+
+  // Spacing — age-conditional
+  if (raw.includes('.iCond[')) {
+    const prev = findPrevDose(vk, doseNum, allFlatDoses);
+    return {
+      summary: `${hd} after previous dose (age-adjusted)`,
+      detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}. The interval is age-adjusted — younger patients require longer gaps than older ones.${liveVaxLine}`,
+      refUrl, refLabel,
+    };
+  }
+
+  // Spacing — series-path (iByTotalDoses)
+  if (raw.includes('.iByTotalDoses[')) {
+    const prev = findPrevDose(vk, doseNum, allFlatDoses);
+    return {
+      summary: `${hd} after previous dose (catch-up path)`,
+      detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}. This interval reflects the catch-up or accelerated series this patient is on (different total-dose paths have different gaps).${liveVaxLine}`,
+      refUrl, refLabel,
+    };
+  }
+
+  // Spacing — standard interval
+  if (raw.includes('.i[')) {
+    const prev = findPrevDose(vk, doseNum, allFlatDoses);
+    return {
+      summary: `${hd} after previous dose`,
+      detail: `${vk} D${doseNum} must wait at least ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}. This is the routine interdose interval for this series.${liveVaxLine}`,
+      refUrl, refLabel,
+    };
+  }
+
+  // Fallback
+  return {
+    summary: 'Schedule constraint',
+    detail: raw,
+    refUrl, refLabel,
+  };
+}
+
+// Portal-rendered popover anchored to the trigger button's bounding rect.
+// Rendered into document.body so ancestor `overflow: hidden` (the VisitCard)
+// cannot clip it. Flips above the trigger if it would overflow the viewport.
+function WhyPopover({ explanation, anchorRect, onClose }) {
+  const ref = useRef(null);
+  const POPOVER_W = 320;
+  const ESTIMATED_H = 140;
+
+  useEffect(() => {
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  if (!anchorRect) return null;
+
+  // Position below the trigger by default; flip above if not enough room.
+  const spaceBelow = window.innerHeight - anchorRect.bottom;
+  const placeAbove = spaceBelow < ESTIMATED_H + 12 && anchorRect.top > ESTIMATED_H + 12;
+  const top = placeAbove
+    ? anchorRect.top + window.scrollY - ESTIMATED_H - 6
+    : anchorRect.bottom + window.scrollY + 6;
+  // Clamp left so the popover stays within the viewport.
+  const rawLeft = anchorRect.left + window.scrollX;
+  const maxLeft = window.scrollX + window.innerWidth - POPOVER_W - 8;
+  const left = Math.max(window.scrollX + 8, Math.min(rawLeft, maxLeft));
+
+  return createPortal(
+    <div ref={ref} style={{
+      position: 'absolute', top, left, zIndex: 1000,
+      background: '#fff', border: '1px solid #cfd6df', borderRadius: 6,
+      boxShadow: '0 4px 12px rgba(0,0,0,.12)', padding: '8px 10px',
+      width: POPOVER_W, fontSize: 11, color: '#333',
     }}>
-      {humanLabel(label)}
-    </span>
+      <div style={{ fontWeight: 700, marginBottom: 4, color: '#1a3a6b' }}>
+        {explanation.summary}
+      </div>
+      <div style={{ lineHeight: 1.45, color: '#444' }}>
+        {explanation.detail}
+      </div>
+      {explanation.refUrl && (
+        <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #eef1f5' }}>
+          <a href={explanation.refUrl} target="_blank" rel="noopener noreferrer"
+             style={{ fontSize: 10, color: '#1a3a6b', textDecoration: 'underline' }}>
+            {explanation.refLabel} ↗
+          </a>
+        </div>
+      )}
+    </div>,
+    document.body
   );
 }
 
-function DoseRow({ dose }) {
+function WhyButton({ doseKey, openKey, setOpenKey, explanation }) {
+  const isOpen = openKey === doseKey;
+  const btnRef = useRef(null);
+  const [anchorRect, setAnchorRect] = useState(null);
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (isOpen) {
+      setOpenKey(null);
+    } else {
+      setAnchorRect(btnRef.current?.getBoundingClientRect() || null);
+      setOpenKey(doseKey);
+    }
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={handleClick}
+        title="Why this date?"
+        style={{
+          fontSize: 10, padding: '1px 6px', borderRadius: 8, marginLeft: 4,
+          border: '1px solid #cfd6df', background: isOpen ? '#1a3a6b' : '#f4f7fb',
+          color: isOpen ? '#fff' : '#555', cursor: 'pointer', lineHeight: 1.2,
+        }}
+      >
+        Why?
+      </button>
+      {isOpen && (
+        <WhyPopover
+          explanation={explanation}
+          anchorRect={anchorRect}
+          onClose={() => setOpenKey(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function DoseRow({ dose, doseKey, openKey, setOpenKey, allFlatDoses }) {
+  const explanation = explainConstraint(dose, allFlatDoses);
+
   // Combo item: render as a single block with all covered antigens
   if (dose._combo) {
     return (
@@ -68,7 +256,7 @@ function DoseRow({ dose }) {
           covers {dose.coveredAntigens.join(' + ')}
           {' '}({dose.coveredDoses.map(d => `${d.vk} D${d.doseNum}`).join(', ')})
         </span>
-        <ConstraintChip label={dose.bindingConstraint} />
+        <WhyButton doseKey={doseKey} openKey={openKey} setOpenKey={setOpenKey} explanation={explanation} />
       </div>
     );
   }
@@ -88,12 +276,12 @@ function DoseRow({ dose }) {
         D{dose.doseNum}/{dose.totalDoses}
         {brandShort && <span style={{ color: '#888', marginLeft: 3 }}>({brandShort})</span>}
       </span>
-      <ConstraintChip label={dose.bindingConstraint} />
+      <WhyButton doseKey={doseKey} openKey={openKey} setOpenKey={setOpenKey} explanation={explanation} />
     </div>
   );
 }
 
-function VisitCard({ visit, idx }) {
+function VisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses }) {
   return (
     <div style={{
       border: '1px solid #dde3ea',
@@ -117,7 +305,16 @@ function VisitCard({ visit, idx }) {
         </span>
       </div>
       <div style={{ padding: '6px 10px' }}>
-        {visit.items.map((d, i) => <DoseRow key={i} dose={d} />)}
+        {visit.items.map((d, i) => (
+          <DoseRow
+            key={i}
+            dose={d}
+            doseKey={`${idx}-${i}`}
+            openKey={openKey}
+            setOpenKey={setOpenKey}
+            allFlatDoses={allFlatDoses}
+          />
+        ))}
       </div>
     </div>
   );
@@ -141,6 +338,7 @@ const MODES = [
 export default function OptimalScheduleTab() {
   const { state } = useApp();
   const [mode, setMode] = useState('fewestVisits');
+  const [openKey, setOpenKey] = useState(null);
   const validHist = validatedHistory(state.hist, state.dob);
   const { effectiveAm } = getEffectiveAm(state);
 
@@ -263,6 +461,8 @@ export default function OptimalScheduleTab() {
     // Count physical injections: each non-combo item = 1, each combo = 1
     const totalInjections = result.reduce((sum, v) => sum + v.items.length, 0);
     const lastDate = result.at(-1)?.date;
+    // Flatten doses so popover lookups can find previous-dose dates across visits.
+    const allFlatDoses = result.flatMap(v => v.items.map(d => ({ ...d, date: v.date })));
 
     return (
       <div style={{ padding: 12 }}>
@@ -309,25 +509,19 @@ export default function OptimalScheduleTab() {
         </div>
 
         {/* Visit cards */}
-        {result.map((visit, i) => <VisitCard key={i} visit={visit} idx={i} />)}
+        {result.map((visit, i) => (
+          <VisitCard
+            key={i}
+            visit={visit}
+            idx={i}
+            openKey={openKey}
+            setOpenKey={setOpenKey}
+            allFlatDoses={allFlatDoses}
+          />
+        ))}
 
-        {/* Legend */}
-        <div style={{ marginTop: 8, fontSize: 10, color: '#888', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {[
-            ['today',        'today'],
-            ['MIN_INT',      'min interval'],
-            ['minD',         'min age'],
-            ['d1Cross',      'dose 1 floor'],
-            ['prevVax',      'live vax'],
-            ['iCond',        'age-adjusted interval'],
-            ['iByTotalDoses','series-path interval'],
-            ['BRAND_MIN',    'brand min age'],
-          ].map(([key, label]) => (
-            <span key={key} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: constraintColor(key) }} />
-              {label}
-            </span>
-          ))}
+        <div style={{ marginTop: 8, fontSize: 10, color: '#888', fontStyle: 'italic' }}>
+          Each dose lands on its earliest legal date. Click <strong>Why?</strong> next to any dose to see the spacing or age rule that determined its date, with a link to the CDC schedule notes.
         </div>
       </div>
     );
