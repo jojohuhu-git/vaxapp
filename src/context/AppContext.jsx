@@ -186,16 +186,30 @@ function reducer(state, action) {
     }
 
     case "FC_BRAND_CHANGE": {
-      const { visitM, vk, brandName } = action.payload;
+      const { visitM, vk, brandName, fcKey: explicitFcKey, siblingFcKeys } = action.payload;
       let nextFc = { ...state.fcBrands };
 
-      const oldBrand = state.fcBrands[`${visitM}_${vk}`] || "";
+      // For catch-up doses, the plan key is "cu{age}_{vk}" (e.g. "cu49.2_HepB"),
+      // not "{visitM}_{vk}". The ForecastTab passes the actual planKey via
+      // `fcKey` so the brand selection lands at the same key the cell reads
+      // from. For routine visits, fcKey === `${visitM}_${vk}` and behavior is
+      // identical to the original.
+      const primaryFcKey = explicitFcKey || `${visitM}_${vk}`;
+      const oldBrand = state.fcBrands[primaryFcKey] || "";
       const oldComboName = Object.keys(COMBO_COVERS).find(c => oldBrand.startsWith(c));
 
       // Step 1: Clear entries for this vaccine AT OR AFTER this visit only
       // (preserve earlier-visit selections — e.g. D1 Penbraya stays when D2 changes)
+      // Catch-up keys (cu{age}_{vk}) are also cleared when their numeric age >= visitM.
+      const keyAge = (k) => {
+        const prefix = k.split("_")[0];
+        const n = prefix.startsWith("cu") ? parseFloat(prefix.slice(2)) : parseInt(prefix, 10);
+        return Number.isFinite(n) ? n : null;
+      };
       for (const k of Object.keys(nextFc)) {
-        if (k.endsWith(`_${vk}`) && parseInt(k.split("_")[0], 10) >= visitM) delete nextFc[k];
+        if (!k.endsWith(`_${vk}`)) continue;
+        const age = keyAge(k);
+        if (age != null && age >= visitM) delete nextFc[k];
       }
 
       // Step 2: If old brand was a combo, clear sibling entries at or after this visit
@@ -204,9 +218,10 @@ function reducer(state, action) {
         const oldSiblings = COMBO_COVERS[oldComboName].filter(v => v !== vk);
         for (const sibVk of oldSiblings) {
           for (const k of Object.keys(nextFc)) {
+            if (!k.endsWith(`_${sibVk}`)) continue;
+            const age = keyAge(k);
             if (
-              k.endsWith(`_${sibVk}`) &&
-              parseInt(k.split("_")[0], 10) >= visitM &&
+              age != null && age >= visitM &&
               (nextFc[k] || "").startsWith(oldComboName)
             ) {
               delete nextFc[k];
@@ -234,7 +249,9 @@ function reducer(state, action) {
       };
 
       // Step 5: Set brand at selected visit + propagate forward
-      nextFc[`${visitM}_${vk}`] = brandName;
+      // Use the explicit fcKey for the immediate write so catch-up cells
+      // (cu{age}_{vk}) land at the key their cell reads from.
+      nextFc[primaryFcKey] = brandName;
       FORECAST_VISITS.forEach(v => {
         if (v.m > visitM && v.std.includes(vk) && brandValidAtVisit(v.m)) {
           nextFc[`${v.m}_${vk}`] = brandName;
@@ -253,9 +270,12 @@ function reducer(state, action) {
           for (const k of Object.keys(nextFc)) {
             if (k.endsWith(`_${sibVk}`)) delete nextFc[k];
           }
-          // Set at selected visit
-          nextFc[`${visitM}_${sibVk}`] = comboLabel;
-          // Propagate to future visits for sibling
+          // Set at selected visit. For catch-up rows, write to the sibling's
+          // catch-up plan key (e.g. cu49.2_IPV) when one was passed in
+          // siblingFcKeys; otherwise fall back to the routine `${visitM}_${sibVk}`.
+          const sibKey = siblingFcKeys?.[sibVk] || `${visitM}_${sibVk}`;
+          nextFc[sibKey] = comboLabel;
+          // Propagate to future routine visits for sibling
           FORECAST_VISITS.forEach(v => {
             if (v.m > visitM && v.std.includes(sibVk) && brandValidAtVisit(v.m)) {
               nextFc[`${v.m}_${sibVk}`] = comboLabel;

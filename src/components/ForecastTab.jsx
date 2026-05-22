@@ -630,7 +630,7 @@ export default function ForecastTab({ recs }) {
                                 value={disp1}
                                 onChange={e => dispatch({
                                   type: "FC_BRAND_CHANGE",
-                                  payload: { visitM: info.visitM, vk, brandName: e.target.value },
+                                  payload: { visitM: info.visitM, vk, brandName: e.target.value, fcKey: visit.earlyFcKey },
                                 })}
                                 style={{ fontSize: 10, maxWidth: 130, padding: "1px 3px", border: "1px solid #ddd", borderRadius: 1 }}
                               />
@@ -712,7 +712,7 @@ export default function ForecastTab({ recs }) {
                               <BrandSelect
                                 bOpts={bOpts3}
                                 value={disp3}
-                                onChange={e => dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: visit.m, vk, brandName: e.target.value } })}
+                                onChange={e => dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey } })}
                                 style={{ fontSize: 10, maxWidth: 130, padding: "1px 3px", border: "1px solid #ddd", borderRadius: 1 }}
                               />
                             )}
@@ -944,7 +944,10 @@ export default function ForecastTab({ recs }) {
                               value={displayBrand}
                               onChange={e => dispatch({
                                 type: "FC_BRAND_CHANGE",
-                                payload: { visitM: visit.m, vk, brandName: e.target.value }
+                                payload: {
+                                  visitM: visit.m, vk, brandName: e.target.value, fcKey,
+                                  siblingFcKeys: visit.isCatchup ? visit.catchupDoseKeys : undefined,
+                                },
                               })}
                               style={{ fontSize: 10, maxWidth: 130, padding: "1px 3px", border: "1px solid #ddd", borderRadius: 1 }}
                             />
