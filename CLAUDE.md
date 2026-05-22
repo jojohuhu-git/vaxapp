@@ -727,3 +727,53 @@ The two-column sidebar+main layout was replaced with a single-column layout plus
 ### Deferred items
 - **After Visit Summary PDF** — provider-facing PDF for the Today panel; significant scope
 - **Vaccine history upload** — OCR/parse external records; needs backend or WASM OCR
+
+## Forecast D2+ projection + brand persistence (2026-05-21, PR #22)
+
+Two bugs prevented filling in vaccine brands beyond Dose 1 in the Forecast tab. Both are now fixed.
+
+### Bug 1 — `computeDosePlan` anchor when the next-due dose hasn't been given yet
+
+**File:** `src/logic/dosePlan.js`
+
+**Symptom:** 4y-old with HepB D1 at birth → HepB D3 invisible at every future visit; only D2 shown at "Now (4y)".
+
+**Root cause:** The `else if (lastGiven)` anchor branch unconditionally set `prevAge` to the LAST GIVEN dose's age (D1 at 0m). When the projection loop ran for d=3 (skipping d=2 because `startDose = rec.doseNum = 2`), `earliestAge = 0 + 56d ≈ 2m` and `routineAge = 6m`, so D3 landed at the routine 6-month slot — a past visit — keyed `6_HepB` and rendered as collapsed past history with no dropdown.
+
+**Fix:** The `else if (lastGiven)` branch now only applies when `startDose <= givenCountable` (the anchor dose was already given historically). When `startDose > givenCountable` (the current rec is for a dose not yet given, which will be administered at the current visit), fall through to the `else` branch that anchors at `am`. Subsequent doses then project forward from today.
+
+**Invariant to preserve:** The fix does NOT change behavior for:
+- Seed recs (`rec._seedVisitIdx != null`) — separate branch
+- Empty history — `lastGiven` is null, falls to `else` regardless
+- A dose just given at the current visit (`lastDoseAtCurrentVisit = true`) — `startDose = givenCountable` so `startDose <= givenCountable`, branch fires correctly with last-dose anchor
+- Series already complete — `startDose >= totalDoses` short-circuits before anchor computation
+
+### Bug 2 — Catch-up brand selections wrote to the wrong key
+
+**Files:** `src/context/AppContext.jsx`, `src/components/ForecastTab.jsx`
+
+**Symptom:** Selecting a brand on any D2+ catch-up cell (e.g. HepB D3 at "4y 2mo catch-up") reverted to empty immediately. Combo cascading (Pentacel → IPV/Hib siblings) also failed.
+
+**Root cause:** Catch-up doses are stored in `dosePlan` under `cu{age}_{vk}` (e.g. `cu49.2_HepB`), not `{visitM}_{vk}`. The `FC_BRAND_CHANGE` reducer wrote to `${visitM}_${vk}` (e.g. `49.2_HepB`) — a different key than the cell reads from. The Step 1 clear logic (`parseInt(k.split("_")[0])`) also returned `NaN` for `cu...` keys, so existing catch-up brands weren't cleared on reselection.
+
+**Fix:**
+1. `FC_BRAND_CHANGE` payload accepts optional `fcKey` (primary write key) and `siblingFcKeys` (a `{sibVk: planKey}` map for combo cascade at catch-up rows).
+2. The clear helper recognises `cu`-prefixed float ages alongside integer ages.
+3. `ForecastTab` dispatches `fcKey` from all three render paths (CASE 1 scheduled-early, CASE 3 moved-dose, main render) and `siblingFcKeys: visit.catchupDoseKeys` from the main path so combo siblings auto-fill at the same catch-up row.
+
+**Invariants enforced:**
+- For routine FORECAST_VISITS rows, `fcKey === ${visitM}_${vk}` and behavior is identical to before
+- Today panel dispatch is unchanged (uses `am` which is always a routine visit)
+- Combo propagation to future ROUTINE slots is unchanged — still walks `FORECAST_VISITS` with integer keys
+- `siblingFcKeys` is only consulted for the immediate sibling write at the same row
+
+**Don't regress this:** If you add a new place where the forecast table writes brand selections, pass the actual plan key as `fcKey`. Constructing `${visit.m}_${vk}` only works for routine visits — for catch-up rows it silently misses.
+
+### Tests
+
+`src/logic/__tests__/regression-forecast-d2plus.test.js` (not yet added) — should cover:
+- 4y with HepB D1 at birth → `dosePlan` has a future entry for HepB D3 (not at `6_HepB`)
+- 4y with HepB D1 at birth, select Engerix-B for D3 catch-up → `state.fcBrands["cu{age}_HepB"]` persists
+- 4y empty hist, select Pentacel on DTaP D2 catch-up → IPV + Hib siblings at the same catch-up row get the Pentacel label
+
+All 2,088 existing tests pass.
