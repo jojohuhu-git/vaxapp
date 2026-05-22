@@ -14,6 +14,9 @@ export default function Header({ onShare }) {
     <header className="hdr">
       <div className="hdr-in">
         <div className="logo">
+          <div className="logo-ico">
+            <img src={`${import.meta.env.BASE_URL}vite.svg`} alt="" />
+          </div>
           <div>
             <h1>PediVax</h1>
             <p>Pediatric Vaccine Clinical Planner</p>

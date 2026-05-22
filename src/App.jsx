@@ -16,10 +16,12 @@ import Disclaimer from './components/Disclaimer';
 
 function fmtAm(am) {
   if (am < 0) return null;
-  if (am < 24) return `${am}m`;
+  if (am === 0) return 'Birth';
+  if (am < 24) return `${am} month${am !== 1 ? 's' : ''}`;
   const y = Math.floor(am / 12);
   const m = am % 12;
-  return m ? `${y}y ${m}m` : `${y}y`;
+  const yLabel = `${y} year${y !== 1 ? 's' : ''}`;
+  return m ? `${yLabel} ${m} month${m !== 1 ? 's' : ''}` : yLabel;
 }
 
 function PatientDrawer({ onClose }) {
@@ -43,22 +45,44 @@ function PatientDrawer({ onClose }) {
         padding: '16px 20px 20px',
       }}>
         <div style={{ maxWidth: 1380, margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-            <button
-              onClick={onClose}
-              style={{
-                border: 'none', background: 'none', cursor: 'pointer',
-                fontSize: 20, color: '#888', lineHeight: 1, padding: '0 4px',
-              }}
-            >&times;</button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '300px 260px 1fr', gap: 20, alignItems: 'start' }}>
-            <div>
-              <div className="ctitle" style={{ marginBottom: 8 }}>Patient Information</div>
-              <PatientInfo inAccordion />
+          {/* Header row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#2E8B6B', textTransform: 'uppercase', letterSpacing: '.6px' }}>
+              Edit Patient
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={onClose}
+                style={{
+                  padding: '7px 22px', fontSize: 13, fontWeight: 700,
+                  background: '#2E8B6B', color: '#fff',
+                  border: 'none', borderRadius: 999, cursor: 'pointer',
+                  fontFamily: 'inherit', letterSpacing: '.2px',
+                }}
+              >
+                Done
+              </button>
+              <button
+                onClick={onClose}
+                style={{
+                  border: 'none', background: 'none', cursor: 'pointer',
+                  fontSize: 22, color: '#888', lineHeight: 1, padding: '0 4px',
+                }}
+                title="Close"
+              >&times;</button>
             </div>
-            <div>
-              <RiskGrid />
+          </div>
+
+          {/* Two-column layout: left = patient info + risks, right = vaccination history */}
+          <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 24, alignItems: 'start' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <div className="ctitle" style={{ marginBottom: 8 }}>Patient Information</div>
+                <PatientInfo inAccordion />
+              </div>
+              <div>
+                <RiskGrid />
+              </div>
             </div>
             <div>
               <div className="ctitle" style={{ marginBottom: 8 }}>Vaccination History</div>
@@ -68,7 +92,8 @@ function PatientDrawer({ onClose }) {
               </div>
             </div>
           </div>
-          <div style={{ marginTop: 16 }}>
+
+          <div style={{ marginTop: 20 }}>
             <Disclaimer />
           </div>
         </div>
@@ -105,15 +130,22 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
     : null;
 
   return (
-    <div style={{
-      maxWidth: 1380, margin: '8px auto 0', padding: '0 14px',
-    }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        background: '#f4f7fb', border: '1px solid #d0d7e2', borderRadius: 8,
-        padding: '7px 14px', fontSize: 12.5,
-      }}>
-        <span style={{ fontWeight: 700, color: '#1a3a6b', minWidth: 60 }}>
+    <div style={{ maxWidth: 1380, margin: '8px auto 0', padding: '0 14px' }}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onEdit}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit(); } }}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          background: drawerOpen ? '#E8F5EF' : '#f4f7fb',
+          border: `1px solid ${drawerOpen ? '#A8DCC6' : '#d0d7e2'}`,
+          borderRadius: 8, padding: '9px 16px', fontSize: 13,
+          cursor: 'pointer', userSelect: 'none',
+          transition: 'background .15s, border-color .15s',
+        }}
+      >
+        <span style={{ fontWeight: 700, color: '#2E8B6B', minWidth: 60 }}>
           {effectiveAm >= 0 ? ageLabel : <span style={{ color: '#aaa' }}>{ageLabel}</span>}
         </span>
         {dobLabel && (
@@ -123,34 +155,26 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
           </>
         )}
         <span style={{ color: '#bbb' }}>·</span>
-        <span style={{ color: state.risks.length > 0 ? '#8B4513' : '#aaa' }}>
+        <span style={{ color: state.risks.length > 0 ? '#8C5A1C' : '#aaa' }}>
           {riskText}
         </span>
         <span style={{ color: '#bbb' }}>·</span>
-        <span style={{ color: doseCount > 0 ? '#2e7d32' : '#aaa' }}>
+        <span style={{ color: doseCount > 0 ? '#2E8B6B' : '#aaa' }}>
           {doseCount > 0 ? `${doseCount} dose${doseCount !== 1 ? 's' : ''} recorded` : 'No history'}
         </span>
-        <button
-          onClick={onEdit}
-          style={{
-            marginLeft: 'auto', flexShrink: 0,
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '4px 12px', fontSize: 12, fontWeight: 600,
-            border: '1px solid', borderRadius: 5, cursor: 'pointer',
-            background: drawerOpen ? '#1a3a6b' : '#fff',
-            color: drawerOpen ? '#fff' : '#1a3a6b',
-            borderColor: '#1a3a6b',
-            fontFamily: 'inherit',
-          }}
-        >
+        <span style={{
+          marginLeft: 'auto', flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 5,
+          fontSize: 12, fontWeight: 600, color: '#2E8B6B',
+        }}>
           {conflict && (
             <span style={{
               display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
-              background: '#c0392b', flexShrink: 0,
+              background: '#E57373', flexShrink: 0,
             }} />
           )}
           {drawerOpen ? 'Close ▲' : 'Edit ▾'}
-        </button>
+        </span>
       </div>
     </div>
   );

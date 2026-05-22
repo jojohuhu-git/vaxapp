@@ -89,10 +89,10 @@ export function buildRegimens(recs, am) {
   const planC = buildPlan([]);
 
   return [
-    { l: "\u2B50 Optimal Regimen", ic: "",
+    { l: "Optimal Regimen", ic: "",
       d: `Uses combination vaccines to minimize injections. Result: ${planA.sCount} injection${planA.sCount !== 1 ? "s" : ""} covering ${needed.length} antigens, using ${planA.bCount} brand${planA.bCount !== 1 ? "s" : ""}.`,
       p: planA, feat: true },
-    { l: "\uD83D\uDCCB Single-Antigen Only", ic: "",
+    { l: "Single-Antigen Only", ic: "",
       d: `Each antigen as a standalone product \u2014 no combination vaccines. Result: ${planC.sCount} injection${planC.sCount !== 1 ? "s" : ""}, ${planC.bCount} brand${planC.bCount !== 1 ? "s" : ""}. Use when combos are unavailable or contraindicated.`,
       p: planC, feat: false },
   ];

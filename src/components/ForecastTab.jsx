@@ -354,7 +354,7 @@ export default function ForecastTab({ recs }) {
                     textDecoration: "none", display: "inline-block",
                   }}
                 >
-                  {({ loading }) => loading ? "Preparing…" : "📋 Shot List PDF"}
+                  {({ loading }) => loading ? "Preparing…" : "Shot List PDF"}
                 </PDFDownloadLink>
               )}
               <button
