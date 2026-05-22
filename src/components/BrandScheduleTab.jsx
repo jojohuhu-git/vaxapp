@@ -54,7 +54,7 @@ const VISIT_ROWS = [
         items: ["ActHIB/Hiberix D2 (Hib)", "Prevnar 20 D2"],
         oral: "Rotavirus D2",
         inj: 3,
-        note: "HepB series complete ✓",
+        note: "HepB series complete",
       },
       vaxelis: {
         combo: "Vaxelis (DTaP D2 + IPV D2 + Hib D2 + HepB D3)",
@@ -62,7 +62,7 @@ const VISIT_ROWS = [
         oral: "Rotavirus D2",
         inj: 2,
         best: true,
-        note: "HepB series complete ✓",
+        note: "HepB series complete",
       },
       pentacel: {
         combo: "Pentacel (DTaP D2 + IPV D2 + Hib D2)",
@@ -110,7 +110,7 @@ const VISIT_ROWS = [
         items: ["MMR D1 (M-M-R II / ProQuad)", "Varivax D1", "HepA D1"],
         inj: 3,
         best: true,
-        note: "No Hib booster — Vaxelis Hib (PRP-OMP) series is complete after 3 primary doses ✓",
+        note: "No Hib booster — Vaxelis Hib (PRP-OMP) series is complete after 3 primary doses",
       },
       pentacel: {
         items: ["MMR D1 (M-M-R II / ProQuad)", "Varivax D1", "HepA D1"],
@@ -204,7 +204,7 @@ function InjBadge({ n, best, tied }) {
     background: best ? "#145a32" : tied ? "#6e7b2d" : "#888",
     color: "#fff",
   };
-  return <span style={style}>{n} {n === 1 ? "inj" : "inj"}{best ? " ★" : tied ? " ✓" : ""}</span>;
+  return <span style={style}>{n} inj</span>;
 }
 
 function StratHeader({ id }) {
@@ -268,7 +268,7 @@ export default function BrandScheduleTab() {
       {/* Intro */}
       <div style={{ background: "#f5f8fc", border: "1px solid #c8d8eb", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#333", lineHeight: 1.6 }}>
         <strong style={{ color: "#1a3a6b" }}>Birth-to-18y Reference Schedules</strong> — Comparison of three primary-series combo strategies for a <em>healthy child with no risk factors</em>, per 2025 ACIP/CDC recommendations.
-        Stars (★) indicate fewest injections at that visit. Adolescent visits (11y+) are identical across all three strategies.
+        The strategy with the fewest injections at each visit is highlighted in green. Adolescent visits (11y+) are identical across all three strategies.
       </div>
 
       {/* Main comparison table */}
@@ -308,7 +308,6 @@ export default function BrandScheduleTab() {
               <div style={{ fontSize: 22, fontWeight: 900, color: s.color, margin: "4px 0 2px" }}>
                 {total}
                 <span style={{ fontSize: 13, fontWeight: 600 }}> inj</span>
-                {isBest && <span style={{ fontSize: 13, marginLeft: 6 }}>★</span>}
               </div>
               <div style={{ fontSize: 10.5, color: "#666" }}>Birth through 18 months<br />(before pre-K booster visit)</div>
             </div>

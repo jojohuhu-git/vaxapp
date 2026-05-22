@@ -374,7 +374,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   const td = dc(hist, "Td");
   const totalTetanus = dt + tdap + td; // total tetanus-containing doses for catch-up tracking
   if (am >= 84 && am <= 131 && tdap === 0 && dt < 5) {
-    r("Tdap", "Catch-up Tdap (7\u201310 years, incomplete DTaP)", 1, "catchup", "Age 7\u201310y with incomplete DTaP series: give 1 Tdap. Use only Adacel (\u22657y). Remaining Td booster doses as needed.", ["Adacel (Tdap, \u22657y)"], { refUrl: REFS.Tdap.cdcUrl, refLabel: REFS.Tdap.cdcLabel, refUrl2: REFS.Tdap.pmcUrl, refLabel2: REFS.Tdap.pmcLabel });
+    r("Tdap", "Catch-up Tdap (7\u201310 years, incomplete DTaP)", 1, "catchup", "Age 7\u201310y unvaccinated/under-vaccinated: 3-dose catch-up series, then routine Tdap booster at 11\u201312y. Dose 1: Tdap now (Adacel, \u22657y). Dose 2: Td or Tdap, min 4 weeks after dose 1. Dose 3: Td or Tdap, min 6 months after dose 2.", ["Adacel (Tdap, \u22657y)"], { refUrl: REFS.Tdap.cdcUrl, refLabel: REFS.Tdap.cdcLabel, refUrl2: REFS.Tdap.pmcUrl, refLabel2: REFS.Tdap.pmcLabel });
   } else if (am >= 84 && am <= 131 && totalTetanus >= 1 && totalTetanus < 3) {
     // Continue 3-dose catch-up series (D2 or D3) for 7\u201310y patients
     r("Tdap", `Catch-up \u2014 dose ${totalTetanus + 1} of 3 (7\u201310 years, catch-up series)`, totalTetanus + 1, "catchup",

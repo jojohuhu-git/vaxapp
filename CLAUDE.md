@@ -122,12 +122,12 @@ Note: Pentacel+IPV is [1,3] — at the 4-6y booster visit, IPV D4 must pair with
 
 ## Active branch — where to edit
 
-**The active feature branch `feat/ui-improvements` lives in the main repo root.**
+**Work directly on `main` in the main repo root.** Pushes to `main` deploy to GH Pages via `.github/workflows/deploy.yml`. The prior `feat/ui-improvements` branch has been merged.
 
 - **Edit here:** `/Users/joannehuang/Downloads/vaxapp-main/src/`
 - **Do NOT edit:** `.claude/worktrees/` — those worktrees are stale and on different branches
 
-Verify before editing: `cd /Users/joannehuang/Downloads/vaxapp-main && git branch` should show `* feat/ui-improvements`.
+Verify before editing: `cd /Users/joannehuang/Downloads/vaxapp-main && git branch` should show `* main`.
 
 ## Dev server
 
@@ -777,3 +777,27 @@ Two bugs prevented filling in vaccine brands beyond Dose 1 in the Forecast tab. 
 - 4y empty hist, select Pentacel on DTaP D2 catch-up → IPV + Hib siblings at the same catch-up row get the Pentacel label
 
 All 2,088 existing tests pass.
+
+---
+
+## Design tokens & visual polish (2026-05-22)
+
+`src/App.css` `:root` is the single source of truth for the palette. The token NAMES (`--g`, `--g2`, `--g3`, `--glt`, `--gmd`, `--r`, `--r2`, etc., plus `--gy*` neutrals and `--bg`/`--wh`) are stable; the hex values were rebuilt for a "friendly modern" mint-forward look. Shape tokens (`--rad`, `--rads`, `--radp:999px`) and shadow tokens were also softened.
+
+**If you want to retune the palette:** edit only the hex values inside `:root`. Every component reads through the variables. Do NOT introduce inline hex literals in JSX — anything new should reference a token so the theme stays coherent.
+
+**Tdap 7–10y unvaccinated note** (`recommendations.js` line 377): updated to spell out the 3-dose catch-up schedule + 11–12y routine booster, and to clarify that doses 2 and 3 can be Td OR Tdap. Text-only change — the engine's dose-count math (`dosePlan.js getTotalDoses("Tdap")` returns 4 for `am >= 84 && am < 120 && totalTet < 3`) and the dose-2/3 follow-up rec branch (line 380, 28d / 180d minInt) are unchanged.
+
+**Header logo** (`Header.jsx`): the placeholder `.logo-ico` div now contains `<img src={\`${import.meta.env.BASE_URL}vite.svg\`} alt="" />`. Always prefix public assets with `import.meta.env.BASE_URL` — `vite.config.js` sets `base: '/vaxapp/'` and hardcoded `/vite.svg` 404s on GH Pages. If swapping in a custom logo, drop the SVG in `public/` and reference it the same way.
+
+**Patient summary bar UX** (`App.jsx`): the entire bar is `role="button"` clickable (not just the "Edit ▾" affordance). `fmtAm()` returns full words ("7 years", "4 years 6 months", "14 months", "Birth"). The drawer has a "Done" pill button next to the × at the top right; backdrop click / Escape / × all close. State updates are live during edits — Done is just an explicit close action, not a commit step. If a future ask demands staged edits, that requires a draft-state buffer at the drawer level (significant change).
+
+**Drawer layout**: was a 3-column grid `300px 260px 1fr` that crowded vaccination history into the risk-factors column. Now `340px 1fr` — patient info + risk grid stacked vertically on the left, vaccination history on the right.
+
+**Decorative icons removed**:
+- `regimens.js`: "⭐ Optimal Regimen" / "📋 Single-Antigen Only" → no leading emoji. Featured regimen is communicated by the `feat: true` flag + visual border, not the star.
+- `ForecastTab.jsx`: "📋 Shot List PDF" → "Shot List PDF".
+- `OptimalScheduleTab.jsx`: mode-toggle radio inputs are hidden with `position:absolute; opacity:0`. The pill label is the click target; filled background = selected.
+- `BrandScheduleTab.jsx`: `✓` stripped from completion notes.
+
+Do not re-add decorative emoji to these surfaces unless explicitly asked — the design direction is "clinical, kid-friendly, no clutter."

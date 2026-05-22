@@ -383,7 +383,7 @@ export default function OptimalScheduleTab() {
               value={m.id}
               checked={mode === m.id}
               onChange={() => setMode(m.id)}
-              style={{ margin: 0 }}
+              style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
             />
             {m.label}
           </label>
