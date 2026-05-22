@@ -134,8 +134,10 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       prevAge = seedVisit.m;
       prevDate = dob ? addD(dob, Math.round(prevAge * 30.4)) : "";
       prevVisitIdx = rec._seedVisitIdx;
-    } else if (lastGiven) {
-      // Compute age in months — supports both date-mode (needs DOB) and age-mode (ageDays)
+    } else if (lastGiven && startDose <= givenCountable) {
+      // The anchor dose (startDose) was already given historically.
+      // Compute age in months from the last given dose — supports both
+      // date-mode (needs DOB) and age-mode (ageDays).
       if (lastGiven.date && dob) {
         const ageDays = (new Date(lastGiven.date) - new Date(dob)) / (1000 * 60 * 60 * 24);
         prevAge = Math.max(0, ageDays / 30.4);
@@ -154,10 +156,13 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       }
       if (prevVisitIdx < 0) prevVisitIdx = 0;
     } else {
-      // No prior dose given. Anchor at the patient's ACTUAL current age (am),
-      // not at the most-recent past FORECAST_VISITS slot. Otherwise a 10-year-old
-      // (am=120) starting MenB would anchor at the 4–6y visit (m=54) — pushing
-      // D2 forward by years instead of weeks.
+      // Either no prior dose given, OR prior doses exist but startDose >
+      // givenCountable (the current rec is for a dose not yet given, which
+      // will be administered at the current visit). In both cases anchor the
+      // projection at am so D(startDose+1) is projected from TODAY, not from
+      // the last historical dose's age (which could be months or years ago,
+      // causing D3 to land in the past if D1 was given at birth and D2 is
+      // now due at age 4y).
       //
       // Important: do NOT shift the anchor based on fcBrands selection. The
       // brand picker stores the visit slot the user clicked in, but choosing
