@@ -1,7 +1,7 @@
 # PediVax — Session Handoff
-**Date:** 2026-05-21
-**Branch:** `feat/ui-improvements`
-**Tests:** 2,077 passing (146 files)
+**Date:** 2026-05-21 (end of day — post forecast bug fix)
+**Branch:** `main` (PR #22 merged, deployed)
+**Tests:** 2,088 passing (147 files)
 **Live site:** https://jojohuhu-git.github.io/vaxapp/
 **Repo:** https://github.com/jojohuhu-git/vaxapp
 **Local path:** `/Users/joannehuang/Downloads/vaxapp-main`
@@ -9,207 +9,80 @@
 
 ---
 
-## What was done across this UI session (2026-05-21)
+## What shipped today (2026-05-21)
 
-All changes are on `feat/ui-improvements` (PR #21 open). Two commits:
+### Morning: UI layout overhaul (PR #21, merged)
+Single commit `b509595` on `main`.
 
-### Commit 1 — `5177d1f` (prior partial session)
-DOB/age unification, audit improvements, 3-tab layout, sidebar accordion, audit footer.
+- Removed the left-side sidebar (`PatientInfo` + `RiskFactors` + `VaccineHistory` panels).
+- Replaced with compact `PatientSummaryBar` (single row, ~40-50px tall) showing age / DOB / risks / dose count, plus an "Edit ▾" button.
+- Clicking Edit opens `PatientDrawer` — a portal drop-down from the top with the three panels in a 3-column grid (PatientInfo + RiskGrid + QuickAdd/HistoryTable).
+- Drawer closes on ×, backdrop click, or Escape.
+- ForecastTab "hide complete" + "comfortable/compact density" toggles removed (memory file: `project_forecast_toggles_removed.md`).
+- Main content now `.app-single` (`max-width:1380px`, single column).
+- DOB/age conflict shown as red dot on the Edit button so it's visible when drawer is closed.
 
-### Commit 2 — `772c855` (this session)
-Forecast cell popovers, sticky headers, column hiding, density toggle, plus all items below.
+### Afternoon: Forecast D2+ bug fixes (PR #22, merged as `651a953`)
+Two distinct bugs, both surfaced after the layout change but neither caused by it.
 
----
+**Bug 1 — `computeDosePlan` anchor (src/logic/dosePlan.js)**
+- A 4-year-old with HepB D1 at birth had no HepB D3 anywhere in the forecast table.
+- The projection loop anchored from the LAST GIVEN dose's age (0m) and projected D3 with `earliestAge = 0 + 56d ≈ 2m`, `routineAge = 6m` → D3 landed at the routine 6-month slot (past visit), not the future.
+- Fix: `else if (lastGiven)` branch now only fires when `startDose <= givenCountable` (the anchor dose was already given historically). When `startDose > givenCountable` (current rec is for a not-yet-given dose), fall through to the `else` branch which anchors at `am`.
 
-## Component inventory — what is new / changed
+**Bug 2 — Catch-up brand selections didn't persist (src/context/AppContext.jsx + src/components/ForecastTab.jsx)**
+- Catch-up doses use plan keys `cu{age}_{vk}` (e.g. `cu49.2_HepB`).
+- `FC_BRAND_CHANGE` reducer wrote to `${visitM}_${vk}` (e.g. `49.2_HepB`) — a different key.
+- Brand selection on D2+ catch-up cells reverted to empty after re-render.
+- Fix: payload accepts `fcKey` (primary write key) and `siblingFcKeys` (combo sibling map). `ForecastTab` passes `fcKey` from all three render paths and `siblingFcKeys: visit.catchupDoseKeys` from the main render path so combo cascade (Pentacel → IPV+Hib) works at catch-up rows.
+- Clear logic also updated to recognise `cu`-prefixed float ages alongside integer ages.
 
-### `src/components/DateField.jsx` ✨ NEW
-Reusable masked date input (MM/DD/YYYY) + 📅 calendar picker button.
-
-```jsx
-<DateField
-  id="some-id"
-  value={isoString}        // "YYYY-MM-DD" or ""
-  onChange={(iso) => ...}  // always gets ISO string
-  ariaLabel="..."
-  width={140}
-  hasError={bool}
-  onEnter={fn}             // optional — called on Enter key
-/>
-```
-
-Used by: `PatientInfo.jsx`, `QuickAdd.jsx`. The hidden `<input type="date">` is triggered via `showPicker()` from the 📅 button.
-
----
-
-### `src/components/AuditFooter.jsx` ✨ NEW (replaces old thin strip)
-Fixed footer strip with severity-driven filled color backgrounds. Shows inline preview of first 1–2 issues without requiring a click. Clicks to expand a slide-up panel.
-
-Color scheme:
-- **Red** (`#fbe6e6` / `#c0392b`) — errors present
-- **Amber** (`#fff3d6` / `#d68910`) — warnings/advisories only
-- **Green** (`#e6f5ea` / `#27ae60`) — no issues
+CLAUDE.md updated with detailed root cause + invariants under "Forecast D2+ projection + brand persistence".
 
 ---
 
-### `src/components/PatientInfo.jsx` — major refactor
-- **AgeTypeahead** inline combobox component (replaces `<select>` with 60+ options): substring filter, keyboard nav (↑↓ Enter Esc), scrolls active item into view, reverts on Escape/outside click
-- **DateField** replaces manual DOB masked input
-- DOB/age mismatch hint: shown only when the two fields differ beyond a tolerance window
+## State at handoff
+
+- Branch: `main` is clean and synced with origin.
+- Tests: 2,088 pass.
+- Open PRs: none.
+- Untracked files in working dir: `.claude/worktrees/`, `PROMPT_UI_FIXES.md` — harmless, ignore.
 
 ---
 
-### `src/components/QuickAdd.jsx` — DateField integration
-- `dateVal` now stores ISO string (was masked text); `parseDateInput` import removed
-- `DateField` replaces inline masked `<input>`
+## Known follow-ups (not blocking)
+
+1. **No regression test for the forecast D2+ scenarios.** CLAUDE.md notes the test file `src/logic/__tests__/regression-forecast-d2plus.test.js` would be useful:
+   - 4y with HepB D1 at birth → `dosePlan` projects HepB D3 at a future key, not at `6_HepB`.
+   - Brand selection on `cu{age}_HepB` persists in `state.fcBrands`.
+   - Pentacel on DTaP D2 (catch-up) cascades to IPV + Hib siblings at the same catch-up row.
+
+   The bugs were verified manually in the browser via `mcp__Claude_Preview__preview_eval`. Adding the regression test would lock in the fix.
+
+2. **Catch-up combo propagation to FUTURE catch-up rows is not implemented.** Currently a Pentacel pick at "4y 1mo catch-up" DTaP D2 sets siblings at that single row, and cascades only to future ROUTINE FORECAST_VISITS via the existing `FORECAST_VISITS.forEach` loop. If the DTaP D3 catch-up is at "4y 2mo", that row's DTaP cell isn't auto-filled. Probably acceptable — each catch-up dose is a separate clinical decision — but flag this if anyone asks for cross-catch-up cascading.
+
+3. **`PROMPT_UI_FIXES.md`** is a leftover prompt scratchpad from earlier sessions. Safe to delete.
+
+4. **Browser test infrastructure**: For UI bugs, `mcp__Claude_Preview__preview_eval` is the fastest way to verify cell-level behavior. The pattern used:
+   ```js
+   // Find a select by visit + chip text
+   const rows = document.querySelectorAll('.fc-tbl tbody tr');
+   // Use native setter so React onChange fires
+   const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+   setter.call(targetSelect, optValue);
+   targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+   ```
+   Pure-JS dispatch reproduces user clicks faithfully. Use this when adding repro steps in future bug fixes.
 
 ---
 
-### `src/components/HistoryTable.jsx` — compact view
-- Default: show only rows where `(state.hist[vk] || []).length > 0`
-- "+ Show N more vaccines" button reveals all rows
-- "Hide empty vaccines" button re-collapses
+## Where to start next session
 
----
+1. Run `mcp__Claude_Preview__preview_start` with `"PediVax dev server"`.
+2. Read CLAUDE.md sections "Five-surface verification rule", "Brand validity", "Forecast D2+ projection + brand persistence" (new).
+3. Verify the project still builds: `npm test` should show 2,088 passing.
+4. Check the live site at the URL above to confirm the deployed build matches.
 
-### `src/components/OptimalScheduleTab.jsx` — Why? popovers
-Replaced internal engine chip labels (iCond, iByTotalDoses, etc.) with plain-English portal popovers per dose.
+If the next ask is about the Forecast tab or AppContext brand reducer: re-read the new CLAUDE.md section first — there are non-obvious invariants (catch-up key format, `fcKey` parameter, sibling propagation rules) that will bite if you skip it.
 
-Key functions added:
-- `humanDays(d)` — converts days to natural unit
-- `explainConstraint(dose, allFlatDoses)` → `{ summary, detail, refUrl, refLabel }`
-- `WhyPopover({ explanation, anchorRect, onClose })` — portal component
-- `WhyButton({ doseKey, openKey, setOpenKey, explanation })` — trigger + portal
-
----
-
-### `src/components/ForecastTab.jsx` — 5 improvements
-
-#### 1. Cell popover (replaces broken `title` tooltip)
-- `CellPopover({ chipText, rec, anchorRect, onClose })` — portal component
-- Any chip where `rec?.note || rec?.refUrl` is truthy gets `.fch-info` class and is clickable
-- Shows: chip text as title, clinical note, brand tip, CDC + immunize.org links
-- `openCell` state: `{ key: fcKey, rect: DOMRect }`
-
-#### 2. Sticky headers
-- `.fc-wrap` now: `overflow-y: auto; max-height: 65vh; border: 1px solid var(--gy5); border-radius: 4px`
-- All `<thead th>` get `position: sticky; top: 0; z-index: 2; background: var(--gy6)`
-- `th.vlbl-th` (Visit column header) gets `z-index: 3` (corner cell)
-- `td.vlbl` cells get `position: sticky; left: 0; z-index: 1` + explicit bg per row type
-
-#### 3. Auto-hide complete vaccine columns
-- `completeVks = allVks.filter(vk => !planVks.has(vk))` — no future projection, no current rec
-- `displayVks = hideComplete ? allVks.filter(vk => planVks.has(vk)) : allVks`
-- `hideComplete` defaults `true`; toggle shows "+ N complete vaccines" / "− Hide complete"
-- `allVks` replaced with `displayVks` in `<thead>` and all `<tbody>` row maps
-- `colSpan` on past-toggle-row updated to `displayVks.length + 1`
-
-#### 4. Compact density toggle
-- `density` state: `'normal'` | `'compact'`
-- Table gets `fc-tbl-compact` class in compact mode
-- CSS reduces font sizes and padding throughout
-
-#### 5. Controls bar
-Old legend replaced with a flex bar:
-```
-[■ done  ■ catch-up  ■ expired  ■ projected.  Click a cell for notes.]  [+ N complete]  [Comfortable|Compact]
-```
-
----
-
-## Portal Popover Pattern (used in OptimalScheduleTab + ForecastTab)
-
-```jsx
-import { createPortal } from 'react-dom';
-import { useEffect } from 'react';
-
-function SomePopover({ anchorRect, onClose }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const spaceBelow = window.innerHeight - anchorRect.bottom;
-  const popH = 200;
-  const above = spaceBelow < popH + 20;
-  const top = above
-    ? anchorRect.top + window.scrollY - popH - 8
-    : anchorRect.bottom + window.scrollY + 8;
-  const left = Math.min(
-    Math.max(8, anchorRect.left + window.scrollX - 20),
-    window.innerWidth - 280 - 8,
-  );
-
-  return createPortal(
-    <>
-      <div style={{ position:'fixed', inset:0, zIndex:500 }} onClick={onClose} />
-      <div style={{ position:'absolute', top, left, zIndex:501, background:'#fff', ... }}>
-        {/* content */}
-      </div>
-    </>,
-    document.body,
-  );
-}
-
-// Trigger — capture rect on click:
-<span
-  onClick={(e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setOpenCell(prev => prev?.key === key ? null : { key, rect });
-  }}
->
-  {text}
-</span>
-{openCell?.key === key && (
-  <SomePopover anchorRect={openCell.rect} onClose={() => setOpenCell(null)} />
-)}
-```
-
-Key rules:
-- Always portal to `document.body` — escapes `overflow:hidden` in parent containers
-- Must add `window.scrollY` (vertical) and `window.scrollX` (horizontal) to `anchorRect` values when the trigger is inside a scrolling container
-- Flip-above logic prevents popover going off bottom of viewport
-- Backdrop `div` (fixed, full screen) closes on outside click
-- Add `e.stopPropagation()` on links inside the popover to prevent accidental close
-
----
-
-## Deferred / not yet started
-
-| Feature | Notes |
-|---|---|
-| **After Visit Summary PDF** | Provider-facing PDF for the Today panel. New component + SchedulePDF-style layout |
-| **Vaccine history upload** | Parse external records (image, PDF). Needs OCR; discussed WASM. No HIPAA concern; only age/DOB/vaccine history shown with disclaimer |
-
----
-
-## Key file map
-
-| File | Purpose |
-|---|---|
-| `src/components/ForecastTab.jsx` | Full forecast table — most complex component |
-| `src/components/OptimalScheduleTab.jsx` | Optimal schedule with Why? popovers |
-| `src/components/AuditFooter.jsx` | Fixed footer audit strip |
-| `src/components/DateField.jsx` | Reusable masked date + calendar picker |
-| `src/components/PatientInfo.jsx` | Age typeahead combobox + DOB input |
-| `src/components/HistoryTable.jsx` | Compact history table with expand/collapse |
-| `src/components/QuickAdd.jsx` | Quick add dose form |
-| `src/App.css` | All CSS (no CSS modules) — ~300 lines |
-| `src/logic/recommendations.js` | Rec engine — **edit via Python only** (Unicode escapes) |
-| `src/data/refs.js` | All CDC/immunize.org reference URLs |
-
----
-
-## Starting a new session
-
-```bash
-cd /Users/joannehuang/Downloads/vaxapp-main
-git status        # should be on feat/ui-improvements, clean
-git log --oneline -3
-npm test          # 2077 passing
-```
-
-Start the preview server: `mcp__Claude_Preview__preview_start` → name `"PediVax dev server"` → port 5174.
-
-**All edits go in `/Users/joannehuang/Downloads/vaxapp-main/src/`** — the main repo root on `feat/ui-improvements`. The `.claude/worktrees/` directories are stale and should be ignored.
+If the next ask is unrelated: standard onboarding applies — start with CLAUDE.md top-to-bottom.
