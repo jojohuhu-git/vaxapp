@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import DateField from './DateField';
@@ -163,12 +164,20 @@ function AgeTypeahead({ value, onChange }) {
 /** Compute age in whole months from an ISO dob string to today. */
 function dobToMonths(dob) {
   const today = new Date();
-  const birth = new Date(dob);
+  const birth = new Date(dob + 'T00:00:00');
   if (isNaN(birth)) return null;
   let months = (today.getFullYear() - birth.getFullYear()) * 12
              + (today.getMonth() - birth.getMonth());
   if (today.getDate() < birth.getDate()) months--;
   return Math.max(0, months);
+}
+
+/** Compute an ISO DOB string from an age in months, counting back from today. */
+function monthsToDob(months) {
+  const today = new Date();
+  const birth = new Date(today);
+  birth.setMonth(birth.getMonth() - months);
+  return birth.toISOString().slice(0, 10);
 }
 
 export default function PatientInfo() {
@@ -200,11 +209,21 @@ export default function PatientInfo() {
 
   return (
     <div>
+      <p style={{ color: '#888', fontSize: '0.82rem', marginBottom: 6, marginTop: 0 }}>
+        Enter the patient&apos;s age or date of birth, then select any applicable risk factors.
+      </p>
       <div className="field">
         <label htmlFor="age-sel">Age</label>
         <AgeTypeahead
           value={state.am < 0 ? '' : String(state.am)}
-          onChange={(v) => dispatch({ type: 'SET_AGE', payload: v === '' ? -1 : Number(v) })}
+          onChange={(v) => {
+            const months = v === '' ? -1 : Number(v);
+            dispatch({ type: 'SET_AGE', payload: months });
+            // Also sync DOB when age is set
+            if (months >= 0) {
+              dispatch({ type: 'SET_DOB', payload: monthsToDob(months) });
+            }
+          }}
         />
         {dobHint && (
           <div style={{
@@ -221,7 +240,16 @@ export default function PatientInfo() {
         <DateField
           id="dob-inp"
           value={state.dob || ''}
-          onChange={(iso) => dispatch({ type: 'SET_DOB', payload: iso })}
+          onChange={(iso) => {
+            dispatch({ type: 'SET_DOB', payload: iso });
+            // Also sync age field when DOB is set
+            if (iso) {
+              const months = dobToMonths(iso);
+              if (months !== null) {
+                dispatch({ type: 'SET_AGE', payload: months });
+              }
+            }
+          }}
           ariaLabel="Date of Birth"
           width={140}
         />

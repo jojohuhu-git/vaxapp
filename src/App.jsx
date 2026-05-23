@@ -6,7 +6,7 @@ import { encState, decState } from './logic/urlState';
 import { RISK_FACTORS } from './data/riskFactors';
 import Header from './components/Header';
 import PatientInfo from './components/PatientInfo';
-import QuickAdd from './components/QuickAdd';
+import VisitEntry from './components/VisitEntry';
 import HistoryTable from './components/HistoryTable';
 import AuditFooter from './components/AuditFooter';
 import RiskGrid from './components/RiskGrid';
@@ -86,7 +86,7 @@ function PatientDrawer({ onClose }) {
             </div>
             <div>
               <div className="ctitle" style={{ marginBottom: 8 }}>Vaccination History</div>
-              <QuickAdd />
+              <VisitEntry />
               <div style={{ marginTop: 8 }}>
                 <HistoryTable />
               </div>

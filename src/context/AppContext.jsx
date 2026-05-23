@@ -301,6 +301,35 @@ function reducer(state, action) {
       return { ...state, hist: nextHist };
     }
 
+    case "VISIT_ADD": {
+      // Visit-based multi-vaccine entry. Each dose gets a visitId for atomic removal.
+      const { visitId, targets, mode, date, ageDays } = action.payload;
+      let nextHist = { ...state.hist };
+      for (const { vk, brand } of targets) {
+        const arr = [...(nextHist[vk] || [])];
+        arr.push({
+          mode: mode || "date",
+          date: date || "",
+          ageDays: ageDays ?? null,
+          brand: brand || "",
+          given: true,
+          visitId,
+        });
+        nextHist = { ...nextHist, [vk]: arr };
+      }
+      return { ...state, hist: nextHist };
+    }
+
+    case "VISIT_REMOVE": {
+      // Remove all doses with the given visitId across all vaccines
+      const { visitId } = action.payload;
+      const nextHist = {};
+      for (const vk of Object.keys(state.hist)) {
+        nextHist[vk] = (state.hist[vk] || []).filter(d => d.visitId !== visitId);
+      }
+      return { ...state, hist: nextHist };
+    }
+
     case "CLEAR_ALL":
       return { ...INIT, hist: initHist() };
 
