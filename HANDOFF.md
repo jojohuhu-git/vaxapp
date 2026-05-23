@@ -93,3 +93,59 @@ If the next ask is about colours, spacing, typography, or removing/restoring dec
 If the next ask touches recommendation TEXT (note strings, dose labels, brand lists): remember `src/logic/recommendations.js` uses literal `\uXXXX` escape sequences inside string literals. The Edit tool will fail to match em-dashes etc. — use Python with literal-escape strings (see CLAUDE.md "Editing recommendations.js — Unicode escape issue").
 
 If the next ask is about the clinical logic engine: standard onboarding. CLAUDE.md "Five-surface verification rule" is the gate before any clinical fix ships.
+
+---
+
+## What shipped (2026-05-23, PR #25)
+
+**Tests:** 2,806 passing (198 files)
+**Commit:** merged to main via PR #25 (branch `claude/rec-brand-dropdowns-today-removal`)
+
+### Heplisav-B reclassified
+`src/data/vaccineData.js`: moved Heplisav-B from COMBOS (`c:`) to standalone brands (`s:`) in `VBR.HepB`. It was incorrectly appearing under "Combination Vaccines" in brand dropdowns despite being a single-antigen product.
+
+### VisitEntry.jsx (new component)
+Visit-grouped multi-vaccine entry in the Edit Patient drawer:
+- Visit Date + Age at Visit fields with bidirectional autofill (requires patient DOB for date→age conversion)
+- Combo chips filtered by age-appropriate windows (`minM`/`maxM` from `vaccineData.js COMBOS`)
+- Clicking a combo auto-selects its antigens; `activeComboName` state prevents conflicting combos
+- Duplicate date detection (merge vs keep-separate prompt)
+- Undo strip: last 3–5 added visits as chips with atomic removal by `visitId`
+- Enter submits from any form element; inline hard-stop errors list exactly what is missing
+
+### PatientInfo — bidirectional DOB↔age sync
+`src/components/PatientInfo.jsx`: changing DOB dispatches `SET_AGE`; changing age dispatches `SET_DOB`. Previously only one direction was wired.
+
+### ForecastTab — progressive disclosure
+`src/components/ForecastTab.jsx`: default view shows only today's row, the next upcoming routine visit, and any overdue rows. "Show full forecast" toggle expands all rows. Overdue rows are always visible and never collapsed.
+
+### RecTab — Due default + brand dropdowns
+`src/components/RecTab.jsx`:
+- Defaults to the "Due" filter on mount (state initialises as "all" → visually mapped to "due" so clinicians see actionable vaccines immediately)
+- Brand dropdowns injected below each due/catch-up rec card via `RecBrandDropdown`, using `orderedBrandsForVisit` from `forecastLogic.js`
+- Grouped `<select>`: combination vaccines in one `<optgroup>`, standalones in another
+- Selections write to `fcBrands` via `FC_BRAND_CHANGE` (key: `${am}_${vk}`) — same reducer path as the Forecast tab
+- Active combo detection suppresses redundant "covers X" labels on sibling antigens
+
+### TodayTab removed
+`src/components/TodayTab.jsx` is retained in the repo (file exists) but all routing wiring removed:
+- `TabBar.jsx`: "Today" entry removed; tab order is now Recommendations | Plan | Forecast | Reference ↗
+- `MainPanel.jsx`: import and render of `TodayTab` removed
+- `AppContext.jsx`: "today" removed from `validTabs` set in `SET_TAB` reducer
+- `src/components/__tests__/TodayTab.test.jsx`: rewritten to test RecTab's due-filter default and brand-dropdown rendering (6 tests)
+
+---
+
+## State at handoff (2026-05-23)
+
+- Branch: `main` — PR #25 merged; deploy workflow completed (GH Pages updated)
+- Tests: 2,806 pass (198 test files)
+- Working tree: clean on `claude/rec-brand-dropdowns-today-removal`; switch to `main` for next session
+- Live site: https://jojohuhu-git.github.io/vaxapp/
+
+## Where to start next session
+
+1. `cd /Users/joannehuang/Downloads/vaxapp-main && git checkout main && git pull`
+2. Run `mcp__Claude_Preview__preview_start` with `"PediVax dev server"`
+3. `npm test` — expect 2,806 passing
+4. Read CLAUDE.md "Five-surface verification rule" before any clinical logic change
