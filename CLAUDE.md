@@ -801,3 +801,38 @@ All 2,088 existing tests pass.
 - `BrandScheduleTab.jsx`: `✓` stripped from completion notes.
 
 Do not re-add decorative emoji to these surfaces unless explicitly asked — the design direction is "clinical, kid-friendly, no clutter."
+
+## Changes shipped (2026-05-22, Items 1–5)
+
+### Heplisav-B reclassified
+Moved from COMBOS (c:) to standalone brands (s:) in VBR.HepB in vaccineData.js.
+Was incorrectly appearing under “Combination Vaccines” in brand dropdowns.
+
+### Visit-based multi-vaccine entry (VisitEntry.jsx)
+New visit-grouped entry mode in the Edit Patient drawer (Vaccination History column):
+- Visit Date + Age at Visit with bidirectional autofill (requires patient DOB for date→age)
+- Combo chips hidden until patient DOB/age AND visit date or age-at-visit are entered
+- Combo chips filtered by age-appropriate windows (minM/maxM from vaccineData.js COMBOS)
+- Clicking a combo auto-selects its antigens and pre-fills brand dropdowns; activeComboName state prevents other combos from lighting up
+- “Brand unknown” is always first in every brand dropdown
+- Combo hint banner when matching antigens all have unknown brand
+- Duplicate date detection (merge vs keep-separate)
+- Undo strip: last 3–5 visits as chips with atomic × removal by visitId
+- Enter key submits from any form element; hard-stop inline errors list exactly what’s missing
+- Field-level helper text throughout
+
+### PatientInfo bidirectional DOB↔age sync
+Changing DOB now dispatches SET_AGE; changing age dispatches SET_DOB.
+
+### Forecast progressive disclosure (ForecastTab.jsx)
+Default view shows only: today’s row, next upcoming routine row, overdue rows (past rows with outstanding doses), imminent rows (within ~1 month). “Show full forecast” toggle reveals all rows. Overdue rows are never collapsed.
+
+### Recommendations tab (RecTab) — Due default + brand dropdowns
+RecTab now defaults to the “Due” filter on mount (was “All”). Brand dropdowns added to due/catch-up rec cards, using orderedBrandsForVisit from forecastLogic.js. Brand selections write to fcBrands via FC_BRAND_CHANGE (key: `${am}_${vk}`). Grouped select: combination vaccines in one optgroup, standalones in another. Active combo detection suppresses redundant sibling labels.
+
+### TodayTab removed
+Folded into Recommendations tab (Due default + brand dropdowns). Tab bar order is now: Recommendations | Plan | Forecast | Reference ↗. TodayTab.jsx is retained in the repo but not wired into any route. The test file (TodayTab.test.jsx) was rewritten to cover RecTab’s due-filter default and brand-dropdown rendering.
+
+### Commit
+PR #25, merged 2026-05-23. Commit SHA on main after merge: see `git log --oneline -1`.
+2806 tests pass (198 test files) after all changes.
