@@ -1,7 +1,8 @@
+/* eslint-disable react/prop-types */
 import { useApp } from '../context/AppContext';
 
 const TABS = [
-  { id: "recs",     label: "Today" },
+  { id: "recs",     label: "Recommendations" },
   { id: "plan",     label: "Plan" },
   { id: "forecast", label: "Forecast" },
 ];

@@ -24,12 +24,15 @@ import {
   getRowByLabel,
   getCellByVk,
   getRowLabels,
+  expandForecast,
 } from '../../test-helpers/renderForecast';
 
 // ── Baseline: 2-year-old, no history ───────────────────────────────────────
 describe('ForecastTab — 2yo no history baseline', () => {
   it('renders the routine and catch-up rows expected for an empty 2yo', () => {
     const { container } = renderForecast({ am: 24 });
+    // Expand to full view — baseline test needs to see all rows.
+    expandForecast(container);
     const labels = getRowLabels(container);
     // Current visit row + future routine slots
     expect(labels.some(l => l.startsWith('2 years'))).toBe(true);
@@ -119,6 +122,8 @@ describe('ForecastTab — catch-up row vk isolation', () => {
     // a DTaP-only catch-up for an empty 2yo (no other vaccine has a catch-up
     // dose at exactly 32m). All other vk cells in that row must be "—".
     const { container } = renderForecast({ am: 24 });
+    // The 2y 8mo catch-up row is hidden in default collapsed view; expand first.
+    expandForecast(container);
     const row = getRowByLabel(container, '2y 8mo');
     expect(row).not.toBeNull();
 
@@ -290,5 +295,48 @@ describe('ForecastTab — Hib brand list at 2y catch-up', () => {
         `Vaxelis missing from ${vk} dropdown at 2y. Got: ${optionLabels.join(' | ')}`,
       ).toBe(true);
     }
+  });
+});
+
+// ── Progressive disclosure (Item 4) ─────────────────────────────────────────
+describe('ForecastTab — progressive disclosure', () => {
+  it('default view shows today row', () => {
+    const { container } = renderForecast({ am: 24 });
+    const labels = getRowLabels(container);
+    expect(labels.some(l => l.startsWith('2 years')), 'today row must be visible by default').toBe(true);
+  });
+
+  it('default view shows next upcoming routine visit', () => {
+    const { container } = renderForecast({ am: 24 });
+    const labels = getRowLabels(container);
+    // For a 2yo, next routine is 4 years.
+    expect(labels.some(l => l.startsWith('4 years')), 'next routine row must be visible by default').toBe(true);
+  });
+
+  it('default view hides distant future rows', () => {
+    const { container } = renderForecast({ am: 24 });
+    const labels = getRowLabels(container);
+    // 11 years and 16 years are well beyond next routine — must be hidden.
+    expect(labels.some(l => l.startsWith('11 years')), '11y row must be hidden in default view').toBe(false);
+    expect(labels.some(l => l.startsWith('16 years')), '16y row must be hidden in default view').toBe(false);
+  });
+
+  it('expanded view shows all routine rows including distant future', () => {
+    const { container } = renderForecast({ am: 24 });
+    expandForecast(container);
+    const labels = getRowLabels(container);
+    expect(labels.some(l => l.startsWith('11 years')), '11y row must appear after expanding').toBe(true);
+    expect(labels.some(l => l.startsWith('16 years')), '16y row must appear after expanding').toBe(true);
+  });
+
+  it('overdue row is never hidden in default view (CRITICAL INVARIANT)', () => {
+    // 13-month-old who missed the 12-month visit. The 12m row should be
+    // overdue (past + dosePlan still has entries there) and always visible.
+    const { container } = renderForecast({ am: 13 });
+    // Don't expand — test that the overdue row appears WITHOUT expanding.
+    const labels = getRowLabels(container);
+    // The 12m row is past (m=12 < am=13). For an empty 13mo, dosePlan will
+    // project doses at m=12 (missed 12-month visit) → overdue → always visible.
+    expect(labels.some(l => l.startsWith('12 months')), '12m overdue row must be visible without expanding').toBe(true);
   });
 });

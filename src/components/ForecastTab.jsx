@@ -201,6 +201,7 @@ export default function ForecastTab({ recs }) {
   const am = getEffectiveAm(state).effectiveAm;
 
   const [showPast, setShowPast] = useState(false);
+  const [showFull, setShowFull] = useState(false);
   // Map<fcKey, {ageM, date, vk, visitM}> — doses moved to earliest eligible date
   const [scheduledEarliest, setScheduledEarliest] = useState(() => new Map());
   // vk of the "Why?" card currently expanded in the Today panel (null = all collapsed)
@@ -261,6 +262,55 @@ export default function ForecastTab({ recs }) {
 
   // Exclude scheduled-early rows from the past count (they're always shown).
   const pastCount = visits.filter(v => v.m < am && !v.isScheduledEarly).length;
+
+  // ── Progressive disclosure helpers ────────────────────────────
+  // Overdue: the most recent past routine visit slot where at least one
+  // vaccine is still actively due as catch-up. We only flag the MOST RECENT
+  // past slot because that's the one a clinician would realistically have
+  // missed — flagging all past slots would clutter the view. We identify it
+  // as the highest-m past routine (non-catchup, non-early) visit.
+  const mostRecentPastRoutineM = (() => {
+    let max = -1;
+    for (const v of visits) {
+      if (v.m < am && !v.isCatchup && !v.isScheduledEarly) {
+        if (v.m > max) max = v.m;
+      }
+    }
+    return max;
+  })();
+
+  const isOverdue = (visit) => {
+    if (visit.m >= am) return false;
+    if (visit.isScheduledEarly || visit.isCatchup) return false;
+    // Only flag the most recent past routine visit if vaccines are still outstanding.
+    if (visit.m !== mostRecentPastRoutineM) return false;
+    return visit.std.some(vk => {
+      const rec = currentRecMap[vk];
+      return rec && (rec.status === 'catchup' || rec.status === 'due');
+    });
+  };
+
+  // Imminent: a future visit within ~1 month of today.
+  const isImminent = (visit) => visit.m > am && visit.m <= am + 1;
+
+  // Next upcoming routine visit (first non-catch-up future row).
+  const nextRoutineVisitM = (() => {
+    for (const v of visits) {
+      if (v.m > am && !v.isCatchup && !v.isScheduledEarly) return v.m;
+    }
+    return null;
+  })();
+
+  // Whether a visit row is always visible in collapsed mode.
+  const isAlwaysVisible = (visit) => {
+    if (visit.m === am) return true;           // today
+    if (visit.isScheduledEarly) return true;   // user-moved doses (standalone row)
+    if (visit._earlyDoses && Object.keys(visit._earlyDoses).length > 0) return true; // merged move
+    if (isOverdue(visit)) return true;          // missed past doses — NEVER hide
+    if (isImminent(visit)) return true;        // within ~1 month
+    if (visit.m === nextRoutineVisitM) return true; // next upcoming routine
+    return false;
+  };
 
   // For each vaccine, find the earliest future visit where genRecs first
   // reports the vaccine as due. We render D1 only at that visit and suppress
@@ -532,8 +582,13 @@ export default function ForecastTab({ recs }) {
               </tr>
             )}
             {visits.map((visit, vi) => {
-              // Hide past rows when collapsed; always show scheduled-early rows.
-              if (visit.m < am && !showPast && !visit.isScheduledEarly) return null;
+              // Hide past rows when collapsed; always show scheduled-early rows
+              // and overdue rows (missed doses must never be hidden).
+              if (visit.m < am && !showPast && !visit.isScheduledEarly && !isOverdue(visit)) return null;
+              // Progressive disclosure: in default (collapsed) mode, hide rows
+              // that are not today, not overdue, not imminent, and not the
+              // next upcoming routine visit.
+              if (!showFull && !isAlwaysVisible(visit)) return null;
 
               const isCurr = visit.m === am;
               // Scheduled-early rows are user-generated future slots; never treat as past.
@@ -966,6 +1021,19 @@ export default function ForecastTab({ recs }) {
             })}
           </tbody>
         </table>
+      </div>
+      {/* ── Progressive disclosure toggle ─────────────────────── */}
+      <div style={{ textAlign: 'center', marginTop: 6 }}>
+        <button
+          onClick={() => setShowFull(v => !v)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 11, color: '#888', padding: '4px 8px',
+            textDecoration: 'underline', textDecorationStyle: 'dotted',
+          }}
+        >
+          {showFull ? '← Show less' : 'Show full forecast →'}
+        </button>
       </div>
     </div>
   );

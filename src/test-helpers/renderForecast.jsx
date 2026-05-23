@@ -33,7 +33,7 @@ vi.mock('@react-pdf/renderer', () => ({
   StyleSheet: { create: (s) => s },
 }));
 
-import { act, render } from '@testing-library/react';
+import { act, render, fireEvent } from '@testing-library/react';
 import { AppProvider, useApp, getEffectiveAm } from '../context/AppContext';
 import ForecastTab from '../components/ForecastTab';
 import { genRecs } from '../logic/recommendations';
@@ -141,4 +141,14 @@ export function getCellByVk(container, rowLabelStartsWith, vk) {
 
 export function getRowLabels(container) {
   return Array.from(container.querySelectorAll('.vlbl-age')).map(el => el.textContent.trim());
+}
+
+/**
+ * Click "Show full forecast →" to expand all future rows.
+ * Call this in tests that need access to rows beyond today + next visit.
+ */
+export function expandForecast(container) {
+  const btn = Array.from(container.querySelectorAll('button'))
+    .find(b => b.textContent.includes('Show full forecast'));
+  if (btn) act(() => { fireEvent.click(btn); });
 }

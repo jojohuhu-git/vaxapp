@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useState } from 'react';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { genRecs } from '../logic/recommendations';
