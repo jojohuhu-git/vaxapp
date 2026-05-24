@@ -87,15 +87,31 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("RSV", "Nirsevimab \u2014 2nd season (high-risk only)", 1, "risk-based", "High-risk 8\u201319 months: prematurity, CHD, CLD, immunocompromise entering 2nd RSV season. 100mg.", ["Beyfortus (nirsevimab, 100mg)"], { refUrl: REFS.RSV.cdcUrl, refLabel: REFS.RSV.cdcLabel, refUrl2: REFS.RSV.url, refLabel2: REFS.RSV.label });
 
   // ── RV ────────────────────────────────────────────────────────
-  const rv = dc(hist, "RV"); const rvb = anyBrand(hist, "RV"); const rvMax = rvb.includes("Rotarix") ? 2 : 3;
+  const rv = dc(hist, "RV"); const rvb = anyBrand(hist, "RV");
+  const rvDoses = (hist.RV || []).filter(d => d.given);
+  const rvHasRotaTeq = rvDoses.some(d => d.brand?.startsWith("RotaTeq"));
+  const rvHasUnknown = rvDoses.some(d => !d.brand);
+  // ACIP: 3 doses if any RotaTeq or brand unknown; 2 doses only if ALL confirmed Rotarix
+  const rvMax = (rvHasRotaTeq || rvHasUnknown) ? 3 : (rvb.startsWith("Rotarix") ? 2 : 3);
   if (am >= 2 && am <= 8 && rv < rvMax && !risks.includes("immunocomp")) { // RV live: contraindicated in SCID/severe immunodeficiency
     // Hard cutoff: cannot start after 14w6d (~3.5m), cannot give any dose after 8m
     if (rv === 0 && am > 3.5) {
       /* Too late to start — no recommendation, age window closed */
     } else if (rv === 0)
-      r("RV", "Dose 1 (must start by 14w6d)", 1, "due", "Min age 6 weeks. Must start by 14 weeks 6 days. Rotarix=2 doses; RotaTeq=3 doses. NEVER interchange brands.", ["Rotarix (RV1) \u2014 2-dose series", "RotaTeq (RV5) \u2014 3-dose series"], { bt: "Choose ONE brand at dose 1 and never switch \u2014 brands are NOT interchangeable.", textFrag: "maximum age for the first dose", refUrl: REFS.RV.cdcUrl, refLabel: REFS.RV.cdcLabel, refUrl2: REFS.RV.url, refLabel2: REFS.RV.label });
-    else
-      r("RV", `Dose ${rv + 1} (${rvb || "same brand as D1"})`, rv + 1, "due", `Same brand as dose 1. Min 4 weeks between doses. Max age for any dose: 8 months 0 days.`, rvb ? [rvb] : ["Rotarix", "RotaTeq"], { minInt: 28, textFrag: "maximum age for the final dose", refUrl: REFS.RV.cdcUrl, refLabel: REFS.RV.cdcLabel, refUrl2: REFS.RV.url, refLabel2: REFS.RV.label });
+      r("RV", "Dose 1 (must start by 14w6d)", 1, "due", "Min age 6 weeks. Must start by 14 weeks 6 days. Rotarix requires 2 doses; RotaTeq requires 3 doses. Complete the series with the same product when possible \u2014 do not defer if that product is unavailable.", ["Rotarix (RV1) \u2014 2-dose series", "RotaTeq (RV5) \u2014 3-dose series"], { bt: "Prefer same product for all doses. If any dose is RotaTeq or brand unknown, 3 doses required. Do not defer vaccination because the original product is unavailable.", textFrag: "maximum age for the first dose", refUrl: REFS.RV.cdcUrl, refLabel: REFS.RV.cdcLabel, refUrl2: REFS.RV.url, refLabel2: REFS.RV.label });
+    else {
+      const rvNote = rvMax === 2
+        ? `Completing Rotarix 2-dose series. Min 4 weeks between doses. Max age for any dose: 8 months 0 days.`
+        : rvHasRotaTeq
+          ? `3 doses required (RotaTeq in series). Continue with available product \u2014 do not defer. Min 4 weeks between doses. Max age: 8 months 0 days.`
+          : `3 doses required (unknown brand in series). Complete with available product. Min 4 weeks between doses. Max age: 8 months 0 days.`;
+      const rvBrands = rvMax === 2
+        ? ["Rotarix (RV1) \u2014 2-dose series"]
+        : rvHasRotaTeq
+          ? ["RotaTeq (RV5) \u2014 3-dose series", "Rotarix (RV1) \u2014 2-dose series"]
+          : ["Rotarix (RV1) \u2014 2-dose series", "RotaTeq (RV5) \u2014 3-dose series"];
+      r("RV", `Dose ${rv + 1}${rvMax === 3 ? " of 3" : ""}`, rv + 1, "due", rvNote, rvBrands, { minInt: 28, textFrag: "maximum age for the final dose", refUrl: REFS.RV.cdcUrl, refLabel: REFS.RV.cdcLabel, refUrl2: REFS.RV.url, refLabel2: REFS.RV.label });
+    }
   }
 
   // ── DTaP / Tdap ───────────────────────────────────────────────
