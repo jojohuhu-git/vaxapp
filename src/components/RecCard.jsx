@@ -92,7 +92,7 @@ export default function RecCard({ rec, index }) {
   const cadence = BOOSTER_CADENCE[rec.vk];
 
   return (
-    <div className={`rc${isDone ? " rc-done" : ""}`} style={{ borderLeftColor: sc.dot }}>
+    <div className={`rc${isDone ? " rc-done" : ""}`} style={{ borderLeftColor: sc.border, background: isDone ? undefined : sc.bg }}>
       <div className="rchead" onClick={() => dispatch({ type: "TOGGLE_REC_OPEN", payload: index })}>
         <span className="rcdot" style={{ background: sc.dot }} />
         <div className="rcinfo">

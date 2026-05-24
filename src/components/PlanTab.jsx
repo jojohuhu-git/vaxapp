@@ -1,12 +1,13 @@
 /* eslint-disable react/prop-types */
-// PlanTab — merges Regimen Optimizer and Optimal Schedule into one tab.
+// PlanTab — merges Regimen Optimizer and Brand Constraints.
+// Optimal Schedule is now a view mode on the Forecast tab.
 import { useState } from 'react';
 import RegTab from './RegTab';
-import OptimalScheduleTab from './OptimalScheduleTab';
+import BrandConstraintsPanel from './BrandConstraintsPanel';
 
 const SUB_MODES = [
   { id: 'regimen', label: 'Regimen Optimizer' },
-  { id: 'optimal', label: 'Optimal Schedule' },
+  { id: 'constraints', label: 'Brand Constraints' },
 ];
 
 export default function PlanTab({ recs }) {
@@ -14,7 +15,10 @@ export default function PlanTab({ recs }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
+      <p style={{ margin: '0 0 8px', fontSize: 11.5, color: 'var(--gy3)' }}>
+        Compare combo strategies and brand constraints. For earliest-completion scheduling, use Forecast → Earliest Completion.
+      </p>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
         {SUB_MODES.map(m => (
           <button
             key={m.id}
@@ -23,7 +27,7 @@ export default function PlanTab({ recs }) {
               padding: '4px 13px',
               fontSize: 11.5,
               fontWeight: 600,
-              borderRadius: 2,
+              borderRadius: 'var(--rads)',
               border: '1px solid',
               cursor: 'pointer',
               background: sub === m.id ? 'var(--g)' : 'var(--wh)',
@@ -37,7 +41,7 @@ export default function PlanTab({ recs }) {
         ))}
       </div>
       {sub === 'regimen' && <RegTab recs={recs} />}
-      {sub === 'optimal' && <OptimalScheduleTab />}
+      {sub === 'constraints' && <BrandConstraintsPanel />}
     </div>
   );
 }

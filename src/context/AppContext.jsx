@@ -16,7 +16,7 @@ const INIT = {
   cd4: null,   // CD4% (<14y) or CD4 count cells/µL (≥14y) for HIV patients
   hist: initHist(),
   tab: "recs",
-  filter: "all",
+  filter: "due",
   openR: {},
   openC: {},
   custSel: [],

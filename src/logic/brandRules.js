@@ -21,7 +21,7 @@
 //   ProQuad   MMR/VAR doses 1–2 (12m–12y)
 //   Penbraya/Penmenvy  MenACWY/MenB doses 1–2 (≥10y through 25y)
 //   Twinrix   HepA/HepB any dose (≥18y)
-const COMBO_DOSE_GATES = {
+export const COMBO_DOSE_GATES = {
   Vaxelis:   { DTaP: [1, 3], IPV: [1, 3], Hib: [1, 3], HepB: [1, 3] },
   Pediarix:  { DTaP: [1, 3], HepB: [1, 3], IPV: [1, 3] },
   Pentacel:  { DTaP: [1, 4], IPV: [1, 3], Hib: [1, 4] },

@@ -25,9 +25,9 @@ export default function TabBar({ onReference }) {
         className="tab"
         style={{ marginLeft: 'auto' }}
         onClick={onReference}
-        title="CDC catch-up table and brand schedule reference"
+        title="Catch-up guidance and infant brand schedules"
       >
-        Reference ↗
+        Clinical Aids ↗
       </button>
     </div>
   );

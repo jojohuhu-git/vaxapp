@@ -13,6 +13,8 @@ import RiskGrid from './components/RiskGrid';
 import MainPanel from './components/MainPanel';
 import ShareModal from './components/ShareModal';
 import Disclaimer from './components/Disclaimer';
+import { genRecs } from './logic/recommendations';
+import { validatedHistory } from './logic/validation';
 
 function fmtAm(am) {
   if (am < 0) return null;
@@ -55,8 +57,8 @@ function PatientDrawer({ onClose }) {
                 onClick={onClose}
                 style={{
                   padding: '7px 22px', fontSize: 13, fontWeight: 700,
-                  background: '#2E8B6B', color: '#fff',
-                  border: 'none', borderRadius: 999, cursor: 'pointer',
+                  background: 'var(--g)', color: '#fff',
+                  border: 'none', borderRadius: 'var(--rads)', cursor: 'pointer',
                   fontFamily: 'inherit', letterSpacing: '.2px',
                 }}
               >
@@ -103,6 +105,14 @@ function PatientDrawer({ onClose }) {
   );
 }
 
+const STATUS_CHIP_STYLE = {
+  due:         { bg: 'var(--glt)', color: 'var(--g)',  border: 'var(--gmd)' },
+  catchup:     { bg: 'var(--alt)', color: 'var(--a)',  border: 'var(--amd)' },
+  'risk-based':{ bg: 'var(--rlt)', color: 'var(--r)',  border: 'var(--rmd)' },
+  recommended: { bg: 'var(--blt)', color: 'var(--b)',  border: 'var(--bmd)' },
+};
+const STATUS_LABELS = { due: 'Due', catchup: 'Catch-up', 'risk-based': 'Risk', recommended: 'SCD' };
+
 function PatientSummaryBar({ onEdit, drawerOpen }) {
   const { state } = useApp();
   const { effectiveAm, conflict } = getEffectiveAm(state);
@@ -122,57 +132,100 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
     ? riskLabels.join(', ')
     : `${riskLabels.slice(0, 2).join(', ')} +${riskLabels.length - 2} more`;
 
-  const doseCount = Object.values(state.hist)
-    .reduce((sum, arr) => sum + arr.filter(d => d.given !== false).length, 0);
-
   const dobLabel = state.dob
     ? state.dob.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$2/$3/$1')
     : null;
 
+  // Compute rec status counts for color-coded chips
+  const recCounts = { due: 0, catchup: 0, 'risk-based': 0, recommended: 0 };
+  if (effectiveAm >= 0 && !conflict) {
+    const vh = validatedHistory(state.hist, state.dob);
+    const recs = genRecs(effectiveAm, vh, state.risks, state.dob, {
+      today: new Date().toISOString().slice(0, 10), cd4: state.cd4,
+    });
+    recs.forEach(r => { if (recCounts[r.status] !== undefined) recCounts[r.status]++; });
+  }
+  const activeStatuses = Object.entries(recCounts).filter(([, n]) => n > 0);
+
   return (
-    <div style={{ maxWidth: 1380, margin: '8px auto 0', padding: '0 14px' }}>
+    <div style={{ maxWidth: 1380, margin: '8px auto 0', padding: '0 14px', position: 'sticky', top: 52, zIndex: 150, background: '#fff', paddingBottom: 4 }}>
       <div
         role="button"
         tabIndex={0}
         onClick={onEdit}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit(); } }}
         style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          background: drawerOpen ? '#E8F5EF' : '#f4f7fb',
-          border: `1px solid ${drawerOpen ? '#A8DCC6' : '#d0d7e2'}`,
-          borderRadius: 8, padding: '9px 16px', fontSize: 13,
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          background: drawerOpen ? 'var(--glt)' : 'var(--gy6)',
+          border: `1px solid ${drawerOpen ? 'var(--gmd)' : 'var(--gy5)'}`,
+          borderRadius: 'var(--rads)', padding: '8px 14px', fontSize: 13,
           cursor: 'pointer', userSelect: 'none',
           transition: 'background .15s, border-color .15s',
         }}
       >
-        <span style={{ fontWeight: 700, color: '#2E8B6B', minWidth: 60 }}>
-          {effectiveAm >= 0 ? ageLabel : <span style={{ color: '#aaa' }}>{ageLabel}</span>}
+        {/* Age */}
+        <span style={{ fontWeight: 700, color: effectiveAm >= 0 ? 'var(--g)' : 'var(--gy4)', minWidth: 56 }}>
+          {ageLabel}
         </span>
+
+        {/* DOB */}
         {dobLabel && (
           <>
-            <span style={{ color: '#bbb' }}>·</span>
-            <span style={{ color: '#555' }}>DOB {dobLabel}</span>
+            <span style={{ color: 'var(--gy5)' }}>·</span>
+            <span style={{ color: 'var(--gy2)', fontSize: 12 }}>DOB {dobLabel}</span>
           </>
         )}
-        <span style={{ color: '#bbb' }}>·</span>
-        <span style={{ color: state.risks.length > 0 ? '#8C5A1C' : '#aaa' }}>
-          {riskText}
-        </span>
-        <span style={{ color: '#bbb' }}>·</span>
-        <span style={{ color: doseCount > 0 ? '#2E8B6B' : '#aaa' }}>
-          {doseCount > 0 ? `${doseCount} dose${doseCount !== 1 ? 's' : ''} recorded` : 'No history'}
-        </span>
-        <span style={{
-          marginLeft: 'auto', flexShrink: 0,
-          display: 'flex', alignItems: 'center', gap: 5,
-          fontSize: 12, fontWeight: 600, color: '#2E8B6B',
-        }}>
-          {conflict && (
+
+        {/* Risk factors */}
+        {state.risks.length > 0 && (
+          <>
+            <span style={{ color: 'var(--gy5)' }}>·</span>
             <span style={{
-              display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
-              background: '#E57373', flexShrink: 0,
-            }} />
-          )}
+              fontSize: 11, fontWeight: 600, padding: '2px 7px',
+              background: 'var(--alt)', color: 'var(--a)',
+              border: '1px solid var(--amd)', borderRadius: 'var(--rads)',
+            }}>
+              {riskText}
+            </span>
+          </>
+        )}
+
+        {/* Color-coded rec status chips */}
+        {activeStatuses.length > 0 && (
+          <>
+            <span style={{ color: 'var(--gy5)' }}>·</span>
+            <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+              {activeStatuses.map(([status, count]) => {
+                const s = STATUS_CHIP_STYLE[status];
+                return (
+                  <span key={status} style={{
+                    fontSize: 11, fontWeight: 700, padding: '2px 8px',
+                    background: s.bg, color: s.color,
+                    border: `1px solid ${s.border}`, borderRadius: 'var(--rads)',
+                  }}>
+                    {count} {STATUS_LABELS[status]}
+                  </span>
+                );
+              })}
+            </span>
+          </>
+        )}
+
+        {/* Conflict badge (replaces circle dot) */}
+        {conflict && (
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: '2px 8px',
+            background: 'var(--rlt)', color: 'var(--r)',
+            border: '1px solid var(--rmd)', borderRadius: 'var(--rads)',
+          }}>
+            Age conflict
+          </span>
+        )}
+
+        <span style={{
+          marginLeft: 'auto', flexShrink: 0, fontSize: 12,
+          fontWeight: 600, color: 'var(--g)',
+        }}>
           {drawerOpen ? 'Close ▲' : 'Edit ▾'}
         </span>
       </div>

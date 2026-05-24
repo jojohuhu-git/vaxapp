@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { useApp, getEffectiveAm } from '../context/AppContext';
@@ -11,8 +11,11 @@ import { dc } from '../logic/stateHelpers';
 import { computeDosePlan, fmtProjection, fmtEarliestDate, getTotalDoses } from '../logic/dosePlan';
 import { validatedHistory } from '../logic/validation';
 import { addD } from '../logic/utils';
+import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
+import { REFS } from '../data/refs';
 import ForecastPDF from './ForecastPDF';
 import ShotListPDF from './ShotListPDF';
+import SchedulePDF from './SchedulePDF';
 
 // Grouped brand dropdown: combination vaccines in one optgroup, standalones in another.
 // Falls back to a flat list when only one type is present (no empty groups).
@@ -194,6 +197,186 @@ function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fc
     });
 }
 
+// ── Print visit summary ─────────────────────────────────────────
+function printVisitSummary({ am, dob, recs, fcBrands }) {
+  const fmtAge = (m) => m < 12
+    ? `${m} month${m !== 1 ? 's' : ''}`
+    : `${Math.floor(m / 12)} year${Math.floor(m / 12) !== 1 ? 's' : ''}${m % 12 ? ` ${m % 12} month${m % 12 !== 1 ? 's' : ''}` : ''}`;
+  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const dobLabel = dob ? new Date(dob + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null;
+  const rows = recs.map(rec => {
+    const brand = fcBrands[`${am}_${rec.vk}`] || '';
+    const vaxName = VAX_META[rec.vk]?.n || rec.vk;
+    const isAnnual = rec.vk === 'Flu' || rec.vk === 'COVID';
+    const doseLabel = isAnnual ? 'Annual' : `Dose ${rec.doseNum}`;
+    return `<tr><td>${vaxName}</td><td>${doseLabel}</td><td>${brand || '—'}</td></tr>`;
+  }).join('');
+  const w = window.open('', '_blank', 'width=600,height=700');
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><title>Visit Summary</title><style>
+    body{font-family:Arial,sans-serif;padding:32px;color:#222;max-width:540px;margin:0 auto}
+    h1{font-size:18px;margin:0 0 4px}p.meta{font-size:13px;color:#555;margin:0 0 24px}
+    table{width:100%;border-collapse:collapse;margin:12px 0}
+    th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#888;padding:4px 12px;background:#f5f5f5;border-bottom:2px solid #e0e0e0}
+    td{padding:7px 12px;border-bottom:1px solid #eee;font-size:13px}
+    .footer{margin-top:32px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:12px}
+    @media print{body{padding:16px}}
+  </style></head><body>
+    <h1>Visit Summary</h1>
+    <p class="meta">${today}${dobLabel ? ` &middot; DOB ${dobLabel}` : ''} &middot; Age ${fmtAge(am)}</p>
+    <strong style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:#555">Vaccines Administered Today</strong>
+    <table><thead><tr><th>Vaccine</th><th>Dose</th><th>Brand</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="footer">PediVax Clinical Vaccine Planner &mdash; ${today}. For clinical use only.</div>
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); }, 300);
+}
+
+// ── Optimal Schedule helpers ────────────────────────────────────
+function humanDays(d) {
+  if (d == null) return '';
+  if (d % 365 === 0 && d >= 365) { const y = d / 365; return `${y} year${y !== 1 ? 's' : ''}`; }
+  if (d >= 365) { const y = (d / 365).toFixed(1); return `${y} years`; }
+  if (d % 30 === 0 && d >= 60) { const m = d / 30; return `${m} months`; }
+  if (d % 7 === 0 && d >= 14) { const w = d / 7; return `${w} weeks`; }
+  return `${d} day${d !== 1 ? 's' : ''}`;
+}
+
+function findPrevOptDose(vk, doseNum, allFlatDoses) {
+  return allFlatDoses
+    .filter(d => d.vk === vk && d.doseNum != null && d.doseNum < doseNum)
+    .sort((a, b) => b.doseNum - a.doseNum)[0] || null;
+}
+
+function explainOptConstraint(dose, allFlatDoses) {
+  const raw = dose.bindingConstraint || '';
+  const vk = dose.vk || (dose.coveredDoses?.[0]?.vk);
+  const doseNum = dose.doseNum;
+  const refUrl = REFS[vk]?.cdcUrl;
+  const refLabel = REFS[vk]?.cdcLabel || 'CDC Schedule Notes';
+
+  if (raw.startsWith('combo:')) {
+    return { summary: `Combo: ${dose.comboName}`, detail: `Delivers ${dose.coveredAntigens?.join(', ')} in a single injection.`, refUrl, refLabel };
+  }
+  const liveVaxMatch = raw.match(/live-vax co-admin: same day as (\w+) \(gap was (\d+)d\)/);
+  const liveVaxLine = liveVaxMatch ? ` Co-administered same day as ${liveVaxMatch[1]} (live vaccines: same day or ≥28 days apart).` : '';
+  if (raw.startsWith('today')) {
+    return { summary: 'Due today', detail: `No spacing or age rule is delaying this dose.${liveVaxLine}`, refUrl, refLabel };
+  }
+  const days = parseInt((raw.match(/=(\d+)d/) || [])[1], 10);
+  const hd = humanDays(days);
+  if (raw.includes('.minByDose[') || raw.includes('.minD=')) {
+    return { summary: `Minimum age: ${hd}`, detail: `${vk}${doseNum ? ` D${doseNum}` : ''} requires the patient be at least ${hd} old.${liveVaxLine}`, refUrl, refLabel };
+  }
+  if (raw.includes('.d1Cross[')) {
+    const d1 = findPrevOptDose(vk, 2, allFlatDoses) || allFlatDoses.find(d => d.vk === vk && d.doseNum === 1);
+    return { summary: `${hd} after Dose 1`, detail: `${vk} D${doseNum} must be at least ${hd} after Dose 1${d1?.date ? ` (planned ${d1.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
+  }
+  const prevVaxMatch = raw.match(/\.prevVax\[(\w+)\]=(\d+)d/);
+  if (prevVaxMatch) {
+    return { summary: `${humanDays(parseInt(prevVaxMatch[2], 10))} after ${prevVaxMatch[1]}`, detail: `${vk} must be at least ${humanDays(parseInt(prevVaxMatch[2], 10))} after the most recent ${prevVaxMatch[1]} dose.${liveVaxLine}`, refUrl, refLabel };
+  }
+  const brandMatch = raw.match(/BRAND_MIN\["([^"]+)"\]=(\d+)d/);
+  if (brandMatch) {
+    return { summary: `Brand minimum age: ${humanDays(parseInt(brandMatch[2], 10))}`, detail: `${brandMatch[1]} is licensed only for patients ${humanDays(parseInt(brandMatch[2], 10))} or older.${liveVaxLine}`, refUrl, refLabel };
+  }
+  if (raw.includes('.iCond[')) {
+    const prev = findPrevOptDose(vk, doseNum, allFlatDoses);
+    return { summary: `${hd} after previous dose (age-adjusted)`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}. Interval is age-adjusted.${liveVaxLine}`, refUrl, refLabel };
+  }
+  if (raw.includes('.iByTotalDoses[')) {
+    const prev = findPrevOptDose(vk, doseNum, allFlatDoses);
+    return { summary: `${hd} after previous dose (catch-up path)`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
+  }
+  if (raw.includes('.i[')) {
+    const prev = findPrevOptDose(vk, doseNum, allFlatDoses);
+    return { summary: `${hd} after previous dose`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
+  }
+  return { summary: 'Schedule constraint', detail: raw, refUrl, refLabel };
+}
+
+function OptWhyPopover({ explanation, anchorRect, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  if (!anchorRect) return null;
+  const W = 300, H = 130;
+  const placeAbove = window.innerHeight - anchorRect.bottom < H + 12 && anchorRect.top > H + 12;
+  const top = placeAbove ? anchorRect.top + window.scrollY - H - 6 : anchorRect.bottom + window.scrollY + 6;
+  const left = Math.max(window.scrollX + 8, Math.min(anchorRect.left + window.scrollX, window.scrollX + window.innerWidth - W - 8));
+  return createPortal(
+    <div style={{ position: 'absolute', top, left, zIndex: 1000, background: '#fff', border: '1px solid var(--gy5)', borderRadius: 'var(--rads)', boxShadow: '0 4px 12px rgba(0,0,0,.12)', padding: '8px 10px', width: W, fontSize: 11 }}>
+      <div style={{ fontWeight: 700, marginBottom: 4, color: 'var(--g)' }}>{explanation.summary}</div>
+      <div style={{ lineHeight: 1.45, color: 'var(--gy2)' }}>{explanation.detail}</div>
+      {explanation.refUrl && (
+        <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--gy6)' }}>
+          <a href={explanation.refUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--b)', textDecoration: 'underline' }}>{explanation.refLabel} ↗</a>
+        </div>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
+function OptWhyButton({ doseKey, openKey, setOpenKey, explanation }) {
+  const isOpen = openKey === doseKey;
+  const btnRef = useRef(null);
+  const [anchorRect, setAnchorRect] = useState(null);
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (isOpen) { setOpenKey(null); } else { setAnchorRect(btnRef.current?.getBoundingClientRect() || null); setOpenKey(doseKey); }
+  };
+  return (
+    <>
+      <button ref={btnRef} type="button" onClick={handleClick} title="Why this date?" style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--rads)', marginLeft: 4, border: '1px solid var(--gy5)', background: isOpen ? 'var(--g)' : 'var(--gy6)', color: isOpen ? '#fff' : 'var(--gy2)', cursor: 'pointer', lineHeight: 1.2 }}>
+        Why?
+      </button>
+      {isOpen && <OptWhyPopover explanation={explanation} anchorRect={anchorRect} onClose={() => setOpenKey(null)} />}
+    </>
+  );
+}
+
+function OptDoseRow({ dose, doseKey, openKey, setOpenKey, allFlatDoses }) {
+  const explanation = explainOptConstraint(dose, allFlatDoses);
+  if (dose._combo) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 0 3px 6px', background: 'var(--alt)', borderRadius: 'var(--rads)', marginBottom: 2 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--a)' }}>{dose.comboName}</span>
+        <span style={{ fontSize: 10, color: 'var(--gy3)' }}>{dose.coveredDoses.map(d => `${d.vk} D${d.doseNum}`).join(', ')}</span>
+        <OptWhyButton doseKey={doseKey} openKey={openKey} setOpenKey={setOpenKey} explanation={explanation} />
+      </div>
+    );
+  }
+  const meta = VAX_META[dose.vk];
+  const brandShort = dose.brand ? dose.brand.split(' ')[0] : '';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: meta?.c || 'var(--gy)', minWidth: 68 }}>{dose.vk}</span>
+      <span style={{ fontSize: 10, color: 'var(--gy3)' }}>D{dose.doseNum}/{dose.totalDoses}{brandShort && <span style={{ color: 'var(--gy4)', marginLeft: 3 }}>({brandShort})</span>}</span>
+      <OptWhyButton doseKey={doseKey} openKey={openKey} setOpenKey={setOpenKey} explanation={explanation} />
+    </div>
+  );
+}
+
+function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses }) {
+  return (
+    <div style={{ border: '1px solid var(--gy5)', borderRadius: 'var(--rads)', marginBottom: 8, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--gy6)', padding: '5px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--gy5)' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--g)' }}>Visit {idx + 1} — {visit.date}</span>
+        <span style={{ fontSize: 10, color: 'var(--gy3)' }}>{visit.items.length} injection{visit.items.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div style={{ padding: '6px 10px' }}>
+        {visit.items.map((d, i) => (
+          <OptDoseRow key={i} dose={d} doseKey={`${idx}-${i}`} openKey={openKey} setOpenKey={setOpenKey} allFlatDoses={allFlatDoses} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────
 
 export default function ForecastTab({ recs }) {
@@ -207,6 +390,11 @@ export default function ForecastTab({ recs }) {
   // vk of the "Why?" card currently expanded in the Today panel (null = all collapsed)
   const [expandedRationale, setExpandedRationale] = useState(null);
   const [openCell, setOpenCell] = useState(null); // { key: string, rect: DOMRect }
+  // Forecast view mode: null = routine schedule table, 'fewestVisits' | 'fewestInjections' = optimal views
+  const [optView, setOptView] = useState(null);
+  const [whyOpenKey, setWhyOpenKey] = useState(null);
+  // Expired column visibility
+  const [showExpired, setShowExpired] = useState(false);
 
   // Build current-age rec map to detect which vaccines are still actionable
   const currentRecMap = {};
@@ -215,6 +403,10 @@ export default function ForecastTab({ recs }) {
   // Filter history to countable doses only (drops invalid/uncountable doses
   // like a Kinrix IPV at 2 months) so the projection advances correctly.
   const validHist = validatedHistory(state.hist, state.dob);
+
+  // Patient object for optimal schedule engine
+  const today = new Date().toISOString().slice(0, 10);
+  const optPatient = { dob: state.dob || null, am, risks: state.risks ?? [], hist: validHist };
 
   // Compute projected dose plan
   const dosePlan = computeDosePlan(am, state.dob, recs, state.fcBrands, validHist, state.risks);
@@ -336,6 +528,19 @@ export default function ForecastTab({ recs }) {
   FORECAST_VISITS.forEach(v => v.std.forEach(vk => vkSet.add(vk)));
   const allVks = VAX_KEYS.filter(vk => vkSet.has(vk));
 
+  // Partition: a vk is "expired" if no current rec AND no future dosePlan entry.
+  // These columns are pushed to the end and hidden by default.
+  const expiredVks = allVks.filter(vk => {
+    if (currentRecMap[vk]) return false; // still due today
+    return !Object.keys(dosePlan).some(k => {
+      if (!k.endsWith(`_${vk}`)) return false;
+      const prefix = k.slice(0, -(vk.length + 1));
+      const age = prefix.startsWith('cu') ? parseFloat(prefix.slice(2)) : parseFloat(prefix);
+      return age > am;
+    });
+  });
+  const activeVks = allVks.filter(vk => !expiredVks.includes(vk));
+  const displayVks = showExpired ? allVks : activeVks;
 
   // Precompute PDF rows from the already-computed visits + dosePlan.
   const pdfRows = computePDFRows({
@@ -380,6 +585,32 @@ export default function ForecastTab({ recs }) {
 
   return (
     <div>
+      {/* ── VIEW TOGGLE ──────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, color: 'var(--gy3)', fontWeight: 600, marginRight: 2 }}>View:</span>
+        {[
+          { id: null,               label: 'Routine Schedule',    hint: 'Standard CDC/ACIP well-child visit schedule' },
+          { id: 'fewestVisits',     label: 'Earliest Completion', hint: 'Every dose at the earliest legal date, grouped by visit' },
+          { id: 'fewestInjections', label: 'Fewest Injections',   hint: 'Substitute combo brands to minimize total injections' },
+        ].map(v => (
+          <button
+            key={String(v.id)}
+            title={v.hint}
+            onClick={() => setOptView(v.id)}
+            style={{
+              padding: '4px 12px', fontSize: 11, fontWeight: 600,
+              borderRadius: 'var(--rads)', border: '1px solid', cursor: 'pointer',
+              transition: 'all .13s',
+              background: optView === v.id ? 'var(--g)' : 'var(--wh)',
+              color: optView === v.id ? '#fff' : 'var(--gy2)',
+              borderColor: optView === v.id ? 'var(--g)' : 'var(--gy5)',
+            }}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+
       {/* ── TODAY'S VISIT PANEL ──────────────────────────────────── */}
       {am >= 0 && (
         <div className="today-panel">
@@ -395,17 +626,28 @@ export default function ForecastTab({ recs }) {
             </div>
             <div className="today-actions">
               {recs.length > 0 && (
-                <PDFDownloadLink
-                  document={<ShotListPDF am={am} dob={state.dob} recs={recs} fcBrands={state.fcBrands} />}
-                  fileName="pedivax-shot-list.pdf"
-                  style={{
-                    fontSize: 11, padding: "4px 10px", background: "#1a3a6b", color: "#fff",
-                    borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
-                    textDecoration: "none", display: "inline-block",
-                  }}
-                >
-                  {({ loading }) => loading ? "Preparing…" : "Shot List PDF"}
-                </PDFDownloadLink>
+                <>
+                  <button
+                    onClick={() => printVisitSummary({ am, dob: state.dob, recs, fcBrands: state.fcBrands })}
+                    style={{
+                      fontSize: 11, padding: "4px 10px", background: "var(--wh)", color: "var(--gy2)",
+                      border: "1px solid var(--gy5)", borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
+                    }}
+                  >
+                    Print Visit Summary
+                  </button>
+                  <PDFDownloadLink
+                    document={<ShotListPDF am={am} dob={state.dob} recs={recs} fcBrands={state.fcBrands} />}
+                    fileName="pedivax-shot-list.pdf"
+                    style={{
+                      fontSize: 11, padding: "4px 10px", background: "#1a3a6b", color: "#fff",
+                      borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
+                      textDecoration: "none", display: "inline-block",
+                    }}
+                  >
+                    {({ loading }) => loading ? "Preparing…" : "Shot List PDF"}
+                  </PDFDownloadLink>
+                </>
               )}
               <button
                 onClick={() => dispatch({ type: "RESET_FORECAST" })}
@@ -549,21 +791,112 @@ export default function ForecastTab({ recs }) {
         </div>
       )}
 
-      {/* ── TABLE LEGEND ───────────────────────────────────────── */}
-      <div style={{ fontSize: 10, color: '#888', marginBottom: 6 }}>
-        <span style={{ color: '#2e7d32', fontWeight: 600 }}>■</span> done&ensp;
-        <span style={{ color: '#e65100', fontWeight: 600 }}>■</span> catch-up&ensp;
-        <span style={{ color: '#999', fontWeight: 600, textDecoration: 'line-through' }}>■</span> expired&ensp;
+      {/* ── OPTIMAL VIEW (Earliest / Fewest Injections) ─────────── */}
+      {optView !== null && (() => {
+        let optResult = null;
+        let optError = null;
+        try {
+          optResult = buildOptimalSchedule(optPatient, state.fcBrands ?? {}, { today, mode: optView });
+        } catch (e) {
+          optError = e.message;
+        }
+        if (optError) return (
+          <div style={{ padding: 12, background: 'var(--rlt)', border: '1px solid var(--rmd)', borderRadius: 'var(--rads)', fontSize: 12, color: 'var(--r)' }}>
+            {optError}
+          </div>
+        );
+        if (optResult?.status === 'BLOCKED') return (
+          <div style={{ background: 'var(--alt)', border: '1px solid var(--amd)', borderRadius: 'var(--rads)', padding: 12, fontSize: 12 }}>
+            <strong style={{ color: 'var(--a)' }}>Schedule Blocked</strong>
+            <div style={{ color: 'var(--gy2)', marginTop: 4 }}>{optResult.reason}</div>
+          </div>
+        );
+        if (optResult?.status === 'NEEDS_HUMAN_REVIEW') {
+          const partial = optResult.partialDoses ?? [];
+          return (
+            <div>
+              <div style={{ background: 'var(--rlt)', border: '1px solid var(--rmd)', borderRadius: 'var(--rads)', padding: 10, marginBottom: 12 }}>
+                <div style={{ fontWeight: 700, color: 'var(--r)', marginBottom: 6 }}>
+                  Human Review Required — {optResult.rules.length} missing rule{optResult.rules.length !== 1 ? 's' : ''}
+                </div>
+                {optResult.rules.map((r, i) => (
+                  <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid var(--rlt)', fontSize: 11 }}>
+                    <span style={{ fontWeight: 700, color: 'var(--r)', marginRight: 6 }}>[{r.doseNum != null ? `${r.vk} D${r.doseNum}` : r.vk}]</span>
+                    <span style={{ color: 'var(--gy2)' }}>{r.rule}</span>
+                  </div>
+                ))}
+              </div>
+              {partial.map((d, i) => (
+                <div key={i} style={{ display: 'flex', gap: 6, padding: '2px 0', fontSize: 11 }}>
+                  <span style={{ fontWeight: 600, color: VAX_META[d.vk]?.c || 'var(--gy)', minWidth: 68 }}>{d.vk}</span>
+                  <span style={{ color: 'var(--gy3)' }}>D{d.doseNum}/{d.totalDoses}</span>
+                  <span style={{ color: 'var(--gy4)' }}>{d.date}</span>
+                </div>
+              ))}
+            </div>
+          );
+        }
+        if (Array.isArray(optResult)) {
+          const totalInj = optResult.reduce((s, v) => s + v.items.length, 0);
+          const lastDate = optResult.at(-1)?.date;
+          const allFlat = optResult.flatMap(v => v.items.map(d => ({ ...d, date: v.date })));
+          return (
+            <div>
+              <div style={{ background: 'var(--glt)', border: '1px solid var(--gmd)', borderRadius: 'var(--rads)', padding: '8px 14px', marginBottom: 12, display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div><div style={{ fontSize: 18, fontWeight: 700, color: 'var(--g)' }}>{optResult.length}</div><div style={{ fontSize: 10, color: 'var(--gy3)' }}>visits</div></div>
+                <div><div style={{ fontSize: 18, fontWeight: 700, color: 'var(--g)' }}>{totalInj}</div><div style={{ fontSize: 10, color: 'var(--gy3)' }}>injections</div></div>
+                {lastDate && <div><div style={{ fontSize: 14, fontWeight: 700, color: 'var(--g)' }}>{lastDate}</div><div style={{ fontSize: 10, color: 'var(--gy3)' }}>series complete</div></div>}
+                <div style={{ marginLeft: 'auto' }}>
+                  <PDFDownloadLink
+                    document={<SchedulePDF patient={optPatient} mode={optView} visits={optResult} />}
+                    fileName={`pedivax-schedule-${optView}-${today}.pdf`}
+                    style={{ padding: '5px 12px', background: 'var(--g)', color: '#fff', fontSize: 11, fontWeight: 600, textDecoration: 'none', borderRadius: 'var(--rads)', display: 'inline-block' }}
+                  >
+                    {({ loading }) => loading ? 'Preparing PDF…' : 'Download PDF'}
+                  </PDFDownloadLink>
+                </div>
+              </div>
+              {optResult.map((visit, i) => (
+                <OptVisitCard key={i} visit={visit} idx={i} openKey={whyOpenKey} setOpenKey={setWhyOpenKey} allFlatDoses={allFlat} />
+              ))}
+              <div style={{ marginTop: 8, fontSize: 10, color: 'var(--gy4)', fontStyle: 'italic' }}>
+                Each dose lands on its earliest legal date. Click Why? to see the spacing or age rule.
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* ── TABLE LEGEND + TABLE (only in Routine view) ─────────── */}
+      {optView === null && (
+      <>
+      <div style={{ fontSize: 10, color: 'var(--gy4)', marginBottom: 6 }}>
+        <span style={{ color: 'var(--g)', fontWeight: 600 }}>■</span> done&ensp;
+        <span style={{ color: 'var(--a)', fontWeight: 600 }}>■</span> catch-up&ensp;
+        <span style={{ color: 'var(--gy4)', fontWeight: 600, textDecoration: 'line-through' }}>■</span> expired&ensp;
         <span style={{ color: '#5b3a9e', fontWeight: 600 }}>■</span> projected.&ensp;
         Click a cell for clinical notes.
+        {expiredVks.length > 0 && (
+          <span style={{ marginLeft: 10 }}>
+            <button
+              onClick={() => setShowExpired(v => !v)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, color: 'var(--gy3)', textDecoration: 'underline', textDecorationStyle: 'dotted', padding: 0 }}
+            >
+              {showExpired
+                ? `▴ Hide ${expiredVks.length} expired vaccine${expiredVks.length !== 1 ? 's' : ''}`
+                : `▸ ${expiredVks.length} expired vaccine${expiredVks.length !== 1 ? 's' : ''} (${expiredVks.map(vk => VAX_META[vk]?.ab || vk).join(', ')})`}
+            </button>
+          </span>
+        )}
       </div>
       <div className="fc-wrap">
         <table className="fc-tbl">
           <thead>
             <tr>
               <th className="vlbl-th">Visit</th>
-              {allVks.map(vk => (
-                <th key={vk} className="vcol" style={{ color: VAX_META[vk]?.c }}>
+              {displayVks.map(vk => (
+                <th key={vk} className="vcol" style={{ color: expiredVks.includes(vk) ? 'var(--gy4)' : VAX_META[vk]?.c, textDecoration: expiredVks.includes(vk) ? 'line-through' : undefined }}>
                   {VAX_META[vk]?.ab || vk}
                 </th>
               ))}
@@ -572,7 +905,7 @@ export default function ForecastTab({ recs }) {
           <tbody>
             {pastCount > 0 && (
               <tr className="past-toggle-row">
-                <td colSpan={allVks.length + 1}>
+                <td colSpan={displayVks.length + 1}>
                   <button className="past-toggle-btn" onClick={() => setShowPast(v => !v)}>
                     {showPast
                       ? '▴ Hide past visits'
@@ -648,7 +981,7 @@ export default function ForecastTab({ recs }) {
                       </div>
                     )}
                   </td>
-                  {allVks.map(vk => {
+                  {displayVks.map(vk => {
                     // CASE 1: Scheduled-early row — render the moved dose here.
                     if (visit.isScheduledEarly && vk === visit.earlyVk) {
                       const origProj = dosePlan[visit.earlyFcKey];
@@ -1035,6 +1368,8 @@ export default function ForecastTab({ recs }) {
           {showFull ? '← Show less' : 'Show full forecast →'}
         </button>
       </div>
+      </>
+      )}
     </div>
   );
 }

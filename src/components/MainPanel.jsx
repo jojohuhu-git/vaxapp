@@ -35,7 +35,7 @@ function ReferenceModal({ onClose }) {
           padding: '10px 16px', borderBottom: '1px solid #eee',
         }}>
           <div style={{ display: 'flex', gap: 4 }}>
-            {[['catchup','Catch-up Table'],['brands','Brand Schedules']].map(([id, lbl]) => (
+            {[['catchup','Catch-up Guidance'],['brands','Infant Brand Schedules']].map(([id, lbl]) => (
               <button key={id}
                 onClick={() => setRefTab(id)}
                 style={{
