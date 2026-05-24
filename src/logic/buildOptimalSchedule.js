@@ -38,8 +38,14 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
     case 'RV': {
       const age = diff(dob, today);
       if (age >= 243 || (age > 105 && dc(hist, 'RV') === 0)) return null;
-      const b = resolveBrand('RV', fcBrands, hist) || '';
-      return { totalDoses: b.includes('Rotarix') ? 2 : 3 };
+      // ACIP: 3 doses if any RotaTeq OR any brand unknown; 2 only if ALL confirmed Rotarix.
+      const rvHistDoses = (hist.RV || []).filter(d => d.given);
+      if (rvHistDoses.some(d => d.brand?.startsWith('RotaTeq'))) return { totalDoses: 3 };
+      if (rvHistDoses.some(d => !d.brand)) return { totalDoses: 3 };
+      const rvFcEntries = Object.entries(fcBrands).filter(([k, v]) => k.endsWith('_RV') && v);
+      if (rvFcEntries.some(([, v]) => v.includes('RotaTeq'))) return { totalDoses: 3 };
+      if (rvFcEntries.some(([, v]) => v.includes('Rotarix'))) return { totalDoses: 2 };
+      return { totalDoses: 3 }; // default conservative when brand unknown
     }
 
     // ≥7y: Tdap (1 dose) substitutes for DTaP; handled under Tdap key

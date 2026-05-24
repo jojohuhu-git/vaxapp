@@ -231,12 +231,11 @@ export function auditAll(hist, dob, risks = [], am = -1) {
       if (vk === "RV") {
         const rot = brands.filter(b => b.includes("Rotarix")).length;
         const rte = brands.filter(b => b.includes("RotaTeq")).length;
-        if (rot > 0 && rte > 0) errors.push({ vk, type: "brand_mix", severity: "err",
-          title: "Rotavirus \u2014 Brand Mixing Error",
-          detail: "Mixed Rotarix + RotaTeq detected. These are NOT interchangeable. The series must be restarted with one brand.",
-          action: "Restart entire RV series with one brand. Administer new dose 1 (if still within age window \u2014 max 14w6d to start).",
-          refUrl: REFS.RV.url, refLabel: REFS.RV.label,
-          refUrl2: REFS.brandMix.url, refLabel2: REFS.brandMix.label });
+        if (rot > 0 && rte > 0) errors.push({ vk, type: "brand_mix", severity: "warn",
+          title: "Rotavirus \u2014 Mixed Products Detected",
+          detail: "Both Rotarix and RotaTeq doses are recorded. ACIP recommends completing the series with the same product when possible, but mixing is acceptable when the original product is unavailable or unknown.",
+          action: "Complete a 3-dose series. Do not restart \u2014 count all prior doses. Ensure the total reaches 3 doses (required whenever any dose is RotaTeq or brand is unknown).",
+          refUrl: REFS.RV.url, refLabel: REFS.RV.label });
       }
       if (vk === "MenB") {
         // MenB has two antigen families. 4C: Bexsero + Penmenvy (GSK combo).

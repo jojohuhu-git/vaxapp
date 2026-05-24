@@ -289,11 +289,17 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) 
     }
     case "RSV": return 1;
     case "RV": {
-      // Check forecast brand selection first, then fall back to history brand
-      const rvFcBrand = Object.entries(fcBrands).find(([k, v]) => k.endsWith("_RV") && v);
-      if (rvFcBrand && rvFcBrand[1].includes("Rotarix")) return 2;
-      const rvHistBrand = (hist.RV || []).find(d => d.given && d.brand)?.brand;
-      if (rvHistBrand?.startsWith("Rotarix")) return 2;
+      // ACIP: 3 doses if any RotaTeq OR any brand unknown; 2 only if ALL confirmed Rotarix.
+      // Check history doses — any RotaTeq or missing brand forces 3.
+      const rvHistDoses = (hist.RV || []).filter(d => d.given);
+      const rvHasRotaTeq = rvHistDoses.some(d => d.brand?.startsWith("RotaTeq"));
+      const rvHasUnknown = rvHistDoses.some(d => !d.brand);
+      if (rvHasRotaTeq || rvHasUnknown) return 3;
+      // Check forecast brand selections — any RotaTeq forces 3, any Rotarix keeps 2.
+      const rvFcEntries = Object.entries(fcBrands).filter(([k, v]) => k.endsWith("_RV") && v);
+      if (rvFcEntries.some(([, v]) => v.includes("RotaTeq"))) return 3;
+      if (rvFcEntries.some(([, v]) => v.includes("Rotarix"))) return 2;
+      // No brand info at all — default to 3 (conservative / ACIP-compliant)
       return 3;
     }
     case "DTaP": {

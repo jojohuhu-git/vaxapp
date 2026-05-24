@@ -139,7 +139,9 @@ export function applyScheduledEarly(baseTimeline, scheduledEarliest) {
  *   - FHbp antigen: Trumenba, Penbraya (Pfizer) — interchangeable
  *
  * RV:
- *   - Rotarix (2-dose), RotaTeq (3-dose) — NOT interchangeable, distinct families.
+ *   - Rotarix (2-dose), RotaTeq (3-dose) — prefer same product; mixing acceptable if original unavailable/unknown.
+ *     3 doses required if any dose is RotaTeq or brand unknown; 2 doses only if all confirmed Rotarix.
+ *     Lock removed: VBR.RV.lock is not set so brand switching IS allowed in the forecast.
  *
  * @param {string} brand  full brand label
  * @param {string} vk     vaccine key (MenB, RV, etc.) — determines the grouping axis
