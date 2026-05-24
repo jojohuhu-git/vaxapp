@@ -1076,3 +1076,58 @@ Auto-triggers `window.print()` after 300ms. "Print Visit Summary" button in toda
 
 ### Test count
 2,099 passing (148 files) after all changes.
+
+## Bug fixed (2026-05-24) — Rotavirus interchangeability rule
+
+### Problem
+The previous code treated RV brand mixing as a hard clinical error requiring series restart. This contradicts ACIP guidance.
+
+### Correct ACIP rule
+1. Complete the series with the same product **when possible**
+2. **Do not defer** vaccination because the original product is unavailable or unknown
+3. If **any dose is RotaTeq** OR **any brand is unknown** → **3 doses required**
+4. **2 doses only** if ALL doses are confirmed Rotarix
+
+Reference: https://www.immunize.org/ask-experts/can-rotateq-and-rotarix-vaccines-be-used-interchangeably-if-so-what-schedule-should-we-follow/
+
+### Files changed (all five surfaces verified)
+
+**`src/logic/recommendations.js`** (Python-only edit):
+- `rvMax` now scans ALL given doses (not just first branded dose via `anyBrand`)
+- `rvHasRotaTeq = rvDoses.some(d => d.brand?.startsWith("RotaTeq"))`
+- `rvHasUnknown = rvDoses.some(d => !d.brand)`
+- `rvMax = (rvHasRotaTeq || rvHasUnknown) ? 3 : (rvb.startsWith("Rotarix") ? 2 : 3)`
+- D1 note: removes "NEVER interchange brands"; replaces with ACIP preferred-but-don't-defer language
+- D2+ emits dynamic note + brand list (Rotarix first if no RotaTeq; RotaTeq first if RotaTeq detected)
+
+**`src/logic/validation.js`**:
+- RV brand-mix severity: `"err"` → `"warn"`
+- Title: "Rotavirus — Mixed Products Detected" (not "Brand Mixing Error")
+- Action: "Complete a 3-dose series. Do not restart." (not "Restart entire RV series")
+- Removed `refUrl2: REFS.brandMix` (no longer applicable)
+
+**`src/data/vaccineData.js`**:
+- Removed `lock: true` from `VBR.RV` — brand switching is acceptable, forecast must not hard-lock
+
+**`src/logic/forecastLogic.js`**:
+- Updated comment on RV to reflect correct ACIP rule (mixing acceptable, 3 doses if RotaTeq/unknown)
+
+**`src/logic/dosePlan.js`** — `getTotalDoses("RV")`:
+```js
+case "RV": {
+  const rvHistDoses = (hist.RV || []).filter(d => d.given);
+  const rvHasRotaTeq = rvHistDoses.some(d => d.brand?.startsWith("RotaTeq"));
+  const rvHasUnknown = rvHistDoses.some(d => !d.brand);
+  if (rvHasRotaTeq || rvHasUnknown) return 3;
+  const rvFcEntries = Object.entries(fcBrands).filter(([k, v]) => k.endsWith("_RV") && v);
+  if (rvFcEntries.some(([, v]) => v.includes("RotaTeq"))) return 3;
+  if (rvFcEntries.some(([, v]) => v.includes("Rotarix"))) return 2;
+  return 3; // conservative default when brand unknown
+}
+```
+
+**`src/logic/buildOptimalSchedule.js`** — `seriesDoses("RV")`:
+- Same multi-dose scan pattern applied (replaces single `resolveBrand` lookup)
+
+### Key invariant
+`anyBrand(hist, vk)` returns the FIRST branded dose only — it is NOT safe for determining RV dose count. Always scan all doses via `hist.RV.filter(d => d.given)`.
