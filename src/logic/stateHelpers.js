@@ -19,10 +19,11 @@ export const anyBrand = (hist, vk) => {
 };
 
 /** Check if patient is high-risk based on risk factors. */
-// MenACWY/MenB high-risk indications per ACIP. complement_inhibitor
-// (eculizumab/ravulizumab) and microbiologist with N. meningitidis exposure
-// are added to the canonical set per CDC ACIP recommendations.
-export const highRisk = (risks) => risks.some(r => ["asplenia", "hiv", "immunocomp", "hsct", "complement", "complement_inhibitor", "microbiologist"].includes(r));
+// MenACWY/MenB high-risk indications per ACIP. Complement deficiency includes
+// both inherited deficiency and acquired (eculizumab/ravulizumab) — merged into
+// the single `complement` key. Microbiologist with N. meningitidis exposure also
+// qualifies per CDC ACIP recommendations.
+export const highRisk = (risks) => risks.some(r => ["asplenia", "hiv", "immunocomp", "hsct", "complement", "microbiologist"].includes(r));
 
 /** Grace period constant (days). */
 export const GRACE = 4;

@@ -17,6 +17,54 @@ import ForecastPDF from './ForecastPDF';
 import ShotListPDF from './ShotListPDF';
 import SchedulePDF from './SchedulePDF';
 
+// Primary CDC reference for each combo brand — surfaces in the Forecast "Why?" popover.
+const COMBO_PRIMARY_REF = {
+  Vaxelis:   { url: REFS.DTaP.cdcUrl,    label: 'CDC DTaP Notes' },
+  Pediarix:  { url: REFS.DTaP.cdcUrl,    label: 'CDC DTaP Notes' },
+  Pentacel:  { url: REFS.DTaP.cdcUrl,    label: 'CDC DTaP Notes' },
+  Kinrix:    { url: REFS.DTaP.cdcUrl,    label: 'CDC DTaP Notes' },
+  Quadracel: { url: REFS.DTaP.cdcUrl,    label: 'CDC DTaP Notes' },
+  ProQuad:   { url: REFS.MMR.cdcUrl,     label: 'CDC MMR Notes' },
+  Penbraya:  { url: REFS.MenB.cdcUrl,    label: 'CDC MenB Notes' },
+  Penmenvy:  { url: REFS.MenB.cdcUrl,    label: 'CDC MenB Notes' },
+  Twinrix:   { url: REFS.HepB.cdcUrl,    label: 'CDC HepB Notes' },
+};
+
+// Clinical rationale for combo brands — shown in CellPopover and OptWhyPopover
+// when a combo is selected or scheduled, so clinicians understand why it's offered.
+const COMBO_RATIONALE = {
+  Vaxelis:   'Covers DTaP+IPV+Hib+HepB in one injection (doses 1–3 only). Hib component is PRP-OMP — series completes in 3 doses with no separate booster injection. Reduces 2m/4m/6m visits from 3–4 injections to 2.',
+  Pediarix:  'Covers DTaP+IPV+HepB in one injection (doses 1–3 only). Reduces 2m/4m/6m visits from 3 to 2 injections. Requires a separate Hib vaccine.',
+  Pentacel:  'Covers DTaP+IPV+Hib in one injection through the D4 booster at 15–18m. Hib component is PRP-T — D4 covers the Hib booster. Requires a separate HepB vaccine. Not valid for DTaP dose 5; use Kinrix or Quadracel at the 4–6y visit instead.',
+  Kinrix:    'Covers DTaP dose 5 + IPV dose 4 in one injection at the 4–6y booster visit only. Reduces injections by 1.',
+  Quadracel: 'Covers DTaP dose 5 + IPV dose 4 in one injection at the 4–6y booster visit only. Reduces injections by 1.',
+  ProQuad:   'Covers MMR + Varicella in one injection (ages 12m–12y). Note: slightly higher febrile seizure risk vs. separate vaccines at 12–15m; discuss with parents.',
+  Penbraya:  'Covers MenACWY + MenB-FHbp (Pfizer) in one injection. Both antigens must be due at the same visit. MenB component is FHbp — interchangeable with Trumenba, NOT Bexsero or Penmenvy.',
+  Penmenvy:  'Covers MenACWY + MenB-4C (GSK) in one injection. Both antigens must be due at the same visit. MenB component is 4C — interchangeable with Bexsero, NOT Trumenba or Penbraya.',
+  Twinrix:   'Covers HepA + HepB in one injection. Adults ≥18y only. 3-dose series (0, 1, 6 months).',
+};
+
+// Full-word age formatter: 2 → "2 months", 14 → "1 year 2 months", 84 → "7 years".
+// Used by today's visit header and moved-dose age chips.
+function fmtAgeWords(m) {
+  if (m == null || isNaN(m)) return '';
+  const mm = Math.round(m);
+  if (mm < 12) return `${mm} month${mm !== 1 ? 's' : ''}`;
+  const y = Math.floor(mm / 12);
+  const r = mm % 12;
+  const yLabel = `${y} year${y !== 1 ? 's' : ''}`;
+  return r === 0 ? yLabel : `${yLabel} ${r} month${r !== 1 ? 's' : ''}`;
+}
+
+// Short display label for a brand option. Keeps the option's `value` as the
+// full label (so fcBrands storage / downstream parsing is unchanged), but the
+// visible text drops the "(covers …)" antigen list — the Why? popover carries
+// the full combo rationale when the clinician wants it.
+function shortBrandLabel(bo) {
+  if (bo.antigenCount <= 1) return bo.label;
+  return bo.hasExtra ? `${bo.name} [extra dose OK]` : bo.name;
+}
+
 // Grouped brand dropdown: combination vaccines in one optgroup, standalones in another.
 // Falls back to a flat list when only one type is present (no empty groups).
 function BrandSelect({ bOpts, value, onChange, style, className }) {
@@ -29,14 +77,14 @@ function BrandSelect({ bOpts, value, onChange, style, className }) {
       {hasGroups ? (
         <>
           <optgroup label="— Combination Vaccines —">
-            {combos.map(bo => <option key={bo.label} value={bo.label}>{bo.label}</option>)}
+            {combos.map(bo => <option key={bo.label} value={bo.label}>{shortBrandLabel(bo)}</option>)}
           </optgroup>
           <optgroup label="— Standalone —">
-            {standalones.map(bo => <option key={bo.label} value={bo.label}>{bo.label}</option>)}
+            {standalones.map(bo => <option key={bo.label} value={bo.label}>{shortBrandLabel(bo)}</option>)}
           </optgroup>
         </>
       ) : (
-        bOpts.map(bo => <option key={bo.label} value={bo.label}>{bo.label}</option>)
+        bOpts.map(bo => <option key={bo.label} value={bo.label}>{shortBrandLabel(bo)}</option>)
       )}
     </select>
   );
@@ -72,8 +120,11 @@ function CellPopover({ chipText, rec, anchorRect, onClose }) {
         maxWidth: 'calc(100vw - 16px)', fontSize: 12, lineHeight: 1.5,
         fontFamily: 'inherit',
       }}>
-        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: '#1a3a6b' }}>
-          {chipText}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6, gap: 6 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: '#1a3a6b', flex: 1 }}>
+            {chipText}
+          </div>
+          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 16, color: '#888', lineHeight: 1, padding: '0 2px', flexShrink: 0 }} title="Close">&times;</button>
         </div>
         {rec?.note ? (
           <p style={{ margin: '0 0 6px', color: '#333' }}>{rec.note}</p>
@@ -84,7 +135,7 @@ function CellPopover({ chipText, rec, anchorRect, onClose }) {
         )}
         {rec?.brandTip && (
           <p style={{ margin: '0 0 6px', color: '#555', fontStyle: 'italic', fontSize: 11 }}>
-            💊 {rec.brandTip}
+            {rec.brandTip}
           </p>
         )}
         {(rec?.refUrl || rec?.refUrl2) && (
@@ -257,7 +308,9 @@ function explainOptConstraint(dose, allFlatDoses) {
   const refLabel = REFS[vk]?.cdcLabel || 'CDC Schedule Notes';
 
   if (raw.startsWith('combo:')) {
-    return { summary: `Combo: ${dose.comboName}`, detail: `Delivers ${dose.coveredAntigens?.join(', ')} in a single injection.`, refUrl, refLabel };
+    const rationale = COMBO_RATIONALE[dose.comboName];
+    const detail = rationale || `Delivers ${dose.coveredAntigens?.join(', ')} in a single injection.`;
+    return { summary: `Combo: ${dose.comboName}`, detail, refUrl, refLabel };
   }
   const liveVaxMatch = raw.match(/live-vax co-admin: same day as (\w+) \(gap was (\d+)d\)/);
   const liveVaxLine = liveVaxMatch ? ` Co-administered same day as ${liveVaxMatch[1]} (live vaccines: same day or ≥28 days apart).` : '';
@@ -303,20 +356,26 @@ function OptWhyPopover({ explanation, anchorRect, onClose }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
   if (!anchorRect) return null;
-  const W = 300, H = 130;
+  const W = 300, H = 160;
   const placeAbove = window.innerHeight - anchorRect.bottom < H + 12 && anchorRect.top > H + 12;
   const top = placeAbove ? anchorRect.top + window.scrollY - H - 6 : anchorRect.bottom + window.scrollY + 6;
   const left = Math.max(window.scrollX + 8, Math.min(anchorRect.left + window.scrollX, window.scrollX + window.innerWidth - W - 8));
   return createPortal(
-    <div style={{ position: 'absolute', top, left, zIndex: 1000, background: '#fff', border: '1px solid var(--gy5)', borderRadius: 'var(--rads)', boxShadow: '0 4px 12px rgba(0,0,0,.12)', padding: '8px 10px', width: W, fontSize: 11 }}>
-      <div style={{ fontWeight: 700, marginBottom: 4, color: 'var(--g)' }}>{explanation.summary}</div>
-      <div style={{ lineHeight: 1.45, color: 'var(--gy2)' }}>{explanation.detail}</div>
-      {explanation.refUrl && (
-        <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--gy6)' }}>
-          <a href={explanation.refUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--b)', textDecoration: 'underline' }}>{explanation.refLabel} ↗</a>
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={onClose} />
+      <div style={{ position: 'absolute', top, left, zIndex: 1000, background: '#fff', border: '1px solid var(--gy5)', borderRadius: 'var(--rads)', boxShadow: '0 4px 12px rgba(0,0,0,.12)', padding: '8px 10px', width: W, fontSize: 11 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4, gap: 6 }}>
+          <div style={{ fontWeight: 700, color: 'var(--g)', flex: 1 }}>{explanation.summary}</div>
+          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--gy3)', lineHeight: 1, padding: '0 2px', flexShrink: 0 }} title="Close">&times;</button>
         </div>
-      )}
-    </div>,
+        <div style={{ lineHeight: 1.45, color: 'var(--gy2)' }}>{explanation.detail}</div>
+        {explanation.refUrl && (
+          <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--gy6)' }}>
+            <a href={explanation.refUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--b)', textDecoration: 'underline' }}>{explanation.refLabel} ↗</a>
+          </div>
+        )}
+      </div>
+    </>,
     document.body,
   );
 }
@@ -332,6 +391,43 @@ function OptWhyButton({ doseKey, openKey, setOpenKey, explanation }) {
   return (
     <>
       <button ref={btnRef} type="button" onClick={handleClick} title="Why this date?" style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--rads)', marginLeft: 4, border: '1px solid var(--gy5)', background: isOpen ? 'var(--g)' : 'var(--gy6)', color: isOpen ? '#fff' : 'var(--gy2)', cursor: 'pointer', lineHeight: 1.2 }}>
+        Why?
+      </button>
+      {isOpen && <OptWhyPopover explanation={explanation} anchorRect={anchorRect} onClose={() => setOpenKey(null)} />}
+    </>
+  );
+}
+
+// Inline "Why combo?" pill button shown next to the brand dropdown in the Forecast table
+// when a combo brand is selected. Surfaces the clinical rationale for picking the combo.
+function ComboWhyButton({ comboName, doseKey, openKey, setOpenKey }) {
+  const isOpen = openKey === doseKey;
+  const btnRef = useRef(null);
+  const [anchorRect, setAnchorRect] = useState(null);
+  const rationale = COMBO_RATIONALE[comboName];
+  if (!rationale) return null;
+  const ref = COMBO_PRIMARY_REF[comboName];
+  const explanation = {
+    summary: `Why ${comboName}?`,
+    detail: rationale,
+    refUrl: ref?.url,
+    refLabel: ref?.label,
+  };
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (isOpen) setOpenKey(null);
+    else { setAnchorRect(btnRef.current?.getBoundingClientRect() || null); setOpenKey(doseKey); }
+  };
+  return (
+    <>
+      <button ref={btnRef} type="button" onClick={handleClick} title={`Why ${comboName}?`}
+        style={{
+          fontSize: 10, padding: '1px 6px', borderRadius: 'var(--rads)', marginLeft: 4,
+          border: '1px solid var(--amd)',
+          background: isOpen ? 'var(--a)' : 'var(--alt)',
+          color: isOpen ? '#fff' : 'var(--a)',
+          cursor: 'pointer', lineHeight: 1.2, fontWeight: 600, whiteSpace: 'nowrap',
+        }}>
         Why?
       </button>
       {isOpen && <OptWhyPopover explanation={explanation} anchorRect={anchorRect} onClose={() => setOpenKey(null)} />}
@@ -590,7 +686,6 @@ export default function ForecastTab({ recs }) {
         <span style={{ fontSize: 11, color: 'var(--gy3)', fontWeight: 600, marginRight: 2 }}>View:</span>
         {[
           { id: null,               label: 'Routine Schedule',    hint: 'Standard CDC/ACIP well-child visit schedule' },
-          { id: 'fewestVisits',     label: 'Earliest Completion', hint: 'Every dose at the earliest legal date, grouped by visit' },
           { id: 'fewestInjections', label: 'Fewest Injections',   hint: 'Substitute combo brands to minimize total injections' },
         ].map(v => (
           <button
@@ -617,9 +712,7 @@ export default function ForecastTab({ recs }) {
           <div className="today-hdr">
             <div className="today-hdr-left">
               <span className="today-title">Today&apos;s Visit</span>
-              <span className="today-age">
-                {am < 12 ? `${am}m` : `${Math.floor(am / 12)}y${am % 12 ? ` ${am % 12}m` : ""}`}
-              </span>
+              <span className="today-age">{fmtAgeWords(am)}</span>
               {state.dob && (
                 <span className="today-visit-date">{visitDateLabel(state.dob, am)}</span>
               )}
@@ -698,7 +791,6 @@ export default function ForecastTab({ recs }) {
                           }}
                         >
                           {isActive ? "✓ " : ""}{bo.name}
-                          <span className="today-combo-covers">{bo.dueCovered.join(" + ")}</span>
                         </button>
                       );
                     })}
@@ -729,8 +821,6 @@ export default function ForecastTab({ recs }) {
                     : rec.status;
                   // When this vk is covered by the active combo, label the picker as auto-filled.
                   const coveredByCombo = activeComboName && (COMBO_COVERS[activeComboName] || []).includes(rec.vk);
-                  const coversText = displayBrand.match(/covers ([^)]+)/)?.[1];
-
                   return (
                     <div key={rec.vk} className="today-rec">
                       <div className="today-rec-main">
@@ -750,11 +840,6 @@ export default function ForecastTab({ recs }) {
                               })}
                               className={`today-brand-sel${coveredByCombo && displayBrand ? " today-brand-sel-combo" : ""}`}
                             />
-                            {coversText && (
-                              <span className="today-covers" title={`This product covers: ${coversText}`}>
-                                +{coversText}
-                              </span>
-                            )}
                           </>
                         )}
                         <button
@@ -987,7 +1072,7 @@ export default function ForecastTab({ recs }) {
                       const origProj = dosePlan[visit.earlyFcKey];
                       const info = scheduledEarliest.get(visit.earlyFcKey);
                       if (!origProj || !info) return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
-                      const scheduledDate = info.date && state.dob ? fmtDateShort(info.date) : `~${Math.round(info.ageM)}m`;
+                      const scheduledDate = info.date && state.dob ? fmtDateShort(info.date) : `~${fmtAgeWords(info.ageM)}`;
                       const isAnnual = vk === "Flu" || vk === "COVID";
                       const dChip = isAnnual ? "Annual" : origProj.totalDoses > 1 ? `Dose ${origProj.doseNum} of ${origProj.totalDoses}` : `Dose ${origProj.doseNum}`;
                       // Brand picker for the moved dose. Standalone scheduled-early
@@ -1047,7 +1132,7 @@ export default function ForecastTab({ recs }) {
                       }
                       const movedDate = info.date && state.dob
                         ? fmtDateShort(info.date)
-                        : `~${Math.round(info.ageM)}m`;
+                        : `~${fmtAgeWords(info.ageM)}`;
                       const isAnnualMv = vk === "Flu" || vk === "COVID";
                       const dChipMv = isAnnualMv
                         ? "Annual"
@@ -1081,7 +1166,7 @@ export default function ForecastTab({ recs }) {
                     // CASE 3: Dose moved to earliest row — show indicator + brand dropdown + revert.
                     if (scheduledEarliest.has(fcKey)) {
                       const info = scheduledEarliest.get(fcKey);
-                      const movedDate = info.date && state.dob ? fmtDateShort(info.date) : `~${Math.round(info.ageM)}m`;
+                      const movedDate = info.date && state.dob ? fmtDateShort(info.date) : `~${fmtAgeWords(info.ageM)}`;
                       const rec3 = visitRecMap[vk];
                       const dn3 = rec3 ? rec3.doseNum : (dc(validHist, vk) + 1);
                       // Brand validity must use the MOVED age (info.ageM), not
@@ -1290,6 +1375,10 @@ export default function ForecastTab({ recs }) {
                       && !(isCurr && dosesGivenHere > 0);
 
                     const cellKey = fcKey;
+                    // Brand labels in the dropdown look like "Vaxelis (covers DTaP + IPV + Hib + HepB)";
+                    // strip the parenthetical to match COMBO_RATIONALE keys.
+                    const displayBrandKey = displayBrand ? displayBrand.split(' (')[0].trim() : '';
+                    const comboSelected = !!(displayBrandKey && COMBO_RATIONALE[displayBrandKey]);
                     const hasPopover = !!(rec?.note || rec?.refUrl);
                     return (
                       <td key={vk} className="vcell">
@@ -1340,10 +1429,13 @@ export default function ForecastTab({ recs }) {
                               style={{ fontSize: 10, maxWidth: 130, padding: "1px 3px", border: "1px solid #ddd", borderRadius: 1 }}
                             />
                           )}
-                          {displayBrand && displayBrand.includes("(covers") && (
-                            <span className="fc-covers">
-                              {displayBrand.match(/covers ([^)]+)/)?.[1] || ""}
-                            </span>
+                          {comboSelected && (
+                            <ComboWhyButton
+                              comboName={displayBrandKey}
+                              doseKey={`combo:${fcKey}`}
+                              openKey={whyOpenKey}
+                              setOpenKey={setWhyOpenKey}
+                            />
                           )}
                         </div>
                       </td>

@@ -1,9 +1,38 @@
+/* eslint-disable react/prop-types */
 import { useState } from 'react';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { buildRegimens } from '../logic/regimens';
 import { analyzeCombo } from '../logic/comboAnalyzer';
-import { VAX_META, COMBOS } from '../data/vaccineData';
-import { brandAgeNotesFor } from '../data/brandAgeNotes';
+import { VAX_META } from '../data/vaccineData';
+
+const SEV_STYLE = {
+  err:  { border: 'var(--r)',  bg: 'var(--rlt)', label: 'Contraindicated' },
+  warn: { border: 'var(--a)',  bg: 'var(--alt)', label: 'Caution' },
+  info: { border: 'var(--b)',  bg: 'var(--blt)', label: 'Tip' },
+  ok:   { border: 'var(--g)',  bg: 'var(--glt)', label: 'OK' },
+};
+
+function SevRow({ item }) {
+  const s = SEV_STYLE[item.sev] || SEV_STYLE.info;
+  return (
+    <div style={{
+      borderLeft: `3px solid ${s.border}`,
+      background: s.bg,
+      padding: '6px 10px',
+      marginBottom: 5,
+      borderRadius: 'var(--rads)',
+      fontSize: 12,
+      lineHeight: 1.5,
+    }}>
+      <span>{item.txt}</span>
+      {item.refUrl && (
+        <span style={{ fontSize: 10.5, marginLeft: 6 }}>
+          [<a href={item.refUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--b2)' }}>{item.ref}</a>]
+        </span>
+      )}
+    </div>
+  );
+}
 
 export default function RegTab({ recs }) {
   const { state, dispatch } = useApp();
@@ -18,28 +47,14 @@ export default function RegTab({ recs }) {
   const ADMIN_STATUSES = new Set(["due", "catchup", "risk-based", "recommended"]);
   const adminRecs = recs.filter(r => ADMIN_STATUSES.has(r.status));
   const needed = [...new Set(adminRecs.map(r => r.vk))];
-  // Max dose number being given per vk — used to gate dose-limited combos
-  // (Vaxelis doses 1–3; Kinrix/Quadracel DTaP D5 + IPV D4).
-  const doseNumByVk = {};
-  for (const r of adminRecs) {
-    if (r.doseNum != null) doseNumByVk[r.vk] = Math.max(doseNumByVk[r.vk] ?? 0, r.doseNum);
-  }
-  function comboAllowedByDose(name, c) {
-    if (name === "Vaxelis") {
-      for (const v of c.c) {
-        if (needed.includes(v) && (doseNumByVk[v] ?? 0) >= 4) return false;
-      }
-    }
-    if (name === "Kinrix" || name === "Quadracel") {
-      const dt = doseNumByVk.DTaP, ipv = doseNumByVk.IPV;
-      if (dt != null && dt !== 5) return false;
-      if (ipv != null && ipv !== 4) return false;
-    }
-    return true;
-  }
+
+  // Only count selections that are currently visible as checkboxes. Stale
+  // entries (vk previously selected, no longer needed at this visit) are
+  // filtered out so the "Analyze Selected (N)" counter matches reality.
+  const visibleSel = state.custSel.filter(vk => needed.includes(vk));
 
   function handleAnalyze() {
-    const result = analyzeCombo(state.custSel, am);
+    const result = analyzeCombo(visibleSel, am);
     setAnalysis(result);
   }
 
@@ -90,60 +105,6 @@ export default function RegTab({ recs }) {
         ))}
       </div>
 
-      {/* Combo table — all age-appropriate combos */}
-      {(() => {
-        const allCombos = Object.entries(COMBOS).filter(([name, c]) => {
-          if (am < c.minM || am > c.maxM) return false;
-          if (!comboAllowedByDose(name, c)) return false;
-          return c.c.some(v => needed.includes(v));
-        });
-        if (!allCombos.length) return null;
-
-        const usedInPlan = new Set(regimens[0]?.p.shots.filter(s => s.isCombo).map(s => s.brand) || []);
-
-        return (
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, color: "#555", marginBottom: 4 }}>
-              Combination Vaccine Coverage
-            </div>
-            <table className="cutbl">
-              <thead>
-                <tr>
-                  <th>Combo Brand</th>
-                  <th>Antigens Covered</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allCombos.map(([name, c]) => {
-                  const coveredNeeded = c.c.filter(v => needed.includes(v));
-                  const inPlan = usedInPlan.has(name);
-                  return (
-                    <tr key={name} style={inPlan ? { background: "#eaf3fb" } : undefined}>
-                      <td style={{ fontWeight: 700 }}>
-                        {name}
-                        {inPlan && <span style={{ fontSize: 9, color: "#2980b9", marginLeft: 4 }}>(in plan)</span>}
-                      </td>
-                      <td>
-                        {c.c.map((v, vi) => (
-                          <span key={v}>
-                            {vi > 0 && ", "}
-                            <span style={{ fontWeight: coveredNeeded.includes(v) ? 700 : 400, color: coveredNeeded.includes(v) ? "#1a3a6b" : "#aaa" }}>
-                              {v}
-                            </span>
-                          </span>
-                        ))}
-                      </td>
-                      <td style={{ fontSize: 10.5 }}>{c.desc}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        );
-      })()}
-
       {/* Custom brand constraints analyzer */}
       <div className="cbox2">
         <div style={{ fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 6 }}>
@@ -166,63 +127,21 @@ export default function RegTab({ recs }) {
         </div>
         <button
           className="aibtn"
-          disabled={state.custSel.length === 0}
+          disabled={visibleSel.length === 0}
           onClick={handleAnalyze}
         >
-          Analyze Selected ({state.custSel.length})
+          Analyze Selected ({visibleSel.length})
         </button>
 
         {analysis && (
           <div className="aiout">
             <div style={{ fontWeight: 700, marginBottom: 6 }}>Brand Constraints</div>
             {analysis.constraints.map((c, ci) => (
-              <div key={ci} style={{ marginBottom: 5 }}>
-                <span>{c.ico} </span>
-                <span>{c.txt}</span>
-                {c.refUrl && (
-                  <span style={{ fontSize: 10, marginLeft: 6 }}>
-                    [<a href={c.refUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9" }}>{c.ref}</a>]
-                  </span>
-                )}
-              </div>
+              <SevRow key={ci} item={c} />
             ))}
-            {(() => {
-              const brandNotes = brandAgeNotesFor(state.custSel);
-              if (!brandNotes.length) return null;
-              return (
-                <>
-                  <div style={{ fontWeight: 700, marginTop: 10, marginBottom: 6 }}>
-                    Brand-Specific Minimum Ages (FDA label)
-                  </div>
-                  <div style={{ fontSize: 10, color: "#6b4e00", marginBottom: 6 }}>
-                    Vaccine-level minimum ages from the ACIP catch-up schedule are shown above.
-                    Individual brands may have <strong>narrower</strong> approved age ranges — always confirm
-                    the brand you administer is labeled for the patient's age.
-                  </div>
-                  {brandNotes.map((n, ni) => (
-                    <div key={ni} style={{ marginBottom: 5 }}>
-                      <span dangerouslySetInnerHTML={{ __html: n.html }} />
-                      {n.refUrl && (
-                        <span style={{ fontSize: 10, marginLeft: 6 }}>
-                          [<a href={n.refUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9" }}>{n.refLabel}</a>]
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </>
-              );
-            })()}
             <div style={{ fontWeight: 700, marginTop: 10, marginBottom: 6 }}>Co-Administration Notes</div>
             {analysis.coNotes.map((n, ni) => (
-              <div key={ni} style={{ marginBottom: 5 }}>
-                <span>{n.ico} </span>
-                <span>{n.txt}</span>
-                {n.refUrl && (
-                  <span style={{ fontSize: 10, marginLeft: 6 }}>
-                    [<a href={n.refUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9" }}>{n.ref}</a>]
-                  </span>
-                )}
-              </div>
+              <SevRow key={ni} item={n} />
             ))}
           </div>
         )}

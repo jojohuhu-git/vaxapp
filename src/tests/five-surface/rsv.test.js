@@ -1,6 +1,7 @@
 // Source: ACIP RSV schedule
-// Engine covers: maternal RSV (risks=['maternal_rsv']), infant nirsevimab (<8m),
-// high-risk infant 2nd season (8-19m with rsv_risk).
+// Engine covers: infant nirsevimab (<8m), high-risk infant 2nd season (8-19m with rsv_risk).
+// Maternal RSV (Abrysvo) was removed — this is a pediatric app and the maternal-vaccination
+// status is handled at the infant level (born to vaccinated mother → no nirsevimab).
 // NOTE: Engine does NOT have adult RSV (60+/75+) in the current catalog (VAX_KEYS only has infant RSV).
 import { describe, it, expect } from 'vitest';
 import { firstRec } from './_helpers.js';
@@ -32,17 +33,3 @@ describe('RSV — infant nirsevimab (Surface 1)', () => {
   });
 });
 
-describe('RSV — maternal (Surface 1)', () => {
-
-  it('S1: maternal RSV rec at am=240 (20y) with maternal_rsv risk', () => {
-    const r = firstRec('RSV', 240, {}, ['maternal_rsv']);
-    expect(r).not.toBeNull();
-    expect(r.status).toBe('risk-based');
-  });
-
-  it('S1: no maternal rec if RSV already given', () => {
-    const hist = { RSV: [{ given: true }] };
-    const r = firstRec('RSV', 240, hist, ['maternal_rsv']);
-    expect(r).toBeNull();
-  });
-});

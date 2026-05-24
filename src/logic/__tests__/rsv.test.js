@@ -20,9 +20,6 @@ describe('RSV — infant nirsevimab + maternal Abrysvo', () => {
     expectRec(run(makePatient({ ageMonths: 12, riskConditions: ['rsv_risk'] })), 'RSV', { status: 'risk-based' });
   });
 
-  it('Pregnant + maternal_rsv → Abrysvo', () => {
-    expectRec(run(makePatient({ ageMonths: 216, riskConditions: ['maternal_rsv'] })), 'RSV', { status: 'risk-based' });
-  });
 });
 
 antigenScaffold('RSV');

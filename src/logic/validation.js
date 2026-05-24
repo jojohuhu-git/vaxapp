@@ -277,7 +277,7 @@ export function auditAll(hist, dob, risks = [], am = -1) {
     // MenACWY series overdose: non-high-risk patients need at most 2 doses
     if (vk === "MenACWY") {
       const isHighRiskMen = risks.some(x =>
-        ["asplenia", "complement", "complement_inhibitor", "hiv"].includes(x));
+        ["asplenia", "complement", "hiv"].includes(x));
       if (!isHighRiskMen && doses.length > 2) {
         errors.push({ vk, type: "series_over", severity: "warn",
           title: "MenACWY — Extra Dose (series complete for non-high-risk patient)",

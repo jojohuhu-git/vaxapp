@@ -3,16 +3,12 @@ import { useState } from 'react';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { genRecs } from '../logic/recommendations';
 import { validatedHistory } from '../logic/validation';
-import StatusBar from './StatusBar';
 import TabBar from './TabBar';
 import RecTab from './RecTab';
 import PlanTab from './PlanTab';
 import ForecastTab from './ForecastTab';
 import CatchUpTab from './CatchUpTab';
-import BrandScheduleTab from './BrandScheduleTab';
-
 function ReferenceModal({ onClose }) {
-  const [refTab, setRefTab] = useState('catchup');
   return (
     <div
       style={{
@@ -31,23 +27,10 @@ function ReferenceModal({ onClose }) {
         onClick={e => e.stopPropagation()}
       >
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
+          display: 'flex', alignItems: 'center',
           padding: '10px 16px', borderBottom: '1px solid #eee',
         }}>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {[['catchup','Catch-up Guidance'],['brands','Infant Brand Schedules']].map(([id, lbl]) => (
-              <button key={id}
-                onClick={() => setRefTab(id)}
-                style={{
-                  padding: '4px 13px', fontSize: 11.5, fontWeight: 600,
-                  borderRadius: 2, border: '1px solid', cursor: 'pointer',
-                  background: refTab === id ? 'var(--g)' : '#fff',
-                  color: refTab === id ? '#fff' : '#555',
-                  borderColor: refTab === id ? 'var(--g)' : '#ddd',
-                }}
-              >{lbl}</button>
-            ))}
-          </div>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--gy2)' }}>Catch-up Guidance</span>
           <button
             onClick={onClose}
             style={{ marginLeft: 'auto', border: 'none', background: 'none',
@@ -55,8 +38,7 @@ function ReferenceModal({ onClose }) {
           >&times;</button>
         </div>
         <div style={{ overflowY: 'auto', padding: '12px 16px' }}>
-          {refTab === 'catchup' && <CatchUpTab />}
-          {refTab === 'brands' && <BrandScheduleTab />}
+          <CatchUpTab />
         </div>
       </div>
     </div>
@@ -118,7 +100,6 @@ export default function MainPanel() {
     <>
       {showRef && <ReferenceModal onClose={() => setShowRef(false)} />}
       <div className="card">
-        <StatusBar recs={recs} />
         <TabBar onReference={() => setShowRef(true)} />
 
         {state.tab === "recs" && <RecTab recs={recs} />}

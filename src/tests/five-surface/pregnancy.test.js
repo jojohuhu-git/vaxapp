@@ -1,5 +1,6 @@
 // Source: ACIP pregnancy vaccine schedule
-// Indicated: Tdap (27–36w), Flu (any trimester), COVID, RSV-maternal (maternal_rsv risk).
+// Indicated: Tdap (27–36w), Flu (any trimester), COVID.
+// (Maternal RSV / Abrysvo removed — pediatric-only app.)
 // Contraindicated (live vaccines): MMR, VAR — liveVaxAllowed=false when risks includes 'pregnancy'
 import { describe, it, expect } from 'vitest';
 import { firstRec } from './_helpers.js';
@@ -23,11 +24,6 @@ describe('Pregnancy — indicated vaccines (Surface 1)', () => {
     expect(r).not.toBeNull();
   });
 
-  it('S1: RSV maternal rec at am=240 (16y+) with maternal_rsv risk', () => {
-    const r = firstRec('RSV', 240, {}, ['maternal_rsv']);
-    expect(r).not.toBeNull();
-    expect(r.status).toBe('risk-based');
-  });
 });
 
 describe('Pregnancy — live vaccine contraindications (Surface 1)', () => {

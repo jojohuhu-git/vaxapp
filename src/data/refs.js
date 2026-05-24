@@ -60,7 +60,9 @@ export const REFS = {
     immUrl:"https://www.immunize.org/vaccines/a-z/influenza/",
     immLabel:"immunize.org: Influenza Vaccine Resources",
     cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-flu",
-    cdcLabel:"CDC Influenza Schedule Notes"
+    cdcLabel:"CDC Influenza Schedule Notes",
+    eggUrl:"https://www.immunize.org/ask-experts/which-vaccines-egg-allergy-contraindication/",
+    eggLabel:"immunize.org: Egg allergy & flu vaccine"
   },
   MMR:     {
     label:"immunize.org: MMR — Ask the Experts",

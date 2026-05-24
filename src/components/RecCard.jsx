@@ -108,7 +108,7 @@ export default function RecCard({ rec, index }) {
         >
           {rec.status === "risk-based" ? "Risk-Based"
             : rec.status === "catchup" ? "Catch-up"
-            : rec.status === "recommended" ? "Shared Clinical Decision"
+            : rec.status === "recommended" ? "Shared decision"
             : rec.status === "due" ? "Due"
             : rec.status.charAt(0).toUpperCase() + rec.status.slice(1)}
         </span>
