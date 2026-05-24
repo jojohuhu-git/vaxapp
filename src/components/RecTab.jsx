@@ -8,11 +8,11 @@ import RecCard from './RecCard';
 
 const STATUS_ORDER = ["due", "catchup", "risk-based", "recommended"];
 const FILTERS = [
-  { id: "all", label: "All" },
-  { id: "due", label: "Due" },
-  { id: "catchup", label: "Catch-up" },
-  { id: "risk-based", label: "Risk-Based" },
-  { id: "recommended", label: "Shared Clinical Decision" },
+  { id: "all",         label: "All",                      activeBg: "var(--gy5)",  activeColor: "var(--gy2)" },
+  { id: "due",         label: "Due",                      activeBg: "var(--glt)",  activeColor: "var(--g)" },
+  { id: "catchup",     label: "Catch-up",                 activeBg: "var(--alt)",  activeColor: "var(--a)" },
+  { id: "risk-based",  label: "Risk-Based",               activeBg: "var(--rlt)",  activeColor: "var(--r)" },
+  { id: "recommended", label: "Shared Clinical Decision",  activeBg: "var(--blt)",  activeColor: "var(--b)" },
 ];
 
 // Grouped brand dropdown: combination vaccines in one optgroup, standalones in another.
@@ -134,9 +134,7 @@ export default function RecTab({ recs }) {
   const errors = auditAll(state.hist, state.dob, state.risks, state.am);
   const errCount = errors.filter(e => e.severity === "err").length;
 
-  // Default to "due" filter when "all" (the AppContext initial) is active —
-  // this means clinicians land on the due-today view immediately during a visit.
-  const activeFilter = state.filter === "all" ? "due" : state.filter;
+  const activeFilter = state.filter;
 
   // Filter
   const filtered = activeFilter === "all"
@@ -157,62 +155,42 @@ export default function RecTab({ recs }) {
 
   return (
     <div>
-      {/* Legend */}
-      <div className="legend">
-        <div className="leg">
-          <span className="leg-dot" style={{ background: "#2e9e6b" }} />
-          <span>Due (routine)</span>
-        </div>
-        <div className="leg">
-          <span className="leg-dot" style={{ background: "#e67e22" }} />
-          <span>Catch-up</span>
-        </div>
-        <div className="leg">
-          <span className="leg-dot" style={{ background: "#C0392B" }} />
-          <span>Risk-based</span>
-        </div>
-        <div className="leg">
-          <span className="leg-dot" style={{ background: "#2980b9" }} />
-          <span>Shared Clinical Decision Making</span>
-        </div>
-      </div>
-
+      <p style={{ margin: '0 0 8px', fontSize: 11.5, color: 'var(--gy3)' }}>
+        What this patient needs today, organized by priority.
+      </p>
       {/* Error banner */}
       {errCount > 0 && (
         <div style={{
-          background: "#fdf0ef",
-          border: "1px solid #f5b7b1",
-          borderRadius: 6,
-          padding: "8px 12px",
-          marginBottom: 10,
-          fontSize: 12,
-          color: "#8B1A1A",
+          background: "var(--rlt)", border: "1px solid var(--rmd)",
+          borderLeft: "4px solid var(--r)", borderRadius: "var(--rads)",
+          padding: "8px 12px", marginBottom: 10, fontSize: 12, color: "var(--r)",
         }}>
           <strong>{errCount} schedule error{errCount !== 1 ? "s" : ""}</strong> detected in vaccination history.
-          Review the Audit panel in the sidebar for details.
+          Review the Audit panel for details.
         </div>
       )}
 
       {/* Filter buttons */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
         {FILTERS.map(f => {
-          // When state.filter is "all" (initial), visually highlight "due" as the active filter.
-          const highlighted = state.filter === "all"
-            ? f.id === "due"
-            : state.filter === f.id;
+          const highlighted = state.filter === f.id;
+          const count = f.id !== "all" ? recs.filter(r => r.status === f.id).length : null;
           return (
             <button
               key={f.id}
-              className={`tab${highlighted ? " on" : ""}`}
-              style={{ fontSize: 10.5, padding: "3px 10px" }}
+              className={`ftab${highlighted ? " on" : ""}`}
+              style={{
+                fontSize: 11, padding: "4px 11px",
+                borderRadius: "var(--rads)", border: "1px solid",
+                fontWeight: highlighted ? 700 : 500,
+                background: highlighted ? f.activeBg : "var(--wh)",
+                color: highlighted ? f.activeColor : "var(--gy3)",
+                borderColor: highlighted ? f.activeColor : "var(--gy5)",
+                cursor: "pointer", transition: "all .15s",
+              }}
               onClick={() => dispatch({ type: "SET_FILTER", payload: f.id })}
             >
-              {f.label}
-              {f.id !== "all" && (
-                <span style={{ marginLeft: 3 }}>
-                  ({recs.filter(r => r.status === f.id).length})
-                </span>
-              )}
+              {f.label}{count !== null && <span style={{ marginLeft: 4, opacity: .75 }}>({count})</span>}
             </button>
           );
         })}

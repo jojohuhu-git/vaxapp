@@ -422,7 +422,7 @@ export default function VisitEntry() {
   // Fix 2: proactive warning when age field has content but no DOB
   const ageNoDobWarning = ageInput.trim().length > 0 && !dob;
 
-  const ageInputPlaceholder = dob ? 'e.g. 2 months, 4y' : 'e.g. 2 months, 4y';
+  const ageInputPlaceholder = dob ? 'e.g. 2 months, 4y' : 'Requires patient DOB';
 
   return (
     <div style={{ marginBottom: 12 }}>
@@ -464,9 +464,6 @@ export default function VisitEntry() {
                 </span>
               )}
             </div>
-            <span style={{ color: '#999', fontSize: '0.78rem', marginTop: 2 }}>
-              Date vaccines were given. Autofills age if DOB is set.
-            </span>
           </div>
 
           {/* Age field */}
@@ -492,13 +489,9 @@ export default function VisitEntry() {
                 → {ageLabel(daysToMonths(parsedAgeDays))}
               </span>
             )}
-            {ageNoDobWarning ? (
+            {ageNoDobWarning && (
               <span style={{ color: '#c0392b', fontSize: '0.78rem', marginTop: 2 }}>
                 Requires patient DOB.
-              </span>
-            ) : (
-              <span style={{ color: '#999', fontSize: '0.78rem', marginTop: 2 }}>
-                How old the patient was at this visit. Requires patient DOB.
               </span>
             )}
           </div>
@@ -546,7 +539,7 @@ export default function VisitEntry() {
                         }
                       }}
                       style={{
-                        fontSize: 11, padding: '3px 9px', borderRadius: 'var(--radp)',
+                        fontSize: 11, padding: '3px 9px', borderRadius: 'var(--rads)',
                         border: `1.5px solid ${isActive ? 'var(--g)' : 'var(--gy4)'}`,
                         background: isActive ? 'var(--g)' : 'var(--wh)',
                         color: isActive ? '#fff' : 'var(--gy2)',
@@ -581,7 +574,7 @@ export default function VisitEntry() {
                   type="button"
                   onClick={() => toggleVk(vk)}
                   style={{
-                    fontSize: 11, padding: '3px 9px', borderRadius: 'var(--radp)',
+                    fontSize: 11, padding: '3px 9px', borderRadius: 'var(--rads)',
                     border: `1.5px solid ${selected ? 'var(--g)' : 'var(--gy5)'}`,
                     background: selected ? 'var(--g)' : 'var(--wh)',
                     color: selected ? '#fff' : 'var(--gy2)',
@@ -669,7 +662,7 @@ export default function VisitEntry() {
               type="button"
               onClick={() => applyComboHint(comboHint.comboName)}
               style={{
-                fontSize: 11, padding: '2px 8px', borderRadius: 'var(--radp)',
+                fontSize: 11, padding: '2px 8px', borderRadius: 'var(--rads)',
                 border: '1px solid var(--b2)', background: 'var(--b2)',
                 color: '#fff', cursor: 'pointer', fontWeight: 600,
               }}
@@ -695,7 +688,7 @@ export default function VisitEntry() {
               type="button"
               onClick={() => handleCommit(true)}
               style={{
-                fontSize: 11, padding: '2px 8px', borderRadius: 'var(--radp)',
+                fontSize: 11, padding: '2px 8px', borderRadius: 'var(--rads)',
                 border: '1px solid var(--a2)', background: 'var(--a2)',
                 color: '#fff', cursor: 'pointer', fontWeight: 600,
               }}
@@ -706,7 +699,7 @@ export default function VisitEntry() {
               type="button"
               onClick={() => { setDupHint(null); handleCommit(false); }}
               style={{
-                fontSize: 11, padding: '2px 8px', borderRadius: 'var(--radp)',
+                fontSize: 11, padding: '2px 8px', borderRadius: 'var(--rads)',
                 border: '1px solid var(--gy4)', background: 'var(--wh)',
                 color: 'var(--gy2)', cursor: 'pointer',
               }}
@@ -728,7 +721,7 @@ export default function VisitEntry() {
             onClick={() => handleCommit(false)}
             style={{
               fontSize: 12, fontWeight: 700, padding: '5px 18px',
-              borderRadius: 'var(--radp)', border: 'none',
+              borderRadius: 'var(--rads)', border: 'none',
               background: selectedVks.length > 0 ? 'var(--g)' : 'var(--gy5)',
               color: selectedVks.length > 0 ? '#fff' : 'var(--gy3)',
               cursor: selectedVks.length > 0 ? 'pointer' : 'default',
@@ -754,7 +747,7 @@ export default function VisitEntry() {
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   fontSize: 11, padding: '3px 8px',
                   background: 'var(--gy6)', border: '1px solid var(--gy5)',
-                  borderRadius: 'var(--radp)',
+                  borderRadius: 'var(--rads)',
                   color: 'var(--gy2)',
                 }}
               >

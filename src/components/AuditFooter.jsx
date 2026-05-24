@@ -18,9 +18,10 @@ export default function AuditFooter() {
       ? { bg: "#fff3d6", border: "#d68910", fg: "#7a4f00", icon: "!", iconBg: "#d68910" }
       : { bg: "#e6f5ea", border: "#27ae60", fg: "#1e6c3a", icon: "✓", iconBg: "#27ae60" };
 
-  const label = total === 0
-    ? "No schedule issues detected"
-    : errCount > 0
+  // Hide entirely when no issues
+  if (total === 0) return null;
+
+  const label = errCount > 0
       ? `${errCount} error${errCount !== 1 ? "s" : ""}${warnCount > 0 ? ` · ${warnCount} advisory` : ""}`
       : `${warnCount} advisory${warnCount !== 1 ? "s" : ""}`;
 
@@ -58,10 +59,10 @@ export default function AuditFooter() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{
-            width: 28, height: 28, borderRadius: "50%",
+            width: 28, height: 28, borderRadius: 4,
             background: tone.iconBg, color: "#fff",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16, fontWeight: 700, flexShrink: 0,
+            fontSize: 15, fontWeight: 700, flexShrink: 0,
           }}>
             {tone.icon}
           </div>

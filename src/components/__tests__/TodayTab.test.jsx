@@ -95,7 +95,7 @@ describe('RecTab — due-filter default + brand dropdowns', () => {
     const cards = container.querySelectorAll('.rc');
     expect(cards.length).toBeGreaterThan(0);
     // The "Due" filter button should be highlighted (has "on" class)
-    const buttons = Array.from(container.querySelectorAll('button.tab'));
+    const buttons = Array.from(container.querySelectorAll('button.ftab'));
     const dueBtn = buttons.find(b => b.textContent.startsWith('Due'));
     expect(dueBtn).toBeTruthy();
     expect(dueBtn.className).toContain('on');

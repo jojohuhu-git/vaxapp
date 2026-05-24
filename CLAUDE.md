@@ -1,5 +1,149 @@
 # PediVax — Claude Code Guidance
 
+## Project Architecture (build-from-scratch reference)
+
+### What it is
+PediVax is a client-side React SPA — no backend, no authentication, no database.
+All vaccine logic runs in the browser. State is serialized to a URL `?s=` parameter
+so patient sessions are shareable/bookmarkable without any server.
+
+### Tech stack
+- **React 18** with hooks (no class components)
+- **Vite** for bundling (`npm run dev` = dev server, `npm run build` = production)
+- **Vitest** + React Testing Library for tests (`npm test`)
+- **@react-pdf/renderer** for in-browser PDF generation
+- **Husky** + lint-staged: ESLint runs on every commit (`--max-warnings=0`)
+- Deployed to **GitHub Pages** via `.github/workflows/deploy.yml` on push to `main`
+- `vite.config.js` sets `base: '/vaxapp/'` — all public asset paths MUST use `import.meta.env.BASE_URL`
+
+### Setup
+```bash
+npm install
+npm run dev        # dev server on port 5173 (or 5174 if occupied)
+npm test           # run Vitest test suite
+npm run build      # production build to dist/
+```
+
+### File structure
+```
+src/
+  App.jsx              Main app shell: Header, PatientSummaryBar (sticky), PatientDrawer (portal), MainPanel
+  App.css              All styles + CSS custom properties (:root tokens)
+  context/
+    AppContext.jsx      Global state (useReducer), getEffectiveAm(), AppProvider
+  components/
+    MainPanel.jsx       Routes tabs, holds recs + validHist computation
+    TabBar.jsx          Tabs: Recommendations | Plan | Forecast | Clinical Aids ↗
+    RecTab.jsx          Recommendations list with filter buttons (All/Due/Catch-up/Risk-Based/SCD)
+    RecCard.jsx         Single recommendation card with brand dropdown
+    PlanTab.jsx         Sub-modes: Regimen Optimizer | Brand Constraints
+    RegTab.jsx          Regimen optimizer UI
+    BrandConstraintsPanel.jsx  Combo dose gates + brand age window reference
+    ForecastTab.jsx     Visit table + view toggle (Routine/Earliest Completion/Fewest Injections)
+    OptimalScheduleTab.jsx  Legacy file — NOT wired to any route (merged into ForecastTab)
+    BrandScheduleTab.jsx    Static infant brand strategy reference (Pediarix/Vaxelis/Pentacel)
+    CatchUpTab.jsx      CDC Table 2 catch-up reference (accessed via Clinical Aids ↗ modal)
+    PatientInfo.jsx     Age typeahead + DOB DateField + mismatch hint
+    RiskGrid.jsx        Risk factor checkboxes
+    VisitEntry.jsx      Visit-based multi-vaccine history entry with combo chips + undo strip
+    HistoryTable.jsx    Compact/expanded vaccination history table
+    AuditFooter.jsx     Fixed bottom strip: shows schedule audit errors/warnings; hidden when clean
+    AuditPanel.jsx      Detailed audit panel with renumbering cards
+    StatusBar.jsx       Vaccine count chips above tabs
+    Header.jsx          Logo + Share/Reset buttons
+    DateField.jsx       Masked MM/DD/YYYY input + calendar picker
+    ShareModal.jsx      Share URL modal
+    Disclaimer.jsx      Clinical disclaimer
+    SchedulePDF.jsx     PDF template for optimal schedule
+    ForecastPDF.jsx     PDF template for full forecast
+    ShotListPDF.jsx     PDF template for today's shot list
+  logic/
+    recommendations.js  genRecs(am, hist, risks, dob, opts) — central rec engine
+    forecastLogic.js    orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly
+    dosePlan.js         computeDosePlan, getTotalDoses, fmtProjection
+    buildOptimalSchedule.js  Earliest-completion optimizer (independent seriesDoses())
+    regimens.js         buildRegimens() for Regimen Optimizer tab
+    comboAnalyzer.js    Combo brand analysis helpers
+    brandRules.js       COMBO_DOSE_GATES (exported), comboFitsDose, isBrandValidForDose
+    validation.js       validatedHistory, auditAll
+    urlState.js         encState / decState for URL ?s= parameter
+    stateHelpers.js     dc() deep-clone helper
+    utils.js            addD() date arithmetic
+  data/
+    vaccineData.js      VAX_KEYS, VAX_META, COMBOS, VBR — canonical vaccine metadata
+    forecastData.js     FORECAST_VISITS — routine well-child visit schedule
+    riskFactors.js      RISK_FACTORS array
+    refs.js             REFS — all CDC/immunize.org/AAP reference URLs
+    brandAgeNotes.js    BRAND_AGE_NOTES — per-brand age window notes
+    scheduleRules.js    MIN_INT, MIN_AGE — minimum intervals and ages
+    ageOptions.js       Age selector options
+    contraindications.js  Contraindication rules
+  tests/               Logic tests (node environment)
+  logic/__tests__/     Logic unit + regression tests
+  components/__tests__/ UI rendering tests (happy-dom environment)
+  test-setup.js        jest-dom matchers + RTL cleanup
+```
+
+### AppContext state shape
+```js
+{
+  am: number | null,          // age in months (manual entry)
+  dob: string | null,         // ISO date "YYYY-MM-DD"
+  risks: string[],            // array of risk factor IDs
+  hist: { [vk]: { doses: [{date, brand}] } },  // vaccination history
+  tab: "recs" | "plan" | "forecast",
+  filter: "all" | "due" | "catchup" | "risk-based" | "recommended",
+  fcBrands: { [fcKey]: string },  // brand selections keyed by "{visitM}_{vk}" or "cu{age}_{vk}"
+  cd4: number | null,         // CD4 count for HIV patients
+}
+```
+
+Key computed value: `getEffectiveAm(state)` returns `{ effectiveAm, conflict, dobAm, manualAm }`.
+DOB-derived age takes precedence over manual age; conflict = both set but disagree beyond tolerance.
+
+### Reducer actions (AppContext.jsx)
+`SET_AGE`, `SET_DOB`, `SET_RISKS`, `ADD_VISIT`, `REMOVE_VISIT`, `SET_TAB`, `SET_FILTER`,
+`FC_BRAND_CHANGE`, `RESET_FORECAST`, `RESTORE_STATE`, `SET_CD4`
+
+### CSS design tokens (App.css :root)
+All components use CSS custom properties — never add inline hex literals in new JSX.
+
+| Token | Role |
+|---|---|
+| `--g` / `--g2` / `--g3` | Primary green (mint-forward brand color) |
+| `--glt` / `--gmd` | Green light tint / medium border |
+| `--a` / `--alt` / `--amd` | Amber (catch-up status) |
+| `--r` / `--rlt` / `--rmd` | Red (error / risk-based) |
+| `--b` / `--blt` / `--bmd` | Blue (recommended / SCD) |
+| `--gy` / `--gy2`…`--gy6` | Neutral grays (gy = darkest, gy6 = lightest) |
+| `--wh` / `--bg` | White / page background |
+| `--rad` | Card border-radius (8px) |
+| `--rads` | Small/button border-radius (4px) |
+| `--radp` | Pill border-radius (6px — NOT 999px; pill shapes are banned) |
+
+### Design direction (established 2026-05-23)
+Direction B — "Modern Minimal": white header, 6px max radius, no pill shapes, no legend dots/bullets.
+Status is communicated by **color tinting and text labels**, not shape or icons.
+- RecCards have a colored left border + subtle background tint per status
+- PatientSummaryBar shows colored rectangular chips (not circles)
+- AuditFooter icon is a square (borderRadius: 4), not a circle
+- `--radp: 6px` (NOT 999px) — all combo/antigen chips in VisitEntry are `var(--rads)` or `var(--rads)`
+- Do not re-add decorative emoji, dot bullets, or pill shapes without explicit instruction
+
+### Tab structure
+```
+Recommendations   Plan              Forecast         Clinical Aids ↗ (modal)
+  ├ All           ├ Regimen         ├ Routine          ├ Catch-up Guidance
+  ├ Due (default)   Optimizer         Schedule           └ Infant Brand
+  ├ Catch-up      └ Brand           ├ Earliest             Schedules
+  ├ Risk-Based      Constraints       Completion
+  └ SCD (shared                    └ Fewest
+    decision)                        Injections
+```
+- Optimal Schedule was a Plan sub-mode; merged into Forecast view toggle (2026-05-23).
+  `OptimalScheduleTab.jsx` is retained but not wired to any route.
+
+
 ## Five-surface verification rule (READ FIRST)
 
 The recommendation engine has **five output surfaces** that share logic but diverge subtly. Any fix to vaccine logic MUST be verified across all five before being declared complete:
@@ -836,3 +980,99 @@ Folded into Recommendations tab (Due default + brand dropdowns). Tab bar order i
 ### Commit
 PR #25, merged 2026-05-23. Commit SHA on main after merge: see `git log --oneline -1`.
 2806 tests pass (198 test files) after all changes.
+
+---
+
+## Changes shipped (2026-05-23)
+
+### Rec filter "All" button was broken
+`AppContext.jsx` initialized `filter: "all"` and `RecTab.jsx` overrode it with
+`activeFilter = state.filter === "all" ? "due" : state.filter`.
+Fix: initialize `filter: "due"` in AppContext; remove the override in RecTab.
+Filter buttons now use `className="ftab on"` (not `.tab`) with per-status active colors.
+
+### BrandConstraintsPanel.jsx (new component)
+`src/components/BrandConstraintsPanel.jsx` — static reference panel showing:
+- **Combo Dose Gates** (from `COMBO_DOSE_GATES` in `brandRules.js`, now exported)
+- **Brand-Specific Age Windows** (from `BRAND_AGE_NOTES`)
+- **MenB antigen-family lock** warning card
+Wired as a sub-mode of PlanTab: `{ id: 'constraints', label: 'Brand Constraints' }`.
+`COMBO_DOSE_GATES` changed from `const` to `export const` in `brandRules.js` to enable the import.
+
+### CatchUpTab cleanup
+Removed the amber brand-specific ages box (bulleted list with all brand notes).
+Added pointer: "Brand-specific age windows and dose-number constraints are in Plan → Brand Constraints."
+
+### Plan tab: Optimal Schedule sub-mode removed
+`OptimalScheduleTab` was a sub-mode of PlanTab. Merged into ForecastTab (see below).
+PlanTab now has two sub-modes only: Regimen Optimizer + Brand Constraints.
+Description updated to mention Forecast → Earliest Completion.
+
+### RecCard status tinting (no dot circles)
+`RecCard.jsx` `.rcdot` span hidden via CSS (`display: none`). Cards now have:
+- Colored **left border** (`borderLeftColor: sc.border`)
+- Subtle **background tint** (`background: sc.bg`) matching status color
+Status communicated by color shading only — no dot bullets.
+
+### AuditFooter: hidden when clean
+`AuditFooter.jsx` returns `null` when `total === 0` (no schedule issues).
+Icon box uses `borderRadius: 4` (square) not `borderRadius: "50%"` (circle).
+
+### VisitEntry cleanup
+Removed verbose helper spans ("Date vaccines were given…", "How old the patient was…").
+When DOB is not set: `placeholder="Requires patient DOB"` on age field.
+All `borderRadius: 'var(--radp)'` → `var(--rads)` (combo chips, antigen chips, undo chips).
+
+### App.css: Design Direction B
+CSS token reset for "Modern Minimal" direction:
+- `--rad: 8px`, `--rads: 4px`, `--radp: 6px` (was 10/6/999px — pill shapes eliminated)
+- Header: white background, green logo title, border-bottom, no gradient
+- `.rcdot { display: none; }` — legend dots hidden
+- `.sc` status chips: `border-radius: var(--rads)` (rectangular, not pill)
+- `--TabBar` renamed to "Clinical Aids ↗"
+
+### PatientSummaryBar: sticky + color-coded chips
+`App.jsx` PatientSummaryBar wrapper: `position: sticky; top: 52px; zIndex: 150; background: #fff`.
+Stays visible while scrolling through Forecast table or long Recommendations.
+Bar computes `genRecs` + `validatedHistory` inline to show color-coded status chips:
+- Green (Due), Amber (Catch-up), Red (Risk-based), Blue (SCD)
+Risk factors shown as amber badge. Age conflict shown as red rectangular badge (not circle dot).
+
+### ForecastTab: View toggle (Routine / Earliest / Fewest Injections)
+Three-button toggle at top of Forecast tab replaces the old description paragraph:
+- **Routine Schedule** (default) — existing visit table
+- **Earliest Completion** — calls `buildOptimalSchedule(patient, fcBrands, { mode: 'fewestVisits' })`
+- **Fewest Injections** — calls `buildOptimalSchedule(patient, fcBrands, { mode: 'fewestInjections' })`
+
+Optimal views render `OptVisitCard` components (no circle bullets, CSS tokens throughout):
+- Summary stat bar: visits count / injections count / series-complete date + Download PDF
+- Per-visit cards with colored vaccine names, D1/2/3 notation, Why? popovers
+Helper functions (`humanDays`, `explainOptConstraint`, `OptWhyPopover`, `OptWhyButton`,
+`OptDoseRow`, `OptVisitCard`) live in `ForecastTab.jsx` — prefixed `Opt` to avoid name collision.
+
+### ForecastTab: Expired column suppression
+A vaccine column is "expired" if: (a) not in `currentRecMap` AND (b) no future entry in `dosePlan`.
+```js
+const expiredVks = allVks.filter(vk => {
+  if (currentRecMap[vk]) return false;
+  return !Object.keys(dosePlan).some(k => {
+    if (!k.endsWith(`_${vk}`)) return false;
+    const prefix = k.slice(0, -(vk.length + 1));
+    const age = prefix.startsWith('cu') ? parseFloat(prefix.slice(2)) : parseFloat(prefix);
+    return age > am;
+  });
+});
+const activeVks = allVks.filter(vk => !expiredVks.includes(vk));
+const displayVks = showExpired ? allVks : activeVks;
+```
+Table renders `displayVks` (not `allVks`). `colSpan` updated to `displayVks.length + 1`.
+Legend shows a dotted "▸ N expired vaccines (RSV-mAb, RV, ...)" link to expand.
+`computePDFRows` still receives `allVks` so PDFs are complete.
+
+### ForecastTab: Print Visit Summary
+`printVisitSummary({ am, dob, recs, fcBrands })` opens a new window with formatted HTML:
+patient age/DOB, date, today's vaccines + dose labels + selected brands.
+Auto-triggers `window.print()` after 300ms. "Print Visit Summary" button in today-panel actions.
+
+### Test count
+2,099 passing (148 files) after all changes.
