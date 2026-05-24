@@ -55,16 +55,20 @@ Direction B — "Modern Minimal":
 8. **PatientDrawer** — portal-based edit drawer (340px info+risks | 1fr history)
 9. **Rec filter "All" bug fixed** — AppContext initializes `filter: "due"`, removed RecTab override
 
-### Session 2026-05-24 (PR #29)
-**Rotavirus interchangeability rule corrected** across all five surfaces:
-- `recommendations.js` — `rvMax` now scans ALL given doses (not just first branded dose); removes "NEVER interchange" language; D2+ note/brands are context-aware
-- `validation.js` — Mixed-brand audit downgraded from error → warning; action says "complete 3 doses, do not restart"
+### Session 2026-05-24 (PRs #29, #31, #32)
+**Rotavirus interchangeability rule corrected** across all surfaces:
+- `recommendations.js` — `rvMax` now scans ALL given doses; removes "NEVER interchange" language; D2+ note/brands context-aware
+- `validation.js` — Mixed-brand audit downgraded from error → warning; "complete 3 doses, do not restart"
 - `vaccineData.js` — Removed `lock: true` from `VBR.RV`
 - `forecastLogic.js` — Comment updated
 - `dosePlan.js` — `getTotalDoses("RV")` scans all given doses; 3 if any RotaTeq or unknown brand
 - `buildOptimalSchedule.js` — `seriesDoses("RV")` applies same scan
+- `comboAnalyzer.js` — Regimen Optimizer constraint card updated (was still showing "NEVER interchange")
+- `BrandConstraintsPanel.jsx` — Amber RV advisory card added (was missing entirely)
 
 **ACIP rule**: prefer same product; do not defer if unavailable; 3 doses if any RotaTeq or brand unknown; 2 doses only if all confirmed Rotarix.
+
+**Lesson**: when updating vaccine brand rules, always check `comboAnalyzer.js` (Regimen Optimizer constraint cards) and `BrandConstraintsPanel.jsx` (Plan → Brand Constraints) in addition to the five engine surfaces.
 
 ## Key files
 

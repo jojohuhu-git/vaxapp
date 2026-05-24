@@ -1090,7 +1090,7 @@ The previous code treated RV brand mixing as a hard clinical error requiring ser
 
 Reference: https://www.immunize.org/ask-experts/can-rotateq-and-rotarix-vaccines-be-used-interchangeably-if-so-what-schedule-should-we-follow/
 
-### Files changed (all five surfaces verified)
+### Files changed (all five surfaces + UI constraint text verified)
 
 **`src/logic/recommendations.js`** (Python-only edit):
 - `rvMax` now scans ALL given doses (not just first branded dose via `anyBrand`)
@@ -1128,6 +1128,16 @@ case "RV": {
 
 **`src/logic/buildOptimalSchedule.js`** — `seriesDoses("RV")`:
 - Same multi-dose scan pattern applied (replaces single `resolveBrand` lookup)
+
+**`src/logic/comboAnalyzer.js`** — Regimen Optimizer constraint card:
+- Was showing "NEVER interchange Rotarix and RotaTeq — choose one brand at dose 1"
+- Updated to ACIP rule: prefer same product, mixing acceptable, 3 doses if RotaTeq/unknown
+- Updated `refUrl` to the specific immunize.org interchangeability page (not the generic rotavirus page)
+- Note: `comboAnalyzer.js` is not one of the five engine surfaces but it drives the constraint cards shown to clinicians in the Regimen Optimizer — always check it when updating vaccine brand rules
+
+**`src/components/BrandConstraintsPanel.jsx`** — Plan → Brand Constraints panel:
+- Added amber advisory card for the RV interchangeability rule (was missing entirely)
+- Amber color contrasts with the red MenB hard-lock card — communicates the distinction between a soft preference (RV) and a hard constraint (MenB)
 
 ### Key invariant
 `anyBrand(hist, vk)` returns the FIRST branded dose only — it is NOT safe for determining RV dose count. Always scan all doses via `hist.RV.filter(d => d.given)`.
