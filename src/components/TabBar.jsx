@@ -27,7 +27,7 @@ export default function TabBar({ onReference }) {
         onClick={onReference}
         title="Catch-up guidance and infant brand schedules"
       >
-        Clinical Aids ↗
+        Catch-up Schedule ↗
       </button>
     </div>
   );

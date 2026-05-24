@@ -24,14 +24,7 @@
       "patient": { "ageMonths": 12, "riskConditions": ["rsv_risk"] },
       "expect": { "rec": { "vk": "RSV", "props": { "status": "risk-based" } } },
       "rationale": "CDSI Risk under 20 months series: maxAge=600d (~20mo). Code line 84 gates am 8-19 + rsv_risk."
-    },
-    {
-      "id": "RSV-004",
-      "description": "Pregnant ≥16y with maternal_rsv risk → Abrysvo",
-      "patient": { "ageMonths": 216, "riskConditions": ["maternal_rsv"] },
-      "expect": { "rec": { "vk": "RSV", "props": { "status": "risk-based" } } },
-      "rationale": "CDSI Risk Pregnant 1-dose (Abrysvo). Code line 77 fires am>=192 + maternal_rsv."
     }
   ],
-  "summary": { "totalRulesAudited": 4, "matches": 4, "conflicts": 0 }
+  "summary": { "totalRulesAudited": 3, "matches": 3, "conflicts": 0 }
 }

@@ -16,7 +16,7 @@ export default function PlanTab({ recs }) {
   return (
     <div>
       <p style={{ margin: '0 0 8px', fontSize: 11.5, color: 'var(--gy3)' }}>
-        Compare combo strategies and brand constraints. For earliest-completion scheduling, use Forecast → Earliest Completion.
+        Compare combo strategies and brand constraints.
       </p>
       <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
         {SUB_MODES.map(m => (
@@ -41,7 +41,7 @@ export default function PlanTab({ recs }) {
         ))}
       </div>
       {sub === 'regimen' && <RegTab recs={recs} />}
-      {sub === 'constraints' && <BrandConstraintsPanel />}
+      {sub === 'constraints' && <BrandConstraintsPanel recs={recs} />}
     </div>
   );
 }

@@ -1141,3 +1141,66 @@ case "RV": {
 
 ### Key invariant
 `anyBrand(hist, vk)` returns the FIRST branded dose only — it is NOT safe for determining RV dose count. Always scan all doses via `hist.RV.filter(d => d.given)`.
+
+---
+
+## Changes shipped (2026-05-24, session 3) — UI clutter reduction
+
+### Popover UX fix (`ForecastTab.jsx`)
+Both popover types now have three dismiss paths: × button, click outside (backdrop), Escape key.
+
+- **`OptWhyPopover`** (used by OptWhyButton + ComboWhyButton): added a full-screen fixed backdrop `<div style={{position:'fixed',inset:0,zIndex:999}} onClick={onClose}>` behind the popover, and an `×` close button at top-right inside the content box. Height constant H increased 130 → 160 to accommodate the header row.
+- **`CellPopover`**: added same `×` close button at top-right (backdrop already existed).
+
+### BrandConstraintsPanel — context-aware rewrite (`BrandConstraintsPanel.jsx`)
+Complete rewrite. Panel now reads `am` and `state.hist` to show only constraints relevant to the current patient:
+- `relevantVks` = union of `recs.map(r=>r.vk)` + vks with any history
+- `showRV` = `am <= 8 || hist.RV has doses`
+- `showMenBLock` = `am >= 120 || hist.MenB has doses`
+- `relevantCombos` filtered by `am >= combo.minM && am <= combo.maxM`
+- `brandNotes` filtered to `relevantVks`, de-duplicated
+- Empty state message when nothing applies
+
+Display order: MenB lock (red) → RV advisory (amber) → combo gates → brand age notes.
+`ComboDoseCard` shows `combo.desc` inline + dual citation links (`COMBO_REFS` map).
+`COMBO_REFS` map: Vaxelis/Pentacel → DTaP+Hib; Pediarix/Kinrix/Quadracel → DTaP; ProQuad → MMR+VAR; Penbraya/Penmenvy → MenACWY+MenB; Twinrix → HepA+HepB.
+
+### `TabBar.jsx` — "Clinical Aids ↗" → "Catch-up Schedule ↗"
+Modal now only contains the CDC catch-up schedule; renamed to reflect actual content.
+
+### `StatusBar` removed from `MainPanel.jsx`
+Duplicated the dose-count chips already shown in `PatientSummaryBar`. Removed entirely.
+
+### Combo rationale in Forecast (`ForecastTab.jsx`)
+- `COMBO_RATIONALE` map: 9 combos → clinical rationale string (what it covers, dose limits, key clinical note).
+- `COMBO_PRIMARY_REF` map: 9 combos → `{url, label}` primary CDC citation.
+- `ComboWhyButton` component: amber pill button that opens `OptWhyPopover` with combo rationale + citation. Renders next to the brand dropdown when a combo brand is selected.
+- `shortBrandLabel(bo)` helper: strips `(covers …)` suffix from dropdown display text while keeping the full label as `option value` — storage and downstream parsing unchanged.
+- `explainOptConstraint` combo case now uses `COMBO_RATIONALE[dose.comboName]` for detail text.
+- `CellPopover` no longer shows combo rationale (moved to dedicated Why? button).
+
+### "Shared decision" label standardized
+`RecTab.jsx` filter label, `RecCard.jsx` badge text, `App.jsx` STATUS_LABELS, and `ForecastTab.jsx` today-visit status text all use "Shared decision" (was "Shared Clinical Decision" or "SCD" in some surfaces).
+
+### RegTab cleanup (`RegTab.jsx`)
+Removed two redundant sections that are now covered by Plan → Brand Constraints:
+1. **"Combination Vaccine Coverage" table** — listed all age-appropriate combos with antigen columns and notes. Removed.
+2. **"Brand-Specific Minimum Ages (FDA label)" section** inside the analyzer output. Removed.
+Also removed: `COMBOS` and `brandAgeNotesFor` imports (now unused); `comboAllowedByDose` function and `doseNumByVk` setup (used only by the deleted table).
+Added `/* eslint-disable react/prop-types */` header (was missing).
+
+### `brandTip` audit (`recommendations.js` — Python edits)
+Removed `bt:` props that duplicated information now available via the Forecast Why? popover:
+- **Dropped A** (DTaP primary): `"Vaxelis covers DTaP+IPV+Hib+HepB in one injection. Pediarix covers DTaP+HepB+IPV."`
+- **Dropped B** (DTaP D5): `"Kinrix or Quadracel = DTaP+IPV in one injection at the 4–6y visit."`
+- **Dropped C** (IPV D4): `"Kinrix or Quadracel = IPV+DTaP in one injection at the 4–6y visit."`
+- **Trimmed D** (MenACWY combo, line ~495): replaced long FHbp/4C family description with: `"Penbraya contains Trumenba (Pfizer/FHbp); Penmenvy contains Bexsero (GSK/4C). The MenB series must be completed with the same product or its matching partner — these two pairs do not interchange."`
+
+### Antigen lists removed from Forecast and Today's visit (`ForecastTab.jsx`)
+Three redundant blue antigen lists removed — the combo name in the dropdown and the Why? button are the only surfaces showing this information now:
+- **`fc-covers` span** (forecast table cells): blue `DTaP + IPV + Hib + HepB` line below brand dropdowns.
+- **`today-covers` chip** (today's individual vaccine rows): `+DTaP + IPV + Hib + HepB` chip next to each vaccine's brand picker when a combo was selected.
+- **`today-combo-covers` span** (today's combo shortcut buttons): antigen list appended inside each combo pill button.
+
+### Test count
+2,094 passing (148 files) after all changes.

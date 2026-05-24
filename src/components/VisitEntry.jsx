@@ -174,12 +174,11 @@ export default function VisitEntry() {
     setDateVal(iso);
     setDupHint(null);
     setMsg('');
-    // Auto-derive age text from DOB + visit date
+    // Derive ageDays from DOB + visit date (used for combo chip age-gating)
     if (iso && dob) {
       const days = isoToAgeDays(iso, dob);
       if (days != null && days >= 0) {
         setParsedAgeDays(days);
-        setAgeInput(ageLabel(daysToMonths(days)));
       }
     }
   }, [dob]);
@@ -307,15 +306,9 @@ export default function VisitEntry() {
       return;
     }
 
-    // Hard-stop 2: age entered but no patient DOB
-    if (ageInput.trim() && !dob) {
-      setMsg('Age at visit requires a patient date of birth. Add DOB in Patient Information first.');
-      return;
-    }
-
-    // Hard-stop 3: neither date nor age provided
+    // Hard-stop 2: no timing provided
     if (!dateVal && parsedAgeDays == null) {
-      setMsg('Enter a visit date or age at visit to continue.');
+      setMsg(dob ? 'Enter a visit date to continue.' : 'Enter the age at this visit to continue.');
       return;
     }
 
@@ -419,11 +412,6 @@ export default function VisitEntry() {
     return allLabels.join(', ');
   }
 
-  // Fix 2: proactive warning when age field has content but no DOB
-  const ageNoDobWarning = ageInput.trim().length > 0 && !dob;
-
-  const ageInputPlaceholder = dob ? 'e.g. 2 months, 4y' : 'Requires patient DOB';
-
   return (
     <div style={{ marginBottom: 12 }}>
       {/* ── Visit Entry Form ── */}
@@ -439,62 +427,53 @@ export default function VisitEntry() {
         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--g)', textTransform: 'uppercase', letterSpacing: '.7px', marginBottom: 6 }}>
           Add Visit
         </div>
-        <p style={{ color: '#888', fontSize: '0.82rem', margin: '0 0 10px 0' }}>
-          Enter each visit date or age at visit.
-        </p>
-
-        {/* Row 1: Date + Age */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap' }}>
-          {/* Date field */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy2)', marginBottom: 0 }}>
-              Visit Date
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <DateField
-                value={dateVal}
-                onChange={handleDateChange}
-                ariaLabel="Visit date"
-                width={110}
-                onEnter={() => handleCommit(false)}
+        {/* Row 1: Visit timing — one field depending on whether DOB is set */}
+        <div style={{ marginBottom: 10 }}>
+          {dob ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy2)' }}>
+                Visit Date
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <DateField
+                  value={dateVal}
+                  onChange={handleDateChange}
+                  ariaLabel="Visit date"
+                  width={110}
+                  onEnter={() => handleCommit(false)}
+                />
+                {ageHintLabel && (
+                  <span style={{ fontSize: 11, color: 'var(--gy3)', whiteSpace: 'nowrap' }}>
+                    at age {ageHintLabel}
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy2)' }}>
+                Age at Visit
+              </label>
+              <input
+                ref={ageInputRef}
+                type="text"
+                value={ageInput}
+                onChange={handleAgeInput}
+                placeholder="e.g. 2 months, 4y, 15d"
+                style={{
+                  width: 160, fontSize: 12, padding: '4px 8px',
+                  border: '1px solid var(--gy5)',
+                  borderRadius: 'var(--rads)',
+                  background: 'var(--wh)', color: 'var(--gy)',
+                }}
               />
-              {ageHintLabel && (
-                <span style={{ fontSize: 11, color: 'var(--gy3)', whiteSpace: 'nowrap' }}>
-                  ≈ {ageHintLabel} old
+              {parsedAgeDays != null && (
+                <span style={{ fontSize: 10, color: 'var(--gy3)' }}>
+                  → {ageLabel(daysToMonths(parsedAgeDays))}
                 </span>
               )}
             </div>
-          </div>
-
-          {/* Age field */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy2)', marginBottom: 0 }}>
-              Age at Visit
-            </label>
-            <input
-              ref={ageInputRef}
-              type="text"
-              value={ageInput}
-              onChange={handleAgeInput}
-              placeholder={ageInputPlaceholder}
-              style={{
-                width: 160, fontSize: 12, padding: '4px 8px',
-                border: `1px solid ${ageNoDobWarning ? 'var(--r2)' : 'var(--gy5)'}`,
-                borderRadius: 'var(--rads)',
-                background: 'var(--wh)', color: 'var(--gy)',
-              }}
-            />
-            {parsedAgeDays != null && !ageNoDobWarning && (
-              <span style={{ fontSize: 10, color: 'var(--gy3)' }}>
-                → {ageLabel(daysToMonths(parsedAgeDays))}
-              </span>
-            )}
-            {ageNoDobWarning && (
-              <span style={{ color: '#c0392b', fontSize: '0.78rem', marginTop: 2 }}>
-                Requires patient DOB.
-              </span>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Row 2: Vaccine selection label */}

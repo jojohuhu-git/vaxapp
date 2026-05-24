@@ -203,8 +203,8 @@ describe('MenB D3 brand list — both single and combo always offered (2026-05-0
 });
 
 describe('MenACWY/MenB — new risk factors (B-A4 harvest)', () => {
-  it('120mo complement_inhibitor → MenB rec (high-risk gating)', () => {
-    const p = makePatient({ ageMonths: 120, riskConditions: ['complement_inhibitor'] });
+  it('120mo complement → MenB rec (high-risk gating)', () => {
+    const p = makePatient({ ageMonths: 120, riskConditions: ['complement'] });
     expectRec(run(p), 'MenB', { doseNum: 1, status: 'risk-based' });
   });
 
@@ -213,8 +213,8 @@ describe('MenACWY/MenB — new risk factors (B-A4 harvest)', () => {
     expectRec(run(p), 'MenB', { doseNum: 1, status: 'risk-based' });
   });
 
-  it('132mo complement_inhibitor → MenACWY booster series triggers high-risk path', () => {
-    const p = makePatient({ ageMonths: 132, dosesGiven: { MenACWY: 2 }, riskConditions: ['complement_inhibitor'] });
+  it('132mo complement → MenACWY booster series triggers high-risk path', () => {
+    const p = makePatient({ ageMonths: 132, dosesGiven: { MenACWY: 2 }, riskConditions: ['complement'] });
     expectRec(run(p), 'MenACWY', { status: 'risk-based' });
   });
 });

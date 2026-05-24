@@ -111,7 +111,7 @@ const STATUS_CHIP_STYLE = {
   'risk-based':{ bg: 'var(--rlt)', color: 'var(--r)',  border: 'var(--rmd)' },
   recommended: { bg: 'var(--blt)', color: 'var(--b)',  border: 'var(--bmd)' },
 };
-const STATUS_LABELS = { due: 'Due', catchup: 'Catch-up', 'risk-based': 'Risk', recommended: 'SCD' };
+const STATUS_LABELS = { due: 'Due', catchup: 'Catch-up', 'risk-based': 'Risk', recommended: 'Shared decision' };
 
 function PatientSummaryBar({ onEdit, drawerOpen }) {
   const { state } = useApp();

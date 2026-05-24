@@ -12,8 +12,16 @@ const FILTERS = [
   { id: "due",         label: "Due",                      activeBg: "var(--glt)",  activeColor: "var(--g)" },
   { id: "catchup",     label: "Catch-up",                 activeBg: "var(--alt)",  activeColor: "var(--a)" },
   { id: "risk-based",  label: "Risk-Based",               activeBg: "var(--rlt)",  activeColor: "var(--r)" },
-  { id: "recommended", label: "Shared Clinical Decision",  activeBg: "var(--blt)",  activeColor: "var(--b)" },
+  { id: "recommended", label: "Shared decision",  activeBg: "var(--blt)",  activeColor: "var(--b)" },
 ];
+
+// Short visible label — drops the "(covers …)" suffix; the antigen list still
+// shows below the dropdown via the +covers chip. Option `value` keeps the full
+// label so storage / downstream parsing is unchanged.
+function shortBrandLabel(bo) {
+  if (bo.antigenCount <= 1) return bo.label;
+  return bo.hasExtra ? `${bo.name} [extra dose OK]` : bo.name;
+}
 
 // Grouped brand dropdown: combination vaccines in one optgroup, standalones in another.
 function BrandSelect({ bOpts, value, onChange, className }) {
@@ -26,14 +34,14 @@ function BrandSelect({ bOpts, value, onChange, className }) {
       {hasGroups ? (
         <>
           <optgroup label="— Combination Vaccines —">
-            {combos.map(bo => <option key={bo.label} value={bo.label}>{bo.label}</option>)}
+            {combos.map(bo => <option key={bo.label} value={bo.label}>{shortBrandLabel(bo)}</option>)}
           </optgroup>
           <optgroup label="— Standalone —">
-            {standalones.map(bo => <option key={bo.label} value={bo.label}>{bo.label}</option>)}
+            {standalones.map(bo => <option key={bo.label} value={bo.label}>{shortBrandLabel(bo)}</option>)}
           </optgroup>
         </>
       ) : (
-        bOpts.map(bo => <option key={bo.label} value={bo.label}>{bo.label}</option>)
+        bOpts.map(bo => <option key={bo.label} value={bo.label}>{shortBrandLabel(bo)}</option>)
       )}
     </select>
   );
