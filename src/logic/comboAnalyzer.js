@@ -13,7 +13,7 @@ export function analyzeCombo(selectedVks, am) {
   // ── Brand compatibility constraints ───────────────────────────
   const constraints = [];
   if (selectedVks.includes("RV"))
-    constraints.push({ ico: "\uD83D\uDD34", txt: "Rotavirus (RV): NEVER interchange Rotarix and RotaTeq \u2014 choose one brand at dose 1 and complete the entire series with that same brand.", ref: "immunize.org: Rotavirus \u2014 Ask the Experts", refUrl: "https://www.immunize.org/ask-experts/topic/rotavirus/" });
+    constraints.push({ ico: "\u26A0\uFE0F", txt: "Rotavirus (RV): Prefer the same product for all doses, but do not defer if the original brand is unavailable or unknown. If any dose is RotaTeq or brand is unknown, complete 3 doses total. 2 doses only if all doses are confirmed Rotarix.", ref: "immunize.org: Rotavirus \u2014 Ask the Experts", refUrl: "https://www.immunize.org/ask-experts/can-rotateq-and-rotarix-vaccines-be-used-interchangeably-if-so-what-schedule-should-we-follow/" });
   if (selectedVks.includes("MenB"))
     constraints.push({ ico: "\uD83D\uDD34", txt: "MenB: Two antigen families \u2014 4C (Bexsero, Penmenvy) and FHbp (Trumenba, Penbraya). Products within a family are interchangeable; across families they are NOT. Complete the series within one antigen family.", ref: "CDC MenB Notes", refUrl: "https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening-b" });
   if (selectedVks.includes("Hib") && am >= 12 && am <= 15)
