@@ -110,6 +110,26 @@ export default function BrandConstraintsPanel() {
         ))}
       </div>
 
+      {/* RV interchangeability note */}
+      <div style={{
+        marginTop: 8,
+        border: '1px solid var(--amd)', borderLeft: '3px solid var(--a)',
+        borderRadius: 'var(--rads)', padding: '10px 14px',
+        background: 'var(--alt)', fontSize: 12, color: 'var(--gy)', lineHeight: 1.55,
+      }}>
+        <strong style={{ color: 'var(--a)' }}>Rotavirus — preferred same product, mixing acceptable (ACIP):</strong>{' '}
+        Complete the series with the same product when possible.
+        Do not defer vaccination if the original product is unavailable or unknown.{' '}
+        <strong>3 doses required</strong> if any dose is RotaTeq or any brand is unknown.{' '}
+        <strong>2 doses</strong> only if all doses are confirmed Rotarix.{' '}
+        <a href="https://www.immunize.org/ask-experts/can-rotateq-and-rotarix-vaccines-be-used-interchangeably-if-so-what-schedule-should-we-follow/"
+          target="_blank" rel="noopener noreferrer"
+          style={{ color: 'var(--b2)', fontSize: 11 }}
+          onClick={e => e.stopPropagation()}>
+          immunize.org
+        </a>
+      </div>
+
       {/* MenB family lock note */}
       <div style={{
         marginTop: 8,
