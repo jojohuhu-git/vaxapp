@@ -85,8 +85,8 @@ export const COMBOS = {
   Kinrix:    {c:["DTaP","IPV"],                minM:48,  maxM:83,                    desc:"DTaP + IPV (dose 5 DTaP + dose 4 IPV, age 4–6y ONLY)"},
   Quadracel: {c:["DTaP","IPV"],                minM:48,  maxM:83,                    desc:"DTaP + IPV (dose 5 DTaP + dose 4 IPV, age 4–6y ONLY)"},
   ProQuad:   {c:["MMR","VAR"],                 minM:12,  maxM:155,                   desc:"MMR + Varicella (dose 1 or 2; ages 12 months–12 years)"},
-  Penbraya:  {c:["MenACWY","MenB"],            minM:120, maxM:312,                   desc:"MenACWY + MenB-FHbp (Pfizer; ≥10 through 25 years). MenB component is FHbp — interchangeable with Trumenba, NOT Bexsero."},
-  Penmenvy:  {c:["MenACWY","MenB"],            minM:120, maxM:312,                   desc:"MenACWY + MenB-4C (GSK; ≥10 through 25 years). MenB component is 4C — interchangeable with Bexsero, NOT Trumenba."},
+  Penbraya:  {c:["MenACWY","MenB"],            minM:120, maxM:999,                   desc:"MenACWY + MenB-FHbp (Pfizer). FDA-licensed 10–25y; ACIP allows use beyond 25y for indicated adult populations (no hard upper age limit). MenB component is FHbp — interchangeable with Trumenba, NOT Bexsero."},
+  Penmenvy:  {c:["MenACWY","MenB"],            minM:120, maxM:999,                   desc:"MenACWY + MenB-4C (GSK). FDA-licensed 10–25y; ACIP allows use beyond 25y for indicated adult populations (no hard upper age limit). MenB component is 4C — interchangeable with Bexsero, NOT Trumenba."},
   Twinrix:   {c:["HepA","HepB"],               minM:216, maxM:999,                   desc:"HepA + HepB (≥18 years only)"},
 };
 

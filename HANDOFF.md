@@ -66,7 +66,15 @@ Direction B — "Modern Minimal":
 
 **ACIP rule**: prefer same product; do not defer if unavailable; 3 doses if any RotaTeq or brand unknown; 2 doses only if all confirmed Rotarix.
 
-### Session 2026-05-24 (Pentacel IPV gate — most recent)
+### Session 2026-05-24 (Brand age note audit — most recent)
+After the Pentacel IPV fix, audited `BRAND_AGE_NOTES`, `COMBO_DOSE_GATES`, and `COMBOS.minM/maxM` against ACIP/immunize.org. Four corrections:
+
+1. **Tdap brand note** — Adacel is FDA ≥10y (not ≥7y). Combined Adacel + Boostrix into one entry: "≥10 years. No upper age limit." ACIP's 7–9y catch-up allowance is handled in `recommendations.js` Tdap branches.
+2. **FluMist brand note** — Added upper bound (ages **2 through 49**); previously just said "≥2 years". Added brief contraindications (pregnancy, immunocompromise, asthma/wheezing <5y).
+3. **Penbraya/Penmenvy `maxM`** — Changed 312 → 999. Per ACIP, no hard upper age limit (FDA labels 10–25y but ACIP allows use in any adult with MenACWY+MenB indications). MenACWY/MenB dose gates `[1,2]` still block revaccination scenarios.
+4. **COVID brand note** — Refreshed to current CDC values (Spikevax ≥6m, mNexspike ≥12y, Comirnaty ≥5y, Nuvaxovid ≥12y). Added inline comment with source URLs + verification date.
+
+### Session 2026-05-24 (Pentacel IPV gate)
 **Pentacel IPV gate corrected**: `COMBO_DOSE_GATES.Pentacel.IPV` was `[1, 3]` as a workaround. Per ACIP/immunize.org, Pentacel is a 4-dose series at 2/4/6/15–18m and every dose contains IPV — gate is now `[1, 4]`. The BrandConstraintsPanel chip used to contradict the desc text ("IPV (doses 1–4)" vs "IPV: Doses 1–3").
 
 At the 4-6y booster visit, Pentacel is still correctly blocked — via the multi-antigen check (DTaP D5 co-due → DTaP [1,4] fails), not via the IPV gate. 5 tests rewritten to test this real behavior instead of the workaround. CLAUDE.md updated (combo table, footnote, hard constraints, COMBO_DOSE_GATES section).
@@ -111,6 +119,14 @@ At the 4-6y booster visit, Pentacel is still correctly blocked — via the multi
 
 ## Remaining tasks (next session)
 1. **Immunize.org contraindication copy-links** *(lowest priority)* — add specific question-page anchors to contraindication-context notes in `recommendations.js` where immunize.org has a dedicated question (egg allergy + flu, live vaccines in pregnancy/immunocomp). Real anchor IDs only — no text fragments.
+
+## Recurring maintenance
+- **COVID brand age ranges** — Re-verify each season (these values shift annually as new products are licensed).
+  - File: `src/data/brandAgeNotes.js` (COVID entry has an inline "last verified" comment)
+  - Sources to check:
+    - https://www.cdc.gov/covid/hcp/vaccine-considerations/index.html
+    - https://www.cdc.gov/covid/downloads/hcp/interim-clinical-considerations.pdf
+  - Update both `text` and `html` strings together; bump the verification date in the comment.
 
 ## Deferred items (do NOT start without explicit go-ahead)
 - **IIS report import** (Item 6 from 2026-05-22) — paste screenshot or free text of IIS report

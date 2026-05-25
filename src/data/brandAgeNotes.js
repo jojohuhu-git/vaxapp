@@ -37,9 +37,10 @@ export const BRAND_AGE_NOTES = {
     refUrl: REFS.pcv13high.url, refLabel: REFS.pcv13high.label,
   }],
   Tdap: [{
-    text: "Tdap — Adacel: ≥7 years. Boostrix: ≥10 years.",
-    html: "<strong>Tdap — Adacel:</strong> ≥<strong>7 years</strong>. <strong>Boostrix:</strong> ≥<strong>10 years</strong>.",
-    refUrl: REFS.Tdap.cdcUrl, refLabel: REFS.Tdap.cdcLabel,
+    text: "Tdap (Adacel, Boostrix): ≥10 years. No upper age limit — use in any adult for routine decennial booster, wound prophylaxis, or pregnancy.",
+    html: "<strong>Tdap (Adacel, Boostrix):</strong> ≥<strong>10 years</strong>. <strong>No upper age limit</strong> — use in any adult for routine decennial booster, wound prophylaxis, or pregnancy.",
+    refUrl: "https://www.immunize.org/ask-experts/please-review-the-current-recommendations-for-the-use-of-tdap-in-adults/",
+    refLabel: "immunize.org: Tdap in adults",
   }],
   DTaP: [{
     text: "DTaP+IPV combos — Kinrix / Quadracel: Labeled 4 through 6 years only (dose 5 of DTaP + dose 4 of IPV).",
@@ -71,15 +72,21 @@ export const BRAND_AGE_NOTES = {
     html: "<strong>MenB — Bexsero / Trumenba / Penbraya / Penmenvy:</strong> ≥<strong>10 years</strong>. Two antigen families: <strong>4C</strong> (Bexsero, Penmenvy [GSK]) and <strong>FHbp</strong> (Trumenba, Penbraya [Pfizer]). Within a family products are interchangeable; across families they are NOT. Complete the series within one family.",
     refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel,
   }],
+  // COVID brand ages — verify against CDC interim clinical considerations each
+  // season; product approvals shift annually as new formulations are licensed.
+  // Sources (last verified 2026-05-24):
+  //   https://www.cdc.gov/covid/hcp/vaccine-considerations/index.html
+  //   https://www.cdc.gov/covid/downloads/hcp/interim-clinical-considerations.pdf
   COVID: [{
-    text: "COVID — Comirnaty: ≥5 years. mNexspike / Nuvaxovid: ≥12 years. Spikevax: ≥6 months.",
-    html: "<strong>COVID — Comirnaty:</strong> ≥<strong>5 years</strong>. <strong>mNexspike / Nuvaxovid:</strong> ≥<strong>12 years</strong>. <strong>Spikevax:</strong> ≥<strong>6 months</strong>.",
+    text: "COVID — Moderna (Spikevax): ≥6 months. Moderna (mNexspike): ≥12 years. Pfizer-BioNTech (Comirnaty): ≥5 years. Novavax (Nuvaxovid): ≥12 years.",
+    html: "<strong>COVID — Moderna (Spikevax):</strong> ≥<strong>6 months</strong>. <strong>Moderna (mNexspike):</strong> ≥<strong>12 years</strong>. <strong>Pfizer-BioNTech (Comirnaty):</strong> ≥<strong>5 years</strong>. <strong>Novavax (Nuvaxovid):</strong> ≥<strong>12 years</strong>.",
     refUrl: REFS.COVID.cdcUrl, refLabel: REFS.COVID.cdcLabel,
   }],
   Flu: [{
-    text: "Flu — FluMist (LAIV4): ≥2 years, healthy only.",
-    html: "<strong>Flu — FluMist (LAIV4):</strong> ≥<strong>2 years</strong>, healthy only.",
-    refUrl: REFS.Flu.cdcUrl, refLabel: REFS.Flu.cdcLabel,
+    text: "Flu — FluMist (LAIV4): ages 2 through 49 years. Contraindicated in pregnancy, immunocompromise, and asthma/wheezing in children <5y.",
+    html: "<strong>Flu — FluMist (LAIV4):</strong> ages <strong>2 through 49 years</strong>. Contraindicated in pregnancy, immunocompromise, and asthma/wheezing in children &lt;5y.",
+    refUrl: "https://www.immunize.org/ask-experts/for-whom-is-flumist-quadrivalent-approved/",
+    refLabel: "immunize.org: FluMist eligibility",
   }],
 };
 
