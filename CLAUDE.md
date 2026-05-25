@@ -351,8 +351,8 @@ Kinrix and Quadracel have `minM:48` (not `propagateMaxM`) because they are genui
 | Pentacel | 83 | just before 7th birthday (ACIP; FDA says 4y but ACIP overrides) |
 | Kinrix | 83 | just before 7th birthday |
 | Quadracel | 83 | just before 7th birthday |
-| Penbraya | 312 | through age 25 |
-| Penmenvy | 312 | through age 25 |
+| Penbraya | 999 | no hard upper age limit (FDA: 10–25y; ACIP allows use beyond 25y for indicated adult populations) |
+| Penmenvy | 999 | no hard upper age limit (FDA: 10–25y; ACIP allows use beyond 25y for indicated adult populations) |
 
 ### Penbraya/Penmenvy in Full Forecast
 
@@ -1236,3 +1236,54 @@ When a gate is set strictly to compensate for a multi-antigen scenario, document
 
 ### Test count
 2,095 passing (148 files) after all changes.
+
+---
+
+## Changes shipped (2026-05-24, session 5) — Brand age note audit
+
+After fixing Pentacel's IPV gate (session 4), audited the rest of `BRAND_AGE_NOTES`, `COMBO_DOSE_GATES`, and `COMBOS.minM/maxM` against ACIP/immunize.org. Found and fixed:
+
+### 1. Tdap brand note (`src/data/brandAgeNotes.js`)
+**Old**: *"Adacel: ≥7 years. Boostrix: ≥10 years."*
+**New**: *"Tdap (Adacel, Boostrix): ≥10 years. No upper age limit — use in any adult for routine decennial booster, wound prophylaxis, or pregnancy."*
+
+Adacel is FDA-approved for ≥10y (not ≥7y as the old note implied). ACIP's off-label allowance at 7-9y for catch-up is captured separately in `recommendations.js` Tdap branches and the Tdap MMWR refs.
+
+Source: https://www.immunize.org/ask-experts/please-review-the-current-recommendations-for-the-use-of-tdap-in-adults/
+
+### 2. FluMist brand note (`src/data/brandAgeNotes.js`)
+**Old**: *"FluMist (LAIV4): ≥2 years, healthy only."*
+**New**: *"FluMist (LAIV4): ages 2 through 49 years. Contraindicated in pregnancy, immunocompromise, and asthma/wheezing in children <5y."*
+
+Added upper age bound (FluMist is licensed 2–49y, not just ≥2y) and brief contraindication summary.
+
+Source: https://www.immunize.org/ask-experts/for-whom-is-flumist-quadrivalent-approved/
+
+### 3. Penbraya / Penmenvy — `maxM` 312 → 999 (`src/data/vaccineData.js`)
+FDA labels Penbraya and Penmenvy for ages 10–25y, but per ACIP there is no hard upper age limit — these combos can be used in any adult when MenACWY+MenB are both indicated (asplenia, complement deficiency, HIV, etc.). Changed `maxM` to 999 (no upper limit, matching Twinrix convention) and updated `desc` text.
+
+**`MenACWY: [1,2]` and `MenB: [1,2]` dose gates unchanged**: high-risk patients on revaccination D3+ still won't see Penbraya/Penmenvy because the dose gate blocks them. Only relevant adult scenario: never-vaccinated adult who needs D1+D2 MenACWY plus D1+D2 MenB primary series.
+
+Source: https://www.immunize.org/ask-experts/what-meningococcal-vaccines-are-available-in-the-united-states/
+
+### 4. COVID brand note refresh (`src/data/brandAgeNotes.js`)
+Refreshed to current values per CDC interim clinical considerations (last verified 2026-05-24):
+- Moderna (Spikevax): ≥6 months
+- Moderna (mNexspike): ≥12 years
+- Pfizer-BioNTech (Comirnaty): ≥5 years
+- Novavax (Nuvaxovid): ≥12 years
+
+Added an inline code comment with the source URLs and verification date so future sessions know where to recheck. Also added a deferred maintenance task to HANDOFF.md for seasonal re-verification.
+
+Sources:
+- https://www.cdc.gov/covid/hcp/vaccine-considerations/index.html
+- https://www.cdc.gov/covid/downloads/hcp/interim-clinical-considerations.pdf
+
+### COVID brand age maintenance
+**These values shift annually** as new COVID products are licensed and old formulations are retired. Each new session should:
+1. Check the inline comment at the COVID entry in `src/data/brandAgeNotes.js` for the last-verified date
+2. If more than ~6 months stale, re-fetch the CDC pages above and confirm each brand's age range
+3. Update the `text` + `html` strings together (they must match) and bump the "last verified" date in the comment
+
+### Test count
+2,095 passing (148 files) — no test changes needed for this audit.
