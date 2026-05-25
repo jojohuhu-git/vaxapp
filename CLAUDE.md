@@ -937,7 +937,7 @@ All 2,088 existing tests pass.
 **Header logo** (`Header.jsx`): references `public/pedivax-logo.svg` via `import.meta.env.BASE_URL`. Always prefix public assets with `import.meta.env.BASE_URL` — `vite.config.js` sets `base: '/vaxapp/'` and hardcoded paths 404 on GH Pages.
 
 **Logo design (locked — do not redesign without explicit instruction)**:
-- File: `public/pedivax-logo.svg` — viewBox `0 0 28 30`
+- File: `public/pedivax-logo.svg` — viewBox `3 6 22 23` (cropped from original `0 0 28 30` to zoom the plant ~27%)
 - **Two botanical leaves** fanning out upper-left and upper-right from a center stem (fill `#F0FBF5`, stroke `#7DC48A`/`#5AAD70`)
 - **Amber heraldic shield** below (fill `#FFF8EC`, stroke `#F0B558`), pointed at the bottom
 - **Minimal 4-element syringe** centered inside the shield, all in amber `#D4915A`:
@@ -1367,3 +1367,61 @@ New class `.fch-notyet` mirrors `.fch-exp` minus the line-through:
 
 ### Test count
 2,110 passing (150 files).
+
+---
+
+## Changes shipped (2026-05-25, polish + ref audit)
+
+### Risk grid overflow fix (`src/App.css`)
+Added `min-width:0` to `.ri` and `overflow-wrap:anywhere` to `.ri span`. "Immunocompromised" and other long risk factor labels now wrap cleanly inside the 2-column `.rgrid` in the 340px drawer. Without `min-width:0`, flex items don't shrink below their content width.
+
+### Logo viewBox crop (`public/pedivax-logo.svg`)
+Changed `viewBox="0 0 28 30"` → `viewBox="3 6 22 23"`. Crops the dead space at top/sides and zooms the botanical plant ~27% larger. All path coords unchanged — only the viewport changes.
+
+### Favicon (`index.html`)
+Changed from `/vite.svg` to `./pedivax-logo.svg` (relative path required for `base: '/vaxapp/'`). Added `<link rel="apple-touch-icon" href="./pedivax-logo.svg" />`.
+
+### Injection cap raised (`src/logic/buildOptimalSchedule.js:264`)
+`maxInjectionsPerVisit ?? 8` → `maxInjectionsPerVisit ?? 20`. Effectively removes the per-visit cap. Per ACIP, simultaneous administration of multiple vaccines is safe — no clinical reason to split artificially. Citations: CDC multiples safety page + AAP fact-check.
+
+### Same-day safety card (`src/components/BrandConstraintsPanel.jsx`)
+Green info card at the very top of Brand Rules panel. Always visible regardless of patient age. Text summarizes ACIP/AAP guidance on same-day administration; links to:
+- `https://www.cdc.gov/vaccine-safety/about/multiples.html`
+- `https://www.aap.org/en/news-room/fact-checked/fact-checked-receiving-multiple-vaccines-does-not-overwhelm-a-childs-immune-system/`
+
+### `BRAND_AGE_NOTES` schema: `refs` array (`src/data/brandAgeNotes.js`)
+
+**Bug fixed**: Kinrix/Quadracel note was duplicated under both `DTaP` and `IPV` keys with different single `refUrl` values. `brandAgeNotesFor()` deduplicates by `text` keeping first occurrence — so which citation appeared depended on VAX_KEYS iteration order (non-deterministic from the clinician's perspective).
+
+**Fix**: schema changed from `{ refUrl, refLabel }` to `{ refs: [{url, label}] }`. Multi-antigen notes list every relevant antigen's CDC source. Duplicate entries removed.
+
+Updated entries:
+| Note | Old refs | New refs |
+|---|---|---|
+| DTaP/IPV (Kinrix/Quadracel) | DTaP only OR IPV only | **Both** CDC DTaP + CDC Polio Notes |
+| MMR/VAR (ProQuad) | MMR only OR VAR only | **Both** CDC MMR + CDC Varicella Notes |
+| HepB (Heplisav-B + Twinrix) | HepB only | **Both** CDC HepB + CDC HepA Notes |
+| MenB (incl. Penbraya/Penmenvy) | MenB only | **Both** CDC MenB + CDC MenACWY Notes |
+| Tdap | immunize.org only | CDC Tdap Notes **+** immunize.org |
+| Flu/FluMist | immunize.org only | CDC Flu Notes **+** immunize.org |
+| PPSV23 | `REFS.pcv13high.url` (wrong scope) | `REFS.PCV.cdcUrl` (CDC Pneumococcal Notes) |
+
+`BrandAgeCard` updated to iterate `note.refs` array. Backward-compat shim: if a note still has legacy `refUrl`, normalizes to `[{ url, label }]` so no runtime errors.
+
+### COMBO_REFS — complete antigen coverage (`src/components/BrandConstraintsPanel.jsx`)
+Every combo card now cites a CDC schedule-notes anchor for every antigen it covers, plus immunize.org Ask the Experts links where available:
+
+| Combo | Old | Added |
+|---|---|---|
+| Kinrix/Quadracel | CDC DTaP | + CDC Polio Notes |
+| Vaxelis | CDC DTaP + Hib | + CDC Polio + CDC HepB + immunize.org DTaP-IPV-Hib-HepB |
+| Pediarix | CDC DTaP only | + CDC HepB + CDC Polio + immunize.org DTaP-IPV-HepB |
+| Pentacel | CDC DTaP + Hib | + CDC Polio + immunize.org DTaP-IPV-Hib |
+| ProQuad | CDC MMR + VAR ✓ | (already complete) |
+| Penbraya/Penmenvy | CDC MenACWY + MenB ✓ | (already complete) |
+| Twinrix | CDC HepA + HepB ✓ | (already complete) |
+
+**Rule going forward**: when adding a new combo or editing COMBO_REFS, cite every antigen. No partial coverage.
+
+### Test count
+2,110 passing (150 files) — no logic changes, no new tests needed.

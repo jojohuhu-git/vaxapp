@@ -1,4 +1,4 @@
-# PediVax — Handoff for New Conversation (2026-05-25)
+# PediVax — Handoff for New Conversation (2026-05-25, updated)
 
 ## Live app
 https://jojohuhu-git.github.io/vaxapp/
@@ -22,17 +22,18 @@ Start at the beginning of every session:
 
 ## What the app is
 Client-side React SPA. No backend. State serialized to URL `?s=` parameter.
-Tech: React 18 + Vite + Vitest + @react-pdf/renderer. Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,110 passing (150 files)**.
+Tech: React 18 + Vite + Vitest + @react-pdf/renderer. Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,110 passing (150 files)** (unchanged).
 
 ## Tab structure
 ```
-Recommendations   Plan              Forecast          Catch-up Schedule ↗ (modal)
-  ├ All           ├ Regimen         ├ Routine           └ CDC Catch-up Schedule
-  ├ Due (default)   Optimizer         Schedule
-  ├ Catch-up      └ Brand           └ Fewest Injections
-  ├ Risk-Based      Constraints
+Recommendations   Compare Regimens   Brand Rules        Immunization Schedule   Catch-up Schedule ↗
+  ├ All           (Regimen           (BrandConstraints  ├ Routine Schedule        └ CDC Catch-up
+  ├ Due (default)  Optimizer)         Panel)            └ Fewest Injections
+  ├ Catch-up
+  ├ Risk-Based
   └ Shared decision
 ```
+Note: Tab labels as of 2026-05-25 — `TabBar.jsx` uses `id:"plan"→"Compare Regimens"`, `id:"constraints"→"Brand Rules"`, `id:"forecast"→"Immunization Schedule"`.
 
 ## Design direction (locked — do not revert)
 Direction B — "Modern Minimal":
@@ -44,6 +45,48 @@ Direction B — "Modern Minimal":
 - No redundant antigen lists — combo name + Why? button are the only surfaces for combo info
 
 ## Key recent changes (last three sessions)
+
+### Session 2026-05-25 (polish + ref audit — most recent)
+
+**1. Risk grid overflow fixed** (`src/App.css`)
+- `min-width:0` + `overflow-wrap:anywhere` added to `.ri` and `.ri span`
+- "Immunocompromised" and other long labels now wrap cleanly in the 2-column grid inside the 340px drawer
+
+**2. Logo enlarged** (`public/pedivax-logo.svg`)
+- `viewBox` changed `0 0 28 30` → `3 6 22 23` — crops dead space and zooms the plant ~27%
+- All path coords unchanged; shield and leaves fill the frame noticeably better
+
+**3. Favicon wired** (`index.html`)
+- `href="/vite.svg"` → `href="./pedivax-logo.svg"` (relative path, works with `base: '/vaxapp/'`)
+- Added `<link rel="apple-touch-icon" href="./pedivax-logo.svg" />`
+
+**4. Injection cap raised to 20** (`src/logic/buildOptimalSchedule.js:264`)
+- `maxInjectionsPerVisit ?? 8` → `maxInjectionsPerVisit ?? 20`
+- Effectively removes the per-visit cap for any realistic schedule
+
+**5. Same-day safety card** (`src/components/BrandConstraintsPanel.jsx`)
+- Green info card at the top of the Brand Rules panel (appears for all patients)
+- Text: "Administering multiple vaccines on the same day is safe and effective…"
+- Citations: CDC (`https://www.cdc.gov/vaccine-safety/about/multiples.html`) + AAP fact-check page
+
+**6. Brand age notes — `refs` array refactor** (`src/data/brandAgeNotes.js`)
+- Schema changed from single `refUrl`/`refLabel` to `refs: [{url, label}]` array
+- Multi-antigen notes now carry a ref for every antigen covered, so no citation is dropped
+- Key fixes:
+  - DTaP (Kinrix/Quadracel): now cites **both** CDC DTaP Notes + CDC Polio Notes (was randomized by iteration order — the bug the user reported)
+  - MMR (ProQuad): both CDC MMR + Varicella Notes; duplicate VAR entry removed
+  - HepB (Twinrix mention): both HepB + HepA Notes
+  - MenB (Penbraya/Penmenvy mention): both MenB + MenACWY Notes
+  - Tdap: both CDC Tdap Notes + immunize.org Tdap-in-adults
+  - Flu/FluMist: both CDC Influenza Notes + immunize.org FluMist eligibility
+  - PPSV23: fixed from wrong `REFS.pcv13high.url` → `REFS.PCV.cdcUrl`
+- `BrandAgeCard` updated to render the `refs` array with `·` separator; backward-compat with legacy `refUrl`
+
+**7. COMBO_REFS — complete antigen coverage** (`src/components/BrandConstraintsPanel.jsx`)
+- Kinrix/Quadracel: added CDC Polio Notes alongside CDC DTaP Notes
+- Vaxelis: added IPV + HepB CDC refs + `immunize.org/ask-experts/topic/combo-vaccines/dtap-ipv-hib-hepb/`
+- Pediarix: added HepB + IPV CDC refs + `immunize.org/ask-experts/topic/combo-vaccines/dtap-ipv-hepb/`
+- Pentacel: added IPV CDC ref + `immunize.org/ask-experts/topic/combo-vaccines/dtap-ipv-hib/`
 
 ### Session 2026-05-25 (UX improvements — Tiers 5 + 6)
 
