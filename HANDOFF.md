@@ -66,7 +66,18 @@ Direction B — "Modern Minimal":
 
 **ACIP rule**: prefer same product; do not defer if unavailable; 3 doses if any RotaTeq or brand unknown; 2 doses only if all confirmed Rotarix.
 
-### Session 2026-05-24 (Brand age note audit — most recent)
+### Session 2026-05-24 ("Not yet eligible" vs "Expired" — most recent)
+Forecast tab previously lumped "patient too young" and "vaccine window closed" into one "Expired" bucket. At 5 months, the legend said "4 expired vaccines (RV, PPSV23, Tdap, COVID)" — only RV is actually expired; PPSV23/Tdap/COVID are simply not-yet-eligible for the patient's age.
+
+**Fix in `ForecastTab.jsx`**:
+- New helper `minAgeLabelForVk(vk)` reads `MIN_INT[vk].minD` (days) → "≥6 months", "≥2 years", etc.
+- `inactiveVks` is now split into `notYetEligibleVks` (`am < minD/30.4375`) and `expiredVks` (the rest).
+- **Both remain hidden by default** so horizontal scrolling stays minimal. One toggle reveals all.
+- Legend now reads: `▸ 1 past window (RV) · 3 not yet eligible (PPSV23 ≥2 years, Tdap ≥7 years, COVID ≥6 months)`
+- Column headers: strikethrough+gray for expired; italic+gray (no strikethrough) for not-yet.
+- Cell chip text: `Not yet (≥X years)` for not-yet cells (new `.fch-notyet` CSS class); `Expired` stays for truly-expired.
+
+### Session 2026-05-24 (Brand age note audit)
 After the Pentacel IPV fix, audited `BRAND_AGE_NOTES`, `COMBO_DOSE_GATES`, and `COMBOS.minM/maxM` against ACIP/immunize.org. Four corrections:
 
 1. **Tdap brand note** — Adacel is FDA ≥10y (not ≥7y). Combined Adacel + Boostrix into one entry: "≥10 years. No upper age limit." ACIP's 7–9y catch-up allowance is handled in `recommendations.js` Tdap branches.

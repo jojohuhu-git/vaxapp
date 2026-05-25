@@ -1287,3 +1287,42 @@ Sources:
 
 ### Test count
 2,095 passing (148 files) — no test changes needed for this audit.
+
+---
+
+## Changes shipped (2026-05-24, session 6) — "Not yet eligible" vs "Expired"
+
+### Problem
+The Forecast tab had a single "Expired" bucket that conflated two clinically distinct scenarios:
+- **Truly expired**: vaccine window closed for this patient (e.g. RV at 5m with 0 doses — RV D1 max age is 14w6d/~3.5m per CDC).
+- **Not yet eligible**: patient below the vaccine's minimum age (e.g. PPSV23 ≥2y, Tdap ≥7y, COVID ≥6m).
+
+At 5 months, the legend said "4 expired vaccines (RV, PPSV23, Tdap, COVID)" — only RV is actually expired; the other three are simply too young.
+
+### Fix (`ForecastTab.jsx`)
+1. **`minAgeLabelForVk(vk)` helper**: reads `MIN_INT[vk].minD` (days) and returns "≥6 months", "≥2 years", "≥7 years", etc.
+2. **Split `inactiveVks` into two buckets** at the dosePlan partition step:
+   - `notYetEligibleVks` = `am < minD / 30.4375`
+   - `expiredVks` = the remainder (window closed / series complete)
+3. **Both buckets remain hidden by default** — `displayVks = showExpired ? allVks : activeVks` where `activeVks = allVks - hiddenVks` (with `hiddenVks = [...expiredVks, ...notYetEligibleVks]`). Toggle expands both at once. No horizontal-scroll penalty.
+4. **Legend dropdown link** shows both groups separately:
+   - Collapsed: `▸ 1 past window (RV) · 3 not yet eligible (PPSV23 ≥2 years, Tdap ≥7 years, COVID ≥6 months)`
+   - Expanded: `▴ Hide 4 hidden vaccines`
+5. **Column header styling**:
+   - Expired: gray + strikethrough (same as before)
+   - Not yet: gray + italic (no strikethrough) — visually distinct
+   - Hover tooltip on not-yet headers: "Patient not yet eligible (≥X years)"
+6. **Cell chip text**: `Not yet (≥2 years)` for not-yet cells (uses new `.fch-notyet` CSS class — italic gray, no strikethrough). `Expired` stays for truly-expired cells.
+7. **Legend swatch row** updated: `done · catch-up · past window · not yet eligible · projected`.
+
+### CSS (`App.css`)
+New class `.fch-notyet` mirrors `.fch-exp` minus the line-through:
+```css
+.fch-notyet{background:#F2F2F4;color:#9A9AA0;border:1px solid var(--gy5);font-style:italic;}
+```
+
+### Tdap min-age display caveat
+`MIN_INT.Tdap.minD = 2555` (7y) — this is the engine's minimum to support ACIP's 7–9y catch-up branch. The Tdap brand note (updated in session 5) says ≥10y FDA. The Forecast "not yet" label intentionally uses the engine's `minD` (7y) since that's the actual age at which Tdap recs can be emitted. The brand-age window distinction lives in `BRAND_AGE_NOTES.Tdap`.
+
+### Test count
+2,095 passing (148 files) — text/styling only, no engine changes.
