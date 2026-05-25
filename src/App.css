@@ -60,10 +60,10 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 
 /* RISK GRID */
 .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
-.ri{display:flex;align-items:flex-start;gap:6px;padding:5px 7px;border-radius:6px;cursor:pointer;}
+.ri{display:flex;align-items:flex-start;gap:6px;padding:5px 7px;border-radius:6px;cursor:pointer;min-width:0;}
 .ri:hover{background:var(--gy6);}
 .ri input{margin-top:2px;accent-color:var(--g);flex-shrink:0;}
-.ri span{font-size:var(--fs-sm);line-height:1.4;color:var(--gy);}
+.ri span{font-size:var(--fs-sm);line-height:1.4;color:var(--gy);min-width:0;overflow-wrap:anywhere;}
 
 /* HISTORY TABLE */
 .htbl-wrap{overflow-x:visible;}

@@ -261,7 +261,7 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
 export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
   const { am, risks, hist = {} } = patient;
   const today       = opts.today ?? new Date().toISOString().slice(0, 10);
-  const maxPerVisit = opts.maxInjectionsPerVisit ?? 8;
+  const maxPerVisit = opts.maxInjectionsPerVisit ?? 20;
   // If no DOB provided, synthesize one from am (age in months) so age-based
   // constraints don't crash. Schedule dates will be approximate but valid.
   const dob = patient.dob ?? addD(today, -Math.round(am * 30.4375));

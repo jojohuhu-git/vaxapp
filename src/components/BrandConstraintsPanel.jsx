@@ -5,16 +5,27 @@ import { BRAND_AGE_NOTES } from '../data/brandAgeNotes';
 import { COMBO_DOSE_GATES } from '../logic/brandRules';
 import { REFS } from '../data/refs';
 
-// Per-combo citations. Combos with multi-antigen clinical claims (e.g. Vaxelis's
-// PRP-OMP series length, ProQuad's MMRV seizure risk) cite both antigen sources.
+// Per-combo citations — one entry per antigen the combo covers.
+// Every antigen has a CDC schedule-notes anchor so clinicians can verify any claim.
+// immunize.org Ask the Experts links added for combos with detailed guidance pages.
 const COMBO_REFS = {
   Vaxelis:   [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' },
-              { url: REFS.Hib.cdcUrl,  label: 'CDC Hib Notes' }],
-  Pediarix:  [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' }],
+              { url: REFS.IPV.cdcUrl,  label: 'CDC Polio Notes' },
+              { url: REFS.Hib.cdcUrl,  label: 'CDC Hib Notes' },
+              { url: REFS.HepB.cdcUrl, label: 'CDC HepB Notes' },
+              { url: 'https://www.immunize.org/ask-experts/topic/combo-vaccines/dtap-ipv-hib-hepb/', label: 'immunize.org: DTaP-IPV-Hib-HepB combos' }],
+  Pediarix:  [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' },
+              { url: REFS.HepB.cdcUrl, label: 'CDC HepB Notes' },
+              { url: REFS.IPV.cdcUrl,  label: 'CDC Polio Notes' },
+              { url: 'https://www.immunize.org/ask-experts/topic/combo-vaccines/dtap-ipv-hepb/', label: 'immunize.org: DTaP-IPV-HepB combos' }],
   Pentacel:  [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' },
-              { url: REFS.Hib.cdcUrl,  label: 'CDC Hib Notes' }],
-  Kinrix:    [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' }],
-  Quadracel: [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' }],
+              { url: REFS.IPV.cdcUrl,  label: 'CDC Polio Notes' },
+              { url: REFS.Hib.cdcUrl,  label: 'CDC Hib Notes' },
+              { url: 'https://www.immunize.org/ask-experts/topic/combo-vaccines/dtap-ipv-hib/', label: 'immunize.org: DTaP-IPV-Hib combos' }],
+  Kinrix:    [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' },
+              { url: REFS.IPV.cdcUrl,  label: 'CDC Polio Notes' }],
+  Quadracel: [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' },
+              { url: REFS.IPV.cdcUrl,  label: 'CDC Polio Notes' }],
   ProQuad:   [{ url: REFS.MMR.cdcUrl,  label: 'CDC MMR Notes' },
               { url: REFS.VAR.cdcUrl,  label: 'CDC Varicella Notes' }],
   Penbraya:  [{ url: REFS.MenACWY.cdcUrl, label: 'CDC MenACWY Notes' },
@@ -80,6 +91,8 @@ function ComboDoseCard({ name, gates }) {
 }
 
 function BrandAgeCard({ note }) {
+  // Support both legacy { refUrl, refLabel } and new { refs: [{url, label}] }
+  const refs = note.refs ?? (note.refUrl ? [{ url: note.refUrl, label: note.refLabel }] : []);
   return (
     <div style={{
       border: '1px solid var(--gy5)', borderLeft: '3px solid var(--a2)',
@@ -87,12 +100,17 @@ function BrandAgeCard({ note }) {
       background: 'var(--wh)', fontSize: 12, lineHeight: 1.55, color: 'var(--gy2)',
     }}>
       <span dangerouslySetInnerHTML={{ __html: note.html }} />
-      {note.refUrl && (
+      {refs.length > 0 && (
         <span style={{ fontSize: 11, marginLeft: 8, color: 'var(--gy3)' }}>
-          <a href={note.refUrl} target="_blank" rel="noopener noreferrer"
-            style={{ color: 'var(--b2)' }} onClick={e => e.stopPropagation()}>
-            {note.refLabel}
-          </a>
+          {refs.map((r, i) => (
+            <span key={r.url}>
+              {i > 0 && <span style={{ margin: '0 5px', color: 'var(--gy5)' }}>·</span>}
+              <a href={r.url} target="_blank" rel="noopener noreferrer"
+                style={{ color: 'var(--b2)' }} onClick={e => e.stopPropagation()}>
+                {r.label} ↗
+              </a>
+            </span>
+          ))}
         </span>
       )}
     </div>
@@ -155,6 +173,37 @@ export default function BrandConstraintsPanel({ recs = [] }) {
 
   return (
     <div>
+      {/* ── Same-day administration safety ── */}
+      <div style={{
+        marginBottom: 12,
+        border: '1px solid var(--gmd)', borderLeft: '3px solid var(--g)',
+        borderRadius: 'var(--rads)', padding: '10px 14px',
+        background: 'var(--glt)', fontSize: 12, lineHeight: 1.6, color: 'var(--gy)',
+      }}>
+        <div style={{ fontWeight: 700, color: 'var(--g2)', marginBottom: 4 }}>
+          Same-day administration is safe
+        </div>
+        <div>
+          Administering multiple vaccines on the same day is safe and effective and will not overwhelm
+          the immune system. Infants and children have sufficient immunologic capacity to respond to
+          multiple vaccine antigens simultaneously. Consider splitting into multiple visits only if
+          anatomical injection sites are limited.{' '}
+          <a href="https://www.cdc.gov/vaccine-safety/about/multiples.html"
+            target="_blank" rel="noopener noreferrer"
+            style={{ color: 'var(--b2)', fontSize: 11 }}
+            onClick={e => e.stopPropagation()}>
+            CDC ↗
+          </a>
+          <span style={{ margin: '0 5px', color: 'var(--gy5)' }}>·</span>
+          <a href="https://www.aap.org/en/news-room/fact-checked/fact-checked-receiving-multiple-vaccines-does-not-overwhelm-a-childs-immune-system/"
+            target="_blank" rel="noopener noreferrer"
+            style={{ color: 'var(--b2)', fontSize: 11 }}
+            onClick={e => e.stopPropagation()}>
+            AAP ↗
+          </a>
+        </div>
+      </div>
+
       {/* ── Hard constraints first ── */}
       {showMenBLock && (
         <div style={{
