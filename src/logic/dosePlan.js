@@ -320,7 +320,7 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) 
       return 4;
     }
     case "PCV": {
-      const isHRPCV = (risks || []).some(r => ["asplenia","hiv","immunocomp","cochlear","chronic_heart","chronic_lung","chronic_kidney","diabetes","chronic_liver"].includes(r));
+      const isHRPCV = (risks || []).some(r => ["asplenia","sickle_cell","hiv","immunocomp","cochlear","chronic_heart","chronic_lung","chronic_kidney","diabetes","chronic_liver"].includes(r));
       const givenPCV = (hist?.PCV || []).filter(d => d.given).length;
       // Healthy ≥24m: CDC Table 2 allows only 1–2 doses in catch-up (not a full 4-dose series)
       if (am >= 24 && !isHRPCV) return Math.min(4, givenPCV + 1);

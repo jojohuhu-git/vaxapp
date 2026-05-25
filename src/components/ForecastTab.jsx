@@ -709,26 +709,28 @@ export default function ForecastTab({ recs }) {
   return (
     <div>
       {/* ── VIEW TOGGLE ──────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, color: 'var(--gy3)', fontWeight: 600, marginRight: 2 }}>View:</span>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         {[
-          { id: null,               label: 'Routine Schedule',    hint: 'Standard CDC/ACIP well-child visit schedule' },
-          { id: 'fewestInjections', label: 'Fewest Injections',   hint: 'Substitute combo brands to minimize total injections' },
+          { id: null,               label: 'Routine Schedule',  subtitle: 'Standard CDC/ACIP well-child visit timeline' },
+          { id: 'fewestInjections', label: 'Fewest Injections', subtitle: 'Substitutes combo brands to minimize total injections' },
         ].map(v => (
           <button
             key={String(v.id)}
-            title={v.hint}
             onClick={() => setOptView(v.id)}
             style={{
-              padding: '4px 12px', fontSize: 11, fontWeight: 600,
-              borderRadius: 'var(--rads)', border: '1px solid', cursor: 'pointer',
-              transition: 'all .13s',
-              background: optView === v.id ? 'var(--g)' : 'var(--wh)',
-              color: optView === v.id ? '#fff' : 'var(--gy2)',
+              display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+              padding: '7px 14px', borderRadius: 'var(--rads)', border: '1px solid', cursor: 'pointer',
+              transition: 'all .13s', textAlign: 'left',
+              background: optView === v.id ? 'var(--glt)' : 'var(--wh)',
               borderColor: optView === v.id ? 'var(--g)' : 'var(--gy5)',
             }}
           >
-            {v.label}
+            <span style={{ fontSize: 12, fontWeight: 700, color: optView === v.id ? 'var(--g)' : 'var(--gy2)' }}>
+              {v.label}
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--gy3)', marginTop: 1, fontWeight: 400 }}>
+              {v.subtitle}
+            </span>
           </button>
         ))}
       </div>
@@ -983,6 +985,30 @@ export default function ForecastTab({ recs }) {
       {/* ── TABLE LEGEND + TABLE (only in Routine view) ─────────── */}
       {optView === null && (
       <>
+      {/* Hidden-column chip — above the table */}
+      {hiddenVks.length > 0 && (
+        <div style={{ marginBottom: 6 }}>
+          <button
+            onClick={() => setShowExpired(v => !v)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, color: 'var(--gy3)', textDecoration: 'underline', textDecorationStyle: 'dotted', padding: 0 }}
+          >
+            {showExpired ? (
+              `▴ Hide ${hiddenVks.length} hidden vaccine${hiddenVks.length !== 1 ? 's' : ''}`
+            ) : (
+              <>
+                ▸{' '}
+                {expiredVks.length > 0 && (
+                  <>{expiredVks.length} past window ({expiredVks.map(vk => VAX_META[vk]?.ab || vk).join(', ')})</>
+                )}
+                {expiredVks.length > 0 && notYetEligibleVks.length > 0 && ' · '}
+                {notYetEligibleVks.length > 0 && (
+                  <>{notYetEligibleVks.length} not yet eligible ({notYetEligibleVks.map(vk => `${VAX_META[vk]?.ab || vk} ${minAgeLabelForVk(vk)}`).join(', ')})</>
+                )}
+              </>
+            )}
+          </button>
+        </div>
+      )}
       <div style={{ fontSize: 10, color: 'var(--gy4)', marginBottom: 6 }}>
         <span style={{ color: 'var(--g)', fontWeight: 600 }}>■</span> done&ensp;
         <span style={{ color: 'var(--a)', fontWeight: 600 }}>■</span> catch-up&ensp;
@@ -990,29 +1016,6 @@ export default function ForecastTab({ recs }) {
         <span style={{ color: 'var(--gy4)', fontWeight: 600, fontStyle: 'italic' }}>■</span> not yet eligible&ensp;
         <span style={{ color: '#5b3a9e', fontWeight: 600 }}>■</span> projected.&ensp;
         Click a cell for clinical notes.
-        {hiddenVks.length > 0 && (
-          <span style={{ marginLeft: 10 }}>
-            <button
-              onClick={() => setShowExpired(v => !v)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, color: 'var(--gy3)', textDecoration: 'underline', textDecorationStyle: 'dotted', padding: 0 }}
-            >
-              {showExpired ? (
-                `▴ Hide ${hiddenVks.length} hidden vaccine${hiddenVks.length !== 1 ? 's' : ''}`
-              ) : (
-                <>
-                  ▸{' '}
-                  {expiredVks.length > 0 && (
-                    <>{expiredVks.length} past window ({expiredVks.map(vk => VAX_META[vk]?.ab || vk).join(', ')})</>
-                  )}
-                  {expiredVks.length > 0 && notYetEligibleVks.length > 0 && ' · '}
-                  {notYetEligibleVks.length > 0 && (
-                    <>{notYetEligibleVks.length} not yet eligible ({notYetEligibleVks.map(vk => `${VAX_META[vk]?.ab || vk} ${minAgeLabelForVk(vk)}`).join(', ')})</>
-                  )}
-                </>
-              )}
-            </button>
-          </span>
-        )}
       </div>
       <div className="fc-wrap">
         <table className="fc-tbl">

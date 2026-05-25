@@ -147,6 +147,7 @@ export default function VisitEntry() {
 
   // Recent visits undo strip (Item 3) — stored as array of visit objects
   const [recentVisits, setRecentVisits] = useState([]); // [{ visitId, date, ageDays, vks, brandByVk }]
+  const [expandedVisitId, setExpandedVisitId] = useState(null); // which undo chip is expanded
 
   const ageInputRef = useRef(null);
 
@@ -716,43 +717,85 @@ export default function VisitEntry() {
       {recentVisits.length > 0 && (
         <div style={{ marginTop: 8 }}>
           <div style={{ color: '#999', fontSize: '0.78rem', marginBottom: 5 }}>
-            Recently added — click × to remove a visit
+            Recently added — click to expand, × to remove
           </div>
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-            {recentVisits.map(v => (
-              <div
-                key={v.visitId}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  fontSize: 11, padding: '3px 8px',
-                  background: 'var(--gy6)', border: '1px solid var(--gy5)',
-                  borderRadius: 'var(--rads)',
-                  color: 'var(--gy2)',
-                }}
-              >
-                {v.date ? (
-                  <span style={{ fontWeight: 600 }}>{fmtDate(v.date)}</span>
-                ) : (
-                  <span style={{ fontWeight: 600 }}>
-                    {v.ageDays != null ? `~${ageLabel(daysToMonths(v.ageDays))}` : 'Unknown'}
-                  </span>
-                )}
-                <span style={{ color: 'var(--gy3)' }}>·</span>
-                <span>{visitLabel(v)}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveVisit(v.visitId)}
+            {recentVisits.map(v => {
+              const isExpanded = expandedVisitId === v.visitId;
+              return (
+                <div
+                  key={v.visitId}
                   style={{
-                    border: 'none', background: 'none', color: 'var(--gy4)',
-                    fontSize: 13, cursor: 'pointer', lineHeight: 1, padding: '0 2px',
-                    flexShrink: 0,
+                    display: 'flex', flexDirection: 'column',
+                    fontSize: 11,
+                    background: isExpanded ? 'var(--glt)' : 'var(--gy6)',
+                    border: `1px solid ${isExpanded ? 'var(--gmd)' : 'var(--gy5)'}`,
+                    borderRadius: 'var(--rads)',
+                    color: 'var(--gy2)',
+                    transition: 'background .12s, border-color .12s',
                   }}
-                  title="Remove this visit"
                 >
-                  &times;
-                </button>
-              </div>
-            ))}
+                  {/* Chip header row */}
+                  <div
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '3px 8px', cursor: 'pointer', userSelect: 'none',
+                    }}
+                    onClick={() => setExpandedVisitId(isExpanded ? null : v.visitId)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedVisitId(isExpanded ? null : v.visitId); } }}
+                  >
+                    {v.date ? (
+                      <span style={{ fontWeight: 600 }}>{fmtDate(v.date)}</span>
+                    ) : (
+                      <span style={{ fontWeight: 600 }}>
+                        {v.ageDays != null ? `~${ageLabel(daysToMonths(v.ageDays))}` : 'Unknown'}
+                      </span>
+                    )}
+                    <span style={{ color: 'var(--gy3)' }}>·</span>
+                    <span>{visitLabel(v)}</span>
+                    <span style={{ fontSize: 10, color: 'var(--gy4)', marginLeft: 2 }}>
+                      {isExpanded ? '▲' : '▼'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleRemoveVisit(v.visitId); }}
+                      style={{
+                        border: 'none', background: 'none', color: 'var(--gy4)',
+                        fontSize: 13, cursor: 'pointer', lineHeight: 1, padding: '0 2px',
+                        flexShrink: 0,
+                      }}
+                      title="Remove this visit"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                  {/* Expanded brand detail */}
+                  {isExpanded && (
+                    <div style={{
+                      borderTop: '1px solid var(--gmd)',
+                      padding: '6px 10px',
+                      display: 'flex', flexDirection: 'column', gap: 3,
+                    }}>
+                      {v.vks.map(vk => {
+                        const brand = v.brandByVk[vk];
+                        return (
+                          <div key={vk} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <span style={{ fontWeight: 700, color: VAX_META[vk]?.c || 'var(--g)', minWidth: 36, fontSize: 10 }}>
+                              {VAX_META[vk]?.ab || vk}
+                            </span>
+                            <span style={{ color: brand ? 'var(--gy2)' : 'var(--gy4)', fontSize: 11 }}>
+                              {brand || 'brand unknown'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

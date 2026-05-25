@@ -27,6 +27,10 @@ function fmtAm(am) {
 }
 
 function PatientDrawer({ onClose }) {
+  const [riskOpen, setRiskOpen] = useState(false);
+  const { state } = useApp();
+  const riskCount = state.risks.length;
+
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -49,45 +53,66 @@ function PatientDrawer({ onClose }) {
         <div style={{ maxWidth: 1380, margin: '0 auto' }}>
           {/* Header row */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#2E8B6B', textTransform: 'uppercase', letterSpacing: '.6px' }}>
-              Edit Patient
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--g)' }}>
+              Edit patient
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button
-                onClick={onClose}
-                style={{
-                  padding: '7px 22px', fontSize: 13, fontWeight: 700,
-                  background: 'var(--g)', color: '#fff',
-                  border: 'none', borderRadius: 'var(--rads)', cursor: 'pointer',
-                  fontFamily: 'inherit', letterSpacing: '.2px',
-                }}
-              >
-                Done
-              </button>
-              <button
-                onClick={onClose}
-                style={{
-                  border: 'none', background: 'none', cursor: 'pointer',
-                  fontSize: 22, color: '#888', lineHeight: 1, padding: '0 4px',
-                }}
-                title="Close"
-              >&times;</button>
-            </div>
+            <button
+              onClick={onClose}
+              style={{
+                padding: '7px 22px', fontSize: 13, fontWeight: 700,
+                background: 'var(--g)', color: '#fff',
+                border: 'none', borderRadius: 'var(--rads)', cursor: 'pointer',
+                fontFamily: 'inherit', letterSpacing: '.2px',
+              }}
+            >
+              Done
+            </button>
           </div>
 
-          {/* Two-column layout: left = patient info + risks, right = vaccination history */}
+          {/* Two-column: left = patient info + risk accordion, right = vaccination history */}
           <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 24, alignItems: 'start' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <div className="ctitle" style={{ marginBottom: 8 }}>Patient Information</div>
-                <PatientInfo inAccordion />
+                <div className="ctitle" style={{ marginBottom: 8 }}>Patient information</div>
+                <PatientInfo />
               </div>
-              <div>
-                <RiskGrid />
+
+              {/* Risk factors — collapsible accordion */}
+              <div style={{ border: '1px solid var(--gy5)', borderRadius: 'var(--rads)' }}>
+                <button
+                  type="button"
+                  onClick={() => setRiskOpen(v => !v)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 700, color: 'var(--gy2)', borderRadius: 'var(--rads)',
+                  }}
+                >
+                  <span>
+                    Risk factors
+                    {riskCount > 0 && (
+                      <span style={{ marginLeft: 7, fontSize: 11, fontWeight: 600, padding: '1px 7px', background: 'var(--alt)', color: 'var(--a)', border: '1px solid var(--amd)', borderRadius: 'var(--rads)' }}>
+                        {riskCount} selected
+                      </span>
+                    )}
+                    {riskCount === 0 && (
+                      <span style={{ marginLeft: 6, fontWeight: 400, color: 'var(--gy4)', fontSize: 11 }}>
+                        (none)
+                      </span>
+                    )}
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--gy4)' }}>{riskOpen ? '▲' : '▼'}</span>
+                </button>
+                {riskOpen && (
+                  <div style={{ padding: '0 12px 12px', borderTop: '1px solid var(--gy5)' }}>
+                    <RiskGrid />
+                  </div>
+                )}
               </div>
             </div>
+
             <div>
-              <div className="ctitle" style={{ marginBottom: 8 }}>Vaccination History</div>
+              <div className="ctitle" style={{ marginBottom: 8 }}>Vaccination history</div>
               <VisitEntry />
               <div style={{ marginTop: 8 }}>
                 <HistoryTable />
@@ -111,7 +136,7 @@ const STATUS_CHIP_STYLE = {
   'risk-based':{ bg: 'var(--rlt)', color: 'var(--r)',  border: 'var(--rmd)' },
   recommended: { bg: 'var(--blt)', color: 'var(--b)',  border: 'var(--bmd)' },
 };
-const STATUS_LABELS = { due: 'Due', catchup: 'Catch-up', 'risk-based': 'Risk', recommended: 'Shared decision' };
+const STATUS_LABELS = { due: 'Due', catchup: 'Catch-up', 'risk-based': 'Risk-based', recommended: 'Shared decision' };
 
 function PatientSummaryBar({ onEdit, drawerOpen }) {
   const { state } = useApp();
@@ -236,9 +261,21 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
 function AppInner() {
   const { state, dispatch } = useApp();
   const [showShare, setShowShare] = useState(false);
-  const [bannerOpen, setBannerOpen] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const initialized = useRef(false);
+
+  // Banner: dismissed state lives in ?nb=1 URL param (separate from ?s= app state)
+  const initialBannerOpen = !new URLSearchParams(window.location.search).get("nb");
+  const [bannerOpen, setBannerOpen] = useState(initialBannerOpen);
+
+  const dismissBanner = () => {
+    setBannerOpen(false);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      params.set("nb", "1");
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    } catch { /* ignore */ }
+  };
 
   // Restore state from URL on mount
   useEffect(() => {
@@ -293,7 +330,7 @@ function AppInner() {
             <strong>PediVax Clinical Vaccine Planner</strong> &mdash; Enter the patient&apos;s age, vaccination history, and risk factors. The engine generates recommendations, regimen options, and a full forecast aligned with the 2025 CDC/ACIP immunization schedule.
           </div>
           <button
-            onClick={() => setBannerOpen(false)}
+            onClick={dismissBanner}
             style={{
               border: "none", background: "none", cursor: "pointer",
               fontSize: 16, color: "#888", flexShrink: 0, padding: "0 4px",

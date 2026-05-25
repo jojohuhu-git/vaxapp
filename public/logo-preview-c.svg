@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 30" fill="none">
+  <!-- Left leaf, angled upper-left -->
+  <path d="M13 13 C11.5 10 8 7.5 5.5 9.5 C4 11 5 14 13 15"
+        fill="#F0FBF5" stroke="#7DC48A" stroke-width="1.3" stroke-linejoin="round"/>
+  <line x1="13" y1="13" x2="6.5" y2="11" stroke="#5AAD70" stroke-width="0.85" stroke-linecap="round"/>
+  <!-- Right leaf, angled upper-right -->
+  <path d="M15 13 C16.5 10 20 7.5 22.5 9.5 C24 11 23 14 15 15"
+        fill="#F0FBF5" stroke="#7DC48A" stroke-width="1.3" stroke-linejoin="round"/>
+  <line x1="15" y1="13" x2="21.5" y2="11" stroke="#5AAD70" stroke-width="0.85" stroke-linecap="round"/>
+  <!-- Center stem connecting leaves to shield -->
+  <line x1="14" y1="14" x2="14" y2="17" stroke="#7DC48A" stroke-width="1.2" stroke-linecap="round"/>
+  <!-- Shield (heraldic, rounded sides, pointed bottom) -->
+  <path d="M7 17 L21 17 L21 23 C21 27 17 29.5 14 30 C11 29.5 7 27 7 23 Z"
+        fill="#FFF8EC" stroke="#F0B558" stroke-width="1.5" stroke-linejoin="round"/>
+  <!-- Small leaf accent inside shield -->
+  <path d="M14 19.5 C13 20.5 13 23 14 24.5 C15 23 15 20.5 14 19.5Z"
+        fill="none" stroke="#7DC48A" stroke-width="1" stroke-linejoin="round"/>
+  <line x1="14" y1="19.5" x2="14" y2="24.5" stroke="#5AAD70" stroke-width="0.75" stroke-linecap="round"/>
+</svg>

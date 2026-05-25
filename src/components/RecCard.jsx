@@ -4,7 +4,6 @@ import { CONTRA } from '../data/contraindications';
 import { isD, dBetween, fmtD, addD } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
 
-// Map status → user-facing dose-context label that adds clinical interpretation.
 function doseContext(status) {
   switch (status) {
     case 'due':         return 'On time';
@@ -15,7 +14,6 @@ function doseContext(status) {
   }
 }
 
-// Booster cadence summary for select vaccines (displayed under dose count).
 const BOOSTER_CADENCE = {
   Tdap:    'Routine adolescent dose 11–12y; decennial Td or Tdap booster every 10 years thereafter (5y for tetanus-prone wound).',
   MenACWY: 'Routine: D1 at 11–12y, booster D2 at 16y (no booster if D1 given ≥16y). High-risk: revaccinate every 3–5 years.',
@@ -27,12 +25,20 @@ const BOOSTER_CADENCE = {
 };
 
 const STATUS_COLORS = {
-  due: { bg: "#e6f7ef", color: "#0E4A30", border: "#2e9e6b", dot: "#2e9e6b" },
-  catchup: { bg: "#fdf5e6", color: "#7A4E0D", border: "#e67e22", dot: "#e67e22" },
-  "risk-based": { bg: "#fdf0ef", color: "#8B1A1A", border: "#C0392B", dot: "#C0392B" },
-  recommended: { bg: "#eaf3fb", color: "#1a3a6b", border: "#2980b9", dot: "#2980b9" },
+  due:         { bg: "#e6f7ef", color: "#0E4A30", border: "#2e9e6b" },
+  catchup:     { bg: "#fdf5e6", color: "#7A4E0D", border: "#e67e22" },
+  "risk-based":{ bg: "#fdf0ef", color: "#8B1A1A", border: "#C0392B" },
+  recommended: { bg: "#eaf3fb", color: "#1a3a6b", border: "#2980b9" },
 };
 
+const STATUS_LABEL = {
+  due:         'Due',
+  catchup:     'Catch-up',
+  'risk-based':'Risk-based',
+  recommended: 'Shared decision',
+};
+
+/* eslint-disable react/prop-types */
 export default function RecCard({ rec, index }) {
   const { state, dispatch } = useApp();
   const { effectiveAm } = getEffectiveAm(state);
@@ -42,7 +48,6 @@ export default function RecCard({ rec, index }) {
   const sc = STATUS_COLORS[rec.status] || STATUS_COLORS.due;
   const contra = CONTRA[rec.vk];
 
-  // Interval check
   let ivMsg = null;
   let ivClass = "iv-msg iv-info";
   if (rec.minInt && rec.prevDate && isD(rec.prevDate)) {
@@ -62,13 +67,6 @@ export default function RecCard({ rec, index }) {
     ivClass = "iv-msg iv-info";
   }
 
-  // Determine if completed/done status
-  const isDone = false; // recs are only generated for non-complete vaccines
-
-  // Total doses + remaining (computed from history + state).
-  // Flu/COVID are normally annual but Flu first-season needs 2-dose pattern
-  // for kids <9y with <2 lifetime doses. getTotalDoses("Flu") returns 2 in
-  // that case, 1 otherwise.
   let seriesSummary = null;
   if (rec.doseNum != null) {
     const totalDoses = getTotalDoses(rec.vk, rec, state.fcBrands ?? {}, effectiveAm, state.hist, state.risks, state.dob);
@@ -76,8 +74,6 @@ export default function RecCard({ rec, index }) {
       const remainingAfter = Math.max(0, totalDoses - rec.doseNum);
       const ctx = doseContext(rec.status);
       const ctxStr = ctx ? `${ctx} · ` : '';
-      // For annual Flu/COVID (totalDoses === 1 and not first-season), prefer
-      // the seasonal copy over the bare "Dose 1 of 1" framing.
       if ((rec.vk === 'Flu' || rec.vk === 'COVID') && totalDoses === 1) {
         seriesSummary = 'Annual / seasonal — recommended every flu/COVID season';
       } else {
@@ -92,9 +88,8 @@ export default function RecCard({ rec, index }) {
   const cadence = BOOSTER_CADENCE[rec.vk];
 
   return (
-    <div className={`rc${isDone ? " rc-done" : ""}`} style={{ borderLeftColor: sc.border, background: isDone ? undefined : sc.bg }}>
+    <div className="rc" style={{ borderLeftColor: sc.border, background: sc.bg }}>
       <div className="rchead" onClick={() => dispatch({ type: "TOGGLE_REC_OPEN", payload: index })}>
-        <span className="rcdot" style={{ background: sc.dot }} />
         <div className="rcinfo">
           <div className="rc-name" style={{ color: meta.c }}>{meta.n}</div>
           <div className="rc-dose">{rec.dose}</div>
@@ -106,13 +101,8 @@ export default function RecCard({ rec, index }) {
           className="rc-badge"
           style={{ background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}
         >
-          {rec.status === "risk-based" ? "Risk-Based"
-            : rec.status === "catchup" ? "Catch-up"
-            : rec.status === "recommended" ? "Shared decision"
-            : rec.status === "due" ? "Due"
-            : rec.status.charAt(0).toUpperCase() + rec.status.slice(1)}
+          {STATUS_LABEL[rec.status] || rec.status}
         </span>
-        <span className="rc-chev">{isOpen ? "\u25B2" : "\u25BC"}</span>
       </div>
 
       {isOpen && (
@@ -132,7 +122,7 @@ export default function RecCard({ rec, index }) {
 
           {rec.brandTip && <div className="btip">{rec.brandTip}</div>}
 
-          <div className="blbl">Available Brands</div>
+          <div className="blbl">Other licensed brands (for reference)</div>
           <div className="bwrap">
             {rec.brands.map((b, bi) => {
               const isCombo = b.includes("(") && (b.includes("+") || b.includes("covers"));
@@ -151,7 +141,7 @@ export default function RecCard({ rec, index }) {
                 className="ctog"
                 onClick={() => dispatch({ type: "TOGGLE_CONTRA_OPEN", payload: index })}
               >
-                {isContraOpen ? "\u25B2" : "\u25BC"} Contraindications &amp; Precautions
+                {isContraOpen ? "▲" : "▼"} Contraindications &amp; Precautions
               </span>
               {isContraOpen && (
                 <div className="cbox">
