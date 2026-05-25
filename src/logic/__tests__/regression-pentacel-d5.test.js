@@ -25,11 +25,18 @@ describe('comboFitsDose — Pentacel D5 gate', () => {
   it('Pentacel + DTaP at D4 → true', () => {
     expect(comboFitsDose('Pentacel', 'DTaP', 4)).toBe(true);
   });
-  it('Pentacel + IPV at D4 → false (use Kinrix/Quadracel)', () => {
-    expect(comboFitsDose('Pentacel', 'IPV', 4)).toBe(false);
+  // Per ACIP/immunize.org, Pentacel's 4-dose series at 2/4/6/15–18m includes
+  // IPV in every dose, so the IPV gate is [1,4]. Pentacel at the 4-6y booster
+  // is blocked at the multi-antigen layer (DTaP D5 co-due → DTaP [1,4] fails),
+  // not by the IPV gate.
+  it('Pentacel + IPV at D4 → true (IPV component valid through D4 per ACIP)', () => {
+    expect(comboFitsDose('Pentacel', 'IPV', 4)).toBe(true);
   });
   it('Pentacel + IPV at D3 → true', () => {
     expect(comboFitsDose('Pentacel', 'IPV', 3)).toBe(true);
+  });
+  it('Pentacel + IPV at D5 → false (above 4-dose series)', () => {
+    expect(comboFitsDose('Pentacel', 'IPV', 5)).toBe(false);
   });
   it('Pentacel + Hib at D4 → true (PRP-T booster)', () => {
     expect(comboFitsDose('Pentacel', 'Hib', 4)).toBe(true);
@@ -81,9 +88,14 @@ describe('orderedBrandsForVisit — Pentacel not offered for DTaP D5', () => {
     expect(hasKinrix || hasQuadracel).toBe(true);
   });
 
-  it('IPV D4 at 54m: Pentacel absent (must use Kinrix/Quadracel)', () => {
+  // At 54m the 4-6y booster visit has DTaP D5 + IPV D4 co-due. The multi-antigen
+  // check blocks Pentacel via DTaP [1,4] (DTaP D5 fails the gate). doseNumByVk
+  // must be passed so the engine knows DTaP D5 is the co-due dose; production
+  // code always supplies it. CLINICAL SAFETY: this is the test that prevents
+  // Pentacel from leaking into the 4-6y IPV booster dropdown.
+  it('IPV D4 at 54m: Pentacel absent (DTaP D5 co-due blocks via multi-antigen check)', () => {
     const dueVks = ['DTaP', 'IPV'];
-    const result = orderedBrandsForVisit('IPV', 4, 54, dueVks, [], '');
+    const result = orderedBrandsForVisit('IPV', 4, 54, dueVks, [], '', { DTaP: 5, IPV: 4 });
     const hasPentacel = result.some(bo => bo.name === 'Pentacel');
     expect(hasPentacel).toBe(false);
   });

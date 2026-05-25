@@ -36,8 +36,8 @@ export function optimalDosesFor(vk, am, hist = {}, risks = []) {
 
 // ── Surface 3: orderedBrandsForVisit ───────────────────────────
 
-export function forecastBrands(vk, doseNum, visitM, dueVks, recBrands = [], earlierBrand = '') {
-  return orderedBrandsForVisit(vk, doseNum, visitM, dueVks, recBrands, earlierBrand).map(b => b.label);
+export function forecastBrands(vk, doseNum, visitM, dueVks, recBrands = [], earlierBrand = '', doseNumByVk = {}) {
+  return orderedBrandsForVisit(vk, doseNum, visitM, dueVks, recBrands, earlierBrand, doseNumByVk).map(b => b.label);
 }
 
 // ── Surface 2: buildRegimens ────────────────────────────────────

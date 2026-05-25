@@ -253,7 +253,7 @@ The Tdap seed-scan in `computeDosePlan` independently emits Tdap recs at future 
 ```js
 Vaxelis:   { DTaP: [1,3], IPV: [1,3], Hib: [1,3], HepB: [1,3] }
 Pediarix:  { DTaP: [1,3], HepB: [1,3], IPV: [1,3] }
-Pentacel:  { DTaP: [1,4], IPV: [1,3], Hib: [1,4] }
+Pentacel:  { DTaP: [1,4], IPV: [1,4], Hib: [1,4] }
 Kinrix:    { DTaP: [5,5], IPV: [4,4] }
 Quadracel: { DTaP: [5,5], IPV: [4,4] }
 ProQuad:   { MMR: [1,2], VAR: [1,2] }
@@ -262,7 +262,9 @@ Penmenvy:  { MenACWY: [1,2], MenB: [1,2] }
 Twinrix:   { HepA: [1,null], HepB: [1,null] }
 ```
 
-Note: Pentacel+IPV is [1,3] — at the 4-6y booster visit, IPV D4 must pair with DTaP D5 via Kinrix/Quadracel, not Pentacel.
+Note: Pentacel IPV is [1,4] per ACIP — Pentacel is a 4-dose series at 2/4/6/15–18m and each dose contains IPV. At the 4-6y booster visit, Pentacel is blocked NOT by the IPV gate but by the multi-antigen check: DTaP D5 is co-due → DTaP gate [1,4] fails → Pentacel filtered out. Use Kinrix/Quadracel for the 4-6y booster.
+
+Source: immunize.org Ask the Experts — "Describe combination vaccine DTaP-IPV-Hib (Pentacel) and how used"  (https://www.immunize.org/ask-experts/describe-combination-vaccine-dtap-ipv-hib-pentacel-and-how-used/) and "Patient received Pentacel for 5th DTaP dose"  (https://www.immunize.org/ask-experts/patient-received-pentacel-dtap-ipv-hib-for-5th-dose-dtap-instead-of-quadracel-dtap-ipv/).
 
 ## Active branch — where to edit
 
@@ -307,7 +309,7 @@ Source: ACIP, immunize.org (not FDA package inserts).
 |---|---|---|---|---|---|---|---|
 | **Pediarix** | DTaP+HepB+IPV | 6 wks | 6 yrs (83m) | 1–3 only | 1–3 only | — | 1–3 only |
 | **Vaxelis** | DTaP+IPV+Hib+HepB | 6 wks | 6 yrs (83m) | 1–3 only | 1–3 only | 1–3 only (NOT booster) | 1–3 only |
-| **Pentacel** | DTaP+IPV+Hib | 6 wks | 6 yrs (83m) | 1–4 only | 1–3 only* | 1–4 (incl. booster) | — |
+| **Pentacel** | DTaP+IPV+Hib | 6 wks | 6 yrs (83m) | 1–4 only | 1–4 only* | 1–4 (incl. booster) | — |
 | **Kinrix** | DTaP+IPV | 4 yrs | 6 yrs (83m) | D5 ONLY | D4 ONLY | — | — |
 | **Quadracel** | DTaP+IPV | 4 yrs | 6 yrs (83m) | D5 ONLY | D4 ONLY | — | — |
 | **Daptacel** | DTaP only | 6 wks | 6 yrs (83m) | 1–5 | — | — | — |
@@ -315,7 +317,7 @@ Source: ACIP, immunize.org (not FDA package inserts).
 | **Penbraya** | MenACWY+MenB-FHbp | 10 yrs | 25 yrs | — | — | — | — |
 | **Penmenvy** | MenACWY+MenB-4C | 10 yrs | 25 yrs | — | — | — | — |
 
-*Pentacel IPV: D4 via Pentacel is acceptable at 15–18m, but at the 4–6y booster visit IPV D4 must pair with DTaP D5 → use Kinrix/Quadracel instead.
+*Pentacel IPV: Pentacel is a 4-dose series at 2/4/6/15–18m (ACIP/immunize.org) — IPV is in every dose, so IPV gate is [1,4]. At the 4-6y booster visit, Pentacel is blocked by the multi-antigen check (DTaP D5 co-due → DTaP [1,4] fails), not by the IPV gate. Use Kinrix/Quadracel for the 4-6y booster. If Pentacel is incorrectly given at the 5y+ booster, the DTaP and IPV doses count as valid per immunize.org guidance — but explain the error to parents and document.
 
 ### Hard constraints enforced in forecastLogic.js `comboValidForDose`
 
@@ -325,7 +327,7 @@ Vaxelis/Pediarix + HepB → block at doseNum ≥ 4
 Vaxelis/Pediarix + IPV  → block at doseNum ≥ 4
 Vaxelis + Hib           → block at doseNum ≥ 4  (PRP-OMP series done in 3 doses)
 Pentacel + DTaP         → block at doseNum ≥ 5  (NOT for DTaP D5)
-Pentacel + IPV          → block at doseNum ≥ 4  (at 4–6y, IPV D4 must go with DTaP D5 via Kinrix/Quadracel)
+Pentacel + IPV          → block at doseNum ≥ 5  (IPV D1–D4 OK; multi-antigen check blocks Pentacel at 4–6y via DTaP D5 co-due)
 Kinrix/Quadracel + DTaP → only at doseNum == 5
 Kinrix/Quadracel + IPV  → only at doseNum == 4
 ```
@@ -1204,3 +1206,33 @@ Three redundant blue antigen lists removed — the combo name in the dropdown an
 
 ### Test count
 2,094 passing (148 files) after all changes.
+
+---
+
+## Changes shipped (2026-05-24, session 4) — Pentacel IPV gate correction
+
+### Pentacel IPV gate: [1, 3] → [1, 4]
+**File:** `src/logic/brandRules.js`
+
+The Pentacel IPV gate was `[1, 3]` as a workaround to block Pentacel at the 4-6y booster visit. This was clinically inaccurate — `COMBOS.Pentacel.desc` correctly stated "DTaP + IPV (doses 1–4)" but the chip in the BrandConstraintsPanel showed "IPV: Doses 1–3", creating a confusing/contradictory display.
+
+**Per ACIP/immunize.org**: Pentacel is licensed as a 4-dose series at 2/4/6/15–18m. Every Pentacel dose contains IPV — so IPV is valid through D4 (with the caveat that if D4 was given <4y, an additional IPV dose at 4-6y is needed to satisfy the "final booster ≥4y" rule).
+
+**Multi-antigen safety preserved**: At the 4-6y booster visit, DTaP D5 is co-due. Pentacel's DTaP gate `[1, 4]` already blocks it via the multi-antigen check in `forecastLogic.comboValidForDose`. No regression.
+
+**Tests updated** (5 tests rewritten to test the correct underlying behavior, not the workaround):
+- `src/tests/five-surface/ipv.test.js` — IPV D4 at 48m test now passes `doseNumByVk: { DTaP: 5, IPV: 4 }` to exercise multi-antigen blocking
+- `src/logic/__tests__/regression-pentacel-d5.test.js` — `Pentacel + IPV at D4 → true`; added `D5 → false`; orderedBrandsForVisit test now passes `doseNumByVk`
+- `src/logic/__tests__/brand-indication-invariants.test.js` — `Pentacel + IPV: allowed at D4`; added `Pentacel + IPV: blocked at D5`; renamed "IPV D4 at 54m" test to "4-6y booster (DTaP D5 + IPV D4 co-due)" and updated hist to include 4 DTaP doses so the realistic booster scenario is tested
+
+**CLAUDE.md updates**: Pentacel row in combo table, footnote, Hard constraints block, and COMBO_DOSE_GATES current values all updated to reflect [1, 4] gate.
+
+**Sources**:
+- https://www.immunize.org/ask-experts/describe-combination-vaccine-dtap-ipv-hib-pentacel-and-how-used/
+- https://www.immunize.org/ask-experts/patient-received-pentacel-dtap-ipv-hib-for-5th-dose-dtap-instead-of-quadracel-dtap-ipv/
+
+### Lesson
+When a gate is set strictly to compensate for a multi-antigen scenario, document it clearly — or better, rely on the multi-antigen check itself. Over-strict gates break legitimate single-antigen scenarios (e.g. Pentacel D4 at 15-18m where IPV D4 is correctly given as part of the routine 4-dose series).
+
+### Test count
+2,095 passing (148 files) after all changes.
