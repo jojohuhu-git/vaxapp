@@ -220,6 +220,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .fch-rb{background:var(--plt);color:var(--p);border:1px solid var(--pmd);}
 .fch-inv{background:var(--rlt);color:var(--r);border:1px solid var(--rmd);text-decoration:line-through;}
 .fch-exp{background:#F2F2F4;color:#9A9AA0;border:1px solid var(--gy5);text-decoration:line-through;font-style:italic;}
+.fch-notyet{background:#F2F2F4;color:#9A9AA0;border:1px solid var(--gy5);font-style:italic;}
 .fch-proj{background:#F3EEFB;color:#6E4BAE;border:1px solid #D6BCE3;font-weight:600;}
 .fch-na{color:var(--gy4);}
 /* Clickable chip with popover */

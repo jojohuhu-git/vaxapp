@@ -5,6 +5,7 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { FORECAST_VISITS } from '../data/forecastData';
 import { VAX_META, COMBO_COVERS, VAX_KEYS } from '../data/vaccineData';
+import { MIN_INT } from '../data/scheduleRules';
 import { genRecs } from '../logic/recommendations';
 import { orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly } from '../logic/forecastLogic';
 import { dc } from '../logic/stateHelpers';
@@ -43,6 +44,19 @@ const COMBO_RATIONALE = {
   Penmenvy:  'Covers MenACWY + MenB-4C (GSK) in one injection. Both antigens must be due at the same visit. MenB component is 4C — interchangeable with Bexsero, NOT Trumenba or Penbraya.',
   Twinrix:   'Covers HepA + HepB in one injection. Adults ≥18y only. 3-dose series (0, 1, 6 months).',
 };
+
+// Human-readable minimum-age label for a vaccine. Reads MIN_INT[vk].minD (days).
+// Used to label columns that the patient is too young for (vs truly expired).
+function minAgeLabelForVk(vk) {
+  const minD = MIN_INT[vk]?.minD;
+  if (minD == null || minD <= 30) return null; // no meaningful "not yet" threshold
+  const minM = minD / 30.4375;
+  if (minM < 12) return `≥${Math.round(minM)} months`;
+  const years = minM / 12;
+  // Whole-year thresholds (2y, 7y, 9y, 10y) display cleanly without decimals.
+  if (Math.abs(years - Math.round(years)) < 0.1) return `≥${Math.round(years)} years`;
+  return `≥${years.toFixed(1)} years`;
+}
 
 // Full-word age formatter: 2 → "2 months", 14 → "1 year 2 months", 84 → "7 years".
 // Used by today's visit header and moved-dose age chips.
@@ -624,9 +638,15 @@ export default function ForecastTab({ recs }) {
   FORECAST_VISITS.forEach(v => v.std.forEach(vk => vkSet.add(vk)));
   const allVks = VAX_KEYS.filter(vk => vkSet.has(vk));
 
-  // Partition: a vk is "expired" if no current rec AND no future dosePlan entry.
-  // These columns are pushed to the end and hidden by default.
-  const expiredVks = allVks.filter(vk => {
+  // Partition non-active vks into two buckets:
+  //   - notYetEligibleVks: patient hasn't reached the vaccine's minimum age yet
+  //     (e.g. 5m patient + PPSV23 minD=730 [2y], Tdap minD=2555 [7y], COVID minD=182 [6m]).
+  //   - expiredVks: window has closed for this patient (e.g. RV at 5m with 0 doses —
+  //     D1 max age is 14w6d) OR series is complete and the column is no longer relevant.
+  // Both are pushed to the end and hidden by default, but the legend labels them
+  // separately so clinicians don't think a vaccine is "expired" when the patient
+  // is simply too young.
+  const inactiveVks = allVks.filter(vk => {
     if (currentRecMap[vk]) return false; // still due today
     return !Object.keys(dosePlan).some(k => {
       if (!k.endsWith(`_${vk}`)) return false;
@@ -635,7 +655,14 @@ export default function ForecastTab({ recs }) {
       return age > am;
     });
   });
-  const activeVks = allVks.filter(vk => !expiredVks.includes(vk));
+  const notYetEligibleVks = inactiveVks.filter(vk => {
+    const minD = MIN_INT[vk]?.minD;
+    if (minD == null || minD <= 30) return false;
+    return am < minD / 30.4375;
+  });
+  const expiredVks = inactiveVks.filter(vk => !notYetEligibleVks.includes(vk));
+  const hiddenVks = [...expiredVks, ...notYetEligibleVks];
+  const activeVks = allVks.filter(vk => !hiddenVks.includes(vk));
   const displayVks = showExpired ? allVks : activeVks;
 
   // Precompute PDF rows from the already-computed visits + dosePlan.
@@ -959,18 +986,30 @@ export default function ForecastTab({ recs }) {
       <div style={{ fontSize: 10, color: 'var(--gy4)', marginBottom: 6 }}>
         <span style={{ color: 'var(--g)', fontWeight: 600 }}>■</span> done&ensp;
         <span style={{ color: 'var(--a)', fontWeight: 600 }}>■</span> catch-up&ensp;
-        <span style={{ color: 'var(--gy4)', fontWeight: 600, textDecoration: 'line-through' }}>■</span> expired&ensp;
+        <span style={{ color: 'var(--gy4)', fontWeight: 600, textDecoration: 'line-through' }}>■</span> past window&ensp;
+        <span style={{ color: 'var(--gy4)', fontWeight: 600, fontStyle: 'italic' }}>■</span> not yet eligible&ensp;
         <span style={{ color: '#5b3a9e', fontWeight: 600 }}>■</span> projected.&ensp;
         Click a cell for clinical notes.
-        {expiredVks.length > 0 && (
+        {hiddenVks.length > 0 && (
           <span style={{ marginLeft: 10 }}>
             <button
               onClick={() => setShowExpired(v => !v)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, color: 'var(--gy3)', textDecoration: 'underline', textDecorationStyle: 'dotted', padding: 0 }}
             >
-              {showExpired
-                ? `▴ Hide ${expiredVks.length} expired vaccine${expiredVks.length !== 1 ? 's' : ''}`
-                : `▸ ${expiredVks.length} expired vaccine${expiredVks.length !== 1 ? 's' : ''} (${expiredVks.map(vk => VAX_META[vk]?.ab || vk).join(', ')})`}
+              {showExpired ? (
+                `▴ Hide ${hiddenVks.length} hidden vaccine${hiddenVks.length !== 1 ? 's' : ''}`
+              ) : (
+                <>
+                  ▸{' '}
+                  {expiredVks.length > 0 && (
+                    <>{expiredVks.length} past window ({expiredVks.map(vk => VAX_META[vk]?.ab || vk).join(', ')})</>
+                  )}
+                  {expiredVks.length > 0 && notYetEligibleVks.length > 0 && ' · '}
+                  {notYetEligibleVks.length > 0 && (
+                    <>{notYetEligibleVks.length} not yet eligible ({notYetEligibleVks.map(vk => `${VAX_META[vk]?.ab || vk} ${minAgeLabelForVk(vk)}`).join(', ')})</>
+                  )}
+                </>
+              )}
             </button>
           </span>
         )}
@@ -980,11 +1019,24 @@ export default function ForecastTab({ recs }) {
           <thead>
             <tr>
               <th className="vlbl-th">Visit</th>
-              {displayVks.map(vk => (
-                <th key={vk} className="vcol" style={{ color: expiredVks.includes(vk) ? 'var(--gy4)' : VAX_META[vk]?.c, textDecoration: expiredVks.includes(vk) ? 'line-through' : undefined }}>
-                  {VAX_META[vk]?.ab || vk}
-                </th>
-              ))}
+              {displayVks.map(vk => {
+                const isExp = expiredVks.includes(vk);
+                const isNotYet = notYetEligibleVks.includes(vk);
+                return (
+                  <th
+                    key={vk}
+                    className="vcol"
+                    title={isNotYet ? `Patient not yet eligible (${minAgeLabelForVk(vk)})` : undefined}
+                    style={{
+                      color: (isExp || isNotYet) ? 'var(--gy4)' : VAX_META[vk]?.c,
+                      textDecoration: isExp ? 'line-through' : undefined,
+                      fontStyle: isNotYet ? 'italic' : undefined,
+                    }}
+                  >
+                    {VAX_META[vk]?.ab || vk}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -1298,6 +1350,9 @@ export default function ForecastTab({ recs }) {
                     let chipText = fmtDose(doseNum);
                     let dateLabel = "";
 
+                    // "Not yet eligible" — patient hasn't reached the vaccine's
+                    // minimum age. Distinct from "Expired" (window closed).
+                    const isNotYet = notYetEligibleVks.includes(vk);
                     if (isPast && rec) {
                       if (dosesGivenHere > 0) {
                         // A countable dose was administered at this visit — show it as done
@@ -1309,6 +1364,9 @@ export default function ForecastTab({ recs }) {
                       } else if (given > 0) {
                         chipClass = "fch fch-done";
                         chipText = `${fmtDose(Math.min(doseNum, given))} done`;
+                      } else if (isNotYet) {
+                        chipClass = "fch fch-notyet";
+                        chipText = `Not yet (${minAgeLabelForVk(vk)})`;
                       } else {
                         chipClass = "fch fch-exp";
                         chipText = `Expired`;
@@ -1317,6 +1375,9 @@ export default function ForecastTab({ recs }) {
                       if (given > 0) {
                         chipClass = "fch fch-done";
                         chipText = `${fmtDose(Math.min(doseNum, given))} done`;
+                      } else if (isNotYet) {
+                        chipClass = "fch fch-notyet";
+                        chipText = `Not yet (${minAgeLabelForVk(vk)})`;
                       } else if (!currentRecMap[vk] && isStd) {
                         chipClass = "fch fch-exp";
                         chipText = "Expired";
