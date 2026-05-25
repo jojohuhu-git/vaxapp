@@ -114,9 +114,15 @@ describe('buildRegimens — no ineligible combo appears in optimal regimen', () 
     }
   });
 
-  // Scenario: IPV D4 at 54m — Pentacel must NOT appear
-  it('IPV D4 at 54m: Pentacel excluded from regimen', () => {
-    const hist = { IPV: [{given:true},{given:true},{given:true}] };
+  // Scenario: 4-6y booster visit (DTaP D5 + IPV D4 co-due) — Pentacel must NOT appear.
+  // Pentacel's IPV gate is [1,4] per ACIP, but DTaP D5 co-due blocks via DTaP [1,4]
+  // multi-antigen check. CLINICAL SAFETY: Pentacel must never appear at the 4-6y
+  // booster — use Kinrix or Quadracel.
+  it('4-6y booster (DTaP D5 + IPV D4 co-due): Pentacel excluded from regimen', () => {
+    const hist = {
+      DTaP: [{given:true},{given:true},{given:true},{given:true}],
+      IPV:  [{given:true},{given:true},{given:true}],
+    };
     const recs = genRecs(54, hist, [], null, {});
     const regs = buildRegimens(recs, 54);
     for (const reg of regs) {
@@ -193,9 +199,14 @@ describe('comboFitsDose — CLAUDE.md hard gates', () => {
     expect(comboFitsDose('Pentacel', 'DTaP', 5)).toBe(false);
   });
 
-  // Pentacel IPV blocked at D4+
-  it('Pentacel + IPV: blocked at D4', () => {
-    expect(comboFitsDose('Pentacel', 'IPV', 4)).toBe(false);
+  // Pentacel IPV allowed through D4 per ACIP (4-dose Pentacel series at 2/4/6/15-18m).
+  // The 4-6y booster blocking happens at the multi-antigen layer via DTaP [1,4], not
+  // here. Pentacel IPV blocked at D5.
+  it('Pentacel + IPV: allowed at D4 (4-dose series per ACIP)', () => {
+    expect(comboFitsDose('Pentacel', 'IPV', 4)).toBe(true);
+  });
+  it('Pentacel + IPV: blocked at D5', () => {
+    expect(comboFitsDose('Pentacel', 'IPV', 5)).toBe(false);
   });
 
   // Pentacel Hib allowed at D4 (booster — PRP-T series includes booster)

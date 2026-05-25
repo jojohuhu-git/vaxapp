@@ -15,8 +15,10 @@
 //
 //   Vaxelis   DTaP/IPV/Hib/HepB doses 1–3 only (PRP-OMP 3-dose series; NOT booster)
 //   Pediarix  DTaP/HepB/IPV doses 1–3 only
-//   Pentacel  DTaP doses 1–4; IPV doses 1–3 (D4 IPV must use Kinrix/Quadracel);
-//             Hib doses 1–4 (PRP-T 4-dose series including booster)
+//   Pentacel  DTaP/IPV/Hib doses 1–4 (4-dose series at 2/4/6/15–18m per ACIP/immunize.org);
+//             NOT for DTaP D5 / IPV final booster at 4–6y — multi-antigen check blocks
+//             Pentacel there via DTaP [1,4] since DTaP D5 is co-due.
+//             Hib component is PRP-T (4-dose series including booster).
 //   Kinrix/Quadracel  DTaP D5 ONLY + IPV D4 ONLY (4–6y booster visit)
 //   ProQuad   MMR/VAR doses 1–2 (12m–12y)
 //   Penbraya/Penmenvy  MenACWY/MenB doses 1–2 (≥10y through 25y)
@@ -24,7 +26,7 @@
 export const COMBO_DOSE_GATES = {
   Vaxelis:   { DTaP: [1, 3], IPV: [1, 3], Hib: [1, 3], HepB: [1, 3] },
   Pediarix:  { DTaP: [1, 3], HepB: [1, 3], IPV: [1, 3] },
-  Pentacel:  { DTaP: [1, 4], IPV: [1, 3], Hib: [1, 4] },
+  Pentacel:  { DTaP: [1, 4], IPV: [1, 4], Hib: [1, 4] },
   Kinrix:    { DTaP: [5, 5], IPV: [4, 4] },
   Quadracel: { DTaP: [5, 5], IPV: [4, 4] },
   ProQuad:   { MMR: [1, 2], VAR: [1, 2] },

@@ -54,9 +54,13 @@ describe('IPV — forecast brand gates at D4 (Surface 3)', () => {
     expect(labels).not.toMatch(/Vaxelis/);
   });
 
-  // CLAUDE.md: Pentacel blocked at IPV D4 (must use Kinrix/Quadracel for the 4-6y pairing)
-  it('S3: IPV D4 forecast brands do NOT include Pentacel', () => {
-    const brands = forecastBrands('IPV', 4, 48, ['IPV', 'DTaP', 'Hib'], [], '');
+  // CLAUDE.md: Pentacel blocked at IPV D4 when DTaP D5 is co-due (multi-antigen
+  // check blocks via DTaP [1,4]). At the 4-6y booster visit, DTaP D5 is always
+  // co-due, so Pentacel never appears. Note: Pentacel's IPV gate is [1,4] per
+  // ACIP — D4 IPV alone is permitted (15-18m Pentacel D4 visit). It's the DTaP
+  // D5 co-due requirement that blocks Pentacel at 4-6y.
+  it('S3: IPV D4 forecast brands do NOT include Pentacel when DTaP D5 co-due', () => {
+    const brands = forecastBrands('IPV', 4, 48, ['IPV', 'DTaP', 'Hib'], [], '', { DTaP: 5, IPV: 4 });
     const labels = brands.join(' ');
     expect(labels).not.toMatch(/Pentacel/);
   });

@@ -22,7 +22,7 @@ Start at the beginning of every session:
 
 ## What the app is
 Client-side React SPA. No backend. State serialized to URL `?s=` parameter.
-Tech: React 18 + Vite + Vitest + @react-pdf/renderer. Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,094 passing (148 files)**.
+Tech: React 18 + Vite + Vitest + @react-pdf/renderer. Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,095 passing (148 files)**.
 
 ## Tab structure
 ```
@@ -66,7 +66,12 @@ Direction B — "Modern Minimal":
 
 **ACIP rule**: prefer same product; do not defer if unavailable; 3 doses if any RotaTeq or brand unknown; 2 doses only if all confirmed Rotarix.
 
-### Session 2026-05-24 (UI clutter reduction — most recent)
+### Session 2026-05-24 (Pentacel IPV gate — most recent)
+**Pentacel IPV gate corrected**: `COMBO_DOSE_GATES.Pentacel.IPV` was `[1, 3]` as a workaround. Per ACIP/immunize.org, Pentacel is a 4-dose series at 2/4/6/15–18m and every dose contains IPV — gate is now `[1, 4]`. The BrandConstraintsPanel chip used to contradict the desc text ("IPV (doses 1–4)" vs "IPV: Doses 1–3").
+
+At the 4-6y booster visit, Pentacel is still correctly blocked — via the multi-antigen check (DTaP D5 co-due → DTaP [1,4] fails), not via the IPV gate. 5 tests rewritten to test this real behavior instead of the workaround. CLAUDE.md updated (combo table, footnote, hard constraints, COMBO_DOSE_GATES section).
+
+### Session 2026-05-24 (UI clutter reduction)
 1. **Popover UX** (`ForecastTab.jsx`) — `OptWhyPopover` and `CellPopover` now have × button + click-outside backdrop + Escape. Three dismiss paths on every popover.
 2. **BrandConstraintsPanel rewrite** — context-aware: only shows constraints relevant to current patient age and history. MenB lock, RV advisory, combo gates, brand notes — all filtered by relevance.
 3. **"Catch-up Schedule ↗"** — tab renamed from "Clinical Aids ↗"; modal now only contains CDC catch-up schedule.
