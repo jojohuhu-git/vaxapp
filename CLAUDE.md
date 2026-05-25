@@ -934,7 +934,19 @@ All 2,088 existing tests pass.
 
 **Tdap 7–10y unvaccinated note** (`recommendations.js` line 377): updated to spell out the 3-dose catch-up schedule + 11–12y routine booster, and to clarify that doses 2 and 3 can be Td OR Tdap. Text-only change — the engine's dose-count math (`dosePlan.js getTotalDoses("Tdap")` returns 4 for `am >= 84 && am < 120 && totalTet < 3`) and the dose-2/3 follow-up rec branch (line 380, 28d / 180d minInt) are unchanged.
 
-**Header logo** (`Header.jsx`): the placeholder `.logo-ico` div now contains `<img src={\`${import.meta.env.BASE_URL}vite.svg\`} alt="" />`. Always prefix public assets with `import.meta.env.BASE_URL` — `vite.config.js` sets `base: '/vaxapp/'` and hardcoded `/vite.svg` 404s on GH Pages. If swapping in a custom logo, drop the SVG in `public/` and reference it the same way.
+**Header logo** (`Header.jsx`): references `public/pedivax-logo.svg` via `import.meta.env.BASE_URL`. Always prefix public assets with `import.meta.env.BASE_URL` — `vite.config.js` sets `base: '/vaxapp/'` and hardcoded paths 404 on GH Pages.
+
+**Logo design (locked — do not redesign without explicit instruction)**:
+- File: `public/pedivax-logo.svg` — viewBox `0 0 28 30`
+- **Two botanical leaves** fanning out upper-left and upper-right from a center stem (fill `#F0FBF5`, stroke `#7DC48A`/`#5AAD70`)
+- **Amber heraldic shield** below (fill `#FFF8EC`, stroke `#F0B558`), pointed at the bottom
+- **Minimal 4-element syringe** centered inside the shield, all in amber `#D4915A`:
+  - Needle: `<line>` from y=19.5 to y=21
+  - Barrel: `<rect x="12.5" y="21" width="3" height="4.5" rx="1.2" fill="none" stroke="#D4915A" stroke-width="1"/>`
+  - Plunger rod: `<line>` from y=25.5 to y=27
+  - T-handle: `<line x1="12" y1="27" x2="16" y2="27">`
+- Preview page retained at `public/logo-preview.html` (shows options A/B/C for reference)
+- **Do NOT** use the old leaf-with-syringe-veins design (pedivax-logo.svg before 2026-05-25) — it was rejected
 
 **Patient summary bar UX** (`App.jsx`): the entire bar is `role="button"` clickable (not just the "Edit ▾" affordance). `fmtAm()` returns full words ("7 years", "4 years 6 months", "14 months", "Birth"). The drawer has a "Done" pill button next to the × at the top right; backdrop click / Escape / × all close. State updates are live during edits — Done is just an explicit close action, not a commit step. If a future ask demands staged edits, that requires a draft-state buffer at the drawer level (significant change).
 
@@ -1326,3 +1338,32 @@ New class `.fch-notyet` mirrors `.fch-exp` minus the line-through:
 
 ### Test count
 2,095 passing (148 files) — text/styling only, no engine changes.
+
+---
+
+## Changes shipped (2026-05-25) — UX Tiers 5 + 6
+
+### Tier 5 — DosePill click-to-expand detail popover
+**`src/components/DosePill.jsx`**:
+- Clicking the pill (`.dpill`) opens a `DoseDetailPopover` portal (`createPortal` to `document.body`) with date, brand, and validation status. Clicking × does NOT open the popover.
+- `DoseDetailPopover` has `data-testid="dose-detail-popover"` for test isolation.
+- Popover shows: vaccine name + dose number, date, brand (if any), validation result (Valid / Invalid + reason).
+- Three dismiss paths: second click on pill, Escape key, × button inside popover.
+- Validation calls `validateDose(vk, index, dose, prevDose, dob)` from `src/logic/validation.js`.
+
+**`src/components/VisitEntry.jsx`**:
+- Undo strip chips now expand on click to reveal per-vaccine brand detail inline.
+- `expandedVisitId` state tracks which chip is expanded; click on header toggles.
+
+**Regression tests**: `src/components/__tests__/DosePill.expansion.test.jsx` — 5 tests covering open, × non-open, Invalid badge, Escape close, double-click toggle.
+
+### Tier 6 — Header subtitle + logo
+**`src/App.css`**: `.logo p` subtitle hidden at `≤768px`:
+```css
+@media(max-width:768px){.logo p{display:none;}}
+```
+
+**`public/pedivax-logo.svg`**: Final logo — Option C with minimal syringe (see "Logo design" section in Design tokens above).
+
+### Test count
+2,110 passing (150 files).

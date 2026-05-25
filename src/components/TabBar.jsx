@@ -2,9 +2,10 @@
 import { useApp } from '../context/AppContext';
 
 const TABS = [
-  { id: "recs",     label: "Recommendations" },
-  { id: "plan",     label: "Plan" },
-  { id: "forecast", label: "Forecast" },
+  { id: "recs",        label: "Recommendations" },
+  { id: "plan",        label: "Compare Regimens" },
+  { id: "constraints", label: "Brand Rules" },
+  { id: "forecast",    label: "Immunization Schedule" },
 ];
 
 export default function TabBar({ onReference }) {

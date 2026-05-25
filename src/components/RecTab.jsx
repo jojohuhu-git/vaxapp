@@ -8,11 +8,11 @@ import RecCard from './RecCard';
 
 const STATUS_ORDER = ["due", "catchup", "risk-based", "recommended"];
 const FILTERS = [
-  { id: "all",         label: "All",                      activeBg: "var(--gy5)",  activeColor: "var(--gy2)" },
-  { id: "due",         label: "Due",                      activeBg: "var(--glt)",  activeColor: "var(--g)" },
-  { id: "catchup",     label: "Catch-up",                 activeBg: "var(--alt)",  activeColor: "var(--a)" },
-  { id: "risk-based",  label: "Risk-Based",               activeBg: "var(--rlt)",  activeColor: "var(--r)" },
-  { id: "recommended", label: "Shared decision",  activeBg: "var(--blt)",  activeColor: "var(--b)" },
+  { id: "all",         label: "All",             activeBg: "var(--gy5)",  activeColor: "var(--gy2)" },
+  { id: "due",         label: "Due",             activeBg: "var(--glt)",  activeColor: "var(--g)" },
+  { id: "catchup",     label: "Catch-up",        activeBg: "var(--alt)",  activeColor: "var(--a)" },
+  { id: "risk-based",  label: "Risk-based",      activeBg: "var(--rlt)",  activeColor: "var(--r)" },
+  { id: "recommended", label: "Shared decision", activeBg: "var(--blt)",  activeColor: "var(--b)" },
 ];
 
 // Short visible label — drops the "(covers …)" suffix; the antigen list still
@@ -24,13 +24,13 @@ function shortBrandLabel(bo) {
 }
 
 // Grouped brand dropdown: combination vaccines in one optgroup, standalones in another.
-function BrandSelect({ bOpts, value, onChange, className }) {
+function BrandSelect({ bOpts, value, onChange, className, placeholder }) {
   const combos = bOpts.filter(bo => bo.antigenCount > 1);
   const standalones = bOpts.filter(bo => bo.antigenCount <= 1);
   const hasGroups = combos.length > 0 && standalones.length > 0;
   return (
     <select value={value} onChange={onChange} className={className || 'rec-brand-sel'}>
-      <option value="">Brand…</option>
+      <option value="">{placeholder || 'Brand…'}</option>
       {hasGroups ? (
         <>
           <optgroup label="— Combination Vaccines —">
@@ -94,12 +94,12 @@ function RecBrandDropdown({ rec, am, state, dispatch, allDueVks, doseNumByVk }) 
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--gy5)' }}>
-      <span style={{ fontSize: 11, color: 'var(--gy3)', flexShrink: 0 }}>Brand for today:</span>
       <BrandSelect
         bOpts={bOpts}
         value={displayBrand}
         onChange={handleChange}
         className={`rec-brand-sel${coveredByCombo && displayBrand ? ' rec-brand-sel-combo' : ''}`}
+        placeholder="Choose brand for today's dose…"
       />
       {coversText && (
         <span
@@ -188,7 +188,7 @@ export default function RecTab({ recs }) {
               key={f.id}
               className={`ftab${highlighted ? " on" : ""}`}
               style={{
-                fontSize: 11, padding: "4px 11px",
+                fontSize: 12, padding: "7px 12px",
                 borderRadius: "var(--rads)", border: "1px solid",
                 fontWeight: highlighted ? 700 : 500,
                 background: highlighted ? f.activeBg : "var(--wh)",

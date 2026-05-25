@@ -191,7 +191,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // only conjugate doses, preventing PPSV23 from masking an incomplete PCV series.
   const pcv = dc(hist, "PCV");
   const ppsv23 = dc(hist, "PPSV23");
-  const isHighRiskPCV = risks.some(x => ["asplenia", "hiv", "immunocomp", "cochlear", "chronic_heart", "chronic_lung", "chronic_kidney", "diabetes", "chronic_liver"].includes(x));
+  const isHighRiskPCV = risks.some(x => ["asplenia", "sickle_cell", "hiv", "immunocomp", "cochlear", "chronic_heart", "chronic_lung", "chronic_kidney", "diabetes", "chronic_liver"].includes(x));
   // PCV20 = series complete after 1 dose (no PPSV23 needed). PCV15/PCV13 require PPSV23 follow-up.
   const usedPCV20 = (hist.PCV || []).some(d => d.given && d.brand?.startsWith("Prevnar 20"));
   // Adults ≥19y (228m) need only 1 PCV dose; children need the full 4-dose primary+booster series.
@@ -257,7 +257,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
           refUrl2: REFS.PPSV23.url, refLabel2: REFS.PPSV23.label });
     }
     // Dose 2: asplenia, immunocompromise, or HIV only — min 5 years after dose 1
-    if (ppsv23 === 1 && risks.some(x => ["asplenia", "immunocomp", "hiv"].includes(x))) {
+    if (ppsv23 === 1 && risks.some(x => ["asplenia", "sickle_cell", "immunocomp", "hiv"].includes(x))) {
       r("PPSV23", "PPSV23 \u2014 dose 2 (asplenia/immunocomp, \u22655 years after dose 1)", 2, "risk-based",
         "Second PPSV23 dose for asplenia (functional or anatomic) or immunocompromise: min 5 years after the first PPSV23 dose. Revaccinate every 5 years as long as high-risk status persists.",
         ["Pneumovax 23 (PPSV23)"],
@@ -464,7 +464,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ── MenACWY ───────────────────────────────────────────────────
   const men = dc(hist, "MenACWY"); const menb = dc(hist, "MenB");
   // Infant high-risk MenACWY: asplenia, complement deficiency, HIV — Menveo only ≥2m
-  const isHighRiskMen = risks.some(x => ["asplenia", "complement", "hiv"].includes(x));
+  const isHighRiskMen = risks.some(x => ["asplenia", "sickle_cell", "complement", "hiv"].includes(x));
   if (isHighRiskMen && am >= 2 && am < 7 && men < 3) {
     // 4-dose primary series at 2, 4, 6 months for highest-risk infants
     r("MenACWY", `Dose ${men + 1} of 3 (infant high-risk, primary series)`, men + 1, "risk-based",

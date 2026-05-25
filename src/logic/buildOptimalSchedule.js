@@ -25,9 +25,9 @@ function resolveBrand(vk, fcBrands, hist) {
 // ── Series total-dose count ───────────────────────────────────────
 // Returns { totalDoses }, { status:'NEEDS_HUMAN_REVIEW', rule }, or null (not indicated).
 function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
-  const isHRPCV = risks.some(r => ['asplenia', 'hiv', 'immunocomp', 'cochlear', 'chronic_heart',
+  const isHRPCV = risks.some(r => ['asplenia', 'sickle_cell', 'hiv', 'immunocomp', 'cochlear', 'chronic_heart',
     'chronic_lung', 'chronic_kidney', 'diabetes', 'chronic_liver'].includes(r));
-  const isHRMen = risks.some(r => ['asplenia', 'complement', 'hiv'].includes(r));
+  const isHRMen = risks.some(r => ['asplenia', 'sickle_cell', 'complement', 'hiv'].includes(r));
   const hr      = isHRPCV || isHRMen;
 
   switch (vk) {
@@ -98,7 +98,7 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
         (hist.PCV || []).some(x => x.given && x.brand?.startsWith('Prevnar 20')) ||
         Object.entries(fcBrands).some(([k, b]) => k.endsWith('_PCV') && b.startsWith('Prevnar 20'));
       if (pcv20) return null;
-      return { totalDoses: risks.some(r => ['asplenia', 'immunocomp', 'hiv'].includes(r)) ? 2 : 1 };
+      return { totalDoses: risks.some(r => ['asplenia', 'sickle_cell', 'immunocomp', 'hiv'].includes(r)) ? 2 : 1 };
     }
 
     case 'IPV':

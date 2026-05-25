@@ -1,4 +1,4 @@
-# PediVax — Handoff for New Conversation (2026-05-24)
+# PediVax — Handoff for New Conversation (2026-05-25)
 
 ## Live app
 https://jojohuhu-git.github.io/vaxapp/
@@ -22,7 +22,7 @@ Start at the beginning of every session:
 
 ## What the app is
 Client-side React SPA. No backend. State serialized to URL `?s=` parameter.
-Tech: React 18 + Vite + Vitest + @react-pdf/renderer. Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,095 passing (148 files)**.
+Tech: React 18 + Vite + Vitest + @react-pdf/renderer. Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,110 passing (150 files)**.
 
 ## Tab structure
 ```
@@ -44,6 +44,19 @@ Direction B — "Modern Minimal":
 - No redundant antigen lists — combo name + Why? button are the only surfaces for combo info
 
 ## Key recent changes (last three sessions)
+
+### Session 2026-05-25 (UX improvements — Tiers 5 + 6)
+
+**Tier 5 — Past-visit history expansion bug fix**
+- `DosePill.jsx`: clicking a dose pill (`.dpill`) now opens a `DoseDetailPopover` portal (`data-testid="dose-detail-popover"`) with date, brand, and validation status. Clicking × does not open the popover. Escape or second click closes.
+- `VisitEntry.jsx`: undo strip chips now expand on click to reveal per-vaccine brand detail inline.
+- 5 regression tests: `src/components/__tests__/DosePill.expansion.test.jsx`
+
+**Tier 6 — Header + logo**
+- `.logo p` subtitle hides at `≤768px` via `@media(max-width:768px){.logo p{display:none;}}` in `App.css`.
+- Final logo: `public/pedivax-logo.svg` — Option C design: two light green botanical leaves fanning out above an amber heraldic shield; inside the shield, a 4-element minimal vector syringe (needle line + barrel rect + plunger rod + T-handle) in amber (#D4915A). Color palette: leaf green #7DC48A / #5AAD70, shield amber #F0B558 / #D4915A, leaf fill #F0FBF5.
+- Logo preview page retained at `public/logo-preview.html` (options A/B/C) for reference.
+- Test count: **2,110 passing (150 files)**.
 
 ### Session 2026-05-23
 1. **Forecast view toggle** — Routine / Fewest Injections (Earliest Completion removed as redundant)

@@ -23,7 +23,7 @@ export const anyBrand = (hist, vk) => {
 // both inherited deficiency and acquired (eculizumab/ravulizumab) — merged into
 // the single `complement` key. Microbiologist with N. meningitidis exposure also
 // qualifies per CDC ACIP recommendations.
-export const highRisk = (risks) => risks.some(r => ["asplenia", "hiv", "immunocomp", "hsct", "complement", "microbiologist"].includes(r));
+export const highRisk = (risks) => risks.some(r => ["asplenia", "sickle_cell", "hiv", "immunocomp", "hsct", "complement", "microbiologist"].includes(r));
 
 /** Grace period constant (days). */
 export const GRACE = 4;

@@ -15,7 +15,7 @@ export default function Header({ onShare }) {
       <div className="hdr-in">
         <div className="logo">
           <div className="logo-ico">
-            <img src={`${import.meta.env.BASE_URL}vite.svg`} alt="" />
+            <img src={`${import.meta.env.BASE_URL}pedivax-logo.svg`} alt="" />
           </div>
           <div>
             <h1>PediVax</h1>

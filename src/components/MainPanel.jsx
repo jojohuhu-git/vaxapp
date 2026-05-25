@@ -8,6 +8,7 @@ import RecTab from './RecTab';
 import PlanTab from './PlanTab';
 import ForecastTab from './ForecastTab';
 import CatchUpTab from './CatchUpTab';
+import BrandConstraintsPanel from './BrandConstraintsPanel';
 function ReferenceModal({ onClose }) {
   return (
     <div
@@ -104,6 +105,7 @@ export default function MainPanel() {
 
         {state.tab === "recs" && <RecTab recs={recs} />}
         {state.tab === "plan" && <PlanTab recs={recs} />}
+        {state.tab === "constraints" && <BrandConstraintsPanel recs={recs} />}
         {state.tab === "forecast" && <ForecastTab recs={recs} />}
       </div>
     </>

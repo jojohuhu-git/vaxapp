@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" fill="none">
+  <!-- Central stem, gently curved -->
+  <path d="M14 2 C14 2 13.5 12 14 22" stroke="#D4915A" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Leaf 1 — top, right side -->
+  <path d="M14 5.5 C16 3.5 20.5 4 20 8 C19.5 10 17 10.5 14 9"
+        fill="#E6F7F4" stroke="#5CB8A8" stroke-width="1.3" stroke-linejoin="round"/>
+  <line x1="14" y1="5.5" x2="18.5" y2="9" stroke="#3D9E8E" stroke-width="0.85" stroke-linecap="round"/>
+  <!-- Leaf 2 — middle, left side -->
+  <path d="M14 11.5 C12 9.5 7.5 10 8 14 C8.5 16 11 16.5 14 15"
+        fill="#E6F7F4" stroke="#5CB8A8" stroke-width="1.3" stroke-linejoin="round"/>
+  <line x1="14" y1="11.5" x2="9.5" y2="15" stroke="#3D9E8E" stroke-width="0.85" stroke-linecap="round"/>
+  <!-- Leaf 3 — lower, right side -->
+  <path d="M14 17 C16 15 20.5 15.5 20 19.5 C19.5 21.5 17 22 14 20.5"
+        fill="#E6F7F4" stroke="#5CB8A8" stroke-width="1.3" stroke-linejoin="round"/>
+  <line x1="14" y1="17" x2="18.5" y2="20.5" stroke="#3D9E8E" stroke-width="0.85" stroke-linecap="round"/>
+  <!-- Shield badge at stem base -->
+  <path d="M11 22 L17 22 L17 26 C17 27.5 14 28.5 14 28.5 C14 28.5 11 27.5 11 26 Z"
+        fill="#FFF5E4" stroke="#D4915A" stroke-width="1.3" stroke-linejoin="round"/>
+</svg>

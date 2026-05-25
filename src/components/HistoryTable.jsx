@@ -4,7 +4,7 @@ import { VAX_KEYS, VAX_META } from '../data/vaccineData';
 import { sortDosesByDate } from '../logic/utils';
 import DosePill from './DosePill';
 
-const HIGH_RISK_MEN = ["asplenia", "complement", "hiv"];
+const HIGH_RISK_MEN = ["asplenia", "sickle_cell", "complement", "hiv"];
 
 export default function HistoryTable() {
   const { state } = useApp();

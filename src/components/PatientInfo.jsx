@@ -3,37 +3,51 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import DateField from './DateField';
 
-// Build a complete age option list: every month 0–23, then yearly through 25y,
-// then common adult ages up to 50y (for HPV 27–45y and other adult recs).
+// Build a complete age option list
 const AGE_OPTIONS = (() => {
   const opts = [{ value: "", label: "Select age..." }];
-  // 0–23 months, every month
   for (let m = 0; m <= 23; m++) {
     opts.push({
       value: String(m),
       label: m === 0 ? "Birth" : m === 12 ? "12 months (1 year)" : `${m} month${m !== 1 ? 's' : ''}`,
     });
   }
-  // 2 years–18 years, every year
   for (let y = 2; y <= 18; y++) {
     const m = y * 12;
     opts.push({ value: String(m), label: `${y} years` });
-    // Insert 4.5y between 4y and 5y
     if (y === 4) opts.push({ value: "54", label: "4.5 years" });
   }
-  // 19–25 years (HPV catch-up through 26y, MenACWY shared decision 19–21y)
   for (let y = 19; y <= 25; y++) {
     opts.push({ value: String(y * 12), label: `${y} years` });
   }
-  // Common adult ages for HPV shared decision (27–45y) and other adult recs
   for (const y of [30, 35, 40, 45, 50]) {
     opts.push({ value: String(y * 12), label: `${y} years` });
   }
   return opts;
 })();
 
-// Strip the leading placeholder option ("Select age...") for the typeahead list
 const SELECTABLE_AGES = AGE_OPTIONS.filter(o => o.value !== '');
+
+/** Parse fractional/plain-text age inputs like "14m", "1y 2m", "6 weeks", "2y". Returns months or null. */
+function parseAgeText(txt) {
+  const s = txt.trim().toLowerCase();
+  if (!s) return null;
+  // Pure number → months
+  if (/^\d+$/.test(s)) return parseInt(s, 10);
+  // Weeks: "6 weeks", "6wks", "6w"
+  const wk = s.match(/^(\d+)\s*(?:week|wk|w)s?$/);
+  if (wk) return Math.round(parseInt(wk[1], 10) * 7 / 30.4375);
+  // Years + months: "1y 2m", "1 year 2 months"
+  const ym = s.match(/^(\d+)\s*y(?:r|ear)?s?\s*(?:(\d+)\s*m(?:o|onth)?s?)?$/);
+  if (ym) return parseInt(ym[1], 10) * 12 + (ym[2] ? parseInt(ym[2], 10) : 0);
+  // Months only: "14m", "14mo", "14 months"
+  const mo = s.match(/^(\d+)\s*m(?:o|onth)?s?$/);
+  if (mo) return parseInt(mo[1], 10);
+  // Years only: "2y", "2 year", "2 years"
+  const yr = s.match(/^(\d+)\s*y(?:r|ear)?s?$/);
+  if (yr) return parseInt(yr[1], 10) * 12;
+  return null;
+}
 
 function AgeTypeahead({ value, onChange }) {
   const labelForValue = (v) =>
@@ -51,7 +65,6 @@ function AgeTypeahead({ value, onChange }) {
     const onDoc = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) {
         setOpen(false);
-        // Revert query to selected label if user typed nonsense
         setQuery(labelForValue(value));
       }
     };
@@ -61,18 +74,14 @@ function AgeTypeahead({ value, onChange }) {
 
   const filtered = (() => {
     const q = query.trim().toLowerCase();
-    // When the query equals the currently selected label, show full list (just opened)
     if (!q || q === labelForValue(value).toLowerCase()) return SELECTABLE_AGES;
-    // Numeric typeahead: "2" matches "2 months", "2 years", "20 months", etc.
     return SELECTABLE_AGES.filter(o => o.label.toLowerCase().includes(q));
   })();
 
-  // Keep activeIdx in range as filter changes
   useEffect(() => {
     if (activeIdx >= filtered.length) setActiveIdx(0);
   }, [filtered.length, activeIdx]);
 
-  // Scroll active option into view
   useEffect(() => {
     if (!open || !listRef.current) return;
     const el = listRef.current.children[activeIdx];
@@ -95,28 +104,63 @@ function AgeTypeahead({ value, onChange }) {
       setActiveIdx(i => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (filtered[activeIdx]) select(filtered[activeIdx]);
+      if (open && filtered[activeIdx]) {
+        select(filtered[activeIdx]);
+      } else {
+        // Try fractional parse on whatever is typed
+        const parsed = parseAgeText(query);
+        if (parsed !== null) {
+          onChange(String(parsed));
+          setQuery(labelForValue(String(parsed)) || `${parsed} months`);
+          setOpen(false);
+        }
+      }
     } else if (e.key === 'Escape') {
       setOpen(false);
       setQuery(labelForValue(value));
     }
   };
 
+  const handleBlur = () => {
+    // On blur try fractional parse before reverting
+    setTimeout(() => {
+      if (wrapRef.current && document.activeElement &&
+          wrapRef.current.contains(document.activeElement)) return;
+      const parsed = parseAgeText(query);
+      if (parsed !== null && String(parsed) !== value) {
+        onChange(String(parsed));
+        setQuery(labelForValue(String(parsed)) || `${parsed} months`);
+      } else {
+        setQuery(labelForValue(value));
+      }
+      setOpen(false);
+    }, 150);
+  };
+
   return (
     <div ref={wrapRef} style={{ position: 'relative', width: '100%' }}>
-      <input
-        id="age-sel"
-        type="text"
-        role="combobox"
-        aria-expanded={open}
-        aria-autocomplete="list"
-        placeholder="Type or pick an age..."
-        value={query}
-        onChange={(e) => { setQuery(e.target.value); setOpen(true); setActiveIdx(0); }}
-        onFocus={() => { setOpen(true); }}
-        onKeyDown={handleKey}
-        style={{ width: '100%', boxSizing: 'border-box' }}
-      />
+      <div style={{ position: 'relative' }}>
+        <input
+          id="age-sel"
+          type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          placeholder="Type age (e.g. 14m, 2y, 6 weeks)…"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); setActiveIdx(0); }}
+          onFocus={() => { setOpen(true); }}
+          onBlur={handleBlur}
+          onKeyDown={handleKey}
+          style={{ width: '100%', boxSizing: 'border-box', paddingRight: 24 }}
+        />
+        <span
+          style={{
+            position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)',
+            pointerEvents: 'none', fontSize: 10, color: 'var(--gy4)',
+          }}
+        >▾</span>
+      </div>
       {open && filtered.length > 0 && (
         <ul
           ref={listRef}
@@ -154,7 +198,7 @@ function AgeTypeahead({ value, onChange }) {
           background: '#fff', border: '1px solid #cfd6df', borderRadius: 4,
           padding: '6px 10px', fontSize: 11, color: '#888',
         }}>
-          No matches. Try “2 months” or “14 years”.
+          No matches. Try &quot;2 months&quot; or &quot;14 years&quot;.
         </div>
       )}
     </div>
@@ -183,14 +227,13 @@ function monthsToDob(months) {
 export default function PatientInfo() {
   const { state, dispatch } = useApp();
 
-  // DOB-derived age label (shown below Age dropdown as a hint when DOB is set)
   const dobMonths = state.dob ? dobToMonths(state.dob) : null;
   const dobHint = (() => {
     if (dobMonths === null) return null;
-    if (state.am < 0) return null; // only show hint if both are set
+    if (state.am < 0) return null;
     const diff = Math.abs(dobMonths - state.am);
     const tolerance = state.am < 24 ? 1 : state.am < 72 ? 3 : state.am < 144 ? 6 : 12;
-    if (diff <= tolerance) return null; // agree — no hint needed
+    if (diff <= tolerance) return null;
     const dobYears = Math.floor(dobMonths / 12);
     const dobRemMonths = dobMonths % 12;
     const dobLabel = dobMonths < 24
@@ -201,6 +244,8 @@ export default function PatientInfo() {
     return `DOB suggests ${dobLabel} — conflict detected.`;
   })();
 
+  const ageOnlyNote = state.am >= 0 && !state.dob;
+
   const showCD4 = state.risks.includes("hiv");
   const cd4IsPercent = state.am >= 0 && state.am < 168;
   const cd4Label = cd4IsPercent ? "CD4% (HIV, ages <14y)" : "CD4 count (cells/µL, HIV, ages ≥14y)";
@@ -209,40 +254,14 @@ export default function PatientInfo() {
 
   return (
     <div>
-      <p style={{ color: '#888', fontSize: '0.82rem', marginBottom: 6, marginTop: 0 }}>
-        Enter the patient&apos;s age or date of birth, then select any applicable risk factors.
-      </p>
+      {/* DOB — primary field, full width */}
       <div className="field">
-        <label htmlFor="age-sel">Age</label>
-        <AgeTypeahead
-          value={state.am < 0 ? '' : String(state.am)}
-          onChange={(v) => {
-            const months = v === '' ? -1 : Number(v);
-            dispatch({ type: 'SET_AGE', payload: months });
-            // Also sync DOB when age is set
-            if (months >= 0) {
-              dispatch({ type: 'SET_DOB', payload: monthsToDob(months) });
-            }
-          }}
-        />
-        {dobHint && (
-          <div style={{
-            marginTop: 4, fontSize: 11, color: "#8B1A1A",
-            background: "#fdf0ef", border: "1px solid #f5b7b1",
-            padding: "3px 7px", borderRadius: 2,
-          }}>
-            ⚠ {dobHint} Resolve in the panel to the right.
-          </div>
-        )}
-      </div>
-      <div className="field">
-        <label htmlFor="dob-inp">Date of Birth (MM/DD/YYYY)</label>
+        <label htmlFor="dob-inp" style={{ fontWeight: 700 }}>Date of birth (MM/DD/YYYY)</label>
         <DateField
           id="dob-inp"
           value={state.dob || ''}
           onChange={(iso) => {
             dispatch({ type: 'SET_DOB', payload: iso });
-            // Also sync age field when DOB is set
             if (iso) {
               const months = dobToMonths(iso);
               if (months !== null) {
@@ -251,9 +270,41 @@ export default function PatientInfo() {
             }
           }}
           ariaLabel="Date of Birth"
-          width={140}
+          width={160}
         />
       </div>
+
+      {/* Age — secondary quick-estimate field */}
+      <div className="field">
+        <label htmlFor="age-sel" style={{ fontSize: 11.5, color: 'var(--gy3)' }}>
+          Age <span style={{ fontWeight: 400 }}>(quick estimate, or if DOB unknown)</span>
+        </label>
+        <AgeTypeahead
+          value={state.am < 0 ? '' : String(state.am)}
+          onChange={(v) => {
+            const months = v === '' ? -1 : Number(v);
+            dispatch({ type: 'SET_AGE', payload: months });
+            if (months >= 0) {
+              dispatch({ type: 'SET_DOB', payload: monthsToDob(months) });
+            }
+          }}
+        />
+        {ageOnlyNote && (
+          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--gy3)', fontStyle: 'italic' }}>
+            Estimated age. Enter date of birth for exact recommendations.
+          </div>
+        )}
+        {dobHint && (
+          <div style={{
+            marginTop: 4, fontSize: 11, color: "#8B1A1A",
+            background: "#fdf0ef", border: "1px solid #f5b7b1",
+            padding: "3px 7px", borderRadius: 2,
+          }}>
+            ⚠ {dobHint}
+          </div>
+        )}
+      </div>
+
       {showCD4 && (
         <div className="field">
           <label htmlFor="cd4-inp">{cd4Label}</label>
