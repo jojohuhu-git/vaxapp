@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+/* eslint-disable react/prop-types */
 //
 // Regression test: DosePill click-to-expand detail popover
 //
@@ -11,8 +12,8 @@
 // with date, brand, and validation status. Escape or clicking × in the
 // popover closes it. The pill itself toggles the popover on repeated clicks.
 
-import { describe, it, expect } from 'vitest';
-import { act, render, fireEvent } from '@testing-library/react';
+import { describe, it, expect, afterEach } from 'vitest';
+import { act, render, fireEvent, cleanup } from '@testing-library/react';
 import { AppProvider } from '../../context/AppContext';
 import DosePill from '../DosePill';
 
@@ -23,7 +24,11 @@ function Wrapper({ children }) {
 // Queries for the portal-rendered popover
 const getPopover = () => document.querySelector('[data-testid="dose-detail-popover"]');
 
+// Queries for the portal-rendered backdrop
+const getBackdrop = () => document.querySelector('[data-testid="dose-detail-backdrop"]');
+
 describe('DosePill — click-to-expand detail', () => {
+  afterEach(() => { cleanup(); });
   it('clicking the pill opens a detail popover with labeled date and brand', () => {
     const { container } = render(
       <Wrapper>
@@ -123,6 +128,56 @@ describe('DosePill — click-to-expand detail', () => {
     expect(getPopover()).not.toBeNull();
 
     act(() => { fireEvent.keyDown(document, { key: 'Escape' }); });
+    expect(getPopover()).toBeNull();
+  });
+
+  it('clicking × actually closes the popover (does not re-open it)', () => {
+    const { container } = render(
+      <Wrapper>
+        <DosePill
+          vk="DTaP"
+          index={0}
+          dispatchIndex={0}
+          dose={{ mode: 'date', date: '2024-03-15', brand: 'Infanrix', given: true }}
+          prevDose={null}
+          dob="2024-01-15"
+          isExtra={false}
+        />
+      </Wrapper>
+    );
+
+    // Open popover
+    act(() => { fireEvent.click(container.querySelector('.dpill')); });
+    expect(getPopover()).not.toBeNull();
+
+    // Click × inside the popover — should close, not re-open
+    const closeBtn = getPopover().querySelector('button[title="Close"]');
+    act(() => { fireEvent.click(closeBtn); });
+    expect(getPopover()).toBeNull();
+  });
+
+  it('clicking the backdrop closes the popover (does not re-open it)', () => {
+    const { container } = render(
+      <Wrapper>
+        <DosePill
+          vk="DTaP"
+          index={0}
+          dispatchIndex={0}
+          dose={{ mode: 'date', date: '2024-03-15', brand: 'Infanrix', given: true }}
+          prevDose={null}
+          dob="2024-01-15"
+          isExtra={false}
+        />
+      </Wrapper>
+    );
+
+    // Open popover
+    act(() => { fireEvent.click(container.querySelector('.dpill')); });
+    expect(getPopover()).not.toBeNull();
+
+    // Click the backdrop (the fixed overlay div behind the popover)
+    const backdrop = getBackdrop();
+    act(() => { fireEvent.click(backdrop); });
     expect(getPopover()).toBeNull();
   });
 

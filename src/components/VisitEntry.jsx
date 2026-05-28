@@ -97,9 +97,11 @@ function orderedChipVaks(ageMonths) {
     return ai - bi;
   });
 
-  // Standalone antigens: all VAX_KEYS sorted alphabetically by display name
+  // Standalone antigens: all VAX_KEYS sorted alphabetically by the visible
+  // chip label (`meta.ab`) — not the long name, so users see IPV under "I",
+  // Flu under "F", RV under "R", etc. (matches what's actually shown).
   const sortedVaks = [...VAX_KEYS].sort((a, b) =>
-    (VAX_META[a]?.n || a).localeCompare(VAX_META[b]?.n || b)
+    (VAX_META[a]?.ab || a).localeCompare(VAX_META[b]?.ab || b)
   );
 
   return { sortedCombos, sortedVaks };
@@ -119,13 +121,14 @@ function brandOptsForVk(vk) {
 // ── Combo hint detection ──────────────────────────────────────────────────────
 // Returns combo name if the selected antigens with unknown brand look like a combo
 function detectComboHint(selectedVks, brandByVk) {
-  for (const [comboName, covers] of Object.entries(COMBO_COVERS)) {
-    const coversSet = new Set(covers);
+  // Iterate largest combo first so DTaP+IPV+Hib+HepB suggests Vaxelis (4 antigens),
+  // not Pediarix (3) which would also match. Same rule used in OCR review.
+  const sorted = Object.entries(COMBO_COVERS).sort((a, b) => b[1].length - a[1].length);
+  for (const [comboName, covers] of sorted) {
     if (covers.every(vk => selectedVks.includes(vk))) {
       const allUnknown = covers.every(vk => !brandByVk[vk]);
       if (allUnknown) return { comboName, covers };
     }
-    coversSet.toString(); // suppress unused warning
   }
   return null;
 }
@@ -217,7 +220,7 @@ export default function VisitEntry() {
   const selectCombo = useCallback((comboName) => {
     const covers = COMBO_COVERS[comboName] || [];
 
-    setActiveComboName(prev => {
+    setActiveComboName(() => {
       // If switching from a previous combo, clear its antigens that weren't independently selected
       // (We'll handle clearing in the state updater below)
       return comboName;
@@ -285,17 +288,18 @@ export default function VisitEntry() {
     selectCombo(comboName);
   }, [selectCombo]);
 
-  // Check for duplicate date
-  function checkDupDate(iso) {
-    if (!iso) return null;
-    const existingVks = [];
-    for (const vk of VAX_KEYS) {
+  // Returns only the vks in selectedVks that already have a dose on the given date.
+  // Cross-antigen entries on the same date are normal (multi-vaccine visit) — never warn.
+  function findDuplicateVks(iso, vksToAdd) {
+    if (!iso || !vksToAdd || vksToAdd.length === 0) return [];
+    const dups = [];
+    for (const vk of vksToAdd) {
       const doses = state.hist[vk] || [];
       if (doses.some(d => d.date === iso)) {
-        existingVks.push(vk);
+        dups.push(vk);
       }
     }
-    return existingVks.length > 0 ? existingVks : null;
+    return dups;
   }
 
   function handleCommit(mergeExisting = false) {
@@ -313,11 +317,11 @@ export default function VisitEntry() {
       return;
     }
 
-    // Check for duplicate date (only when date is available)
+    // Check for duplicate antigen on same date (only when date is available and not already acknowledged)
     if (dateVal && !mergeExisting) {
-      const dupVks = checkDupDate(dateVal);
-      if (dupVks) {
-        setDupHint({ date: dateVal, existingVks: dupVks });
+      const dupVks = findDuplicateVks(dateVal, selectedVks);
+      if (dupVks.length > 0) {
+        setDupHint({ date: dateVal, dupVks });
         return;
       }
     }
@@ -477,9 +481,9 @@ export default function VisitEntry() {
           )}
         </div>
 
-        {/* Row 2: Vaccine selection label */}
+        {/* Row 2: Vaccine selection hint */}
         <div style={{ color: '#999', fontSize: '0.78rem', marginBottom: 6 }}>
-          Select all vaccines given at this visit
+          Select one or more vaccines given at this visit.
         </div>
 
         {/* Combo chips — only shown when visit age is determinable */}
@@ -652,7 +656,7 @@ export default function VisitEntry() {
           </div>
         )}
 
-        {/* Duplicate date hint */}
+        {/* Duplicate antigen warning — only shown when the same antigen is already on this date */}
         {dupHint && (
           <div style={{
             fontSize: 11, padding: '6px 10px', marginBottom: 8,
@@ -661,8 +665,8 @@ export default function VisitEntry() {
           }}>
             <span>
               {fmtDate(dupHint.date)} already has{' '}
-              {dupHint.existingVks.map(vk => VAX_META[vk]?.ab || vk).join(', ')}.
-              Add to that visit?
+              {dupHint.dupVks.map(vk => VAX_META[vk]?.ab || vk).join(', ')}.{' '}
+              Add as duplicate?
             </span>
             <button
               type="button"
@@ -673,18 +677,18 @@ export default function VisitEntry() {
                 color: '#fff', cursor: 'pointer', fontWeight: 600,
               }}
             >
-              Yes, merge
+              Add anyway
             </button>
             <button
               type="button"
-              onClick={() => { setDupHint(null); handleCommit(false); }}
+              onClick={() => setDupHint(null)}
               style={{
                 fontSize: 11, padding: '2px 8px', borderRadius: 'var(--rads)',
                 border: '1px solid var(--gy4)', background: 'var(--wh)',
                 color: 'var(--gy2)', cursor: 'pointer',
               }}
             >
-              No, keep separate
+              Cancel
             </button>
           </div>
         )}
@@ -695,7 +699,16 @@ export default function VisitEntry() {
         )}
 
         {/* Commit button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
+          {selectedVks.length > 0 && (
+            <span style={{
+              fontSize: 11, color: 'var(--gy3)',
+              background: 'var(--gy6)', border: '1px solid var(--gy5)',
+              borderRadius: 'var(--rads)', padding: '2px 8px',
+            }}>
+              {selectedVks.length} vaccine{selectedVks.length !== 1 ? 's' : ''} selected
+            </span>
+          )}
           <button
             type="button"
             onClick={() => handleCommit(false)}
