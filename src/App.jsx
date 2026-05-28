@@ -8,6 +8,8 @@ import Header from './components/Header';
 import PatientInfo from './components/PatientInfo';
 import VisitEntry from './components/VisitEntry';
 import HistoryTable from './components/HistoryTable';
+import HistoryImageImport from './components/HistoryImageImport';
+import ComboSuggestionsPanel from './components/ComboSuggestionsPanel';
 import AuditFooter from './components/AuditFooter';
 import RiskGrid from './components/RiskGrid';
 import MainPanel from './components/MainPanel';
@@ -113,6 +115,8 @@ function PatientDrawer({ onClose }) {
 
             <div>
               <div className="ctitle" style={{ marginBottom: 8 }}>Vaccination history</div>
+              <ComboSuggestionsPanel />
+              <HistoryImageImport />
               <VisitEntry />
               <div style={{ marginTop: 8 }}>
                 <HistoryTable />

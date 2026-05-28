@@ -1,3 +1,5 @@
+/* eslint-disable react/prop-types */
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useReducer } from 'react';
 import { VAX_KEYS, COMBO_COVERS, COMBOS, VBR } from '../data/vaccineData.js';
 import { FORECAST_VISITS } from '../data/forecastData.js';
@@ -139,6 +141,21 @@ function reducer(state, action) {
       } else if (field === "date" && dose.brand) {
         nextHist = brandAutoFill(nextHist, vk, index);
       }
+
+      return { ...state, hist: nextHist };
+    }
+
+    case "EDIT_DOSE": {
+      // Patch any subset of dose fields at hist[vk][index].
+      // patch may contain: { date?, ageDays?, brand?, mode? }
+      // NOTE: brand cascade is intentionally NOT done here — DosePill shows
+      // an explicit confirmation banner before cascading to peer antigens.
+      const { vk, index, patch } = action.payload;
+      const arr = [...(state.hist[vk] || [])];
+      if (index < 0 || index >= arr.length) return state;
+      const dose = { ...arr[index], ...patch };
+      arr[index] = dose;
+      const nextHist = { ...state.hist, [vk]: arr };
 
       return { ...state, hist: nextHist };
     }

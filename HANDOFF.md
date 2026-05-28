@@ -1,4 +1,4 @@
-# PediVax — Handoff for New Conversation (2026-05-25, updated)
+# PediVax — Handoff for New Conversation (2026-05-28, updated)
 
 ## Live app
 https://jojohuhu-git.github.io/vaxapp/
@@ -22,7 +22,7 @@ Start at the beginning of every session:
 
 ## What the app is
 Client-side React SPA. No backend. State serialized to URL `?s=` parameter.
-Tech: React 18 + Vite + Vitest + @react-pdf/renderer. Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,110 passing (150 files)** (unchanged).
+Tech: React 18 + Vite + Vitest + @react-pdf/renderer + tesseract.js (for OCR import). Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,179 passing**.
 
 ## Tab structure
 ```
@@ -44,9 +44,96 @@ Direction B — "Modern Minimal":
 - `OptimalScheduleTab.jsx` still in repo but NOT wired to any route (merged into ForecastTab view toggle)
 - No redundant antigen lists — combo name + Why? button are the only surfaces for combo info
 
-## Key recent changes (last three sessions)
+## Key recent changes (last sessions)
 
-### Session 2026-05-25 (polish + ref audit — most recent)
+### Session 2026-05-28 (vaccine-entry UX overhaul — most recent)
+
+This session shipped a coordinated set of vaccine-entry improvements, plus the
+first OCR-import path and a persistent combo-brand suggestions surface.
+
+**1. Inline dose editing in DosePill popover** (`src/components/DosePill.jsx`)
+- Click a dose pill → popover; click the date or brand text → inline editor.
+- New `EDIT_DOSE` reducer action in `AppContext.jsx` patches `state.hist[vk][index]` immutably.
+- Date editor is **DOB-keyed**: when DOB is set → `DateField` (and age-mode doses display the computed date `DOB + ageDays`); when DOB is not set → `AGE_OPTS` dropdown. The dose's `mode` silently upgrades from `'age'` to `'date'` once a date is entered.
+- Tests: `DosePill.edit.test.jsx`, `regression-edit-dose.test.js`, `edit-dose-reducer.test.js`.
+
+**2. DosePill × close bug fix**
+- The portaled popover's close × and backdrop click bubbled through the React tree to the parent `<span className="dpill">` whose `onClick` re-toggled `showDetail`. Fix: `e.stopPropagation()` on × button and backdrop.
+
+**3. Duplicate-visit alert in VisitEntry — antigen-aware**
+- Old behavior: alert fired when ANY vaccine was already on the entered date (Hib on a HepB date triggered the prompt).
+- New: only flags when the SAME antigen is already on that date. Cross-antigen entries commit silently. Banner: *"5/8/2009 already has HepB. Add as duplicate?"* with `[Add anyway]` / `[Cancel]`.
+- Tests: `VisitEntry.duplicate.test.jsx`.
+
+**4. Multi-antigen selection discoverability** (VisitEntry)
+- Hint: *"Select one or more vaccines given at this visit."*
+- Count chip next to the Add Visit button: *"3 vaccines selected"*.
+
+**5. VisitEntry combo hint — largest-first ordering**
+- `detectComboHint` previously returned the FIRST combo in `COMBO_COVERS` insertion order. With selected = DTaP+IPV+Hib+HepB, that meant Pediarix (3) won before Vaxelis (4) was even tried.
+- Fix: iterate `Object.entries(COMBO_COVERS)` sorted by `covers.length` DESCENDING. Same rule as OCR review.
+
+**6. VisitEntry chip alphabetical order — sort by displayed label**
+- Individual-antigen chips used to sort by `VAX_META[vk].n` (full name like *"Polio (IPV)"*) but display `meta.ab` (*"IPV"*). So IPV appeared visually between Pneumococcal and RSV.
+- Fix: sort by `meta.ab` so the visible labels are alphabetical. Also affects Flu (was sorting as *"Influenza"*), RV (*"Rotavirus"*), VAR (*"Varicella"*).
+
+**7. OCR drag-drop EMR screenshot import** (`HistoryImageImport.jsx` + `ocrParser.js`)
+- New drop zone in PatientDrawer's history column. Drag-drop or click-to-select a JPEG/PNG (≤5 MB). Tesseract.js dynamic import (~2 MB chunk loaded on first drop). Progress %.
+- Drop-zone copy: *"Drop image file here, or click to select. Save snips as JPEG or PNG first."* — explicit JPEG/PNG file required (no clipboard paste; user testing showed paste was clunky and inconsistent across platforms).
+- Parser: line-by-line tokenize, prefix-match antigen labels (case-insensitive, handles truncated `...` suffix), aggregate same-vk multi-row dates, dedupe + chronologically sort.
+- Brand is ALWAYS imported as `""` (unknown); clinician sets brand later via DosePill inline editor.
+- Review modal lets user toggle rows, edit dates inline, dispatch one `VISIT_ADD` per unique date (grouping multiple antigens per visit).
+- Tests: `HistoryImageImport.parse.test.jsx`.
+
+**8. OCR parser fuzzy fallback for IPV/HPV** (`src/logic/ocrParser.js`)
+- Real-world OCR drops the narrow capital I, producing `"PV 8/1/2014..."` instead of `"IPV ..."`. Strict prefix match misses it; the row landed in Unrecognized.
+- New `FUZZY_PATTERNS` (tried after the strict map):
+  - `/^(?:[il1]\s*)?p\s*v\b/i` → IPV (matches PV, 1PV, lPV, I PV, i pv)
+  - `/^h\s*p\s*v\b/i` → HPV
+- Safe because `parseOcrText` requires the line to contain a date before normalize runs, and "Pneumococcal..." matches the strict map FIRST (PCV) so it never falls through to the PV fuzzy.
+
+**9. Combo suggestions in OCR review modal** (`HistoryImageImport.jsx`)
+- After parsing, scans each date for any combo whose antigens are all present.
+- Suggestion card: primary = largest match; "Other options ▾" expander lists smaller matches.
+- Age-window warnings shown but never block (e.g. *"Patient was ~8y at this visit, outside Vaxelis age window"*).
+
+**10. Shared inference + card** (`src/logic/comboInference.js`, `src/components/SuggestionCard.jsx`)
+- `combosFittingVks(vkSet, isoDate, dob)` — extracted from HistoryImageImport.
+- `suggestCombosForHistory(hist, dob)` — new. Scans `state.hist`, groups `mode:'date'` doses by ISO date, classifies each combo-fitting date as:
+  - `kind: 'unbranded'` (all peers unbranded) — Scenario A
+  - `kind: 'complete'` (some peers already branded with this combo, others empty) — Scenarios B/D
+  - Skip when any peer has a different standalone/combo brand (Scenario C — multi-shot visit)
+- `SuggestionCard` accepts optional `headline`, `actionLabel`, `body` overrides so OCR modal and new drawer panel can render different copy.
+
+**11. ComboSuggestionsPanel — persistent combo detection in drawer** (`src/components/ComboSuggestionsPanel.jsx`)
+- Renders as the first child of the Vaccination History column in `PatientDrawer` (above `HistoryImageImport`).
+- Always-on scan via `suggestCombosForHistory(hist, dob)` (memoized).
+- Per-session `dismissedKeys` (Set of `"date|comboName"`) — Skip hides for the session; reload restores.
+- Apply handler dispatches `EDIT_DOSE` for affected antigens only:
+  - `kind:'unbranded'`: patches all combo antigens.
+  - `kind:'complete'`: patches only the currently-unbranded peers (leaves already-branded peers alone).
+- Renders `null` (no section header) when zero visible suggestions — no layout impact.
+- Count badge on section header: *"Combo brand suggestions (N)"*.
+- Tests: `ComboSuggestionsPanel.test.jsx`, `comboInference.test.js`.
+
+**12. EDIT_DOSE silent cascade removed; replaced by explicit confirmation banners in DosePill**
+- Old behavior: setting a combo brand on one dose silently filled peer doses at the same array INDEX (via `brandAutoFill`).
+- New behavior: `EDIT_DOSE` updates ONLY the targeted dose. Cascade is offered as a user-confirmed banner in `DoseDetailPopover`. `brandAutoFill` helper preserved (still used by `UPDATE_DOSE`).
+
+**13. DosePill forward cascade banner**
+- Trigger: user sets a combo brand on a dose whose peers (same date, combo siblings) have brand `''`.
+- Banner (amber): *"Apply Vaxelis to DTaP + Hib + HepB on this date too? [Yes, apply] [No, just this one]"*
+- Yes dispatches one `EDIT_DOSE` per qualifying peer.
+- Tests: `DosePill.cascade.test.jsx`.
+
+**14. DosePill reverse cascade ("clear offer") banner**
+- Trigger: user changes a dose FROM a combo brand to anything else (standalone, brand-unknown, or different combo) while peer doses on the same date still carry the OLD combo brand.
+- Banner (amber): *"IPV was Vaxelis. DTaP + Hib + HepB on this date are also Vaxelis. Clear them so you can re-enter? [Yes, clear] [No, keep them]"*
+- Yes dispatches `EDIT_DOSE` with `patch: { brand: '' }` for each peer.
+- XOR with the forward banner — only one fires per `saveBrand` call.
+- Tests: `DosePill.cascade.test.jsx`.
+
+### Session 2026-05-25 (polish + ref audit)
 
 **1. Risk grid overflow fixed** (`src/App.css`)
 - `min-width:0` + `overflow-wrap:anywhere` added to `.ri` and `.ri span`

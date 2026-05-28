@@ -1425,3 +1425,111 @@ Every combo card now cites a CDC schedule-notes anchor for every antigen it cove
 
 ### Test count
 2,110 passing (150 files) — no logic changes, no new tests needed.
+
+---
+
+## Changes shipped (2026-05-28) — vaccine-entry UX overhaul
+
+### Module map for new architecture
+
+| Module | Purpose |
+|---|---|
+| `src/logic/ocrParser.js` | Pure parser. `parseOcrText`, `parseDate`, `normalizeAntigen`. Strict prefix map + `FUZZY_PATTERNS` fallback (PV → IPV when OCR drops the I). |
+| `src/components/HistoryImageImport.jsx` | Drop zone + tesseract.js dynamic import + `ReviewModal` (uses shared `SuggestionCard`). |
+| `src/logic/comboInference.js` | Shared combo-match inference. `combosFittingVks(vkSet, date, dob)` and `suggestCombosForHistory(hist, dob)`. |
+| `src/components/SuggestionCard.jsx` | Shared card — used by OCR review modal AND the persistent drawer panel. Optional `headline`/`actionLabel`/`body` overrides. |
+| `src/components/ComboSuggestionsPanel.jsx` | Persistent panel in `PatientDrawer`. Renders nothing when zero matches. |
+
+### Cascade design — DosePill is the only cascade authority
+
+The `EDIT_DOSE` reducer NO LONGER cascades silently. It updates exactly one
+dose. All combo-brand cascade is mediated by user-confirmed banners inside
+`DoseDetailPopover`:
+
+| Banner | Trigger | Action on Yes |
+|---|---|---|
+| **Forward cascade** (`cascadeOffer`) | User SETS a combo brand AND peers on same date have brand `''` | `EDIT_DOSE` per peer with combo brand string |
+| **Reverse cascade / "clear offer"** (`clearOffer`) | User CHANGES a combo brand to anything else AND peers on same date still carry the OLD combo | `EDIT_DOSE` per peer with `patch: { brand: '' }` |
+
+Rules:
+- XOR: only one banner can fire per `saveBrand` call. Reverse check runs first
+  (since changing FROM a combo is the dominant intent); forward check runs
+  only if the reverse didn't fire.
+- Both require `dose.mode === 'date'` AND a non-empty `dose.date`. Age-mode
+  doses skip cascade detection entirely (no shared-date anchor).
+- Stateless dismissal — clicking No doesn't memo; the same change later will
+  re-prompt.
+- The `brandAutoFill` helper in `AppContext.jsx` is preserved for `UPDATE_DOSE`
+  but is NEVER called from `EDIT_DOSE`. Do NOT re-add the silent cascade.
+
+### Combo inference invariants (`comboInference.js`)
+
+`suggestCombosForHistory(hist, dob)` returns a `Suggestion[]` with these
+guarantees:
+- Only `mode:'date'` doses are grouped (age-mode doses cannot share a date anchor).
+- Only doses with `given: true` are considered.
+- Per-date `kind` classification:
+  - `'unbranded'` — every combo-antigen on that date has brand `''`.
+  - `'complete'` — at least one combo-antigen is branded with the combo (brand
+    starts with combo name), at least one is `''`.
+  - SKIP — any antigen is branded with a DIFFERENT standalone or combo
+    (Scenario C = multi-shot visit, not a combo).
+  - SKIP — every combo-antigen is already fully branded with the combo.
+- Primary = largest combo (by antigen count) that classifies; smaller fitting
+  combos become `alternates`. Stable-sorted within size ties.
+- `doseIndexByVk` maps each antigen to its exact index in `hist[vk]`, so the
+  Apply handler can dispatch `EDIT_DOSE` precisely without searching.
+
+When changing the inference, update the existing tests:
+- `src/logic/__tests__/comboInference.test.js` (13 tests covering Scenarios A/B/C/D + age warnings + alternate ordering)
+- `src/components/__tests__/ComboSuggestionsPanel.test.jsx` (8 tests covering Apply/Skip flows)
+
+### `detectComboHint` (`VisitEntry.jsx`) — largest-first iteration
+
+This function powers the inline combo suggestion banner shown WHILE the user
+is selecting antigen chips in the Add Visit form (separate from the cascade
+banners above). It must iterate `COMBO_COVERS` sorted by combo size descending
+so DTaP+IPV+Hib+HepB → Vaxelis (4), not Pediarix (3) which appears earlier in
+the insertion order. Do not revert.
+
+### OCR parser fuzzy fallback (`ocrParser.js`)
+
+`FUZZY_PATTERNS` tried only after the strict prefix map fails:
+```js
+{ regex: /^(?:[il1]\s*)?p\s*v\b/i, vk: 'IPV' },  // PV, 1PV, lPV, I PV
+{ regex: /^h\s*p\s*v\b/i,           vk: 'HPV' },
+```
+Safe because `parseOcrText` only normalizes lines that ALREADY contain at
+least one parseable date — a bare "PV" alone would never enter the normalizer.
+"Pneumococcal Conjugate" still maps to PCV via the strict prefix match (which
+runs first), so no risk of crossover.
+
+If you see other OCR misreads in user reports (first letter dropped, narrow
+characters confused with digits), add patterns here — but each addition must
+be safe under the same "must already have a date in the line" precondition.
+
+### Inline dose editing (`DosePill.jsx`)
+
+The popover's Date and Brand lines are click-to-edit. Date editor is
+**DOB-keyed**:
+- DOB set → `DateField` (and age-mode doses display their computed date via
+  `addD(dob, ageDays)`; saving silently upgrades the dose to `mode:'date'`)
+- DOB not set → `AGE_OPTS` `<select>` (only sensible affordance)
+
+The decision to branch on DOB rather than on `dose.mode` is intentional:
+when DOB is later added to a patient, all age-mode doses become date-editable
+automatically. Do not refactor to branch on `dose.mode` instead.
+
+`initialDateForEditor()` derives the DateField's starting value from
+`localDose.date || addD(dob, localDose.ageDays) || ''` — handles all three
+combinations cleanly.
+
+### VisitEntry chip ordering invariant
+
+`sortedVaks` in `VisitEntry.jsx` sorts by `VAX_META[vk].ab` (the abbreviation
+shown to the user), NOT `VAX_META[vk].n` (the full name). Otherwise IPV sorts
+as "Polio" and lands between Pneumococcal and RSV in the visible list. Same
+applies to Flu (n: "Influenza"), RV (n: "Rotavirus"), VAR (n: "Varicella").
+
+### Test count
+2,179 passing.
