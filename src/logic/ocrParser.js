@@ -41,6 +41,52 @@ const FUZZY_PATTERNS = [
   { regex: /^h\s*p\s*v\b/i, vk: 'HPV' },
 ];
 
+// ── Brand inference patterns ───────────────────────────────────────────────
+// These patterns run against the full line (case-insensitive) to infer a
+// specific brand name from manufacturer/product keywords in IIS descriptions.
+// Returns a brand string or null. Only called after the antigen is identified.
+//
+// Rules:
+//   - Patterns must be specific enough to avoid false positives.
+//   - A Flu line that says "Quad" could be many brands — do NOT assign brand.
+//   - Only infer brand when the keyword is unambiguous (e.g. "Pentavalent"
+//     exclusively describes RotaTeq; "Pfizer Purple Cap" is unambiguous COVID).
+const BRAND_PATTERNS = [
+  // Rotavirus: "Pentavalent" exclusively identifies RotaTeq (5-valent = G1,G2,G3,G4,P[8])
+  // Rotarix is monovalent (G1P[8]) and is never described as "Pentavalent" in IIS.
+  { vk: 'RV',    regex: /pentavalent/i,             brand: 'RotaTeq' },
+  // COVID: Pfizer Purple Cap = Pfizer pediatric vials (now branded Comirnaty)
+  { vk: 'COVID', regex: /pfizer/i,                  brand: 'Pfizer-BioNTech (Comirnaty)' },
+  // COVID: Moderna — mNexspike is ≥12y; Spikevax is ≥6m
+  { vk: 'COVID', regex: /moderna/i,                 brand: 'Moderna (Spikevax)' },
+  // COVID: Novavax
+  { vk: 'COVID', regex: /novavax/i,                 brand: 'Novavax (Nuvaxovid)' },
+  // Flu: LAIV4 / FluMist
+  { vk: 'Flu',   regex: /\blaiv\b|flumist/i,        brand: 'FluMist (LAIV4)' },
+  // Flu: cell-based / ccIIV4 (Flucelvax)
+  { vk: 'Flu',   regex: /flucelvax|ccIIV/i,         brand: 'Flucelvax Quadrivalent' },
+  // Flu: recombinant (Flublok)
+  { vk: 'Flu',   regex: /flublok|recombinant/i,      brand: 'Flublok Quadrivalent' },
+  // Hib: HbOC (Hiberix) — HbOC = Haemophilus b Oligosaccharide Conjugate
+  { vk: 'Hib',   regex: /\bhboc\b/i,                brand: 'Hiberix' },
+  // Hib: PRP-OMP (PedvaxHIB)
+  { vk: 'Hib',   regex: /prp.omp|pedvax/i,          brand: 'PedvaxHIB' },
+  // Hib: PRP-T (ActHIB)
+  { vk: 'Hib',   regex: /prp.t\b|acthib/i,          brand: 'ActHIB' },
+  // MenACWY: Menactra (MCV4-D)
+  { vk: 'MenACWY', regex: /menactra/i,               brand: 'Menactra' },
+  // MenACWY: Menveo (MCV4-CRM)
+  { vk: 'MenACWY', regex: /menveo|mcv4o/i,           brand: 'Menveo' },
+  // MenACWY: MenQuadfi (MCV4-TT)
+  { vk: 'MenACWY', regex: /menquadfi|ps.*acwy/i,     brand: 'MenQuadfi' },
+  // HepB: Recombivax HB
+  { vk: 'HepB',  regex: /recombivax/i,               brand: 'Recombivax HB' },
+  // HepB: Engerix-B
+  { vk: 'HepB',  regex: /engerix/i,                  brand: 'Engerix-B' },
+  // HepB: Heplisav-B
+  { vk: 'HepB',  regex: /heplisav/i,                 brand: 'Heplisav-B' },
+];
+
 // Longest-prefix match, case-insensitive.
 // Handles truncated labels ending with "..." automatically.
 // Falls back to FUZZY_PATTERNS for common OCR misreads.
@@ -52,6 +98,17 @@ export function normalizeAntigen(label) {
   }
   for (const { regex, vk } of FUZZY_PATTERNS) {
     if (regex.test(raw)) return vk;
+  }
+  return null;
+}
+
+/**
+ * Infer brand from the full IIS line, given an already-identified vk.
+ * Returns a brand string or null (unknown).
+ */
+export function inferBrand(vk, line) {
+  for (const p of BRAND_PATTERNS) {
+    if (p.vk === vk && p.regex.test(line)) return p.brand;
   }
   return null;
 }
@@ -86,12 +143,20 @@ function extractDates(s) {
 // ── OCR text parser ────────────────────────────────────────────────────────
 /**
  * Parse raw OCR text into:
- *   rows: [{ vk, dates: string[] }] — deduplicated, sorted chronologically
- *   unrecognized: string[]          — lines that had dates but no antigen match
+ *   rows: [{ vk, dates: string[], brand: string|null }]
+ *          — deduplicated, sorted chronologically.
+ *          brand is non-null only when the IIS line contains an unambiguous
+ *          product keyword (e.g. "Pentavalent" → RotaTeq). null means unknown.
+ *   unrecognized: string[]   — lines that had dates but no antigen match
+ *
+ * When the same vk appears on multiple lines (common in IIS exports that
+ * split by CVX code), rows are merged. Brand wins by "most specific": a
+ * non-null brand from any line is kept; if two lines give DIFFERENT non-null
+ * brands, both are dropped (ambiguous) and brand is set to null.
  */
 export function parseOcrText(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const byVk = {};   // vk → Set of ISO dates
+  const byVk = {};          // vk → { dates: Set<ISO>, brand: string|null, brandAmbiguous: bool }
   const unrecognized = [];
 
   for (const line of lines) {
@@ -104,14 +169,30 @@ export function parseOcrText(text) {
       continue;
     }
 
-    if (!byVk[vk]) byVk[vk] = new Set();
-    for (const d of dates) byVk[vk].add(d);
+    const brand = inferBrand(vk, line);
+
+    if (!byVk[vk]) {
+      byVk[vk] = { dates: new Set(), brand: null, brandAmbiguous: false };
+    }
+    const entry = byVk[vk];
+    for (const d of dates) entry.dates.add(d);
+
+    // Brand merge: null stays null; same brand stays; different brands → ambiguous
+    if (brand !== null) {
+      if (entry.brand === null && !entry.brandAmbiguous) {
+        entry.brand = brand;
+      } else if (entry.brand !== brand) {
+        entry.brand = null;
+        entry.brandAmbiguous = true;
+      }
+    }
   }
 
   // Build final rows: sorted + deduped
-  const rows = Object.entries(byVk).map(([vk, dateSet]) => ({
+  const rows = Object.entries(byVk).map(([vk, { dates, brand }]) => ({
     vk,
-    dates: [...dateSet].sort(),
+    dates: [...dates].sort(),
+    brand: brand || null,
   }));
 
   return { rows, unrecognized };

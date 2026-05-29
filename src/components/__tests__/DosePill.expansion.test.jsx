@@ -205,3 +205,106 @@ describe('DosePill — click-to-expand detail', () => {
     expect(getPopover()).toBeNull();
   });
 });
+
+describe('DosePill — Add another dose', () => {
+  afterEach(() => { cleanup(); });
+
+  it('clicking "Add another dose" reveals the inline form with a date field', () => {
+    const { container } = render(
+      <Wrapper>
+        <DosePill
+          vk="DTaP"
+          index={0}
+          dispatchIndex={0}
+          dose={{ mode: 'date', date: '2024-03-15', brand: 'Infanrix', given: true }}
+          prevDose={null}
+          dob="2024-01-15"
+          isExtra={false}
+        />
+      </Wrapper>
+    );
+
+    // Open the popover
+    act(() => { fireEvent.click(container.querySelector('.dpill')); });
+    const pop = getPopover();
+    expect(pop).not.toBeNull();
+
+    // "Add another dose" button should be present, form should not be visible
+    const addBtn = pop.querySelector('[data-testid="add-another-dose-btn"]');
+    expect(addBtn).not.toBeNull();
+    expect(pop.querySelector('[data-testid="add-dose-form"]')).toBeNull();
+
+    // Click the button — form should appear
+    act(() => { fireEvent.click(addBtn); });
+    expect(pop.querySelector('[data-testid="add-dose-form"]')).not.toBeNull();
+
+    // Save button should be disabled initially (no date entered yet)
+    const saveBtn = pop.querySelector('[data-testid="add-dose-save-btn"]');
+    expect(saveBtn).not.toBeNull();
+    expect(saveBtn.disabled).toBe(true);
+  });
+
+  it('Save button is disabled when date is empty, enabled after entering a date', () => {
+    const { container } = render(
+      <Wrapper>
+        <DosePill
+          vk="HepB"
+          index={0}
+          dispatchIndex={0}
+          dose={{ mode: 'date', date: '2024-01-15', brand: '', given: true }}
+          prevDose={null}
+          dob="2024-01-15"
+          isExtra={false}
+        />
+      </Wrapper>
+    );
+
+    act(() => { fireEvent.click(container.querySelector('.dpill')); });
+    const pop = getPopover();
+
+    act(() => { fireEvent.click(pop.querySelector('[data-testid="add-another-dose-btn"]')); });
+
+    const saveBtn = pop.querySelector('[data-testid="add-dose-save-btn"]');
+    expect(saveBtn.disabled).toBe(true);
+
+    // Simulate entering a date via the DateField's hidden input
+    // DateField renders a hidden <input type="date"> — fire change on it
+    const dateInput = pop.querySelector('input[type="date"]');
+    if (dateInput) {
+      act(() => { fireEvent.change(dateInput, { target: { value: '2024-04-15' } }); });
+      expect(saveBtn.disabled).toBe(false);
+    }
+  });
+
+  it('when DOB is not set, shows age select instead of DateField', () => {
+    const { container } = render(
+      <Wrapper>
+        <DosePill
+          vk="MMR"
+          index={0}
+          dispatchIndex={0}
+          dose={{ mode: 'age', ageDays: 365, brand: '', given: true }}
+          prevDose={null}
+          dob={null}
+          isExtra={false}
+        />
+      </Wrapper>
+    );
+
+    act(() => { fireEvent.click(container.querySelector('.dpill')); });
+    const pop = getPopover();
+
+    act(() => { fireEvent.click(pop.querySelector('[data-testid="add-another-dose-btn"]')); });
+
+    const form = pop.querySelector('[data-testid="add-dose-form"]');
+    expect(form).not.toBeNull();
+
+    // Should have a select for age (not a DateField text input)
+    const selects = form.querySelectorAll('select');
+    expect(selects.length).toBeGreaterThanOrEqual(1);
+
+    // Save should be disabled until age is selected
+    const saveBtn = form.querySelector('[data-testid="add-dose-save-btn"]');
+    expect(saveBtn.disabled).toBe(true);
+  });
+});

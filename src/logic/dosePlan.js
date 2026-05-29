@@ -313,10 +313,14 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) 
       return 5;
     }
     case "Hib": {
+      // PRP-OMP family (PedvaxHIB, Vaxelis): 3-dose series, no booster beyond dose 3.
+      // PRP-T family (ActHIB, Hiberix, Pentacel): 4-dose series (3 primary + 1 booster).
+      // Check forecast brand first, then history.
+      const isOmpBrand = (b) => b && (b.includes("PedvaxHIB") || b.startsWith("Vaxelis"));
       const hibFcBrand = Object.entries(fcBrands).find(([k, v]) => k.endsWith("_Hib") && v);
-      if (hibFcBrand && hibFcBrand[1].includes("PedvaxHIB")) return 3;
+      if (hibFcBrand && isOmpBrand(hibFcBrand[1])) return 3;
       const hibHistBrand = (hist.Hib || []).find(d => d.given && d.brand)?.brand;
-      if (hibHistBrand?.startsWith("PedvaxHIB")) return 3;
+      if (isOmpBrand(hibHistBrand)) return 3;
       return 4;
     }
     case "PCV": {

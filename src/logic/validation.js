@@ -84,13 +84,62 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   if (doseIdx > 0 && ageAtDose !== null && Array.isArray(spec.minByDose)) {
     let minByDose = spec.minByDose[doseIdx] || null;
 
-    // Hib booster is the LAST dose and depends on brand:
-    //   PedvaxHIB / Vaxelis (PRP-OMP) → 3-dose primary; D3 (idx 2) is the booster → ≥365d.
-    //   ActHIB / Hiberix / Pentacel (PRP-T) → 4-dose; D4 (idx 3) is the booster → ≥365d.
+    // Hib booster min-age depends on antigen family and specific brand:
+    //
+    //   PRP-T family (ActHIB, Hiberix, Pentacel):
+    //     3 primary doses + 1 booster. D4 (idx 3) is the booster → ≥365d (already in minByDose[3]).
+    //     D3 at any age after the 4-week interval is fine — minByDose[2] = null.
+    //
+    //   PRP-OMP / PedvaxHIB (standalone, 2-dose primary + 1 booster):
+    //     D3 (idx 2) is the booster → ≥365d. minByDose[2] must be set to 365.
+    //     D4 is off-series; clear the floor so it doesn't generate a false error.
+    //
+    //   PRP-OMP / Vaxelis (combo, approved as 3-dose primary series at 2/4/6m):
+    //     All 3 doses are primary — there is NO 4th booster dose for Vaxelis.
+    //     D3 (idx 2) is just the 3rd primary dose; the ≥12m floor does NOT apply.
+    //     ACIP: 3 Vaxelis doses = complete PRP-OMP series (no separate booster needed).
+    //     Sources: CLAUDE.md Hib combo notes; ACIP MMWR Vaxelis licensure.
+    //
+    //   Brand unknown for THIS dose → look at prior doses to infer family.
+    //     If any prior dose is Vaxelis → treat as Vaxelis primary (no 12m floor on D3).
+    //     If any prior dose is PedvaxHIB → treat as PedvaxHIB (12m floor on D3).
+    //     If mixed or fully unknown → keep conservative default (minByDose[2]=365 from scheduleRules).
     if (vk === "Hib") {
-      const isPrpOmp = brand && (brand.startsWith("PedvaxHIB") || brand.startsWith("Vaxelis"));
-      if (isPrpOmp && doseIdx === 2) minByDose = 365;
-      if (isPrpOmp && doseIdx === 3) minByDose = null; // 4th PedvaxHIB not part of series
+      const isVaxelis = brand && brand.startsWith("Vaxelis");
+      const isPedvaxHIB = brand && brand.startsWith("PedvaxHIB");
+      // D3 handling — depends on which OMP product
+      if (doseIdx === 2) {
+        if (isVaxelis) {
+          // Vaxelis D3 is the 3rd primary dose, not a booster. No 12m floor.
+          minByDose = null;
+        } else if (isPedvaxHIB) {
+          // PedvaxHIB D3 is the booster. 12m floor.
+          minByDose = 365;
+        } else if (!brand) {
+          // Brand unknown for D3 — look at prior doses (prevDose) for family hint
+          // We don't have access to the full dose array here, but prevDose is available.
+          // If prevDose is Vaxelis, this is almost certainly Vaxelis D3 (primary) — no floor.
+          // Otherwise keep the conservative default from scheduleRules (365d).
+          if (prevDose && prevDose.brand && prevDose.brand.startsWith("Vaxelis")) {
+            minByDose = null; // inferred Vaxelis primary series — no 12m floor
+          }
+          // else: keep minByDose as-is (365 from scheduleRules, conservative)
+        }
+        // PRP-T (ActHIB, Hiberix, Pentacel): minByDose[2] is already null from scheduleRules — D3 is primary, not booster
+      }
+      // D4 handling
+      if (doseIdx === 3) {
+        if (isVaxelis) {
+          // Vaxelis is a 3-dose series — there is no valid D4. Clear the floor to avoid
+          // false positives (the Vaxelis-as-booster brand_constraint check in auditAll
+          // covers this scenario with a specific error message).
+          minByDose = null;
+        }
+        if (isPedvaxHIB) {
+          // PedvaxHIB 4th dose is off-series.
+          minByDose = null;
+        }
+      }
     }
 
     if (minByDose && ageAtDose < minByDose - GRACE) {

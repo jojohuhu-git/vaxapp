@@ -32,6 +32,12 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
   const [editingDate, setEditingDate] = useState(false);
   const [editingBrand, setEditingBrand] = useState(false);
 
+  // "Add another dose" inline form state
+  const [addingDose, setAddingDose] = useState(false);
+  const [newDoseDate, setNewDoseDate] = useState('');
+  const [newDoseAgeDays, setNewDoseAgeDays] = useState('');
+  const [newDoseBrand, setNewDoseBrand] = useState('');
+
   // Cascade offer state: set when user picks a combo brand and peer doses exist
   // Shape: { comboName, peerCandidates: [{vk, index}], comboBrandByVk: {vk: brand} } | null
   const [cascadeOffer, setCascadeOffer] = useState(null);
@@ -49,6 +55,11 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
         if (editingDate || editingBrand) {
           setEditingDate(false);
           setEditingBrand(false);
+        } else if (addingDose) {
+          setAddingDose(false);
+          setNewDoseDate('');
+          setNewDoseAgeDays('');
+          setNewDoseBrand('');
         } else if (cascadeOffer) {
           setCascadeOffer(null);
         } else if (clearOffer) {
@@ -60,7 +71,7 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose, editingDate, editingBrand, cascadeOffer, clearOffer]);
+  }, [onClose, editingDate, editingBrand, addingDose, cascadeOffer, clearOffer]);
 
   // Sync local state when prop changes (e.g. after a dispatch round-trip)
   useEffect(() => {
@@ -68,7 +79,7 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
   }, [initialDose]);
 
   const spaceBelow = window.innerHeight - anchorRect.bottom;
-  const popH = 200;
+  const popH = addingDose ? 300 : 200;
   const above = spaceBelow < popH + 12 && anchorRect.top > popH + 12;
   const top = above
     ? anchorRect.top + window.scrollY - popH - 6
@@ -405,6 +416,134 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
             {vr.note}
           </div>
         )}
+
+        {/* Add another dose affordance */}
+        <div style={{ marginTop: 10, borderTop: '1px solid var(--gy6)', paddingTop: 8 }}>
+          {!addingDose ? (
+            <button
+              data-testid="add-another-dose-btn"
+              onClick={(e) => { e.stopPropagation(); setAddingDose(true); }}
+              style={{
+                fontSize: 11, color: 'var(--g)', background: 'none', border: 'none',
+                cursor: 'pointer', padding: 0, textDecoration: 'underline',
+              }}
+            >
+              + Add another dose for {meta?.n || vk}
+            </button>
+          ) : (
+            <div
+              data-testid="add-dose-form"
+              style={{
+                background: 'var(--gy6)', borderRadius: 'var(--rads)',
+                padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6,
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gy2)', marginBottom: 2 }}>
+                New dose for {meta?.n || vk}
+              </div>
+
+              {/* Date / Age input — DOB-keyed per existing pattern */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: 'var(--gy3)', minWidth: 38, flexShrink: 0, fontSize: 11 }}>
+                  {dob ? 'Date:' : 'Age:'}
+                </span>
+                {dob ? (
+                  <DateField
+                    value={newDoseDate}
+                    onChange={(iso) => setNewDoseDate(iso || '')}
+                    onEnter={(iso) => setNewDoseDate(iso || '')}
+                    width={108}
+                    ariaLabel="New dose date"
+                  />
+                ) : (
+                  <select
+                    value={newDoseAgeDays}
+                    onChange={(e) => setNewDoseAgeDays(e.target.value)}
+                    style={{ fontSize: 11, padding: '2px 4px', border: '1px solid var(--gy5)', borderRadius: 'var(--rads)' }}
+                  >
+                    <option value="">Select age</option>
+                    {AGE_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                  </select>
+                )}
+              </div>
+
+              {/* Brand select */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: 'var(--gy3)', minWidth: 38, flexShrink: 0, fontSize: 11 }}>Brand:</span>
+                <select
+                  value={newDoseBrand}
+                  onChange={(e) => setNewDoseBrand(e.target.value)}
+                  style={{ fontSize: 11, padding: '2px 4px', border: '1px solid var(--gy5)', borderRadius: 'var(--rads)', maxWidth: 160 }}
+                >
+                  {brandOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                <button
+                  data-testid="add-dose-save-btn"
+                  disabled={dob ? !newDoseDate : !newDoseAgeDays}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (dob) {
+                      dispatch({
+                        type: 'VISIT_ADD',
+                        payload: {
+                          visitId: `manual_${vk}_${newDoseDate}_${Math.random().toString(36).slice(2, 6)}`,
+                          targets: [{ vk, brand: newDoseBrand }],
+                          mode: 'date',
+                          date: newDoseDate,
+                          ageDays: null,
+                        },
+                      });
+                    } else {
+                      dispatch({
+                        type: 'VISIT_ADD',
+                        payload: {
+                          visitId: `manual_${vk}_${newDoseAgeDays}_${Math.random().toString(36).slice(2, 6)}`,
+                          targets: [{ vk, brand: newDoseBrand }],
+                          mode: 'age',
+                          date: '',
+                          ageDays: Number(newDoseAgeDays),
+                        },
+                      });
+                    }
+                    setAddingDose(false);
+                    setNewDoseDate('');
+                    setNewDoseAgeDays('');
+                    setNewDoseBrand('');
+                    onClose();
+                  }}
+                  style={{
+                    fontSize: 11, padding: '2px 10px', cursor: (dob ? !newDoseDate : !newDoseAgeDays) ? 'default' : 'pointer',
+                    background: (dob ? !newDoseDate : !newDoseAgeDays) ? 'var(--gy5)' : 'var(--g)',
+                    color: (dob ? !newDoseDate : !newDoseAgeDays) ? 'var(--gy3)' : '#fff',
+                    border: 'none', borderRadius: 'var(--rads)', fontWeight: 700,
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAddingDose(false);
+                    setNewDoseDate('');
+                    setNewDoseAgeDays('');
+                    setNewDoseBrand('');
+                  }}
+                  style={{
+                    fontSize: 11, padding: '2px 8px', cursor: 'pointer',
+                    background: 'none', color: 'var(--gy2)',
+                    border: '1px solid var(--gy5)', borderRadius: 'var(--rads)',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </>,
     document.body,

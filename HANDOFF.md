@@ -22,7 +22,7 @@ Start at the beginning of every session:
 
 ## What the app is
 Client-side React SPA. No backend. State serialized to URL `?s=` parameter.
-Tech: React 18 + Vite + Vitest + @react-pdf/renderer + tesseract.js (for OCR import). Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,179 passing**.
+Tech: React 18 + Vite + Vitest + @react-pdf/renderer + tesseract.js (for OCR import). Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,280 passing**.
 
 ## Tab structure
 ```
@@ -46,7 +46,61 @@ Direction B — "Modern Minimal":
 
 ## Key recent changes (last sessions)
 
-### Session 2026-05-28 (vaccine-entry UX overhaul — most recent)
+### Session 2026-05-29 (Hib audit fix + Recs tab past doses + OCR import overhaul — most recent)
+
+Two-day session covering 11 work tracks. Test count 2,179 → 2,280.
+
+**Track 1 — Hib audit brand-aware (clinical correctness)**
+
+Bug: audit flagged Vaxelis D3 of a 3-dose primary series as violating the 12-month minimum age. ACIP/immunize.org: the 12m floor applies to the *booster* only. Vaxelis (PRP-OMP) is FDA-approved as a 3-dose primary, NOT for booster use — D3 at ~6m is primary, only the 4-week interval rule applies.
+
+Files: `validation.js` (Vaxelis D3 → `minByDose = null`); `dosePlan.js` `getTotalDoses("Hib")` returns 3 for Vaxelis; `buildOptimalSchedule.js` `seriesDoses("Hib")` same; `recommendations.js` uses `hibTotal` instead of `isPed ? 3 : 4`. Test: `regression-hib-vaxelis-primary.test.js` (10 tests covering user-reported DOB 9/16/08 scenario + 3 family variants). See CLAUDE.md "Hib brand-family logic — canonical reference" section.
+
+**Track 2 — Recs tab past doses + Completed Series**
+
+- `RecCard.jsx`: "Given:" line shows validated dose history (date + brand) below the card body.
+- `RecTab.jsx`: new "Completed Series" section at the bottom — always visible regardless of active filter. Vaccines with validated doses, not in current recs, no future dosePlan entries. Muted styling.
+- 9 new tests in `RecTab.complete.test.jsx`.
+
+**Track 3 — OCR import overhaul** (`HistoryImageImport.jsx` + `ocrParser.js`)
+
+Multi-image upload, brand inference, editable raw text with auto-apply, inline data-entry repair. Specifically:
+- `<input multiple>` + drag-drop accept file lists; single tesseract worker reused across all images.
+- `inferBrand(vk, line)` exported from `ocrParser.js` with `BRAND_PATTERNS` (19 entries) — conservative pattern matching. Confident: "Pentavalent" → RotaTeq, "(MENVEO)"/"MCV4O" → Menveo, "(MenQuadfi)"/"PS ACWY" → MenQuadfi, "Pfizer Purple Cap" → Comirnaty, "Hib (HbOC)" → Hiberix. Conflicting inferences across lines for same vk → null.
+- `parseOcrText` returns `{ rows, unrecognized }` with `brand` per row.
+- Auto-apply: 400ms debounced `useEffect` on `editedRawText`; "Updating…" during debounce → "Updated · N doses" pulse for 1.5s. Skips initial mount via `isFirstRun` ref.
+- `prettifyRawOcr(text)` exported helper: pads vaccine labels to dynamic column width (min 24, max 50, fits longest label + 2), blank line between families, idempotent. Called only on initial seed.
+- Multi-image raw text concatenated with `--- Image N: name ---` separators.
+- Per-image 2× upscale (`upscaleIfNeeded(file)` extracted) when width < 1200px.
+- Review modal additions:
+  - **Inline "+ date" per row** — appends date to that vaccine's `dates` array via inline DateField.
+  - **"+ Add vaccine dose" form** at top — vaccine select (sorted by `meta.ab`), date, optional brand. Merges into existing row if vk present, else creates new row.
+  - **Summary banner** at top: `"N unique vaccines · M doses · K lines unrecognized"`. K amber when > 0. Live updates.
+- Tests: `HistoryImageImport.modal.test.jsx` (new, 8+ tests with `vi.useFakeTimers()`); `HistoryImageImport.parse.test.jsx` extended with `prettifyRawOcr` tests and 18 verbatim IIS-line assertions.
+
+**Track 4 — DosePill "+ Add another dose"**
+
+Inside `DoseDetailPopover`, "+ Add another dose for {vaccineName}" link at the bottom. Reveals inline form: DateField (DOB set) or AGE_OPTS select (DOB unset) + brand select. DOB-keyed branching mirrors the existing edit pattern. Dispatches `VISIT_ADD` with fresh `visitId`. 3 new tests in `DosePill.expansion.test.jsx`.
+
+**Track 5 — OCR guidance + 2× upscale**
+
+- Hint under drop zone: *"For best results, screenshot at 100%+ zoom; text smaller than ~14pt may be missed."* (gy3, 10px).
+- 2× upscale via `createImageBitmap` + canvas when image width < 1200px. Graceful fallback if API unsupported.
+
+**Track 6 — Multi-date Add Visit form** (`VisitEntry.jsx`)
+
+Refactored from one-date-at-a-time to stackable date rows:
+- State: `dateRows: [{id, dateVal, ageInput, parsedAgeDays}]`.
+- "+ Add another visit date" button below the date rows; × per row (except last remaining).
+- New `DateRow` sub-component (DOB-keyed).
+- `combosForAgeIntersection(ageMonthsList)` — combo chips only show combos valid at every filled row's age.
+- Submit dispatches N × `VISIT_ADD`, same antigen/brand payload, unique `visitId` each. Resets to one empty row after.
+- Validation reports count of incomplete rows.
+- 11 new tests in `VisitEntry.multiDate.test.jsx`.
+
+**Test count delta**: 2,179 → 2,280 (+101).
+
+### Session 2026-05-28 (vaccine-entry UX overhaul)
 
 This session shipped a coordinated set of vaccine-entry improvements, plus the
 first OCR-import path and a persistent combo-brand suggestions surface.
