@@ -3,6 +3,8 @@ import { VAX_META } from '../data/vaccineData';
 import { CONTRA } from '../data/contraindications';
 import { isD, dBetween, fmtD, addD } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
+import { validatedHistory } from '../logic/validation';
+import { doseDate } from '../logic/stateHelpers';
 
 function doseContext(status) {
   switch (status) {
@@ -87,6 +89,18 @@ export default function RecCard({ rec, index }) {
   }
   const cadence = BOOSTER_CADENCE[rec.vk];
 
+  // Build compact dose history from validated history (engine's view)
+  const vh = validatedHistory(state.hist, state.dob);
+  const validDoses = (vh[rec.vk] || []).filter(d => d.given);
+  const givenHistory = validDoses.length > 0
+    ? validDoses.map((d, i) => {
+        const dt = doseDate(d, state.dob);
+        const dateStr = dt ? fmtD(dt) : (d.mode === 'unknown' ? 'date unknown' : '?');
+        const brandStr = d.brand ? ` (${d.brand.split(' ')[0]})` : '';
+        return `D${i + 1} ${dateStr}${brandStr}`;
+      }).join(', ')
+    : null;
+
   return (
     <div className="rc" style={{ borderLeftColor: sc.border, background: sc.bg }}>
       <div className="rchead" onClick={() => dispatch({ type: "TOGGLE_REC_OPEN", payload: index })}>
@@ -108,6 +122,12 @@ export default function RecCard({ rec, index }) {
       {isOpen && (
         <div className="rcbody">
           {ivMsg && <div className={ivClass}>{ivMsg}</div>}
+
+          {givenHistory && (
+            <div style={{ fontSize: 11, color: 'var(--gy3)', marginBottom: 6, fontFamily: 'inherit' }}>
+              <span style={{ fontWeight: 600, color: 'var(--gy2)' }}>Given:</span> {givenHistory}
+            </div>
+          )}
 
           <div className="rc-note">{rec.note}</div>
 

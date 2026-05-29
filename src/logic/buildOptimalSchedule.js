@@ -74,7 +74,11 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
 
     case 'Hib': {
       if (am >= 60) return hr ? { totalDoses: dc(hist, 'Hib') + 1 } : null;
-      return { totalDoses: anyBr(hist, 'Hib').includes('PedvaxHIB') ? 3 : 4 };
+      // PRP-OMP family (PedvaxHIB, Vaxelis): 3-dose series, no booster beyond dose 3.
+      // PRP-T family (ActHIB, Hiberix, Pentacel): 4-dose series.
+      const hibBr = anyBr(hist, 'Hib');
+      const isOmpBrand = hibBr.includes('PedvaxHIB') || hibBr.startsWith('Vaxelis');
+      return { totalDoses: isOmpBrand ? 3 : 4 };
     }
 
     case 'PCV': {

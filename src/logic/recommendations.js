@@ -143,7 +143,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ≥7y with incomplete DTaP: the Tdap section below handles catch-up via r("Tdap",...). DTaP window is closed; forecast shows "Expired" for that column.
 
   // ── Hib ───────────────────────────────────────────────────────
-  const hib = dc(hist, "Hib"); const hibb = anyBrand(hist, "Hib"); const isPed = hibb.includes("PedvaxHIB"); const hibPrim = isPed ? 2 : 3;
+  const hib = dc(hist, "Hib"); const hibb = anyBrand(hist, "Hib"); const isPed = hibb.includes("PedvaxHIB"); const isVaxelis = hibb.startsWith("Vaxelis"); const hibPrim = isPed ? 2 : 3; const hibTotal = (isPed || isVaxelis) ? 3 : 4;
   const hibComboBrands = risks.includes("alaska_native")
     ? ["PedvaxHIB (PRP-OMP) \u2014 preferred for AI/AN", "Vaxelis (DTaP+IPV+Hib+HepB) \u2014 preferred for AI/AN"]
     : ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP, 3-dose total)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133 only)"];
@@ -156,7 +156,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("Hib", `Catch-up \u2014 dose ${hib + 1} of primary series`, hib + 1, "catchup",
       `7\u201311 months: if behind, give remaining doses now. Min 4 weeks between doses. Complete by 12\u201315m with booster.`,
       hibComboBrands, { minInt: 28, refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
-  } else if (am >= 12 && am <= 15 && hib >= hibPrim && hib < (isPed ? 3 : 4)) {
+  } else if (am >= 12 && am <= 15 && hib >= hibPrim && hib < hibTotal) {
     r("Hib", "Booster (12\u201315 months)", hib + 1, "due", "Booster at 12\u201315 months. Min 8 weeks after prior dose. Pentacel OK for booster (PRP-T dose 4). Vaxelis NOT for booster (PRP-OMP series complete in 3 doses).", ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 56, refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.Hib.url, refLabel2: REFS.Hib.label });
   } else if (am >= 12 && am <= 15 && hib < hibPrim) {
     // 12–15m with incomplete primary: catch-up primary doses then booster
@@ -168,7 +168,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("Hib", "Catch-up \u2014 1 dose (16\u201359 months, unvaccinated)", 1, "catchup",
       `Unvaccinated 16\u201359 months: give 1 dose of any Hib vaccine. Partially vaccinated: see CDC catch-up Table 2.`,
       ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
-  } else if (am >= 16 && am < 60 && hib > 0 && hib < (isPed ? 3 : 4)) {
+  } else if (am >= 16 && am < 60 && hib > 0 && hib < hibTotal) {
     // Partially vaccinated 16–59m: ACIP Table 2 — age ≥15m with ≥1 prior dose needs only 1 final dose
     r("Hib", `Catch-up \u2014 1 final dose (16\u201359 months)`, hib + 1, "catchup",
       `Age \u226515 months with \u22651 prior Hib dose: 1 additional dose needed (ACIP catch-up Table 2). Min 8 weeks from last dose.`,
@@ -178,7 +178,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("Hib", `Risk-based \u2014 dose ${hib + 1} of 3 (HSCT, 3-dose reset)`, hib + 1, "risk-based",
       "HSCT: 3-dose series regardless of prior vaccination history (6\u201312 months post-transplant, 4 weeks between doses). Enter only post-transplant doses in history.",
       ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { minInt: 28, refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.Hib.url, refLabel2: REFS.Hib.label });
-  } else if (am >= 60 && !risks.includes("hsct") && hib < (isPed ? 3 : 4) && hr) {
+  } else if (am >= 60 && !risks.includes("hsct") && hib < hibTotal && hr) {
     r("Hib", hib === 0 ? "Risk-based \u2014 1 dose (\u22655 years, high-risk)" : `Risk-based \u2014 dose ${hib + 1} (\u22655 years, incomplete series)`, hib + 1, "risk-based",
       hib === 0
         ? "Asplenia, HIV, immunocompromise: 1 dose for unvaccinated high-risk patients \u22655 years."

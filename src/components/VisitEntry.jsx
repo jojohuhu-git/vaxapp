@@ -1,10 +1,14 @@
 /**
- * VisitEntry — visit-based multi-vaccine history entry (Item 2 + Item 3)
+ * VisitEntry — visit-based multi-vaccine history entry
  *
- * Unit of entry is a VISIT (one date, multiple vaccines).
+ * Unit of entry is a VISIT (one or more dates, multiple vaccines).
+ * The form now supports stacking multiple date rows; all selected antigens
+ * are applied uniformly to every date row on submit.
+ *
  * Each committed visit gets a hidden visitId so it can be atomically removed.
  * Below the form, an undo strip shows the last 5 visits as chips with × to remove.
  */
+/* eslint-disable react/prop-types */
 import { useState, useRef, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { VAX_META, VAX_KEYS, VBR, COMBOS, COMBO_COVERS } from '../data/vaccineData';
@@ -133,72 +137,224 @@ function detectComboHint(selectedVks, brandByVk) {
   return null;
 }
 
+// ── Date row helpers ──────────────────────────────────────────────────────────
+
+// Create a fresh empty date row
+function makeEmptyRow() {
+  return {
+    id: `dr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    dateVal: '',
+    ageInput: '',
+    parsedAgeDays: null,
+  };
+}
+
+// ── DateRow sub-component ─────────────────────────────────────────────────────
+// A single visit-date row with date field (or age input if no DOB), plus × to remove.
+function DateRow({ row, dob, showRemove, onChange, onRemove }) {
+  const ageDaysFromDate = row.dateVal ? isoToAgeDays(row.dateVal, dob) : null;
+  const ageHintLabel = (ageDaysFromDate != null && ageDaysFromDate >= 0)
+    ? ageLabel(daysToMonths(ageDaysFromDate))
+    : null;
+
+  function handleDateChange(iso) {
+    const next = { ...row, dateVal: iso };
+    if (iso && dob) {
+      const days = isoToAgeDays(iso, dob);
+      if (days != null && days >= 0) next.parsedAgeDays = days;
+    }
+    onChange(next);
+  }
+
+  function handleAgeInputChange(e) {
+    const raw = e.target.value;
+    const days = parseAgeInput(raw);
+    const next = { ...row, ageInput: raw, parsedAgeDays: days };
+    if (days != null && dob) {
+      const iso = dobPlusDays(dob, days);
+      if (iso) next.dateVal = iso;
+    }
+    onChange(next);
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 6 }}>
+      {dob ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy2)' }}>
+            Visit Date
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <DateField
+              value={row.dateVal}
+              onChange={handleDateChange}
+              ariaLabel="Visit date"
+              width={110}
+            />
+            {ageHintLabel && (
+              <span style={{ fontSize: 11, color: 'var(--gy3)', whiteSpace: 'nowrap' }}>
+                at age {ageHintLabel}
+              </span>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy2)' }}>
+            Age at Visit
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input
+              type="text"
+              value={row.ageInput}
+              onChange={handleAgeInputChange}
+              placeholder="e.g. 2 months, 4y, 15d"
+              style={{
+                width: 160, fontSize: 12, padding: '4px 8px',
+                border: '1px solid var(--gy5)',
+                borderRadius: 'var(--rads)',
+                background: 'var(--wh)', color: 'var(--gy)',
+              }}
+            />
+            {row.parsedAgeDays != null && (
+              <span style={{ fontSize: 10, color: 'var(--gy3)' }}>
+                → {ageLabel(daysToMonths(row.parsedAgeDays))}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      {showRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          title="Remove this date row"
+          style={{
+            border: '1px solid var(--gy5)', background: 'var(--wh)',
+            color: 'var(--gy3)', borderRadius: 'var(--rads)',
+            fontSize: 13, cursor: 'pointer', padding: '2px 7px',
+            lineHeight: 1, alignSelf: 'flex-end', marginBottom: 1,
+          }}
+        >
+          &times;
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── VisitEntry ────────────────────────────────────────────────────────────────
 export default function VisitEntry() {
   const { state, dispatch } = useApp();
   const dob = state.dob || '';
 
-  // Form state
-  const [dateVal, setDateVal] = useState('');        // ISO "YYYY-MM-DD"
-  const [ageInput, setAgeInput] = useState('');      // free text "2 months" etc
-  const [parsedAgeDays, setParsedAgeDays] = useState(null); // number|null
+  // ── Multi-date rows state ────────────────────────────────────────────────
+  // Each row: { id, dateVal, ageInput, parsedAgeDays }
+  const [dateRows, setDateRows] = useState([makeEmptyRow()]);
+
+  // ── Antigen + brand state ────────────────────────────────────────────────
   const [selectedVks, setSelectedVks] = useState([]); // string[]
   const [brandByVk, setBrandByVk] = useState({});    // { vk: brandString }
   const [activeComboName, setActiveComboName] = useState(null); // which combo chip was explicitly clicked
   const [msg, setMsg] = useState('');
-  const [dupHint, setDupHint] = useState(null);      // { date, existingVks } | null
+  // dupHint for multi-row: { rowIds: string[], rowDates: string[], dupVks: string[] } | null
+  const [dupHint, setDupHint] = useState(null);
 
-  // Recent visits undo strip (Item 3) — stored as array of visit objects
+  // Recent visits undo strip — stored as array of visit objects
   const [recentVisits, setRecentVisits] = useState([]); // [{ visitId, date, ageDays, vks, brandByVk }]
-  const [expandedVisitId, setExpandedVisitId] = useState(null); // which undo chip is expanded
+  const [expandedVisitId, setExpandedVisitId] = useState(null);
 
   const ageInputRef = useRef(null);
 
-  // Derived age label for date → age hint
-  const ageDaysFromDate = dateVal ? isoToAgeDays(dateVal, dob) : null;
-  const ageHintLabel = (ageDaysFromDate != null && ageDaysFromDate >= 0)
-    ? ageLabel(daysToMonths(ageDaysFromDate))
-    : null;
+  // ── Derived values ────────────────────────────────────────────────────────
 
-  // Derived age for chip ordering
-  const currentAgeM = (parsedAgeDays != null)
-    ? daysToMonths(parsedAgeDays)
-    : (ageDaysFromDate != null && ageDaysFromDate >= 0)
-    ? daysToMonths(ageDaysFromDate)
-    : (state.am >= 0 ? state.am : 12); // fallback to patient age or 12m
+  // For combo age-window filtering with multiple date rows:
+  // Show only combos that are age-appropriate at ALL filled date rows (intersection).
+  // Rationale: a combo that's only valid at one of three visit dates could lead to
+  // recording it at an out-of-window visit — safer to suppress it and let the user
+  // pick standalone antigens.
+  const filledRows = dateRows.filter(r => r.dateVal || r.parsedAgeDays != null);
 
-  const { sortedCombos, sortedVaks } = orderedChipVaks(currentAgeM);
+  // Compute ageMonths for each filled row
+  function rowAgeMonths(row) {
+    if (row.parsedAgeDays != null) return daysToMonths(row.parsedAgeDays);
+    if (row.dateVal && dob) {
+      const d = isoToAgeDays(row.dateVal, dob);
+      if (d != null && d >= 0) return daysToMonths(d);
+    }
+    return null;
+  }
+
+  // Primary age for chip ordering: use the first filled row, or fall back to patient age
+  const primaryAgeM = (() => {
+    for (const r of dateRows) {
+      const am = rowAgeMonths(r);
+      if (am != null) return am;
+    }
+    return state.am >= 0 ? state.am : 12;
+  })();
+
+  // Intersection of combos valid at all filled rows
+  const comboAgesM = filledRows.map(r => rowAgeMonths(r)).filter(am => am != null);
+
+  function combosForAgeIntersection(ageMonthsList) {
+    if (ageMonthsList.length === 0) return [];
+    // Start with combos valid at first age, then intersect
+    let valid = Object.entries(COMBOS)
+      .filter(([, c]) => ageMonthsList[0] >= c.minM && ageMonthsList[0] <= c.maxM)
+      .map(([name]) => name);
+    for (let i = 1; i < ageMonthsList.length; i++) {
+      valid = valid.filter(name => {
+        const c = COMBOS[name];
+        return ageMonthsList[i] >= c.minM && ageMonthsList[i] <= c.maxM;
+      });
+    }
+    return valid;
+  }
+
+  const eligibleCombos = combosForAgeIntersection(comboAgesM);
+
+  const { sortedVaks } = orderedChipVaks(primaryAgeM);
+
+  // Sort the eligible combos using the same order logic from orderedChipVaks
+  const earlyOrder = ['Vaxelis', 'Pediarix', 'Pentacel', 'ProQuad', 'Penbraya', 'Penmenvy', 'Twinrix'];
+  const lateOrder  = ['Kinrix', 'Quadracel', 'Vaxelis', 'Pediarix', 'Pentacel', 'ProQuad', 'Penbraya', 'Penmenvy', 'Twinrix'];
+  const comboOrder = primaryAgeM >= 48 ? lateOrder : earlyOrder;
+  const sortedCombos = [...eligibleCombos].sort((a, b) => {
+    const ai = comboOrder.indexOf(a), bi = comboOrder.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
 
   // Combo hint
   const comboHint = selectedVks.length >= 2 ? detectComboHint(selectedVks, brandByVk) : null;
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  // ── Date row handlers ──────────────────────────────────────────────────────
 
-  const handleDateChange = useCallback((iso) => {
-    setDateVal(iso);
+  function addDateRow() {
+    setDateRows(prev => [...prev, makeEmptyRow()]);
+    setMsg('');
     setDupHint(null);
-    setMsg('');
-    // Derive ageDays from DOB + visit date (used for combo chip age-gating)
-    if (iso && dob) {
-      const days = isoToAgeDays(iso, dob);
-      if (days != null && days >= 0) {
-        setParsedAgeDays(days);
-      }
-    }
-  }, [dob]);
+  }
 
-  const handleAgeInput = useCallback((e) => {
-    const raw = e.target.value;
-    setAgeInput(raw);
-    const days = parseAgeInput(raw);
-    setParsedAgeDays(days);
+  function removeRow(id) {
+    setDateRows(prev => {
+      if (prev.length <= 1) return prev; // never remove the last row
+      return prev.filter(r => r.id !== id);
+    });
     setMsg('');
-    // Auto-fill date from dob + parsed days
-    if (days != null && dob) {
-      const iso = dobPlusDays(dob, days);
-      if (iso) setDateVal(iso);
-    }
-  }, [dob]);
+    setDupHint(null);
+  }
+
+  function updateRow(updated) {
+    setDateRows(prev => prev.map(r => r.id === updated.id ? updated : r));
+    setMsg('');
+    setDupHint(null);
+  }
+
+  // ── Antigen handlers ───────────────────────────────────────────────────────
 
   const toggleVk = useCallback((vk) => {
     setSelectedVks(prev => {
@@ -220,19 +376,9 @@ export default function VisitEntry() {
   const selectCombo = useCallback((comboName) => {
     const covers = COMBO_COVERS[comboName] || [];
 
-    setActiveComboName(() => {
-      // If switching from a previous combo, clear its antigens that weren't independently selected
-      // (We'll handle clearing in the state updater below)
-      return comboName;
-    });
+    setActiveComboName(() => comboName);
 
     setSelectedVks(prev => {
-      // Remove antigens that were solely from the previously active combo (not independently toggled)
-      // We determine "was from combo only" by checking brandByVk — if it matches the old combo's brand
-      // We rebuild: keep antigens that are NOT from the old active combo, then add new combo's antigens
-      // Since we don't have the old activeComboName inside this callback reliably, we'll just replace
-      // all combo-sourced antigens. The cleanest approach: keep prev antigens that have NO combo brand,
-      // plus add the new combo's antigens.
       const comboSourced = (vk) => {
         const brand = brandByVk[vk] || '';
         return Object.keys(COMBO_COVERS).some(cn => brand.startsWith(cn));
@@ -288,19 +434,17 @@ export default function VisitEntry() {
     selectCombo(comboName);
   }, [selectCombo]);
 
-  // Returns only the vks in selectedVks that already have a dose on the given date.
-  // Cross-antigen entries on the same date are normal (multi-vaccine visit) — never warn.
-  function findDuplicateVks(iso, vksToAdd) {
+  // ── Validation helpers ─────────────────────────────────────────────────────
+
+  // For a given iso date, returns any vks in vksToAdd that already exist on that date
+  function findDuplicateVksForDate(iso, vksToAdd) {
     if (!iso || !vksToAdd || vksToAdd.length === 0) return [];
-    const dups = [];
-    for (const vk of vksToAdd) {
-      const doses = state.hist[vk] || [];
-      if (doses.some(d => d.date === iso)) {
-        dups.push(vk);
-      }
-    }
-    return dups;
+    return vksToAdd.filter(vk =>
+      (state.hist[vk] || []).some(d => d.date === iso)
+    );
   }
+
+  // ── Commit ────────────────────────────────────────────────────────────────
 
   function handleCommit(mergeExisting = false) {
     setMsg('');
@@ -311,66 +455,80 @@ export default function VisitEntry() {
       return;
     }
 
-    // Hard-stop 2: no timing provided
-    if (!dateVal && parsedAgeDays == null) {
-      setMsg(dob ? 'Enter a visit date to continue.' : 'Enter the age at this visit to continue.');
+    // Hard-stop 2: check that every row has timing data
+    const incompleteRows = dateRows.filter(r => !r.dateVal && r.parsedAgeDays == null);
+    if (incompleteRows.length > 0) {
+      if (dateRows.length === 1) {
+        setMsg(dob ? 'Enter a visit date to continue.' : 'Enter the age at this visit to continue.');
+      } else {
+        setMsg(`${incompleteRows.length} date row${incompleteRows.length > 1 ? 's are' : ' is'} incomplete — enter a date or age for each row.`);
+      }
       return;
     }
 
-    // Check for duplicate antigen on same date (only when date is available and not already acknowledged)
-    if (dateVal && !mergeExisting) {
-      const dupVks = findDuplicateVks(dateVal, selectedVks);
-      if (dupVks.length > 0) {
-        setDupHint({ date: dateVal, dupVks });
+    // Check for duplicate antigens on any of the entered dates (only when date is available)
+    if (!mergeExisting) {
+      const dateRowsWithDups = dateRows.filter(r => r.dateVal && findDuplicateVksForDate(r.dateVal, selectedVks).length > 0);
+      if (dateRowsWithDups.length > 0) {
+        const allDupVks = new Set();
+        for (const r of dateRowsWithDups) {
+          for (const vk of findDuplicateVksForDate(r.dateVal, selectedVks)) {
+            allDupVks.add(vk);
+          }
+        }
+        setDupHint({
+          rowDates: dateRowsWithDups.map(r => r.dateVal),
+          dupVks: [...allDupVks],
+        });
         return;
       }
     }
 
-    const visitId = `visit_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const targets = selectedVks.map(vk => ({
       vk,
       brand: brandByVk[vk] || '',
     }));
 
-    const mode = dateVal ? 'date' : 'age';
-    const ageDays = mode === 'age' ? parsedAgeDays : (ageDaysFromDate ?? null);
+    // Dispatch one VISIT_ADD per date row
+    const newRecentVisits = [];
+    for (const row of dateRows) {
+      const visitId = `visit_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const mode = row.dateVal ? 'date' : 'age';
+      const ageDaysFromDate = row.dateVal && dob ? isoToAgeDays(row.dateVal, dob) : null;
+      const ageDays = mode === 'age' ? row.parsedAgeDays : (ageDaysFromDate ?? null);
 
-    dispatch({
-      type: 'VISIT_ADD',
-      payload: {
-        visitId,
-        targets,
-        mode,
-        date: dateVal || '',
-        ageDays: ageDays ?? null,
-        mergeExisting,
-      },
-    });
+      dispatch({
+        type: 'VISIT_ADD',
+        payload: {
+          visitId,
+          targets,
+          mode,
+          date: row.dateVal || '',
+          ageDays: ageDays ?? null,
+          mergeExisting,
+        },
+      });
 
-    // Add to undo strip
-    setRecentVisits(prev => [
-      {
+      newRecentVisits.push({
         visitId,
-        date: dateVal,
+        date: row.dateVal,
         ageDays: ageDays ?? null,
         vks: selectedVks,
         brandByVk: { ...brandByVk },
-      },
-      ...prev,
-    ].slice(0, 5));
+      });
+    }
+
+    // Add to undo strip (most recent first), cap at 5
+    setRecentVisits(prev => [...newRecentVisits, ...prev].slice(0, 5));
 
     setMsg('');
     setDupHint(null);
 
-    // Reset form — keep date field focused for next visit entry
+    // Reset form: one empty date row + clear antigen selections
+    setDateRows([makeEmptyRow()]);
     setSelectedVks([]);
     setBrandByVk({});
     setActiveComboName(null);
-    setAgeInput('');
-    setParsedAgeDays(null);
-    // Keep date for rapid same-day entry; user can clear if needed
-    // Actually reset date so each visit must be re-entered (better UX for multiple visits)
-    setDateVal('');
   }
 
   function handleRemoveVisit(visitId) {
@@ -417,6 +575,9 @@ export default function VisitEntry() {
     return allLabels.join(', ');
   }
 
+  // Whether the submit button should be visually enabled
+  const canSubmit = selectedVks.length > 0;
+
   return (
     <div style={{ marginBottom: 12 }}>
       {/* ── Visit Entry Form ── */}
@@ -432,73 +593,64 @@ export default function VisitEntry() {
         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--g)', textTransform: 'uppercase', letterSpacing: '.7px', marginBottom: 6 }}>
           Add Visit
         </div>
-        {/* Row 1: Visit timing — one field depending on whether DOB is set */}
+
+        {/* ── Date rows ── */}
+        {dateRows.map((row) => (
+          <DateRow
+            key={row.id}
+            row={row}
+            dob={dob}
+            showRemove={dateRows.length > 1}
+            onChange={updateRow}
+            onRemove={() => removeRow(row.id)}
+          />
+        ))}
+
+        {/* "+ Add another visit" link */}
         <div style={{ marginBottom: 10 }}>
-          {dob ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy2)' }}>
-                Visit Date
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <DateField
-                  value={dateVal}
-                  onChange={handleDateChange}
-                  ariaLabel="Visit date"
-                  width={110}
-                  onEnter={() => handleCommit(false)}
-                />
-                {ageHintLabel && (
-                  <span style={{ fontSize: 11, color: 'var(--gy3)', whiteSpace: 'nowrap' }}>
-                    at age {ageHintLabel}
-                  </span>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy2)' }}>
-                Age at Visit
-              </label>
-              <input
-                ref={ageInputRef}
-                type="text"
-                value={ageInput}
-                onChange={handleAgeInput}
-                placeholder="e.g. 2 months, 4y, 15d"
-                style={{
-                  width: 160, fontSize: 12, padding: '4px 8px',
-                  border: '1px solid var(--gy5)',
-                  borderRadius: 'var(--rads)',
-                  background: 'var(--wh)', color: 'var(--gy)',
-                }}
-              />
-              {parsedAgeDays != null && (
-                <span style={{ fontSize: 10, color: 'var(--gy3)' }}>
-                  → {ageLabel(daysToMonths(parsedAgeDays))}
-                </span>
-              )}
-            </div>
+          <button
+            type="button"
+            onClick={addDateRow}
+            style={{
+              background: 'none', border: 'none', padding: 0,
+              fontSize: 11, color: 'var(--g)', cursor: 'pointer',
+              textDecoration: 'underline', fontWeight: 600,
+            }}
+          >
+            + Add another visit date
+          </button>
+          {dateRows.length > 1 && (
+            <span style={{ fontSize: 11, color: 'var(--gy3)', marginLeft: 8 }}>
+              {dateRows.length} dates — same vaccines will be recorded for each
+            </span>
           )}
         </div>
 
-        {/* Row 2: Vaccine selection hint */}
+        {/* Row: Vaccine selection hint */}
         <div style={{ color: '#999', fontSize: '0.78rem', marginBottom: 6 }}>
           Select one or more vaccines given at this visit.
         </div>
 
-        {/* Combo chips — only shown when visit age is determinable */}
+        {/* Combo chips — only shown when visit age is determinable at all rows */}
         {(() => {
           // Condition (a): patient context is set — either manual age OR DOB is present
           const patientAgeKnown = (state.am != null && state.am >= 0) || !!state.dob;
-          // Condition (b): visit date OR age-at-visit entered (so we can pin an age for filtering)
-          const visitAgeKnown = !!dateVal || parsedAgeDays != null;
-          const showCombos = patientAgeKnown && visitAgeKnown && sortedCombos.length > 0;
+          // Condition (b): all date rows have a date or age entered
+          // (show combos once at least one row is filled, but only show combos
+          //  that are age-valid for ALL filled rows — intersection)
+          const anyRowFilled = filledRows.length > 0;
+          const showCombos = patientAgeKnown && anyRowFilled && sortedCombos.length > 0;
           if (!showCombos) return null;
           return (
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--gy3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 5 }}>
                 Combination Vaccines
               </div>
+              {dateRows.length > 1 && comboAgesM.length < dateRows.length && (
+                <div style={{ fontSize: 10, color: 'var(--gy3)', marginBottom: 5 }}>
+                  Showing combos valid at all entered visit ages
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                 {sortedCombos.map(comboName => {
                   const covers = COMBO_COVERS[comboName] || [];
@@ -543,7 +695,7 @@ export default function VisitEntry() {
           );
         })()}
 
-        {/* Row 3: Individual antigen chips — always visible */}
+        {/* Individual antigen chips — always visible */}
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--gy3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 5 }}>
             Individual Antigens
@@ -573,7 +725,7 @@ export default function VisitEntry() {
           </div>
         </div>
 
-        {/* Row 4: Brand dropdowns for selected vaccines */}
+        {/* Brand dropdowns for selected vaccines */}
         {selectedVks.length > 0 && (
           <div style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--gy3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 5 }}>
@@ -656,7 +808,7 @@ export default function VisitEntry() {
           </div>
         )}
 
-        {/* Duplicate antigen warning — only shown when the same antigen is already on this date */}
+        {/* Duplicate antigen warning */}
         {dupHint && (
           <div style={{
             fontSize: 11, padding: '6px 10px', marginBottom: 8,
@@ -664,7 +816,8 @@ export default function VisitEntry() {
             color: 'var(--a)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
           }}>
             <span>
-              {fmtDate(dupHint.date)} already has{' '}
+              {dupHint.rowDates.map(d => fmtDate(d)).join(', ')} already{' '}
+              {dupHint.rowDates.length > 1 ? 'have' : 'has'}{' '}
               {dupHint.dupVks.map(vk => VAX_META[vk]?.ab || vk).join(', ')}.{' '}
               Add as duplicate?
             </span>
@@ -706,27 +859,29 @@ export default function VisitEntry() {
               background: 'var(--gy6)', border: '1px solid var(--gy5)',
               borderRadius: 'var(--rads)', padding: '2px 8px',
             }}>
-              {selectedVks.length} vaccine{selectedVks.length !== 1 ? 's' : ''} selected
+              {selectedVks.length} vaccine{selectedVks.length !== 1 ? 's' : ''}
+              {dateRows.length > 1 ? ` × ${dateRows.length} dates` : ' selected'}
             </span>
           )}
           <button
             type="button"
             onClick={() => handleCommit(false)}
+            disabled={!canSubmit}
             style={{
               fontSize: 12, fontWeight: 700, padding: '5px 18px',
               borderRadius: 'var(--rads)', border: 'none',
-              background: selectedVks.length > 0 ? 'var(--g)' : 'var(--gy5)',
-              color: selectedVks.length > 0 ? '#fff' : 'var(--gy3)',
-              cursor: selectedVks.length > 0 ? 'pointer' : 'default',
+              background: canSubmit ? 'var(--g)' : 'var(--gy5)',
+              color: canSubmit ? '#fff' : 'var(--gy3)',
+              cursor: canSubmit ? 'pointer' : 'default',
               transition: 'background .15s',
             }}
           >
-            + Add Visit
+            + Add Visit{dateRows.length > 1 ? `s (${dateRows.length})` : ''}
           </button>
         </div>
       </div>
 
-      {/* ── Undo Strip (Item 3) ── */}
+      {/* ── Undo Strip ── */}
       {recentVisits.length > 0 && (
         <div style={{ marginTop: 8 }}>
           <div style={{ color: '#999', fontSize: '0.78rem', marginBottom: 5 }}>
@@ -812,6 +967,9 @@ export default function VisitEntry() {
           </div>
         </div>
       )}
+
+      {/* Ref for age input — unused but kept for potential external focus management */}
+      <span ref={ageInputRef} style={{ display: 'none' }} />
     </div>
   );
 }

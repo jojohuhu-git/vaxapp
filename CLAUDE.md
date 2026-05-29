@@ -1532,4 +1532,203 @@ as "Polio" and lands between Pneumococcal and RSV in the visible list. Same
 applies to Flu (n: "Influenza"), RV (n: "Rotavirus"), VAR (n: "Varicella").
 
 ### Test count
-2,179 passing.
+2,280 passing (162 files).
+
+---
+
+## Changes shipped (2026-05-29)
+
+Two-day session covering 11 work tracks across vaccine logic, recommendations UI, and OCR import. All changes preserved the five-surface verification rule and CSS-token discipline.
+
+### Track 1 — Hib audit brand-aware (clinical correctness)
+
+**Bug**: Audit flagged Hib D3 of a Vaxelis (PRP-OMP) primary series as violating the 12-month minimum age, when the 12m floor only applies to the *booster*. Per ACIP/immunize.org:
+- **PRP-OMP family** (Vaxelis, PedvaxHIB): PRP-OMP series is either 2 primary + 1 booster (PedvaxHIB) OR 3 primary doses (Vaxelis — FDA-approved as 3-dose primary, NOT for use as a booster). Vaxelis D3 at ~6m is part of the primary series — only the 4-week interval rule applies.
+- **PRP-T family** (ActHIB, Hiberix, Pentacel): 3 primary + 1 booster. The 12m floor applies to D4 (the booster).
+
+**Files changed**:
+- `src/logic/validation.js` — split OMP D3 handling: Vaxelis D3 gets `minByDose = null`; PedvaxHIB D3 keeps 365d floor; brand-unknown D3 infers family from `prevDose.brand`.
+- `src/logic/dosePlan.js` — `getTotalDoses("Hib")` now returns 3 for Vaxelis (was only returning 3 for PedvaxHIB).
+- `src/logic/buildOptimalSchedule.js` — same fix in `seriesDoses("Hib")`.
+- `src/logic/recommendations.js` (Python edit) — added `isVaxelis` flag and `hibTotal` variable; booster threshold uses `hibTotal` instead of `isPed ? 3 : 4`, so 3 Vaxelis doses correctly = complete (no spurious D4 booster rec).
+
+**Test**: `src/logic/__tests__/regression-hib-vaxelis-primary.test.js` — 10 tests covering the user-reported scenario (DOB 9/16/08 with mixed HbOC/Vaxelis doses), pure 3-dose Vaxelis primary, ActHIB-then-D4 booster, and PedvaxHIB 2+1 primary+booster.
+
+### Track 2 — Recs tab: past doses + Completed Series section
+
+- **`RecCard.jsx`** — added "Given:" line showing all validated doses (date + brand abbreviation) below the existing card body. Reads from `validatedHistory(hist, dob)` so it reflects engine-counted doses, not raw history.
+- **`RecTab.jsx`** — new "Completed Series" section at the bottom. Always visible regardless of active filter (so users on "Due" still see what's complete). `completedVks` = vaccines with validated doses, not in current `recs`, and no future entry in `dosePlan`. Each completed entry shows vaccine name, dose history, and a gray "Complete" chip.
+
+**Tests**: `src/components/__tests__/RecTab.complete.test.jsx` — 9 tests.
+
+### Track 3 — OCR import overhaul (`HistoryImageImport.jsx`, `ocrParser.js`)
+
+Major upgrades to the OCR import path. Now supports multiple images, brand inference, editable raw text with auto-apply, and inline data-entry repair tools.
+
+**Multi-image upload**:
+- `<input type="file" multiple>` + drag-drop accepts file lists.
+- Single Tesseract worker reused across all images (one init/terminate per batch — avoids 2 MB reload per file).
+- Per-image progress: `"Processing image 2 of 3…"` for multi; percentage for single.
+- 2× upscale (added in this session) extracted to `upscaleIfNeeded(file)` and called per image. If image width < 1200px, drawn 2× onto canvas with `imageSmoothingQuality='high'` before OCR.
+- Per-image parsed rows merged via `mergeRows()` dedup'd by `(vk, ISO-date)`, preferring non-null brand.
+
+**Brand inference** (`ocrParser.js`):
+- New exported `inferBrand(vk, line)` with a `BRAND_PATTERNS` array (19 entries). Returns a brand string or null. Conservative — only patterns that are unambiguous are included.
+- Confident inferences include:
+  - "Rotavirus Pentavalent" → RotaTeq
+  - "(MENVEO)" / "MCV4O" → Menveo
+  - "(MenQuadfi)" / "PS ACWY" → MenQuadfi
+  - "Pfizer Purple Cap" / "Comirnaty" → Pfizer-BioNTech (Comirnaty)
+  - "Hib (HbOC)" → Hiberix
+  - "Tdap" → null (Adacel and Boostrix both plausible; let clinician confirm)
+- `parseOcrText` now returns `{ rows, unrecognized }` with `brand` per row. When the same vk appears on multiple lines with conflicting brand inferences (e.g. IIS exports often split Meningococcal by CVX into Menveo + MenQuadfi + Unspecified), `brand` is set to null (ambiguous) rather than picking one.
+
+**Editable raw OCR text with auto-apply**:
+- Always-visible labeled textarea at the bottom of the review modal: "Raw OCR text — edits update the import list automatically".
+- Debounced `useEffect` watches `editedRawText`: skips initial mount (via `isFirstRun` ref); 400ms after the user stops typing, re-runs `parseOcrText` and replaces the `rows` state.
+- Two-stage feedback indicator: "Updating…" (gray, during debounce) → "Updated · N doses" (gray pulse for 1.5s) → clear.
+- Textarea: monospace, 14 rows, `white-space: pre` + `overflowX: auto` so no wrapping.
+- Multi-image raw text concatenated with `--- Image N: filename.png ---` separators.
+
+**`prettifyRawOcr(text)` exported helper**:
+- Pads vaccine labels to a uniform column (dynamic width: `min(50, max(24, longestLabelLen + 2))`) so dates align vertically.
+- Inserts blank line between vaccine families.
+- Preserves OCR order; preserves blank lines and separator lines.
+- Idempotent — safe to call on already-prettified text.
+- Called only on initial seed via `useState(() => prettifyRawOcr(initialRawText))`. NEVER on edit — user's keystrokes are preserved verbatim.
+
+**Inline data-entry repair tools** (review modal):
+- **"+ date" button per parsed row** — appends a date to that vaccine's `dates` array via inline DateField. Handles the most common OCR miss (vaccine row caught, one date dropped).
+- **"+ Add vaccine dose" form at top** — vaccine select (sorted by `VAX_META[vk].ab`), date picker, optional brand select. On Save: if vk already exists in rows, merges into that row; otherwise creates a new row.
+- **Summary banner at top**: `"N unique vaccines · M doses · K lines unrecognized"`. K turns amber when > 0. Updates live as rows/dates change. `data-testid="ocr-summary-banner"`.
+
+**Tests**: `src/components/__tests__/HistoryImageImport.modal.test.jsx` (new, 8+ tests using `vi.useFakeTimers()` for debounce); `src/components/__tests__/HistoryImageImport.parse.test.jsx` (extended with `prettifyRawOcr` tests and 18 verbatim IIS-line assertions).
+
+### Track 4 — DosePill "+ Add another dose"
+
+Inside `DoseDetailPopover` (which opens when a dose pill is clicked), a new "+ Add another dose for {vaccineName}" affordance appears at the bottom. UX:
+- Click reveals inline form: DateField (DOB set) or AGE_OPTS select (DOB unset) + brand select.
+- DOB-keyed branching mirrors the existing inline edit pattern.
+- Save disabled until date/age chosen.
+- Dispatches `VISIT_ADD` with a fresh `visitId` (matches VisitEntry's shape so brand is preserved).
+- Escape collapses the form before closing the popover.
+- `popH` dynamically expands 200 → 300 when the form is open so the popover stays correctly positioned.
+
+**Tests**: `src/components/__tests__/DosePill.expansion.test.jsx` — 3 new tests.
+
+### Track 5 — OCR guidance + 2× upscale
+
+- Hint under drop zone: *"For best results, screenshot at 100%+ zoom; text smaller than ~14pt may be missed."* Subtle, `var(--gy3)`, 10px font.
+- 2× upscale via `createImageBitmap` + canvas when image width < 1200px. Tesseract.js accepts canvas elements directly. Graceful fallback if `createImageBitmap` is unsupported.
+
+### Track 6 — Multi-date Add Visit form (`VisitEntry.jsx`)
+
+Refactored from one-date-at-a-time to stackable date rows. UX:
+- State moved from scalar `dateVal/ageInput` to `dateRows: [{id, dateVal, ageInput, parsedAgeDays}]`.
+- **"+ Add another visit date"** button below the date rows. Each click appends a new DateRow. Each row has × to remove (except the last remaining row).
+- **`DateRow` sub-component** — extracted the single-row date/age UI. DOB-keyed (DateField when DOB set; text input otherwise).
+- **Combo age intersection**: `combosForAgeIntersection(ageMonthsList)` returns combos valid at every filled row's age. Prevents recording an out-of-window combo at any of the entered dates.
+- **Submit**: dispatches one `VISIT_ADD` per row, same antigen/brand payload, unique `visitId` per dispatch. Resets `dateRows` to one empty row after.
+- **Validation**: reports count of incomplete rows; checks duplicate dates against existing past visits.
+
+**Tests**: `src/components/__tests__/VisitEntry.multiDate.test.jsx` — 11 new tests.
+
+### Test count delta
+2,179 → 2,280 (+101 across the session).
+
+---
+
+## Hib brand-family logic — canonical reference
+
+When auditing or projecting Hib doses, the family of the brand determines whether the 12m booster floor applies and how many total doses are expected.
+
+| Brand | Family | Total doses | D3 booster floor? |
+|---|---|---|---|
+| Vaxelis | PRP-OMP | 3 (primary only; not for booster) | No — D3 is primary |
+| PedvaxHIB | PRP-OMP | 3 (2 primary + 1 booster) | Yes — D3 is booster |
+| ActHIB | PRP-T | 4 (3 primary + 1 booster) | No — D4 is booster |
+| Hiberix | PRP-T | 4 | No — D4 is booster |
+| Pentacel | PRP-T | 4 | No — D4 is booster |
+
+**`getTotalDoses("Hib")`** in `dosePlan.js`:
+- Scan `hist.Hib` doses; if any brand starts with "Vaxelis" or "PedvaxHIB" → 3.
+- Otherwise → 4 (default PRP-T series).
+- Brand-unknown → 4 (conservative; clinician confirms via DosePill brand edit later).
+
+**`recommendations.js` Hib booster threshold**: uses `hibTotal` derived the same way. Do NOT hardcode `dt < 3` or `dt < 4` — branch on family.
+
+**`validation.js` Hib `min_age`**:
+- For D3: if prior dose family is PRP-OMP AND brand is Vaxelis → no 12m floor (still primary). If PedvaxHIB → 365d floor (booster).
+- For D4: PRP-T family → 365d floor.
+- Brand-unknown prior → conservative: apply floor only if the dose-number suggests booster per the family count.
+
+This rule must remain consistent across all five surfaces. See `src/logic/__tests__/regression-hib-vaxelis-primary.test.js` for the canonical scenarios.
+
+---
+
+## OCR import — architecture reference (for from-scratch rebuild)
+
+Files involved (all under `src/`):
+| File | Purpose |
+|---|---|
+| `logic/ocrParser.js` | Pure parser. `parseOcrText`, `parseDate`, `normalizeAntigen`, `inferBrand`, `ANTIGEN_MAP`, `FUZZY_PATTERNS`, `BRAND_PATTERNS` |
+| `components/HistoryImageImport.jsx` | Drop zone, tesseract.js dynamic import, `ReviewModal`, `prettifyRawOcr` exported helper |
+| `components/SuggestionCard.jsx` | Shared combo-suggestion card (used by OCR modal + drawer panel) |
+| `logic/comboInference.js` | `combosFittingVks(vkSet, date, dob)`, `suggestCombosForHistory(hist, dob)` |
+
+### Parser pipeline (`parseOcrText`)
+1. Split raw text into lines, trim, drop empty.
+2. For each line: `extractDates(line)` → ISO dates via `DATE_RE = /\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/g`. Skip lines with no dates.
+3. `normalizeAntigen(line)`:
+   - Lowercase, strip trailing `…`.
+   - Strict prefix match against `ANTIGEN_MAP` (entries sorted with more-specific first: "Meningococcal B" before "Meningococcal").
+   - Fallback to `FUZZY_PATTERNS` (regex). Only safe for lines that already contain a date.
+4. If vk identified: `inferBrand(vk, line)` against `BRAND_PATTERNS`. Returns brand or null.
+5. Group by vk: `byVk[vk] = { dates: Set, brand, brandAmbiguous }`. Adding a different non-null brand for the same vk sets `brandAmbiguous=true` → final brand = null.
+6. Output `rows: [{vk, dates, brand}]` sorted, deduplicated; `unrecognized: string[]` (lines with dates but no vk match).
+
+### Multi-image flow (`HistoryImageImport.jsx`)
+1. `onFilesSelected(files)` → loop over each file.
+2. `upscaleIfNeeded(file)` → returns canvas or original file.
+3. Single tesseract worker initialized once.
+4. For each file: `worker.recognize(source)` → `{ text, ... }`. Per-file raw text accumulated with `--- Image N: name ---` separator.
+5. After all files: `worker.terminate()`, `parseOcrText(combinedText)`, `mergeRows(perFileRows)` for dedup.
+6. Open `ReviewModal` with `{rows, unrecognized, rawText: combinedText}`.
+
+### ReviewModal state
+- `rows` — editable parsed rows (toggle, edit dates, add inline).
+- `editedRawText` — textarea content (seeded via `prettifyRawOcr`).
+- `autoApplyStatus` — `'' | 'pending' | 'updated:N'`.
+- `isFirstRun` ref — skips the mount-time auto-apply.
+- Add-vaccine form state (`addVaxOpen`, `addVaxVk`, `addVaxDate`, `addVaxBrand`).
+- Per-row inline date-add state (open/value per row index).
+
+### Confirm flow
+1. Group enabled rows by date: `byDate[iso] = [{vk, brand}, ...]`.
+2. Dispatch one `VISIT_ADD` per date with that date's antigen+brand payload.
+
+### Constraints to preserve
+- Brand inference patterns must be conservative — never guess when 2+ products share a label.
+- Auto-apply debounce MUST guard initial mount (otherwise `prettifyRawOcr`'s output triggers a re-parse that blows away existing rows).
+- Prettify is one-shot — never run on edited text or it'll fight the user.
+- Dedup key is `(vk, ISO-date)`. If brand inferences conflict across images for the same dose, prefer non-null and set ambiguous → null.
+
+---
+
+## Recommendations tab — Completed Series invariant
+
+`RecTab.jsx` computes `completedVks` independently of the active filter:
+
+```js
+const completedVks = VAX_KEYS.filter(vk => {
+  const validDoses = validatedHistory(hist, dob)[vk] || [];
+  if (validDoses.length === 0) return false;
+  if (recs.some(r => r.vk === vk)) return false;
+  const hasFuture = Object.keys(dosePlan).some(k =>
+    k.endsWith(`_${vk}`) || k.endsWith(`cu_${vk}`)
+  );
+  return !hasFuture;
+});
+```
+
+Rendered as a separate "Completed Series" section below the filtered rec list. Each card uses muted styling (gy tokens). Filter buttons (All/Due/Catch-up/Risk-Based/SCD) do NOT hide the Completed section — it's always visible because clinicians need at-a-glance visibility of what's done. If you re-architect filter logic, this invariant must be preserved.
