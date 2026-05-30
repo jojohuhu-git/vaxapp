@@ -22,6 +22,7 @@ export default function DateField({
   width = 130,
   hasError = false,
   onEnter,         // optional: called on Enter when valid
+  autoFocus = false, // optional: focus the text input on mount
 }) {
   const [text, setText] = useState(() => fmtDateInput(value));
   const dateRef = useRef(null);
@@ -42,6 +43,11 @@ export default function DateField({
   };
 
   const handleTextChange = (e) => {
+    // Strip all non-digit characters first — this makes the mask idempotent
+    // whether the user is typing fresh digits or editing an existing date that
+    // already contains slashes. Running on every change event (not just
+    // additive ones) ensures slashes are re-inserted when the user edits
+    // the middle of an existing date value.
     const digits = e.target.value.replace(/\D/g, '');
     const masked = applyDateMask(digits);
     setText(masked);
@@ -94,6 +100,7 @@ export default function DateField({
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         aria-label={ariaLabel}
+        autoFocus={autoFocus}
         style={{
           width,
           fontSize: 12,

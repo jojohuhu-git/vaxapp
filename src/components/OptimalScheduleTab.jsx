@@ -11,16 +11,7 @@ import { VAX_META } from '../data/vaccineData';
 import { REFS } from '../data/refs';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import SchedulePDF from './SchedulePDF';
-
-// Format a duration in days as the most natural unit (whole numbers preferred).
-function humanDays(d) {
-  if (d == null) return '';
-  if (d % 365 === 0 && d >= 365) { const y = d / 365; return `${y} year${y !== 1 ? 's' : ''}`; }
-  if (d >= 365) { const y = (d / 365).toFixed(1); return `${y} years`; }
-  if (d % 30 === 0 && d >= 60) { const m = d / 30; return `${m} months`; }
-  if (d % 7 === 0 && d >= 14) { const w = d / 7; return `${w} weeks`; }
-  return `${d} day${d !== 1 ? 's' : ''}`;
-}
+import { humanDays } from '../logic/ageFormat';
 
 // Find the most recent earlier dose of the same antigen in the planned schedule
 // (used to render "from DTaP D2 given 2026-03-01" in the popover).
@@ -447,7 +438,7 @@ export default function OptimalScheduleTab() {
                 <span style={{ fontWeight: 600, color: VAX_META[d.vk]?.c || '#333', minWidth: 72 }}>{d.vk}</span>
                 <span style={{ color: '#555', minWidth: 36 }}>D{d.doseNum}/{d.totalDoses}</span>
                 <span style={{ color: '#888', minWidth: 88 }}>{d.date}</span>
-                <ConstraintChip label={d.bindingConstraint} />
+                <span style={{ color: '#aaa', fontSize: 10, fontFamily: 'monospace' }}>{d.bindingConstraint}</span>
               </div>
             ))}
           </>

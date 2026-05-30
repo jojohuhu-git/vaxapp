@@ -2,6 +2,7 @@
 import { useApp } from '../context/AppContext';
 
 const TABS = [
+  { id: "compliance",  label: "Compliance Audit" },
   { id: "recs",        label: "Recommendations" },
   { id: "plan",        label: "Compare Regimens" },
   { id: "constraints", label: "Brand Rules" },

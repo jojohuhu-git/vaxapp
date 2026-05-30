@@ -151,7 +151,8 @@ function makeEmptyRow() {
 
 // ── DateRow sub-component ─────────────────────────────────────────────────────
 // A single visit-date row with date field (or age input if no DOB), plus × to remove.
-function DateRow({ row, dob, showRemove, onChange, onRemove }) {
+// autoFocus: when true, focuses the date input on mount (used for newly added rows).
+function DateRow({ row, dob, showRemove, onChange, onRemove, autoFocus = false }) {
   const ageDaysFromDate = row.dateVal ? isoToAgeDays(row.dateVal, dob) : null;
   const ageHintLabel = (ageDaysFromDate != null && ageDaysFromDate >= 0)
     ? ageLabel(daysToMonths(ageDaysFromDate))
@@ -190,6 +191,7 @@ function DateRow({ row, dob, showRemove, onChange, onRemove }) {
               onChange={handleDateChange}
               ariaLabel="Visit date"
               width={110}
+              autoFocus={autoFocus}
             />
             {ageHintLabel && (
               <span style={{ fontSize: 11, color: 'var(--gy3)', whiteSpace: 'nowrap' }}>
@@ -264,6 +266,9 @@ export default function VisitEntry() {
   const [recentVisits, setRecentVisits] = useState([]); // [{ visitId, date, ageDays, vks, brandByVk }]
   const [expandedVisitId, setExpandedVisitId] = useState(null);
 
+  // Track which row id should auto-focus (set when "+ Add another visit date" is clicked)
+  const [newRowId, setNewRowId] = useState(null);
+
   const ageInputRef = useRef(null);
 
   // ── Derived values ────────────────────────────────────────────────────────
@@ -334,7 +339,9 @@ export default function VisitEntry() {
   // ── Date row handlers ──────────────────────────────────────────────────────
 
   function addDateRow() {
-    setDateRows(prev => [...prev, makeEmptyRow()]);
+    const newRow = makeEmptyRow();
+    setDateRows(prev => [...prev, newRow]);
+    setNewRowId(newRow.id);
     setMsg('');
     setDupHint(null);
   }
@@ -603,6 +610,7 @@ export default function VisitEntry() {
             showRemove={dateRows.length > 1}
             onChange={updateRow}
             onRemove={() => removeRow(row.id)}
+            autoFocus={row.id === newRowId}
           />
         ))}
 

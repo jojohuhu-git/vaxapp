@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useApp } from '../context/AppContext';
 import { auditAll, validatedHistory } from '../logic/validation';
 import { genRecs } from '../logic/recommendations';
@@ -5,50 +6,51 @@ import { VAX_META } from '../data/vaccineData';
 import { REFS } from '../data/refs';
 import { fmtD, sortDosesByDate } from '../logic/utils';
 import { doseDate, doseAgeDays } from '../logic/stateHelpers';
-
-function fmtDuration(days) {
-  if (days < 14) return `${days} day${days === 1 ? '' : 's'}`;
-  if (days < 85) return `~${Math.round(days / 7)} weeks`;
-  return `~${Math.round(days / 30.4)} months`;
-}
+import { fmtIntervalClinical } from '../logic/ageFormat';
 
 // Returns { clean, technical } from an audit error entry.
-// clean     — human-readable one-liner shown in the dose line
-// technical — day-level detail shown on hover (title attribute)
+// clean     — human-readable one-liner shown in the dose line (clinical units)
+// technical — day-level detail shown as a secondary line
 function parseDoseReason(e) {
-  const raw = (e.detail || '')
-    .replace(/\s*Per ACIP:.+$/, '')
-    .replace(/\s*Per[: ].+$/, '')
-    .trim();
+  const raw = (e.detail || '').trim();
+  const days = e._days; // { actual, min } if set by validateDose
 
   if (e.type === 'min_age') {
-    const m = raw.match(/given at age (\d+) days \(min (\d+) days \/ ~([\d.]+)m\)/);
-    if (m) {
-      const actual = parseInt(m[1], 10);
-      const minD = parseInt(m[2], 10);
-      const minM = parseFloat(m[3]);
-      const shortfall = minD - actual;
-      const minLabel = minM >= 1 ? `${Math.round(minM)}-month` : `${minD}-day`;
-      return {
-        clean: `given before the ${minLabel} minimum age`,
-        technical: `Age at administration: ${actual} days (~${Math.round(actual / 30.4)} months). ACIP minimum: ${minD} days (${Math.round(minM)} months). Shortfall: ${fmtDuration(shortfall)}.`,
-      };
-    }
+    // New format: "D3 at age ~18 weeks — below the 24-week minimum age..."
+    // Extract the clean lead text up to the first parenthetical or dash clause
+    const m = raw.match(/^(D\d+ at age [^—]+—[^.(]+)/);
+    const clean = m ? m[1].trim() : 'given before minimum age';
+    const technical = days
+      ? `Age at dose: ${days.actual} days. ACIP minimum: ${days.min} days. Shortfall: ${fmtIntervalClinical(days.min - days.actual)}.`
+      : raw;
+    return { clean, technical };
   }
 
   if (e.type === 'interval') {
-    const m = raw.match(/only (\d+)d after D\d+ \(min (\d+)d \/ (\d+)w\)/);
-    if (m) {
-      const actual = parseInt(m[1], 10);
-      const minD = parseInt(m[2], 10);
-      const minW = parseInt(m[3], 10);
-      const shortfall = minD - actual;
-      const minLabel = minW >= 4 ? `${Math.round(minD / 30.4)}-month` : `${minW}-week`;
-      return {
-        clean: `given before the ${minLabel} minimum interval`,
-        technical: `Interval from prior dose: ${actual} days. ACIP minimum: ${minD} days (${minW} weeks). Shortfall: ${fmtDuration(shortfall)}.`,
-      };
-    }
+    const m = raw.match(/^(D\d+ only [^—]+— minimum [^.]+)\./);
+    const clean = m ? m[1].trim() : 'given before minimum interval';
+    const technical = days
+      ? `Interval from prior dose: ${days.actual} days. ACIP minimum: ${days.min} days. Shortfall: ${fmtIntervalClinical(days.min - days.actual)}.`
+      : raw;
+    return { clean, technical };
+  }
+
+  if (e.type === 'd1Cross') {
+    const m = raw.match(/^(D\d+ only [^—]+— minimum [^.]+from D1)/);
+    const clean = m ? m[1].trim() : 'given before the D1 cross-interval minimum';
+    const technical = days
+      ? `Days from D1: ${days.actual}. ACIP minimum from D1: ${days.min} days. Shortfall: ${fmtIntervalClinical(days.min - days.actual)}.`
+      : raw;
+    return { clean, technical };
+  }
+
+  if (e.type === 'iByTotalDoses') {
+    const m = raw.match(/^(D\d+ only [^—]+— minimum [^.]+)\./);
+    const clean = m ? m[1].trim() : 'given before the series-path minimum interval';
+    const technical = days
+      ? `Interval from prior dose: ${days.actual} days. Series-path minimum: ${days.min} days. Shortfall: ${fmtIntervalClinical(days.min - days.actual)}.`
+      : raw;
+    return { clean, technical };
   }
 
   return { clean: 'does not count toward the series', technical: raw };
@@ -204,9 +206,6 @@ function StandardGroupCard({ vk, vkErrors }) {
 export default function AuditPanel() {
   const { state } = useApp();
   const errors = auditAll(state.hist, state.dob, state.risks, state.am);
-  const errCount = errors.filter(e => e.severity === "err").length;
-  const warnCount = errors.filter(e => e.severity === "warn" || e.severity === "grace" || e.severity === "offLabel").length;
-
   // Group entries by vaccine key
   const grouped = errors.reduce((acc, err) => {
     const key = err.vk || '_other';
@@ -220,7 +219,7 @@ export default function AuditPanel() {
   // Detect renumbering per vk: at least one given dose was dropped from the
   // validated series and at least one was kept. The kept one(s) get renumbered
   // to earlier effective positions.
-  const renumberingTypes = new Set(['min_age', 'interval', 'renumbered']);
+  const renumberingTypes = new Set(['min_age', 'interval', 'd1Cross', 'iByTotalDoses', 'renumbered']);
 
   return (
     <div>

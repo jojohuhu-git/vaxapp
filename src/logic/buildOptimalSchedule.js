@@ -74,11 +74,18 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
 
     case 'Hib': {
       if (am >= 60) return hr ? { totalDoses: dc(hist, 'Hib') + 1 } : null;
-      // PRP-OMP family (PedvaxHIB, Vaxelis): 3-dose series, no booster beyond dose 3.
-      // PRP-T family (ActHIB, Hiberix, Pentacel): 4-dose series.
-      const hibBr = anyBr(hist, 'Hib');
-      const isOmpBrand = hibBr.includes('PedvaxHIB') || hibBr.startsWith('Vaxelis');
-      return { totalDoses: isOmpBrand ? 3 : 4 };
+      // 3-dose standard ONLY when both primary doses (D1 + D2) are PedvaxHIB.
+      // Vaxelis anywhere → 4-dose (approved as 3-dose primary but NOT as booster;
+      // a separate standalone Hib booster at 12–15m is required).
+      // Mixed primary or unknown brand → 4-dose (conservative default).
+      // Sources:
+      //   https://www.immunize.org/ask-experts/if-a-child-receives-a-different-brands-of-hib-vaccine-at-2-and-4-months-of-age-should-a-dose-also-be-given-at-6-months-of-age/
+      //   https://www.cdc.gov/mmwr/volumes/69/wr/mm6905a5.htm (Vaxelis licensure)
+      const hibGiven = (hist.Hib || []).filter(x => x.given);
+      const d1Brand = hibGiven[0]?.brand || '';
+      const d2Brand = hibGiven[1]?.brand || '';
+      const bothPrimaryPedvaxHIB = d1Brand.startsWith('PedvaxHIB') && d2Brand.startsWith('PedvaxHIB');
+      return { totalDoses: bothPrimaryPedvaxHIB ? 3 : 4 };
     }
 
     case 'PCV': {

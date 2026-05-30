@@ -176,7 +176,7 @@ function reducer(state, action) {
     }
 
     case "SET_TAB": {
-      const validTabs = new Set(["recs", "plan", "constraints", "forecast"]);
+      const validTabs = new Set(["compliance", "recs", "plan", "constraints", "forecast"]);
       const tab = validTabs.has(action.payload) ? action.payload : "recs";
       return { ...state, tab, openR: {}, openC: {} };
     }

@@ -22,18 +22,18 @@ Start at the beginning of every session:
 
 ## What the app is
 Client-side React SPA. No backend. State serialized to URL `?s=` parameter.
-Tech: React 18 + Vite + Vitest + @react-pdf/renderer + tesseract.js (for OCR import). Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,280 passing**.
+Tech: React 18 + Vite + Vitest + @react-pdf/renderer + tesseract.js (for OCR import). Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to main. Test count: **2,482 passing**.
 
 ## Tab structure
 ```
-Recommendations   Compare Regimens   Brand Rules        Immunization Schedule   Catch-up Schedule ↗
-  ├ All           (Regimen           (BrandConstraints  ├ Routine Schedule        └ CDC Catch-up
-  ├ Due (default)  Optimizer)         Panel)            └ Fewest Injections
-  ├ Catch-up
-  ├ Risk-Based
-  └ Shared decision
+Compliance Audit  Recommendations   Compare Regimens   Brand Rules        Immunization Schedule   Catch-up Schedule ↗
+(ComplianceAudit  ├ All             (Regimen           (BrandConstraints  ├ Routine Schedule        └ CDC Catch-up
+ Tab — per-dose   ├ Due (default)    Optimizer)         Panel)            └ Fewest Injections
+ compliance       ├ Catch-up
+ review)          ├ Risk-Based
+                  └ Shared decision
 ```
-Note: Tab labels as of 2026-05-25 — `TabBar.jsx` uses `id:"plan"→"Compare Regimens"`, `id:"constraints"→"Brand Rules"`, `id:"forecast"→"Immunization Schedule"`.
+Note: Tab labels as of 2026-05-29 — `TabBar.jsx` uses `id:"compliance"→"Compliance Audit"`, `id:"plan"→"Compare Regimens"`, `id:"constraints"→"Brand Rules"`, `id:"forecast"→"Immunization Schedule"`. AppContext `SET_TAB` `validTabs` set includes `"compliance"`.
 
 ## Design direction (locked — do not revert)
 Direction B — "Modern Minimal":
@@ -46,7 +46,71 @@ Direction B — "Modern Minimal":
 
 ## Key recent changes (last sessions)
 
-### Session 2026-05-29 (Hib audit fix + Recs tab past doses + OCR import overhaul — most recent)
+### Session 2026-05-30 (Hib rule correction + EXTRA citations + status legend — most recent)
+
+Four-fix session driven by clinician testing feedback. Test count 2,467 → 2,482 (+15).
+
+**Fix 1 — Hib `hibStandardTotal` rule corrected** (`src/logic/compliance.js`):
+Prior rule wrongly returned 3 whenever any PedvaxHIB OR Vaxelis appeared. ACIP-correct rule:
+- 3-dose schedule ONLY when BOTH primary doses (D1 AND D2) are PedvaxHIB
+- Vaxelis anywhere → 4-dose schedule (Vaxelis is technically PRP-OMP but ACIP treats it as 4-dose because of co-administered DTaP/IPV/HepB components)
+- Mixed PedvaxHIB+Vaxelis primary → 4-dose schedule
+Synced across all five engine surfaces: `compliance.js`, `dosePlan.js`, `buildOptimalSchedule.js`, `recommendations.js` (Python edit), `validation.js`.
+Sources: immunize.org Ask the Experts (different-brands question) + CDC child-adolescent notes + Vaxelis MMWR (mm6905a5).
+
+**Fix 2 — EXTRA dose citations now dual-source** (`compliance.js` `detectExtraScenario`):
+All 6 named EXTRA scenarios now have `citation: REFS.bestPracticesSpacing` (primary — CDC General Best Practices "extras from combos are safe") plus `citationSecondary` (scenario-specific source: Pediarix label, Vaxelis MMWR, Pertussis MMWR, etc.). `DoseCompliancePopover` renders both citation links when status is VALID_EXTRA.
+
+**Fix 3 — Vaxelis-as-booster audit** (`validation.js` `auditAll`):
+Already existed for D4 in 4-dose schedule. Extended to also flag D3 Vaxelis when given after PedvaxHIB+PedvaxHIB primary (since D3 is the booster in a 3-dose schedule). Pure Vaxelis 3-dose primary D3 → NOT flagged (it's primary, not booster). Regression test added.
+
+**Fix 4 — Status legend in Compliance Audit** (`ComplianceAuditTab.jsx`):
+Collapsible "What do these statuses mean? ▾" at the top of the tab. Color swatches + plain-English definitions for ON TIME / VALID / VALID·EXTRA / INVALID. Citation footer line. Default collapsed.
+
+### Session 2026-05-30 (Annual vaccine rulebook + smart dose labels)
+
+Eight-track session. Test count 2,427 → 2,467 (+40).
+
+**Track 1 — Versioned annual rulebook** (`src/data/annualSchedules.js`):
+Per-season rules for Flu and COVID, keyed by season starting year (July 1 → June 30). `FLU_SCHEDULES` covers priming-vs-annual rule. `COVID_SCHEDULES` covers per-age-per-brand-per-status rules for 2025-26 (6-23mo unvaccinated 2-dose, ≥65y 2-dose-per-season, immunocompromised 3-dose, everyone else annual). Helpers: `seasonOf(iso)`, `seasonLabel(year)`, `scheduleForSeason(vk, doseDateISO)`, `covidRuleFor(...)`.
+
+**Track 2 — Smart dose labels** (`src/logic/annualLabel.js`):
+`labelForDose(vk, doseIdx, dose, hist, dob, ageMonths, risks)` returns season-aware labels:
+- Non-annual vaccines → `Dose N`
+- Flu first-ever priming pair → `Dose 1` / `Dose 2`
+- Flu annual → `2024–25 Season`
+- COVID primary series (6-23mo unvax, immunocomp) → `Dose 1/2/3`
+- COVID ≥65y 2-doses-per-season → `2025–26 Season — Dose 1`
+- COVID annual → `2025–26 Season`
+Citation pulled from the season's schedule entry.
+
+**Track 3 — Wired into Compliance Audit**: `DoseCard` and `DoseCompliancePopover` use the smart label. Popover footer shows annual-schedule citation chip.
+
+**Track 4-5 — Stale-rule chip + auto-focus date rows**:
+`maxVerifiedDate()` checks max `verified` across `FLU_SCHEDULES` + `COVID_SCHEDULES`. If >14 months stale, amber chip at bottom of Compliance Audit: *"Flu and COVID rules last verified {Mon YYYY}. Consider asking Claude to check for ACIP updates."* sessionStorage-dismissible.
+`VisitEntry.jsx` `addDateRow()` sets `newRowId` state; new `DateRow` receives `autoFocus={row.id === newRowId}`. Initial single row does NOT auto-focus on mount.
+
+**Track 6-8 — DosePill + HistoryTable + test guardrails**: smart labels rendered in DosePill popover header; HistoryTable passes `risks` prop through. Tests assert every season from min-history through current year has a rulebook entry.
+
+### Session 2026-05-29, session 3 (Compliance Audit tab + classifier taxonomy)
+
+Five-track session. Test count 2,320 → 2,405 (+85).
+
+**Track 1 — Delete superseded code**: Deleted `ComplianceTimeline.jsx`, its test, `RecTab.complete.test.jsx`, `ForecastTab.compliance.test.jsx`. Removed "Completed Series" section from `RecTab.jsx`. Removed `ComplianceReviewPanel` (and its VaccineRow/ComplianceAxis imports) from `ForecastTab.jsx`.
+
+**Track 2 — New Compliance Audit tab** (`src/components/ComplianceAuditTab.jsx`): leftmost tab (id `"compliance"`). Per-dose cards with status pills (ON TIME/VALID/VALID·EXTRA/INVALID/UNKNOWN). `DoseCompliancePopover` portal shows age vs window, interval, counts-toward-series, Why VALID/EXTRA explanation, per-rule citations. Print Compliance Audit button. `AppContext.jsx` `SET_TAB` `validTabs` set updated to include `"compliance"`.
+
+**Track 3 — DosePill taxonomy update** (`DosePill.jsx`): both `classifyDose` calls updated for new signature `(vk, idx, dose, totalDoses, dob, prevDose, null, null)`.
+
+**Track 4 — ageFormat.js refinement**: `fmtAgeClinical` 0→"Birth", 1-27d→"N days", 28-729d→"N months" (whole), ≥730d→"N years [M months]". `fmtIntervalClinical` <14d→"N days", 14-181d→"N weeks", 182-729d→"N months", ≥730d→"N years". `ageFormat.test.js` rewritten.
+
+**Track 5 — DateField autoFocus prop**: `autoFocus = false` prop added to `DateField.jsx`. Test: `DateField.autofocus.test.jsx`.
+
+**New logic module** (`src/logic/compliance.js`): completely rewritten. Exports `classifyDose`, `detectExtraScenario` (7 EXTRA scenarios), `STATUS_COLOR` (new uppercase + legacy lowercase aliases), `RULES_REGISTRY`. New test files: `compliance.taxonomy.test.js`, `compliance.scenarios.test.js`, `ComplianceAuditTab.test.jsx`.
+
+---
+
+### Session 2026-05-29, sessions 1–2 (Hib audit fix + Recs tab past doses + OCR import overhaul)
 
 Two-day session covering 11 work tracks. Test count 2,179 → 2,280.
 
