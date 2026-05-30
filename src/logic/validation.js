@@ -6,6 +6,20 @@ import { doseAgeDays, doseDate, GRACE } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
 import { REFS } from '../data/refs.js';
+import { fmtAgeClinical, fmtIntervalClinical } from './ageFormat.js';
+
+// ── Season helpers for Flu audit ─────────────────────────────────────────────
+// Flu season runs July 1 → June 30. seasonOf(iso) returns the starting year.
+function seasonOf(iso) {
+  if (!iso) return null;
+  const [y, m] = iso.split('-').map(Number);
+  return m >= 7 ? y : y - 1;
+}
+function seasonLabel(s) {
+  if (s == null) return '';
+  const end = String(s + 1).slice(-2);
+  return `${s}–${end}`;
+}
 
 /**
  * Validate a single dose against schedule rules.
@@ -14,8 +28,12 @@ import { REFS } from '../data/refs.js';
  * @param {object} dose - dose object
  * @param {object|null} prevDose - previous dose object or null
  * @param {string} dob - patient date of birth (ISO string)
+ * @param {number|null} patientAgeDays - current patient age in days (fallback when no DOB)
+ * @param {string|null} firstDoseDate - ISO date of D1 for d1Cross checks
+ * @param {number|null} totalDoses - total number of given dated doses for this vaccine (used for
+ *   schedule-path-aware rules, e.g. HepB 4-dose intermediate dose relaxation)
  */
-export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = null) {
+export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = null, firstDoseDate = null, totalDoses = null) {
   const spec = MIN_INT[vk];
   if (!spec) return { ok: true };
   const results = [];
@@ -34,10 +52,10 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
     if (currentAgeDays !== null) {
       // Vaccine-level min age (D1)
       if (doseIdx === 0 && spec.minD > 0 && currentAgeDays < spec.minD) {
-        const mos = (spec.minD / 30.4).toFixed(1);
-        const curMos = (currentAgeDays / 30.4).toFixed(1);
+        const curLabel = fmtAgeClinical(currentAgeDays);
+        const minLabel = fmtAgeClinical(spec.minD);
         return { ok: false, err: true, results: [{ type: "min_age_impossible", ok: false, err: true,
-          msg: `Vaccine min age is ${spec.minD} days (~${mos}m). Patient is currently ${currentAgeDays} days old (~${curMos}m) \u2014 this dose could not have been validly given at any point in this patient\u2019s life.`,
+          msg: `Vaccine minimum age is ${minLabel}. Patient is currently ${curLabel} old — this dose could not have been validly given at any point in this patient\u2019s life.`,
           earliest: isD(dob) ? addD(dob, spec.minD) : null }] };
       }
       // Per-dose min age (D2+)
@@ -45,7 +63,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
         const minForDose = spec.minByDose[doseIdx] || null;
         if (minForDose && currentAgeDays < minForDose) {
           return { ok: false, err: true, results: [{ type: "min_age_impossible", ok: false, err: true,
-            msg: `Dose ${doseIdx + 1} min age is ${minForDose} days (~${(minForDose / 30.4).toFixed(1)}m). Patient is currently ${currentAgeDays} days old (~${(currentAgeDays / 30.4).toFixed(1)}m) \u2014 this dose could not have been validly given.`,
+            msg: `Dose ${doseIdx + 1} minimum age is ${fmtAgeClinical(minForDose)}. Patient is currently ${fmtAgeClinical(currentAgeDays)} old — this dose could not have been validly given.`,
             earliest: isD(dob) ? addD(dob, minForDose) : null }] };
         }
       }
@@ -56,7 +74,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
           const bSpec = typeof BRAND_MIN[bk] === "number" ? { d: BRAND_MIN[bk] } : (BRAND_MIN[bk] || {});
           if (bSpec.d && currentAgeDays < bSpec.d) {
             return { ok: false, err: true, results: [{ type: "min_age_impossible", ok: false, err: true,
-              msg: `${dose.brand} min age is ${bSpec.d} days (~${(bSpec.d / 30.4).toFixed(1)}m). Patient is currently ${currentAgeDays} days old (~${(currentAgeDays / 30.4).toFixed(1)}m) \u2014 this dose could not have been validly given.`,
+              msg: `${dose.brand} minimum age is ${fmtAgeClinical(bSpec.d)}. Patient is currently ${fmtAgeClinical(currentAgeDays)} old — this dose could not have been validly given.`,
               earliest: isD(dob) ? addD(dob, bSpec.d) : null }] };
           }
         }
@@ -69,8 +87,11 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   // 1. Min age for dose 1
   if (doseIdx === 0 && spec.minD > 0 && ageAtDose !== null) {
     if (ageAtDose < spec.minD - GRACE) {
+      const ageLabel = fmtAgeClinical(ageAtDose);
+      const minLabel = fmtAgeClinical(spec.minD);
       results.push({ type: "min_age", ok: false, err: true,
-        msg: `D1 given at age ${ageAtDose} days (min ${spec.minD} days / ~${(spec.minD / 30.4).toFixed(1)}m). Per: ${spec.note}`,
+        msg: `D1 at age ${ageLabel} — below the ${minLabel} minimum age. (${spec.note})`,
+        _days: { actual: ageAtDose, min: spec.minD },
         earliest: isD(dob) ? addD(dob, spec.minD) : null });
     } else if (ageAtDose < spec.minD) {
       results.push({ type: "min_age", ok: true, grace: true,
@@ -83,6 +104,50 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   //     PCV D4 ≥12m, IPV D4 ≥4y, Hib booster ≥12m.
   if (doseIdx > 0 && ageAtDose !== null && Array.isArray(spec.minByDose)) {
     let minByDose = spec.minByDose[doseIdx] || null;
+
+    // ── HepB 4-dose schedule: intermediate dose relaxation + final-dose enforcement ─
+    //
+    // ACIP rule (CDC Timing & Spacing; HepB notes):
+    //   When 4 HepB doses are given (typical with birth dose + Pediarix/Vaxelis at
+    //   2/4/6m), only the FINAL dose must meet all three checks:
+    //     (a) ≥24 weeks of age (168 days)
+    //     (b) ≥16 weeks after D1 (d1Cross check, handled separately via spec.d1Cross)
+    //     (c) ≥8 weeks after the immediately prior dose (interval, handled via spec.i
+    //         but i[3]=null in scheduleRules, so we apply it inline below)
+    //
+    //   Intermediate doses (positions 1 through totalDoses-2 in a ≥4-dose series)
+    //   need only satisfy the 4-week minimum interval from the prior dose. The 24-week
+    //   per-dose floor (spec.minByDose[2]=168) must NOT be enforced on them.
+    //
+    //   For the FINAL dose (doseIdx === totalDoses-1, i.e. D4 idx=3 in a 4-dose series):
+    //   the scheduleRules has minByDose[3]=null (no per-dose floor defined for that slot),
+    //   so we dynamically apply the 168d floor here.
+    //
+    //   The 3-dose strict rule (D3 idx=2 must be ≥168d) continues to apply when
+    //   totalDoses ≤ 3 (or totalDoses is null, meaning "unknown" — stay strict).
+    //
+    //   Sources: CDC General Best Practices "Timing and Spacing of Immunobiologics"
+    //   (https://www.cdc.gov/vaccines/hcp/imz-best-practices/timing-spacing-immunobiologics.html);
+    //   CDC HepB schedule notes; ACIP HepB MMWR 2018 (MMWR 67(1):1–31).
+    //
+    //   DTaP / IPV / Hib (PRP-T) audit: none of these have a similar multi-schedule
+    //   dose relaxation. Their per-dose minimum ages (DTaP D4 ≥12m, D5 ≥4y; IPV D4
+    //   ≥4y; Hib booster ≥12m) represent true ACIP series requirements that apply
+    //   regardless of total doses. No relaxation needed.
+    //
+    //   PCV: same conclusion — D4 booster ≥12m holds unconditionally.
+    //   No other VAX_KEYS have inter-dose flexibility based on total schedule length.
+    if (vk === "HepB" && totalDoses !== null && totalDoses >= 4) {
+      const isFinalDose = doseIdx === totalDoses - 1;
+      if (!isFinalDose) {
+        // Intermediate dose: relax the 24-week per-dose floor; interval check still runs.
+        minByDose = null;
+      } else if (isFinalDose && minByDose == null) {
+        // Final dose: scheduleRules has minByDose[3]=null for HepB, but ACIP requires
+        // the final dose in a ≥4-dose series to be ≥168d of age. Apply dynamically.
+        minByDose = 168;
+      }
+    }
 
     // Hib booster min-age depends on antigen family and specific brand:
     //
@@ -117,9 +182,6 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
           minByDose = 365;
         } else if (!brand) {
           // Brand unknown for D3 — look at prior doses (prevDose) for family hint
-          // We don't have access to the full dose array here, but prevDose is available.
-          // If prevDose is Vaxelis, this is almost certainly Vaxelis D3 (primary) — no floor.
-          // Otherwise keep the conservative default from scheduleRules (365d).
           if (prevDose && prevDose.brand && prevDose.brand.startsWith("Vaxelis")) {
             minByDose = null; // inferred Vaxelis primary series — no 12m floor
           }
@@ -130,21 +192,31 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
       // D4 handling
       if (doseIdx === 3) {
         if (isVaxelis) {
-          // Vaxelis is a 3-dose series — there is no valid D4. Clear the floor to avoid
-          // false positives (the Vaxelis-as-booster brand_constraint check in auditAll
-          // covers this scenario with a specific error message).
           minByDose = null;
         }
         if (isPedvaxHIB) {
-          // PedvaxHIB 4th dose is off-series.
           minByDose = null;
         }
       }
     }
 
     if (minByDose && ageAtDose < minByDose - GRACE) {
+      const ageLabel = fmtAgeClinical(ageAtDose);
+      const minLabel = fmtAgeClinical(minByDose);
+      // Also report whether the per-prev-dose interval was satisfied (Change 2)
+      let intervalNote = '';
+      if (doseIdx > 0 && isD(thisDate) && isD(prevDate)) {
+        const intMin = spec.i[doseIdx];
+        if (intMin) {
+          const actualInt = dBetween(prevDate, thisDate);
+          if (actualInt !== null && actualInt >= intMin - GRACE) {
+            intervalNote = ` (The ${fmtIntervalClinical(intMin)} D${doseIdx}\u2192D${doseIdx + 1} interval is satisfied.)`;
+          }
+        }
+      }
       results.push({ type: "min_age", ok: false, err: true,
-        msg: `D${doseIdx + 1} given at age ${ageAtDose} days (min ${minByDose} days / ~${(minByDose / 30.4).toFixed(1)}m). Per ACIP: ${spec.note}`,
+        msg: `D${doseIdx + 1} at age ${ageLabel} — below the ${minLabel} minimum age for ${VAX_META[vk]?.n || vk} D${doseIdx + 1}.${intervalNote}`,
+        _days: { actual: ageAtDose, min: minByDose },
         earliest: isD(dob) ? addD(dob, minByDose) : null });
     } else if (minByDose && ageAtDose < minByDose) {
       results.push({ type: "min_age", ok: true, grace: true,
@@ -156,32 +228,128 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   // 2. Max age (RV, RSV)
   if (doseIdx === 0 && spec.maxD1 && ageAtDose !== null && ageAtDose > spec.maxD1) {
     results.push({ type: "max_age", ok: false, err: true,
-      msg: `D1 given at age ${ageAtDose} days \u2014 max start age is ${spec.maxD1} days (~${(spec.maxD1 / 30.4).toFixed(1)}m). Dose CANNOT be counted.`,
+      msg: `D1 at age ${fmtAgeClinical(ageAtDose)} — past the ${fmtAgeClinical(spec.maxD1)} maximum start age. Dose CANNOT be counted.`,
       earliest: null });
   }
   // RV: any dose after 8 months (243 days)
   if (vk === "RV" && ageAtDose !== null && ageAtDose > 243) {
     results.push({ type: "max_age", ok: false, err: true,
-      msg: `Dose ${doseIdx + 1} given at age ~${Math.round(ageAtDose / 30.4)}m \u2014 max age for any RV dose is 8m0d (243 days). CANNOT be counted.`,
+      msg: `Dose ${doseIdx + 1} at age ${fmtAgeClinical(ageAtDose)} — past the 8-month maximum age for any RV dose. CANNOT be counted.`,
       earliest: null });
   }
 
   // 3. Interval between doses
   if (doseIdx > 0 && isD(thisDate) && isD(prevDate)) {
+    // 3a. iCond — age-conditional interval overrides (data-driven from spec.iCond)
     let minInt = spec.i[doseIdx]; // i is 0-indexed: i[0]=minD, i[1]=d1d2, i[2]=d2d3...
-    // Age-dependent interval overrides
-    if (vk === "VAR" && doseIdx === 1 && ageAtDose !== null && ageAtDose >= 4745) minInt = 28; // ≥13y: 4 weeks instead of 3 months
-    if (vk === "HPV" && doseIdx === 1 && ageAtDose !== null && ageAtDose >= 5475) minInt = 28; // ≥15y (3-dose series): D1→D2 = 4 weeks
+
+    // HepB 4-dose final-dose interval: the scheduleRules has i[3]=null for HepB (because
+    // the standard 3-dose schedule has no D4). In a ≥4-dose series, the final dose must
+    // be ≥8 weeks (56d) after the prior dose — enforce inline here.
+    if (vk === "HepB" && totalDoses !== null && totalDoses >= 4 && doseIdx === totalDoses - 1 && minInt == null) {
+      minInt = 56; // ≥8 weeks D(n-1)→D(n) for the final dose in a 4-dose schedule
+    }
+    if (Array.isArray(spec.iCond)) {
+      for (const cond of spec.iCond) {
+        if (cond.doseNum === doseIdx + 1 && ageAtDose !== null && ageAtDose >= cond.ageGte) {
+          minInt = cond.minInterval;
+        }
+      }
+    }
+    // Legacy age-dependent overrides (kept for backward compat; iCond in scheduleRules is now authoritative)
+    if (vk === "VAR" && doseIdx === 1 && ageAtDose !== null && ageAtDose >= 4745) minInt = 28;
+    if (vk === "HPV" && doseIdx === 1 && ageAtDose !== null && ageAtDose >= 5475) minInt = 28;
+
     if (minInt) {
       const days = dBetween(prevDate, thisDate);
       if (days !== null && days < minInt - GRACE) {
+        const actualLabel = fmtIntervalClinical(days);
+        const minLabel = fmtIntervalClinical(minInt);
+        // Also report whether min-age was satisfied (Change 2)
+        let ageNote = '';
+        if (ageAtDose !== null && Array.isArray(spec.minByDose) && spec.minByDose[doseIdx]) {
+          if (ageAtDose >= spec.minByDose[doseIdx] - GRACE) {
+            ageNote = ` (Minimum age is satisfied.)`;
+          }
+        } else if (ageAtDose !== null && doseIdx === 0 && spec.minD > 0) {
+          if (ageAtDose >= spec.minD - GRACE) {
+            ageNote = ` (Minimum age is satisfied.)`;
+          }
+        }
         results.push({ type: "interval", ok: false, err: true,
-          msg: `D${doseIdx + 1} only ${days}d after D${doseIdx} (min ${minInt}d / ${Math.round(minInt / 7)}w). Dose INVALID \u2014 must repeat.`,
+          msg: `D${doseIdx + 1} only ${actualLabel} after D${doseIdx} — minimum ${minLabel}.${ageNote} Dose INVALID — must repeat.`,
+          _days: { actual: days, min: minInt },
           earliest: addD(prevDate, minInt) });
       } else if (days !== null && days < minInt) {
         results.push({ type: "interval", ok: true, grace: true,
-          msg: `D${doseIdx + 1} given ${minInt - days}d short of min interval (${minInt}d) \u2014 \u22644-day grace applies. May count as valid.`,
+          msg: `D${doseIdx + 1} given ${minInt - days}d short of min interval (${fmtIntervalClinical(minInt)}) \u2014 \u22644-day grace applies. May count as valid.`,
           earliest: null });
+      }
+    }
+
+    // 3b. iByTotalDoses — series-path interval (HPV 2-dose, MenB 2-dose)
+    if (spec.iByTotalDoses) {
+      // Determine which path based on total doses recorded + planned
+      // Conservative: if we only have a few doses entered, use the longer interval path
+      // (the engine will use the shorter one when 3-dose path is confirmed)
+      // We check based on the dose index and available paths
+      for (const [totalN, intervals] of Object.entries(spec.iByTotalDoses)) {
+        const totalNum = parseInt(totalN, 10);
+        const minIntForPath = intervals[doseIdx];
+        if (minIntForPath == null) continue;
+        // Apply this path only when dose count is consistent with that total
+        // (if only 2 doses are in the history for this vk, assume 2-dose path)
+        // We pass a hint via firstDoseDate availability and doseIdx
+        // For now: only enforce the MOST RESTRICTIVE interval (the 2-dose 152d rule)
+        // when the standard i[] interval would be MORE permissive
+        const standardInt = spec.i[doseIdx] || 0;
+        if (minIntForPath > standardInt) {
+          const days = dBetween(prevDate, thisDate);
+          if (days !== null && days >= standardInt - GRACE && days < minIntForPath - GRACE) {
+            // Standard interval is met but series-path requires longer
+            // Only flag when totalNum matches the number of doses seen so far
+            // (doseIdx + 1 gives us the 1-based dose number being checked,
+            //  and if totalNum === doseIdx + 1 it means this IS the last dose of an N-dose series)
+            if (totalNum === doseIdx + 1) {
+              const actualLabel = fmtIntervalClinical(days);
+              const minLabel = fmtIntervalClinical(minIntForPath);
+              results.push({ type: "iByTotalDoses", ok: false, err: true,
+                msg: `D${doseIdx + 1} only ${actualLabel} after D1 — minimum ${minLabel} is required for a ${totalNum}-dose ${vk} series. Dose INVALID — must repeat.`,
+                _days: { actual: days, min: minIntForPath },
+                earliest: addD(prevDate, minIntForPath) });
+            }
+          }
+        }
+      }
+    }
+
+    // 3c. d1Cross — dose-1 cross floor (HepB D3 ≥112d from D1, HPV D3 ≥152d, MenB D3 ≥182d)
+    if (spec.d1Cross && firstDoseDate && isD(firstDoseDate) && isD(thisDate)) {
+      const crossMin = spec.d1Cross[doseIdx + 1]; // 1-based dose number
+      if (crossMin != null) {
+        const daysFromD1 = dBetween(firstDoseDate, thisDate);
+        if (daysFromD1 !== null && daysFromD1 < crossMin - GRACE) {
+          const actualLabel = fmtIntervalClinical(daysFromD1);
+          const minLabel = fmtIntervalClinical(crossMin);
+          // Check if D-prev interval and min-age are both met (so we can note them)
+          let passNotes = [];
+          if (minInt) {
+            const intervalDays = dBetween(prevDate, thisDate);
+            if (intervalDays !== null && intervalDays >= minInt - GRACE) {
+              passNotes.push(`D${doseIdx}\u2192D${doseIdx + 1} interval`);
+            }
+          }
+          if (ageAtDose !== null && Array.isArray(spec.minByDose) && spec.minByDose[doseIdx]) {
+            if (ageAtDose >= spec.minByDose[doseIdx] - GRACE) {
+              passNotes.push("minimum age");
+            }
+          }
+          const passStr = passNotes.length > 0 ? ` (${passNotes.join(" and ")} ${passNotes.length === 1 ? "is" : "are"} satisfied.)` : '';
+          results.push({ type: "d1Cross", ok: false, err: true,
+            msg: `D${doseIdx + 1} only ${actualLabel} after D1 — minimum ${minLabel} from D1 required.${passStr} Dose INVALID — must repeat.`,
+            _days: { actual: daysFromD1, min: crossMin },
+            earliest: addD(firstDoseDate, crossMin) });
+        }
       }
     }
   }
@@ -190,11 +358,12 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
     const a1 = doseAgeDays(prevDose, dob), a2 = doseAgeDays(dose, dob);
     if (a1 !== null && a2 !== null) {
       let minInt = spec.i[doseIdx];
-      if (vk === "VAR" && doseIdx === 1 && a2 >= 4745) minInt = 28; // ≥13y
-      if (vk === "HPV" && doseIdx === 1 && a2 >= 5475) minInt = 28; // ≥15y
+      if (vk === "VAR" && doseIdx === 1 && a2 >= 4745) minInt = 28;
+      if (vk === "HPV" && doseIdx === 1 && a2 >= 5475) minInt = 28;
       if (minInt && (a2 - a1) < minInt - GRACE) {
         results.push({ type: "interval", ok: false, err: true,
-          msg: `D${doseIdx + 1} (~age ${Math.round(a2 / 30.4)}m) only ~${a2 - a1}d after D${doseIdx} (~age ${Math.round(a1 / 30.4)}m). Min ${minInt}d. INVALID \u2014 must repeat.`,
+          msg: `D${doseIdx + 1} (~age ${fmtAgeClinical(a2)}) only ~${fmtIntervalClinical(a2 - a1)} after D${doseIdx} (~age ${fmtAgeClinical(a1)}). Min ${fmtIntervalClinical(minInt)}. INVALID \u2014 must repeat.`,
+          _days: { actual: a2 - a1, min: minInt },
           earliest: null });
       }
     }
@@ -208,7 +377,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   const bMinSpec = bKey ? asSpec(BRAND_MIN[bKey]) : null;
   if (bMinSpec && bMinSpec.d && ageAtDose !== null && ageAtDose < bMinSpec.d - GRACE) {
     results.push({ type: "brand_min_age", ok: false, err: true,
-      msg: `${brand} min age is ${bMinSpec.d} days (~${Math.round(bMinSpec.d / 30.4)}m / ~${(bMinSpec.d / 365).toFixed(1)}y). Administered at age ${ageAtDose} days (~${(ageAtDose / 30.4).toFixed(1)}m). Dose must be repeated once minimum age is reached.`,
+      msg: `${brand} minimum age is ${fmtAgeClinical(bMinSpec.d)} (~${(bMinSpec.d / 365).toFixed(1)}y). Administered at age ${fmtAgeClinical(ageAtDose)}. Dose must be repeated once minimum age is reached.`,
       earliest: isD(dob) ? addD(dob, bMinSpec.d) : null,
       refUrl: bMinSpec.refUrl || null, refLabel: bMinSpec.refLabel || null, textFrag: bMinSpec.textFrag || null });
   }
@@ -218,7 +387,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   const bMaxSpec = bMaxKey ? asSpec(BRAND_MAX[bMaxKey]) : null;
   if (bMaxSpec && bMaxSpec.d && ageAtDose !== null && ageAtDose > bMaxSpec.d) {
     results.push({ type: "brand_max_age", ok: false, err: true,
-      msg: `${brand} maximum labeled age is ${bMaxSpec.d} days (~${(bMaxSpec.d / 365).toFixed(1)}y). Administered at age ${ageAtDose} days (~${(ageAtDose / 365).toFixed(1)}y). Not approved for this age \u2014 dose may not be countable.`,
+      msg: `${brand} maximum labeled age is ${fmtAgeClinical(bMaxSpec.d)} (~${(bMaxSpec.d / 365).toFixed(1)}y). Administered at age ${fmtAgeClinical(ageAtDose)}. Not approved for this age \u2014 dose may not be countable.`,
       earliest: null,
       refUrl: bMaxSpec.refUrl || null, refLabel: bMaxSpec.refLabel || null, textFrag: bMaxSpec.textFrag || null });
   }
@@ -232,11 +401,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
     }
   }
 
-  // Consolidate overlapping findings: when an off-label rule already covers
-  // a dose's age issue (e.g. Kinrix/Quadracel <4y), drop the generic
-  // brand_min_age / brand_max_age entry so the audit doesn't display two
-  // conflicting "must repeat" messages. The off-label rule is the more
-  // specific ACIP-level ruling and supersedes the generic brand age check.
+  // Consolidate overlapping findings
   const hasOffLabel = results.some(r => r.type === "off_label");
   const consolidated = hasOffLabel
     ? results.filter(r => r.type !== "brand_min_age" && r.type !== "brand_max_age")
@@ -267,9 +432,7 @@ export function auditAll(hist, dob, risks = [], am = -1) {
   // Pre-compute validated history to detect effective dose renumbering
   const vh = validatedHistory(hist, dob);
   for (const vk of VAX_KEYS) {
-    // Sort doses chronologically before validating. Without this, doses entered
-    // out of order (e.g. user types the most recent dose first) produce false
-    // "must repeat" errors because interval math reads negative day counts.
+    // Sort doses chronologically before validating.
     const doses = sortDosesByDate(hist[vk] || [], dob)
       .map(x => x.dose)
       .filter(d => d.given);
@@ -287,9 +450,6 @@ export function auditAll(hist, dob, risks = [], am = -1) {
           refUrl: REFS.RV.url, refLabel: REFS.RV.label });
       }
       if (vk === "MenB") {
-        // MenB has two antigen families. 4C: Bexsero + Penmenvy (GSK combo).
-        // FHbp: Trumenba + Penbraya (Pfizer combo). Within an antigen family
-        // the products are interchangeable; across families they are NOT.
         const has4C = brands.some(b => b.startsWith("Bexsero") || b.startsWith("Penmenvy"));
         const hasFHbp = brands.some(b => b.startsWith("Trumenba") || b.startsWith("Penbraya"));
         if (has4C && hasFHbp) errors.push({ vk, type: "brand_mix", severity: "err",
@@ -302,7 +462,16 @@ export function auditAll(hist, dob, risks = [], am = -1) {
     }
 
     // Vaxelis as Hib booster
+    // The booster slot is:
+    //   D4 (idx 3) in a 4-dose PRP-T schedule (ActHIB / Hiberix / Pentacel, or mixed/unknown)
+    //   D3 (idx 2) in a 3-dose PRP-OMP schedule (both D1 + D2 are PedvaxHIB)
+    // Vaxelis is NOT approved for use as a booster dose in either case.
     if (vk === "Hib") {
+      const d1Brand = doses[0]?.brand || "";
+      const d2Brand = doses[1]?.brand || "";
+      const bothPrimaryPedvaxHIB = d1Brand.startsWith("PedvaxHIB") && d2Brand.startsWith("PedvaxHIB");
+
+      // 4-dose schedule: D4 (idx 3) is the booster
       const d4 = doses[3];
       if (d4 && d4.brand && d4.brand.includes("Vaxelis")) {
         errors.push({ vk, type: "brand_constraint", severity: "err",
@@ -311,6 +480,19 @@ export function auditAll(hist, dob, risks = [], am = -1) {
           action: "Repeat Hib booster with a standalone Hib vaccine (ActHIB, Hiberix, or PedvaxHIB). Min 8 weeks after the invalid dose.",
           refUrl: REFS.Hib.url, refLabel: REFS.Hib.label,
           refUrl2: REFS.brandMix.url, refLabel2: REFS.brandMix.label });
+      }
+
+      // 3-dose PedvaxHIB schedule (D1+D2 both PedvaxHIB): D3 (idx 2) is the booster
+      if (bothPrimaryPedvaxHIB) {
+        const d3 = doses[2];
+        if (d3 && d3.brand && d3.brand.includes("Vaxelis")) {
+          errors.push({ vk, type: "brand_constraint", severity: "err",
+            title: "Hib \u2014 Vaxelis Used as Booster Dose",
+            detail: "Vaxelis (dose 3) is NOT approved for the Hib booster dose after a PedvaxHIB primary series. The booster must be given with ActHIB, Hiberix, or PedvaxHIB.",
+            action: "Repeat Hib booster (dose 3) with a standalone Hib vaccine (ActHIB, Hiberix, or PedvaxHIB). Min 8 weeks after the invalid dose.",
+            refUrl: REFS.Hib.url, refLabel: REFS.Hib.label,
+            refUrl2: REFS.brandMix.url, refLabel2: REFS.brandMix.label });
+        }
       }
       const pedDoses = doses.filter(d => d.brand && d.brand.includes("PedvaxHIB"));
       if (pedDoses.length >= 4) {
@@ -337,9 +519,51 @@ export function auditAll(hist, dob, risks = [], am = -1) {
       }
     }
 
-    // Build effective dose-number mapping from validated history so we can detect
-    // doses that are invalid in raw sequence but valid after earlier invalid doses
-    // are dropped (i.e., the dose gets renumbered to a lower effective position).
+    // ── Flu season audit ─────────────────────────────────────────────
+    if (vk === "Flu") {
+      // Group dated Flu doses by season
+      const fluDated = doses
+        .filter(d => d.mode === "date" && isD(d.date))
+        .sort((a, b) => a.date < b.date ? -1 : 1);
+      // Count doses before each season to determine lifetime dose count
+      const seasonGroups = {};
+      for (const d of fluDated) {
+        const s = seasonOf(d.date);
+        if (s == null) continue;
+        if (!seasonGroups[s]) seasonGroups[s] = [];
+        seasonGroups[s].push(d);
+      }
+      // Process each season in chronological order
+      const seasons = Object.keys(seasonGroups).map(Number).sort();
+      let lifetimeBefore = 0;
+      for (const s of seasons) {
+        const seasonDoses = seasonGroups[s];
+        const july1 = `${s}-07-01`;
+        // Patient age on July 1 of this season — needed to check <9y requirement
+        const ageAtJuly1 = isD(dob) ? dBetween(dob, july1) : null;
+        const ageMonthsAtJuly1 = ageAtJuly1 != null ? ageAtJuly1 / 30.4375 : null;
+        const isUnder9 = ageMonthsAtJuly1 != null ? ageMonthsAtJuly1 < 108 : false;
+        // Required doses this season:
+        //   <9y AND lifetime doses before July 1 < 2 → 2 doses (≥4 weeks apart)
+        //   otherwise → 1 dose
+        const requiredThisSeason = (isUnder9 && lifetimeBefore < 2) ? 2 : 1;
+        if (seasonDoses.length > requiredThisSeason) {
+          const extraCount = seasonDoses.length - requiredThisSeason;
+          const label = seasonLabel(s);
+          errors.push({ vk, type: "flu_season_extra", severity: "warn",
+            title: `Flu \u2014 Extra Dose in ${label} Season`,
+            detail: `${seasonDoses.length} influenza doses recorded in the ${label} season. ` +
+              `${isUnder9 && lifetimeBefore < 2 ? "Children under 9 years who have received fewer than 2 lifetime flu doses before July 1 need 2 doses for the season" : "Patients with \u22652 lifetime doses before July 1 need only 1 dose per season"}. ` +
+              `Required: ${requiredThisSeason}, Given: ${seasonDoses.length}. Extra dose${extraCount !== 1 ? "s are" : " is"} not indicated.`,
+            action: `${extraCount} extra dose${extraCount !== 1 ? "s were" : " was"} given in the ${label} season and ${extraCount !== 1 ? "are" : "is"} not indicated. No clinical harm, but document and do not repeat the extra dose(s) next season for counting purposes.`,
+            refUrl: "https://www.cdc.gov/acip-recs/hcp/vaccine-specific/flu.html",
+            refLabel: "ACIP Flu Recommendations" });
+        }
+        lifetimeBefore += seasonDoses.length;
+      }
+    }
+
+    // Build effective dose-number mapping from validated history
     const vhDoses = (vh[vk] || []).filter(d => d.given && d.mode !== "unknown");
     const effectiveDoseByDate = {};
     vhDoses.forEach((d, i) => { const dt = doseDate(d, dob); if (dt) effectiveDoseByDate[dt] = i + 1; });
@@ -361,12 +585,14 @@ export function auditAll(hist, dob, risks = [], am = -1) {
         });
       }
     });
+
+    // Get D1 date for d1Cross checks
+    const firstDoseDate = datedDoses.length > 0 ? doseDate(datedDoses[0], dob) : null;
+
     datedDoses.forEach((dose, idx) => {
       const prev = idx > 0 ? datedDoses[idx - 1] : null;
-      const vr = validateDose(vk, idx, dose, prev, dob, patientAgeDays);
+      const vr = validateDose(vk, idx, dose, prev, dob, patientAgeDays, firstDoseDate, datedDoses.length);
       const thisDt = doseDate(dose, dob);
-      // effectiveN: the 1-based position this dose holds in the validated history,
-      // or undefined if it was dropped (truly invalid).
       const effectiveN = thisDt ? effectiveDoseByDate[thisDt] : undefined;
       if (!vr.ok || vr.grace || vr.offLabel) {
         (vr.results || []).forEach(r => {
@@ -377,9 +603,6 @@ export function auditAll(hist, dob, risks = [], am = -1) {
               refUrl: r.ref || REFS[vk].url, refLabel: REFS[vk].label,
               refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
           } else if (r.err && !r.ok) {
-            // Renumbering detection: if this dose IS in validatedHistory (effectiveN defined),
-            // it was flagged only because an earlier invalid dose inflated the raw index/interval.
-            // After dropping that earlier dose, this one is valid — show as informational, not error.
             const isRenumbered = effectiveN != null;
             if (isRenumbered) {
               errors.push({ vk, doseNum: idx + 1, type: "renumbered", severity: "info",
@@ -389,22 +612,17 @@ export function auditAll(hist, dob, risks = [], am = -1) {
                 refUrl: REFS[vk].url, refLabel: REFS[vk].label,
                 refUrl2: null, refLabel2: null });
             } else {
-              // For interval/age errors, use immunize.org Ask the Experts as primary ref,
-              // or a rule-specific override if the validation result carries one.
               const vkImmUrl = REFS[vk]?.url || null;
               const vkImmLabel = REFS[vk]?.label || null;
               const primaryUrl = r.refUrl || REFS[vk].url;
               const primaryLabel = r.refLabel || REFS[vk].label;
               const withFrag = r.textFrag ? `${primaryUrl.split("#")[0]}#:~:text=${encodeURIComponent(r.textFrag)}` : primaryUrl;
-              let secondaryUrl = r.type === "interval" ? REFS.interval.url : (r.type === "min_age" ? REFS.catchup.url : vkImmUrl);
-              let secondaryLabel = r.type === "interval" ? REFS.interval.label : (r.type === "min_age" ? REFS.catchup.label : vkImmLabel);
-              // Dedupe: drop secondary if it points to the same base URL as the primary.
+              let secondaryUrl = (r.type === "interval" || r.type === "d1Cross" || r.type === "iByTotalDoses") ? REFS.interval.url : (r.type === "min_age" ? REFS.catchup.url : vkImmUrl);
+              let secondaryLabel = (r.type === "interval" || r.type === "d1Cross" || r.type === "iByTotalDoses") ? REFS.interval.label : (r.type === "min_age" ? REFS.catchup.label : vkImmLabel);
               if (secondaryUrl && primaryUrl && secondaryUrl.split("#")[0] === primaryUrl.split("#")[0]) {
                 secondaryUrl = null;
                 secondaryLabel = null;
               }
-              // If a later dose was renumbered to fill this invalid dose's series position,
-              // tell the clinician — no repeat of this dose is needed.
               const firstLaterCounted = datedDoses.slice(idx + 1).find(d => {
                 const dt = doseDate(d, dob);
                 return dt && countedDates.has(dt);
@@ -444,42 +662,25 @@ export function auditAll(hist, dob, risks = [], am = -1) {
 
 /**
  * Return a history object containing only doses that count toward the series.
- * A dose is "countable" if validateDose returns ok (including ok+offLabel where
- * the off-label rule declares it countable). Invalid doses that must be
- * repeated (brand_min_age violation, interval violation, non-countable
- * off-label such as Kinrix IPV component <4y) are dropped so downstream
- * dose-counting logic (recommendations.js, dosePlan.js) advances the series
- * based on valid doses only.
- *
- * Unknown-date doses can't be validated and are kept as-is.
  */
 export function validatedHistory(hist, dob) {
   const out = {};
   for (const vk of VAX_KEYS) {
-    // Sort chronologically before validating so doses entered in any order
-    // (e.g. latest-first) don't produce false negative-interval failures that
-    // cause valid doses to be silently dropped from the series count.
     const rawDoses = hist[vk] || [];
     const sortedWithIdx = sortDosesByDate(rawDoses, dob);
-    // Reconstruct a flat array in sorted order; we only need the dose objects
-    // here (not the originalIndex) because validatedHistory builds a new array.
     const doses = sortedWithIdx.map(x => x.dose);
     const kept = [];
     let validIdx = 0;
+    // Total given-and-dated dose count for schedule-path-aware validation (e.g. HepB 4-dose)
+    const totalGivenDated = doses.filter(d => d.given && d.mode !== "unknown").length;
     for (const dose of doses) {
       if (!dose.given) { kept.push(dose); continue; }
       if (dose.mode === "unknown") { kept.push(dose); continue; }
-      // Validate against the previously kept (valid) dose, not the raw prior
-      // — this way a single invalid dose doesn't cascade and disqualify later
-      // correctly-spaced doses.
       const prevKept = kept.filter(k => k.given && k.mode !== "unknown").slice(-1)[0] || null;
-      const vr = validateDose(vk, validIdx, dose, prevKept, dob);
+      const vr = validateDose(vk, validIdx, dose, prevKept, dob, null, null, totalGivenDated);
       if (vr.ok) {
         kept.push(dose);
         validIdx++;
-      } else {
-        // Drop: must be repeated. Preserve presence in audit via separate
-        // auditAll pass; here we simply don't count it toward the series.
       }
     }
     out[vk] = kept;
@@ -503,6 +704,8 @@ export function buildAction(r) {
   if (r.type === "max_age") return "This dose cannot be counted or repeated for this vaccine. Do not administer further doses.";
   if (r.type === "brand_min_age") return `Brand minimum age not met. This dose does not count \u2014 repeat with age-appropriate product. Earliest valid date: ${fmtD(r.earliest) || "\u2014"}.`;
   if (r.type === "brand_max_age") return `Brand given outside its approved age range. Dose is off-label and may not be countable. Consider repeating with an age-approved product (e.g., separate M-M-R II + Varivax at \u226513y instead of ProQuad; Tdap instead of DTaP at \u22657y).`;
+  if (r.type === "d1Cross") return `This dose is INVALID — given too soon after D1. DO NOT restart the series. Repeat this dose only. Earliest valid date: ${fmtD(r.earliest) || "\u2014"}.`;
+  if (r.type === "iByTotalDoses") return `This dose is INVALID — the series-path minimum interval was not met. DO NOT restart the series. Repeat this dose only. Earliest valid date: ${fmtD(r.earliest) || "\u2014"}.`;
   if (r.type === "interval" || r.type === "min_age") {
     return `This dose is INVALID. DO NOT restart the series. Repeat this dose only. Earliest valid date: ${fmtD(r.earliest) || "\u2014"}.`;
   }

@@ -4,8 +4,10 @@ import { useApp } from '../context/AppContext';
 import { VAX_META, VBR, COMBO_COVERS } from '../data/vaccineData';
 import { AGE_OPTS } from '../data/ageOptions';
 import { validateDose } from '../logic/validation';
+import { classifyDose, STATUS_COLOR } from '../logic/compliance';
 import { fmtDateInput, addD } from '../logic/utils';
 import DateField from './DateField';
+import { labelForDose } from '../logic/annualLabel';
 
 // Build brand options list for a vk: "Brand unknown" first, then standalones, then combos
 function brandOptsForVk(vk) {
@@ -24,7 +26,7 @@ const editableStyle = {
   paddingBottom: 1,
 };
 
-function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDose, dob, anchorRect, onClose }) {
+function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDose, dob, anchorRect, onClose, risks }) {
   const { state, dispatch } = useApp();
 
   // Local draft of editable fields — mirrors the dose but tracks uncommitted changes
@@ -48,6 +50,9 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
 
   // Re-validate whenever localDose changes
   const vr = validateDose(vk, doseIdx, localDose, prevDose, dob);
+
+  // Compliance classification (for dot color + popover label)
+  const compliance = classifyDose(vk, doseIdx, localDose, null, dob, prevDose, null, null);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -92,6 +97,9 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
   const statusBg    = vr.err ? 'var(--rlt)' : vr.grace ? 'var(--alt)' : 'var(--glt)';
   const statusBorder = vr.err ? 'var(--rmd)' : vr.grace ? 'var(--amd)' : 'var(--gmd)';
   const statusText  = vr.err ? 'Invalid' : vr.grace ? 'Grace period' : vr.unknown ? 'Timing unknown' : 'Valid';
+
+  // Smart label for annual vaccines (Flu/COVID)
+  const smartLabel = labelForDose(vk, doseIdx, localDose, state.hist, dob, null, risks || []);
 
   // Date display label for the current localDose.
   // When DOB is set, age-mode doses show their computed date (DOB + ageDays).
@@ -228,7 +236,7 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
           <div style={{ fontWeight: 700, fontSize: 12, color: meta?.c || 'var(--g)' }}>
-            {meta?.n || vk} — Dose {doseIdx + 1}
+            {meta?.n || vk} — {smartLabel.label}
           </div>
           <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--gy4)', lineHeight: 1, padding: '0 2px', flexShrink: 0 }} title="Close">&times;</button>
         </div>
@@ -417,6 +425,22 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
           </div>
         )}
 
+        {/* Compliance classification line */}
+        {compliance && compliance.status !== 'invalid' && (
+          <div style={{ marginTop: 6, fontSize: 11, color: 'var(--gy2)', lineHeight: 1.4, display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+            {/* Compliance status dot — 6px indicator per Track 2 design */}
+            <span
+              data-testid="compliance-dot-inline"
+              style={{
+                display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+                background: STATUS_COLOR[compliance.status],
+                flexShrink: 0, marginTop: 3,
+              }}
+            />
+            <span style={{ fontStyle: 'italic' }}>{compliance.label}</span>
+          </div>
+        )}
+
         {/* Add another dose affordance */}
         <div style={{ marginTop: 10, borderTop: '1px solid var(--gy6)', paddingTop: 8 }}>
           {!addingDose ? (
@@ -551,7 +575,7 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
 }
 
 /* eslint-disable react/prop-types */
-export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob, isExtra }) {
+export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob, isExtra, totalDoses, risks }) {
   const { dispatch } = useApp();
   const [showDetail, setShowDetail] = useState(false);
   const [anchorRect, setAnchorRect] = useState(null);
@@ -567,6 +591,10 @@ export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob
         : (dose.date || dose.ageDays != null)
           ? "dpill p-ok"
           : "dpill";
+
+  // Compliance classification for the colored dot indicator.
+  // Pass totalDoses so 4-dose HepB relaxation applies (same path as auditAll).
+  const compliance = classifyDose(vk, index, dose, totalDoses ?? null, dob, prevDose, null, null);
 
   let dateLabel = "";
   if (dose.mode === "date") {
@@ -593,6 +621,25 @@ export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob
       style={{ cursor: 'pointer' }}
       title="Click for dose detail"
     >
+      {/*
+        Compliance dot — 6px colored circle indicating timing status.
+        Per design spec (Track 2): 6px status indicator, exception to no-circles rule.
+        Colors: on_time=green, early_valid=blue, catchup=amber, invalid=red, unknown=gray.
+      */}
+      <span
+        data-testid="compliance-dot"
+        style={{
+          display: 'inline-block',
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: STATUS_COLOR[compliance.status],
+          marginRight: 4,
+          verticalAlign: 'middle',
+          flexShrink: 0,
+        }}
+        title={compliance.label}
+      />
       <span>{dateLabel}</span>
       {dose.brand && (
         <span style={{ fontSize: 10, color: "#666", padding: "0 2px" }}>{dose.brand}</span>
@@ -615,6 +662,7 @@ export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob
           dose={dose}
           prevDose={prevDose}
           dob={dob}
+          risks={risks}
           anchorRect={anchorRect}
           onClose={() => setShowDetail(false)}
         />

@@ -49,6 +49,7 @@ export default function HistoryTable() {
             const meta = VAX_META[vk];
             const rawDoses = state.hist[vk] || [];
             const sorted = sortDosesByDate(rawDoses, state.dob);
+            const totalGivenDated = sorted.filter(s => s.dose.given && s.dose.mode !== 'unknown').length;
             return (
               <tr key={vk}>
                 <td style={{ whiteSpace: "nowrap" }}>
@@ -70,6 +71,8 @@ export default function HistoryTable() {
                           prevDose={prev}
                           dob={state.dob}
                           isExtra={vk === "MenACWY" && !isHighRiskMen && i >= 2}
+                          totalDoses={totalGivenDated}
+                          risks={state.risks}
                         />
                       );
                     })}

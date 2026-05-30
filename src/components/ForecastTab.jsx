@@ -12,6 +12,7 @@ import { dc } from '../logic/stateHelpers';
 import { computeDosePlan, fmtProjection, fmtEarliestDate, getTotalDoses } from '../logic/dosePlan';
 import { validatedHistory } from '../logic/validation';
 import { addD } from '../logic/utils';
+import { humanDays } from '../logic/ageFormat';
 import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
 import { REFS } from '../data/refs';
 import ForecastPDF from './ForecastPDF';
@@ -299,14 +300,7 @@ function printVisitSummary({ am, dob, recs, fcBrands }) {
 }
 
 // ── Optimal Schedule helpers ────────────────────────────────────
-function humanDays(d) {
-  if (d == null) return '';
-  if (d % 365 === 0 && d >= 365) { const y = d / 365; return `${y} year${y !== 1 ? 's' : ''}`; }
-  if (d >= 365) { const y = (d / 365).toFixed(1); return `${y} years`; }
-  if (d % 30 === 0 && d >= 60) { const m = d / 30; return `${m} months`; }
-  if (d % 7 === 0 && d >= 14) { const w = d / 7; return `${w} weeks`; }
-  return `${d} day${d !== 1 ? 's' : ''}`;
-}
+// humanDays is imported from ageFormat.js (shared with OptimalScheduleTab)
 
 function findPrevOptDose(vk, doseNum, allFlatDoses) {
   return allFlatDoses
@@ -487,6 +481,7 @@ function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses }) {
   );
 }
 
+
 // ── Main component ─────────────────────────────────────────────
 
 export default function ForecastTab({ recs }) {
@@ -642,12 +637,20 @@ export default function ForecastTab({ recs }) {
   //   - notYetEligibleVks: patient hasn't reached the vaccine's minimum age yet
   //     (e.g. 5m patient + PPSV23 minD=730 [2y], Tdap minD=2555 [7y], COVID minD=182 [6m]).
   //   - expiredVks: window has closed for this patient (e.g. RV at 5m with 0 doses —
-  //     D1 max age is 14w6d) OR series is complete and the column is no longer relevant.
+  //     D1 max age is 14w6d) and no doses have been given.
   // Both are pushed to the end and hidden by default, but the legend labels them
   // separately so clinicians don't think a vaccine is "expired" when the patient
   // is simply too young.
+  //
+  // IMPORTANT: a vaccine with past valid history is NEVER inactive — clinicians
+  // need to see completed and partial series in past rows. For example, a patient
+  // with a complete 3-dose HepB series has no future dosePlan entries and no
+  // current rec, but the HepB column must remain visible so past dose rows appear.
   const inactiveVks = allVks.filter(vk => {
     if (currentRecMap[vk]) return false; // still due today
+    // Keep visible if the patient has any countable past doses for this vaccine.
+    const hasPastValidDoses = (validHist[vk] || []).some(d => d.given);
+    if (hasPastValidDoses) return false;
     return !Object.keys(dosePlan).some(k => {
       if (!k.endsWith(`_${vk}`)) return false;
       const prefix = k.slice(0, -(vk.length + 1));
@@ -711,8 +714,8 @@ export default function ForecastTab({ recs }) {
       {/* ── VIEW TOGGLE ──────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         {[
-          { id: null,               label: 'Routine Schedule',  subtitle: 'Standard CDC/ACIP well-child visit timeline' },
-          { id: 'fewestInjections', label: 'Fewest Injections', subtitle: 'Substitutes combo brands to minimize total injections' },
+          { id: null,               label: 'Routine Schedule',    subtitle: 'Standard CDC/ACIP well-child visit timeline' },
+          { id: 'fewestInjections', label: 'Fewest Injections',   subtitle: 'Substitutes combo brands to minimize total injections' },
         ].map(v => (
           <button
             key={String(v.id)}
@@ -905,7 +908,7 @@ export default function ForecastTab({ recs }) {
         </div>
       )}
 
-      {/* ── OPTIMAL VIEW (Earliest / Fewest Injections) ─────────── */}
+      {/* ── OPTIMAL VIEW (Fewest Injections) ─────────────────────── */}
       {optView !== null && (() => {
         let optResult = null;
         let optError = null;

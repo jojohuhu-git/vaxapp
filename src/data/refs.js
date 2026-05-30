@@ -186,4 +186,24 @@ export const REFS = {
     label:"immunize.org: Pneumococcal Recommendations for Children — Ask the Experts",
     url:"https://www.immunize.org/ask-experts/topic/pneumococcal/recommendations-children/"
   },
+  bestPracticesSpacing: {
+    url:"https://www.cdc.gov/vaccines/hcp/imz-best-practices/timing-spacing-immunobiologics.html",
+    label:"CDC General Best Practices: Timing & Spacing"
+  },
+  vaxelisMMWR: {
+    url:"https://www.cdc.gov/mmwr/volumes/69/wr/mm6905a5.htm",
+    label:"ACIP MMWR Vaxelis 2020 (mm6905a5)"
+  },
+  pertussisMMWR2018: {
+    url:"https://www.cdc.gov/mmwr/volumes/67/rr/rr6702a1.htm",
+    label:"ACIP Pertussis MMWR 2018 (rr6702a1)"
+  },
+  pediarixLabel: {
+    url:"https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=pediarix",
+    label:"Pediarix prescribing information (DailyMed)"
+  },
+  pentacelLabel: {
+    url:"https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=pentacel",
+    label:"Pentacel prescribing information (DailyMed)"
+  },
 };

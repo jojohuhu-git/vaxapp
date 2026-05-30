@@ -1,12 +1,9 @@
 /* eslint-disable react/prop-types */
 import { useApp, getEffectiveAm } from '../context/AppContext';
-import { COMBO_COVERS, VAX_KEYS, VAX_META } from '../data/vaccineData';
+import { COMBO_COVERS } from '../data/vaccineData';
 import { FORECAST_VISITS } from '../data/forecastData';
 import { orderedBrandsForVisit } from '../logic/forecastLogic';
-import { auditAll, validatedHistory } from '../logic/validation';
-import { computeDosePlan } from '../logic/dosePlan';
-import { doseDate } from '../logic/stateHelpers';
-import { fmtD } from '../logic/utils';
+import { auditAll } from '../logic/validation';
 import RecCard from './RecCard';
 
 const STATUS_ORDER = ["due", "catchup", "risk-based", "recommended"];
@@ -147,28 +144,6 @@ export default function RecTab({ recs }) {
 
   const activeFilter = state.filter;
 
-  // Compute completed vaccines: have doses in validated history but no pending recs
-  // and no future dosePlan entries.
-  const recVks = new Set(recs.map(r => r.vk));
-  const dosePlan = computeDosePlan(am, state.dob, recs, state.fcBrands || {}, state.hist, state.risks);
-  const futurePlanVks = new Set(
-    Object.keys(dosePlan).map(k => {
-      const parts = k.split('_');
-      return parts[parts.length - 1];
-    })
-  );
-  const vh = validatedHistory(state.hist, state.dob);
-  const completedVks = VAX_KEYS.filter(vk => {
-    // Must have at least one valid given dose
-    const validDoses = (vh[vk] || []).filter(d => d.given);
-    if (validDoses.length === 0) return false;
-    // Must NOT appear in current recs
-    if (recVks.has(vk)) return false;
-    // Must NOT have future dosePlan entries
-    if (futurePlanVks.has(vk)) return false;
-    return true;
-  });
-
   // Filter
   const filtered = activeFilter === "all"
     ? recs
@@ -250,65 +225,6 @@ export default function RecTab({ recs }) {
         />
       ))}
 
-      {/* Completed vaccines — always visible regardless of active filter */}
-      {completedVks.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{
-            fontSize: 10.5, fontWeight: 700, color: 'var(--gy3)',
-            textTransform: 'uppercase', letterSpacing: '.5px',
-            marginBottom: 6, paddingBottom: 4,
-            borderBottom: '1px solid var(--gy5)',
-          }}>
-            Completed Series
-          </div>
-          {completedVks.map(vk => {
-            const meta = VAX_META[vk];
-            const validDoses = (vh[vk] || []).filter(d => d.given);
-            const histLine = validDoses.map((d, i) => {
-              const dt = doseDate(d, state.dob);
-              const dateStr = dt ? fmtD(dt) : (d.mode === 'unknown' ? 'date unknown' : '?');
-              const brandStr = d.brand ? ` (${d.brand.split(' ')[0]})` : '';
-              return `D${i + 1} ${dateStr}${brandStr}`;
-            }).join(', ');
-            return (
-              <div
-                key={vk}
-                style={{
-                  display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-                  padding: '7px 10px', marginBottom: 4,
-                  background: 'var(--gy6)', borderRadius: 'var(--rads)',
-                  border: '1px solid var(--gy5)',
-                }}
-                data-testid={`completed-vk-${vk}`}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--gy2)' }}>
-                    {meta.n}
-                  </span>
-                  {histLine && (
-                    <div style={{ fontSize: 11, color: 'var(--gy3)', marginTop: 2 }}>
-                      {histLine}
-                    </div>
-                  )}
-                </div>
-                <span style={{
-                  fontSize: 10.5, fontWeight: 600,
-                  color: 'var(--gy3)',
-                  background: 'var(--gy5)',
-                  border: '1px solid var(--gy4)',
-                  borderRadius: 'var(--rads)',
-                  padding: '2px 7px',
-                  whiteSpace: 'nowrap',
-                  marginLeft: 8,
-                  flexShrink: 0,
-                }}>
-                  Complete
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

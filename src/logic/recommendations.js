@@ -143,7 +143,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ≥7y with incomplete DTaP: the Tdap section below handles catch-up via r("Tdap",...). DTaP window is closed; forecast shows "Expired" for that column.
 
   // ── Hib ───────────────────────────────────────────────────────
-  const hib = dc(hist, "Hib"); const hibb = anyBrand(hist, "Hib"); const isPed = hibb.includes("PedvaxHIB"); const isVaxelis = hibb.startsWith("Vaxelis"); const hibPrim = isPed ? 2 : 3; const hibTotal = (isPed || isVaxelis) ? 3 : 4;
+  const hib = dc(hist, "Hib"); const hibb = anyBrand(hist, "Hib"); const isPed = hibb.includes("PedvaxHIB"); const isVaxelis = hibb.startsWith("Vaxelis"); const hibPrim = isPed ? 2 : 3; const hibTotal = isPed ? 3 : 4; // Vaxelis: 4-dose schedule (3 primary + standalone booster at 12-15m); PedvaxHIB: 3 total
   const hibComboBrands = risks.includes("alaska_native")
     ? ["PedvaxHIB (PRP-OMP) \u2014 preferred for AI/AN", "Vaxelis (DTaP+IPV+Hib+HepB) \u2014 preferred for AI/AN"]
     : ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP, 3-dose total)", "Pentacel (DTaP+IPV+Hib)", "Vaxelis (DTaP+IPV+Hib+HepB, doses 1\u20133 only)"];

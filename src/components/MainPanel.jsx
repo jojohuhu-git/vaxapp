@@ -9,6 +9,7 @@ import PlanTab from './PlanTab';
 import ForecastTab from './ForecastTab';
 import CatchUpTab from './CatchUpTab';
 import BrandConstraintsPanel from './BrandConstraintsPanel';
+import ComplianceAuditTab from './ComplianceAuditTab';
 function ReferenceModal({ onClose }) {
   return (
     <div
@@ -103,6 +104,7 @@ export default function MainPanel() {
       <div className="card">
         <TabBar onReference={() => setShowRef(true)} />
 
+        {state.tab === "compliance" && <ComplianceAuditTab />}
         {state.tab === "recs" && <RecTab recs={recs} />}
         {state.tab === "plan" && <PlanTab recs={recs} />}
         {state.tab === "constraints" && <BrandConstraintsPanel recs={recs} />}
