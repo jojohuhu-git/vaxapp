@@ -553,7 +553,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       // low-risk FHbp uses the 2-dose schedule (D2 at ≥6 months).
       const fhbpD2Min = hr ? 28 : 182;
       r("MenB", `Dose 2 (same antigen family as dose 1${mb ? `: ${mb}` : ""})`, 2, hr ? "risk-based" : "due",
-        is4C ? "MenB-4C dose 2: \u22651 month after dose 1. Continue with a 4C product (Bexsero or Penmenvy). Series complete after 2 doses." :
+        is4C ? "MenB-4C dose 2: \u22656 months after dose 1. Series complete after 2 doses \u22656 months apart. If dose 2 was given earlier, a third rescue dose is needed \u22654 months after dose 2. For rapid protection, a 3-dose series (0, 1\u20132, 6 months) may be used." :
         isFHbp ? (hr
           ? "MenB-FHbp high-risk: dose 2 at 1\u20132 months after dose 1 (accelerated 3-dose schedule, 0/1\u20132/6 months). A third dose is required at \u22656 months after dose 1."
           : "MenB-FHbp dose 2: \u22656 months after dose 1 (2-dose schedule). Continue with an FHbp product (Trumenba or Penbraya).") :
@@ -561,7 +561,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         is4C ? ["Bexsero (MenB-4C)", "Penmenvy (MenACWY+MenB-4C)"]
           : isFHbp ? ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp)"]
           : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
-        { minInt: is4C ? 28 : fhbpD2Min, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
+        { minInt: is4C ? 182 : fhbpD2Min, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
     } else if (menb === 2) {
       const mb = anyBrand(hist, "MenB");
       const isFHbp2 = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
@@ -572,10 +572,26 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         r("MenB", "Dose 3 of 3 (FHbp accelerated, high-risk)", 3, "risk-based",
           "MenB-FHbp dose 3: \u22656 months after dose 1 AND \u22654 months after dose 2 (accelerated 3-dose 0/1\u20132/6m schedule). Required for high-risk patients (asplenia, complement deficiency, HIV).",
           ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp, \u226510y)"], { minInt: 112, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
-      } else if (isFHbp2) {
-        r("MenB", "Dose 3 of 3 (Trumenba/Penbraya accelerated)", 3, "due",
-          "MenB-FHbp dose 3: \u22656 months after dose 1 (accelerated schedule). If using 2-dose schedule (\u22656m apart), series is already complete at 2 doses.",
-          ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp, \u226510y)"], { minInt: 112, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
+      } else if (!hr) {
+      // Non-high-risk: 2-dose series is standard. If d1\u2192d2 was < 6 months,
+      // a rescue dose 3 is needed \u22654 months after dose 2.
+      const menbGiven = (hist.MenB || []).filter(d => d.given);
+      const menbD1Date = menbGiven[0]?.date;
+      const menbD2Date = menbGiven[1]?.date;
+      const d1d2Days = (menbD1Date && menbD2Date)
+        ? Math.round((new Date(menbD2Date) - new Date(menbD1Date)) / 86400000)
+        : null;
+      const needsRescue = d1d2Days !== null && d1d2Days < 182;
+      if (needsRescue) {
+        const rescueBrands = is4C2
+          ? (mb.startsWith("Bexsero") ? ["Bexsero (MenB-4C)"] : ["Penmenvy (MenACWY+MenB-4C)"])
+          : (isFHbp2 ? (mb.startsWith("Trumenba") ? ["Trumenba (MenB-FHbp)"] : ["Penbraya (MenACWY+MenB-FHbp, \u226510y)"]) : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"]);
+        r("MenB", "Dose 3 of 3 (rescue \u2014 dose 2 given early)", 3, "due",
+          "MenB dose 2 was given less than 6 months after dose 1. A third rescue dose is needed \u22654 months after dose 2 to complete the series. Continue in the same antigen family.",
+          rescueBrands,
+          { minInt: 120, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
+      }
+      // If d1\u2192d2 \u22656 months (or dates unknown), series is complete \u2014 no rec emitted.
       } else if (is4C2 && hr) {
         // 4C primary series complete (2 doses). High-risk: revaccinate 1 year after series completion.
         r("MenB", "Revaccination \u2014 dose 3 (high-risk, 1 year after series)", 3, "risk-based",
