@@ -28,6 +28,9 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
   const isHRPCV = risks.some(r => ['asplenia', 'sickle_cell', 'hiv', 'immunocomp', 'cochlear', 'chronic_heart',
     'chronic_lung', 'chronic_kidney', 'diabetes', 'chronic_liver'].includes(r));
   const isHRMen = risks.some(r => ['asplenia', 'sickle_cell', 'complement', 'hiv'].includes(r));
+  // MenB high-risk set (ACIP 2020): asplenia, complement deficiency/inhibitor,
+  // microbiologist, serogroup-B outbreak. HIV/HSCT/immunocomp are NOT MenB indications.
+  const isHRMenB = risks.some(r => ['asplenia', 'sickle_cell', 'complement', 'microbiologist', 'outbreak_b'].includes(r));
   const hr      = isHRPCV || isHRMen;
 
   switch (vk) {
@@ -149,17 +152,15 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
     case 'MenB': {
       if (am < 120) return null;
       const givenMenB = dc(hist, 'MenB');
-      if (!isHRMen) {
+      if (!isHRMenB) {
         // Non-risk shared decision: 16–23y (192–276m) only.
         if (am < 192) return null;
         // Don't start a new series after 23y for non-risk patients.
         if (am > 276 && givenMenB === 0) return null;
       }
-      const mb     = resolveBrand('MenB', fcBrands, hist) || '';
-      const isFHbp = mb.startsWith('Trumenba') || mb.startsWith('Penbraya');
-      // High-risk without a brand selected: default to 3-dose accelerated (FHbp) schedule.
-      if (isHRMen && !mb) return { totalDoses: 3 };
-      return { totalDoses: isFHbp && isHRMen ? 3 : 2 };
+      // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
+      // accelerated series for BOTH antigen families (4C and FHbp). Healthy: 2 doses.
+      return { totalDoses: isHRMenB ? 3 : 2 };
     }
 
     case 'COVID': return am >= 6 ? { totalDoses: 1 } : null;

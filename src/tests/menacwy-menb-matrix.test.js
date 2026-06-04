@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 // MenACWY + MenB — five-surface test matrix
 // Sources: immunize.org, ACIP (not FDA package inserts)
 //
@@ -962,14 +961,15 @@ describe('MenB risk-based', () => {
       { given: true, brand: 'Bexsero (MenB-4C)' },
     ]};
 
-    // Surface 1: revaccination dose 3 (1y after primary completion)
-    // Engine path: menb===2 → is4C2 && hr → "Revaccination — dose 3 (high-risk, 1 year after series)"
+    // Surface 1: primary dose 3 of the high-risk 3-dose schedule (ACIP 2020: high-risk
+    // gets a 3-dose accelerated series for BOTH antigen families). After 2 doses, D3 is
+    // the primary completion — ≥6mo from D1 AND ≥4mo from D2 → minInt 112d.
     const r = firstRec('MenB', am, hist, risks);
     expect(r).not.toBeNull();
     expect(r.status).toBe('risk-based');
     expect(r.doseNum).toBe(3);
-    // 4C HR first booster: minInt 365d (1 year) per ACIP
-    expect(r.minInt).toBe(365);
+    // 4C HR primary D3: minInt 112d (≥4mo from D2)
+    expect(r.minInt).toBe(112);
 
     // Surface 2
     expect(regimenCoversVk('MenB', am, hist, risks)).toBe(true);
@@ -981,10 +981,9 @@ describe('MenB risk-based', () => {
     // Surface 4
     expect(recsFor('MenB', am, hist, risks).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5: series complete at 2 doses per seriesDoses — 0 additional
+    // Surface 5: high-risk 3-dose series (seriesDoses returns 3) — D3 still outstanding
     const doses33 = optimalDosesFor('MenB', am, hist, risks);
-    // BUG: optimal schedule doesn't model ongoing revaccination (seriesDoses returns totalDoses:2 for 4C)
-    expect(doses33.length).toBe(0); // revaccination not modeled in seriesDoses
+    expect(doses33.length).toBe(1); // 3-dose high-risk series: dose 3 scheduled
   });
 
   // Scenario 34: 20y (240m), asplenia, primary complete 3y ago, last booster 1y ago → not yet
@@ -1021,13 +1020,13 @@ describe('MenB risk-based', () => {
       { given: true, brand: 'Bexsero (MenB-4C)' },
     ]};
 
-    // Surface 1: menb===2, is4C2 && hr → dose 3 with minInt 365d
+    // Surface 1: menb===2, 4C high-risk → primary dose 3 of the 3-dose schedule, minInt 112d
     const r = firstRec('MenB', am, hist, risks);
     expect(r).not.toBeNull();
     expect(r.status).toBe('risk-based');
     expect(r.doseNum).toBe(3);
-    // 4C primary-complete first booster: minInt 365d (1y) per ACIP
-    expect(r.minInt).toBe(365);
+    // 4C HR primary D3: minInt 112d (≥4mo from D2)
+    expect(r.minInt).toBe(112);
 
     // Surface 2
     expect(regimenCoversVk('MenB', am, hist, risks)).toBe(true);
@@ -1039,9 +1038,9 @@ describe('MenB risk-based', () => {
     // Surface 4
     expect(recsFor('MenB', am, hist, risks).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5: 0 additional (series complete per seriesDoses — revaccination not modeled)
+    // Surface 5: high-risk 3-dose series (seriesDoses returns 3) — D3 still outstanding
     const doses35 = optimalDosesFor('MenB', am, hist, risks);
-    expect(doses35.length).toBe(0);
+    expect(doses35.length).toBe(1);
   });
 });
 
@@ -1257,5 +1256,162 @@ describe('MenABCWY combo (Penbraya / Penmenvy)', () => {
     // Surface 5
     const menbDoses = optimalDosesFor('MenB', am, hist);
     expect(menbDoses.length).toBe(1);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// MenACWY high-risk booster cadence — regression tests
+// Rule (ACIP 2020 MMWR / immunize.org p2035):
+//   First booster (dose 3, men===2):
+//     D2 completed at <7y (84m) → 3 years (1095d)
+//     D2 completed at ≥7y (84m) → 5 years (1826d)
+//     D2 age unknown             → 3 years conservative (1095d)
+//   Subsequent boosters (dose 4+, men>=3): ALWAYS 5 years (1826d)
+// ═══════════════════════════════════════════════════════════════════
+
+describe('MenACWY high-risk booster cadence — regression', () => {
+  // Helper: call genRecs with a specific dob so D2 age can be computed from a dated dose
+  function recWithDob(am, hist, risks, dob) {
+    return genRecs(am, hist, risks, dob, {}).filter(r => r.vk === 'MenACWY')[0] ?? null;
+  }
+
+  // Build a date string that is `monthsBack` months before `refDate`
+  function monthsBefore(refDate, monthsBack) {
+    const d = new Date(refDate + 'T00:00:00');
+    d.setUTCMonth(d.getUTCMonth() - monthsBack);
+    return d.toISOString().slice(0, 10);
+  }
+
+  it('Case A: primary completed <7y — first booster (men===2) minInt 1095d', () => {
+    // Patient now 10y (120m). DOB = 10y ago.
+    // D1 at age 4y (48m), D2 at age 5y (60m) — both before age 7.
+    const today = '2026-06-04';
+    const dob = monthsBefore(today, 120); // born 10 years ago
+    const d1Date = monthsBefore(today, 72); // age 4y
+    const d2Date = monthsBefore(today, 60); // age 5y
+    const am = 120;
+    const risks = ['asplenia'];
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: d1Date },
+        { given: true, mode: 'date', date: d2Date },
+      ],
+    };
+    const r = recWithDob(am, hist, risks, dob);
+    expect(r).not.toBeNull();
+    expect(r.doseNum).toBe(3);
+    expect(r.status).toBe('risk-based');
+    // First booster, D2 <7y → 3 years
+    expect(r.minInt).toBe(1095);
+    expect(r.dose).toMatch(/first booster.*3 year|3 year.*first booster/i);
+  });
+
+  it('Case A2: primary completed <7y — subsequent booster (men===3) minInt 1826d', () => {
+    // Same patient, now 15y (180m), already had first booster (dose 3) at age 8y.
+    const today = '2026-06-04';
+    const dob = monthsBefore(today, 180); // born 15 years ago
+    const d1Date = monthsBefore(today, 132); // age 4y
+    const d2Date = monthsBefore(today, 120); // age 5y
+    const d3Date = monthsBefore(today, 84);  // age 8y (first booster, 3y after D2)
+    const am = 180;
+    const risks = ['asplenia'];
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: d1Date },
+        { given: true, mode: 'date', date: d2Date },
+        { given: true, mode: 'date', date: d3Date },
+      ],
+    };
+    const r = recWithDob(am, hist, risks, dob);
+    expect(r).not.toBeNull();
+    expect(r.doseNum).toBe(4);
+    expect(r.status).toBe('risk-based');
+    // Subsequent booster → ALWAYS 5 years
+    expect(r.minInt).toBe(1826);
+    expect(r.dose).toMatch(/every 5 year|5 year.*subsequent/i);
+  });
+
+  it('Case B: primary completed ≥7y — first booster (men===2) minInt 1826d', () => {
+    // Patient now 30y (360m). D1 at age 20y, D2 at age 21y — both ≥7y.
+    const today = '2026-06-04';
+    const dob = monthsBefore(today, 360); // born 30 years ago
+    const d1Date = monthsBefore(today, 120); // age 20y
+    const d2Date = monthsBefore(today, 108); // age 21y
+    const am = 360;
+    const risks = ['complement'];
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: d1Date },
+        { given: true, mode: 'date', date: d2Date },
+      ],
+    };
+    const r = recWithDob(am, hist, risks, dob);
+    expect(r).not.toBeNull();
+    expect(r.doseNum).toBe(3);
+    expect(r.status).toBe('risk-based');
+    // First booster, D2 ≥7y → 5 years
+    expect(r.minInt).toBe(1826);
+    expect(r.dose).toMatch(/first booster.*5 year|5 year.*first booster/i);
+  });
+
+  it('Case B2: primary completed ≥7y — subsequent booster (men===3) minInt 1826d', () => {
+    // Patient 40y (480m). Primary at 20/21y, first booster at 26y, now needs second booster.
+    const today = '2026-06-04';
+    const dob = monthsBefore(today, 480); // born 40 years ago
+    const d1Date = monthsBefore(today, 240); // age 20y
+    const d2Date = monthsBefore(today, 228); // age 21y
+    const d3Date = monthsBefore(today, 168); // age 26y (first booster, ≥5y after D2)
+    const am = 480;
+    const risks = ['asplenia'];
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: d1Date },
+        { given: true, mode: 'date', date: d2Date },
+        { given: true, mode: 'date', date: d3Date },
+      ],
+    };
+    const r = recWithDob(am, hist, risks, dob);
+    expect(r).not.toBeNull();
+    expect(r.doseNum).toBe(4);
+    // Subsequent booster → ALWAYS 5 years (same as Case B first booster coincidentally,
+    // but the label must say "subsequent booster")
+    expect(r.minInt).toBe(1826);
+    expect(r.dose).toMatch(/every 5 year|5 year.*subsequent/i);
+  });
+
+  it('Case C: D2 age unknown — first booster (men===2) conservative 1095d', () => {
+    // D2 has no date and no ageDays → cannot determine age → conservative 3y
+    const am = 144; // 12y
+    const risks = ['asplenia'];
+    const hist = {
+      MenACWY: [
+        { given: true }, // no date, no ageDays
+        { given: true }, // no date, no ageDays
+      ],
+    };
+    // No dob → D2 age unknown → conservative
+    const r = firstRec('MenACWY', am, hist, risks);
+    expect(r).not.toBeNull();
+    expect(r.doseNum).toBe(3);
+    expect(r.minInt).toBe(1095);
+    expect(r.dose).toMatch(/conservative|unknown/i);
+  });
+
+  it('Case C2: D2 age unknown — subsequent booster (men===3) ALWAYS 5y', () => {
+    // Even with unknown D2 age, subsequent boosters are 5y
+    const am = 240; // 20y
+    const risks = ['asplenia'];
+    const hist = {
+      MenACWY: [
+        { given: true },
+        { given: true },
+        { given: true }, // dose 3 (first booster) already given
+      ],
+    };
+    const r = firstRec('MenACWY', am, hist, risks);
+    expect(r).not.toBeNull();
+    expect(r.doseNum).toBe(4);
+    // Subsequent booster → ALWAYS 5 years regardless of unknown D2 age
+    expect(r.minInt).toBe(1826);
   });
 });

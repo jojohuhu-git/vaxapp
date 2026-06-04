@@ -51,7 +51,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
 
     if (currentAgeDays !== null) {
       // Vaccine-level min age (D1)
-      if (doseIdx === 0 && spec.minD > 0 && currentAgeDays < spec.minD) {
+      if (spec.minD > 0 && (doseIdx === 0 || !(Array.isArray(spec.minByDose) && spec.minByDose[doseIdx])) && currentAgeDays < spec.minD) {
         const curLabel = fmtAgeClinical(currentAgeDays);
         const minLabel = fmtAgeClinical(spec.minD);
         return { ok: false, err: true, results: [{ type: "min_age_impossible", ok: false, err: true,
@@ -84,18 +84,22 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
     return { ok: true, unknown: true, note: "Date/age unknown \u2014 timing cannot be validated. Series counted by dose number only." };
   }
 
-  // 1. Min age for dose 1
-  if (doseIdx === 0 && spec.minD > 0 && ageAtDose !== null) {
+  // 1. Min age — the vaccine-level floor (spec.minD) applies to EVERY dose, not just
+  //    dose 1. This catches e.g. MenB (\u226510y) D2/D3 given too early, including the
+  //    MenB component of pentavalents (Penbraya/Penmenvy). For D2+ that have a defined
+  //    per-dose floor (spec.minByDose[doseIdx]), the per-dose block below governs instead.
+  const _hasPerDoseFloor = doseIdx > 0 && Array.isArray(spec.minByDose) && !!spec.minByDose[doseIdx];
+  if (spec.minD > 0 && ageAtDose !== null && !_hasPerDoseFloor) {
     if (ageAtDose < spec.minD - GRACE) {
       const ageLabel = fmtAgeClinical(ageAtDose);
       const minLabel = fmtAgeClinical(spec.minD);
       results.push({ type: "min_age", ok: false, err: true,
-        msg: `D1 at age ${ageLabel} — below the ${minLabel} minimum age. (${spec.note})`,
+        msg: `D${doseIdx + 1} at age ${ageLabel} — below the ${minLabel} minimum age. (${spec.note})`,
         _days: { actual: ageAtDose, min: spec.minD },
         earliest: isD(dob) ? addD(dob, spec.minD) : null });
     } else if (ageAtDose < spec.minD) {
       results.push({ type: "min_age", ok: true, grace: true,
-        msg: `D1 given ${spec.minD - ageAtDose} day(s) before minimum age \u2014 within \u22644-day grace period. May count as valid.`,
+        msg: `D${doseIdx + 1} given ${spec.minD - ageAtDose} day(s) before minimum age \u2014 within \u22644-day grace period. May count as valid.`,
         earliest: null });
     }
   }
