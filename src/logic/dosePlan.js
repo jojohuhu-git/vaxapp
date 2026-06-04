@@ -5,7 +5,7 @@ import { MIN_INT } from '../data/scheduleRules.js';
 import { FORECAST_VISITS } from '../data/forecastData.js';
 import { addD } from './utils.js';
 import { genRecs } from './recommendations.js';
-import { highRisk } from './stateHelpers.js';
+import { highRisk, highRiskMenB } from './stateHelpers.js';
 
 /**
  * Standard routine ages (months) for each dose by vaccine key.
@@ -380,12 +380,12 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) 
       return 1;
     }
     case "MenB": {
-      // Antigen family + risk determine total doses:
-      //   • MenB-4C (Bexsero, Penmenvy): always 2 doses (≥1m apart)
-      //   • MenB-FHbp (Trumenba, Penbraya):
-      //       – low-risk routine: 2 doses (≥6m apart)
-      //       – high-risk (asplenia, complement, HIV, HSCT, immunocomp):
-      //         3-dose accelerated series (0, 1–2m, 6m)
+      // Risk determines total doses (ACIP 2020; aligned with MeningoVax):
+      //   • Healthy (shared decision 16–23y): 2 doses — 4C ≥1m / FHbp ≥6m apart
+      //   • High-risk (asplenia, complement deficiency/inhibitor, microbiologist,
+      //     serogroup-B outbreak): 3-dose accelerated series (0, 1–2m, 6m) for BOTH
+      //     antigen families (4C and FHbp).
+      //   HIV, HSCT, and general immunocompromise are NOT MenB indications.
       // Determine the family from history brand first, then the most recent
       // forecast brand selection (use highest visit month so cascading combo
       // selections agree with the user's most explicit choice).
@@ -399,8 +399,9 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) 
       }
       const is4C  = mb.startsWith("Bexsero")  || mb.startsWith("Penmenvy");
       const isFHbp = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
-      if (is4C) return 2;
-      if (highRisk(risks) && (isFHbp || !mb)) return 3;
+      // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
+      // accelerated series for BOTH antigen families (4C and FHbp). Healthy: 2 doses.
+      if (highRiskMenB(risks) && (is4C || isFHbp || !mb)) return 3;
       return 2;
     }
     default: return 1;

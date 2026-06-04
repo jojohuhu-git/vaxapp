@@ -46,7 +46,46 @@ Direction B — "Modern Minimal":
 
 ## Key recent changes (last sessions)
 
-### Session 2026-05-30 (Hib rule correction + EXTRA citations + status legend — most recent)
+### Session 2026-06-04 (Meningococcal ACIP alignment with MeningoVax — most recent)
+
+Audit-driven corrections after comparing vaxapp's meningococcal logic to the freshly ACIP-re-verified
+MeningoVax engine. All five surfaces verified. Test count 2,485 → **2,514** (+29 net). Shipped to `main`.
+
+**MenB high-risk gate narrowed** (`stateHelpers.js` new `highRiskMenB()` = asplenia, sickle_cell,
+complement, microbiologist, outbreak_b): HIV / immunocomp / HSCT are NOT MenB indications per ACIP 2020.
+Broad `highRisk()` unchanged (still drives PCV/Hib). `buildOptimalSchedule.js` got a parallel `isHRMenB`.
+
+**MenB high-risk = 3-dose for BOTH antigen families** (`recommendations.js`, `dosePlan.js`,
+`buildOptimalSchedule.js`): 4C and FHbp high-risk both use 0/1–2/6m. At `menb===2` both emit primary
+D3 (minInt 112; d1Cross 182 enforces ≥6mo from D1). First booster D4 at 365d, then 730d ongoing.
+`getTotalDoses`/`seriesDoses` return 3 for high-risk, 2 healthy. Fixed the commit #44 leftover where
+high-risk 4C D2 was still 182d (now `hr ? 28 : 182`).
+
+**MenACWY high-risk booster cadence** (`recommendations.js`): keyed off **age at dose 2**. First
+booster (men===2) = 3y if D2<7y (or unknown) else 5y; **all subsequent boosters always 5y**. (Initial
+pass applied 3y to every booster in the <7y case; corrected per immunize.org p2035.)
+
+**MenACWY indication routing** (`recommendations.js`): generic high-risk branch now uses
+`isHighRiskMen` (asplenia/sickle_cell/complement/hiv), not broad `hr`. Microbiologist → 1 dose + q5y
+revax (was wrongly a 2-dose primary); immunocomp/hsct no longer get a MenACWY 2-dose primary. New
+`military` (MenACWY 1 dose) and `outbreak_b` (MenB high-risk only) risk factors.
+
+**Penbraya/Penmenvy no upper age limit** (`brandRules.js`): `BRAND_RULES.maxAgeM` 312 → null (matches
+COMBOS maxM 999); `isBrandValidForDose` no longer blocks indicated adults >25y.
+
+**CLINICAL — MenB ≥10y enforced on EVERY dose** (`validation.js`): root cause of the clinician-reported
+bug (6yo with Penmenvy + Penbraya + Bexsero at ~5y → MenACWY flagged invalid for both pentavalents but
+on MenB only the first dose). The vaccine-level min-age check (`spec.minD`) only ran for `doseIdx===0`;
+now applies to every dose lacking a per-dose floor (both dated and unknown-mode paths). `scheduleRules.js`
+`BRAND_MIN` gained Bexsero/Trumenba (3650d). MeningoVax did NOT have this bug (per-dose brand min-age).
+
+**Tests**: new `regression-pentavalent-menb-minage.test.js` (6) + `regression-meningococcal-acip-2026.test.js`
+(17); updated `menacwy-menb-matrix.test.js` + `five-surface/high-risk.test.js`. Removed two pre-existing
+lint blockers (dead `isVaxelis`, stale `eslint-disable`).
+
+**Open item**: MenACWY age-keyed booster needs dose-2 dates to be precise; unknown D2 age → conservative 3y first booster.
+
+### Session 2026-05-30 (Hib rule correction + EXTRA citations + status legend)
 
 Four-fix session driven by clinician testing feedback. Test count 2,467 → 2,482 (+15).
 

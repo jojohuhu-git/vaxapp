@@ -34,6 +34,8 @@ export const RISK_FACTOR_GROUPS = [
       { id: "alaska_native",  l: "American Indian / Alaska Native" },
       { id: "college",        l: "College dormitory (1st-year)" },
       { id: "microbiologist", l: "Microbiologist (N. meningitidis lab exposure)" },
+      { id: "military",       l: "U.S. military recruit or personnel" },
+      { id: "outbreak_b",     l: "Serogroup B meningococcal outbreak participant" },
       { id: "sexual_abuse",   l: "Sexual abuse/assault history" },
       { id: "travel",         l: "International travel (high-risk)" },
     ],

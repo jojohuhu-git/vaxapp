@@ -21,7 +21,7 @@
 //             Hib component is PRP-T (4-dose series including booster).
 //   Kinrix/Quadracel  DTaP D5 ONLY + IPV D4 ONLY (4–6y booster visit)
 //   ProQuad   MMR/VAR doses 1–2 (12m–12y)
-//   Penbraya/Penmenvy  MenACWY/MenB doses 1–2 (≥10y through 25y)
+//   Penbraya/Penmenvy  MenACWY/MenB doses 1–2 (≥10y, no hard upper limit per ACIP)
 //   Twinrix   HepA/HepB any dose (≥18y)
 export const COMBO_DOSE_GATES = {
   Vaxelis:   { DTaP: [1, 3], IPV: [1, 3], Hib: [1, 3], HepB: [1, 3] },
@@ -189,18 +189,18 @@ export const BRAND_RULES = [
   {
     brandKey: "Penbraya",
     components: ["MenACWY","MenB"],
-    minAgeM: 120, maxAgeM: 312,
+    minAgeM: 120, maxAgeM: null,
     doseRanges: { MenACWY: [1,2], MenB: [1,2] },
     requiresCoAdmin: true,
-    notes: "≥10y–25y. MenB-FHbp (Pfizer). requiresCoAdmin: both MenACWY and MenB must be due at same visit.",
+    notes: "≥10y, no hard upper age limit per ACIP (FDA: 10–25y; ACIP allows use beyond 25y for indicated adults). MenB-FHbp (Pfizer). requiresCoAdmin: both MenACWY and MenB must be due at same visit.",
   },
   {
     brandKey: "Penmenvy",
     components: ["MenACWY","MenB"],
-    minAgeM: 120, maxAgeM: 312,
+    minAgeM: 120, maxAgeM: null,
     doseRanges: { MenACWY: [1,2], MenB: [1,2] },
     requiresCoAdmin: true,
-    notes: "≥10y–25y. MenB-4C (GSK). requiresCoAdmin: both MenACWY and MenB must be due at same visit.",
+    notes: "≥10y, no hard upper age limit per ACIP (FDA: 10–25y; ACIP allows use beyond 25y for indicated adults). MenB-4C (GSK). requiresCoAdmin: both MenACWY and MenB must be due at same visit.",
   },
   {
     brandKey: "Twinrix",

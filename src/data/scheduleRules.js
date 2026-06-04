@@ -39,6 +39,8 @@ export const BRAND_MIN = {
   "Comirnaty":{d:1825, textFrag:"Comirnaty"},
   "mNexspike":{d:4380, textFrag:"mNexspike"},
   "Nuvaxovid":{d:4380, textFrag:"Nuvaxovid"},
+  "Bexsero":{d:3650, textFrag:"Bexsero"},
+  "Trumenba":{d:3650, textFrag:"Trumenba"},
   "Penbraya":{d:3650, textFrag:"Penbraya"},
   "Penmenvy":{d:3650, textFrag:"Penmenvy"},
   "Pneumovax 23":{

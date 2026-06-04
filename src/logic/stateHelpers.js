@@ -19,11 +19,20 @@ export const anyBrand = (hist, vk) => {
 };
 
 /** Check if patient is high-risk based on risk factors. */
-// MenACWY/MenB high-risk indications per ACIP. Complement deficiency includes
-// both inherited deficiency and acquired (eculizumab/ravulizumab) — merged into
-// the single `complement` key. Microbiologist with N. meningitidis exposure also
-// qualifies per CDC ACIP recommendations.
+// Used for PCV, Hib, and other vaccines that share a broad high-risk definition.
+// Includes HIV, immunocomp, HSCT in addition to anatomic/complement risks.
+// Do NOT use this for MenB gating — use highRiskMenB() instead.
 export const highRisk = (risks) => risks.some(r => ["asplenia", "sickle_cell", "hiv", "immunocomp", "hsct", "complement", "microbiologist"].includes(r));
+
+/**
+ * MenB-specific high-risk gate (ACIP 2020 MMWR RR-9).
+ * Narrow indication: asplenia (incl. sickle cell), complement deficiency or
+ * inhibitor, microbiologist with routine N. meningitidis exposure, and
+ * serogroup-B outbreak participants.
+ * HIV, immunocomp, and HSCT do NOT have a MenB high-risk indication per ACIP.
+ * Source: https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm
+ */
+export const highRiskMenB = (risks) => risks.some(r => ["asplenia", "sickle_cell", "complement", "microbiologist", "outbreak_b"].includes(r));
 
 /** Grace period constant (days). */
 export const GRACE = 4;

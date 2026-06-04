@@ -49,9 +49,11 @@ describe('HIV — vaccine implications (Surface 1)', () => {
     expect(r).not.toBeNull();
   });
 
-  it('S1: MenB rec at am=120 (10y), hiv', () => {
+  // ACIP 2020: HIV is NOT a MenB indication — only MenACWY. At 10y (below the 16–23y
+  // healthy shared-decision window) an HIV-only patient should get no MenB rec.
+  it('S1: NO MenB rec at am=120 (10y) for hiv (HIV is not a MenB indication)', () => {
     const r = firstRec('MenB', 120, {}, ['hiv']);
-    expect(r).not.toBeNull();
+    expect(r).toBeNull();
   });
 
   it('S1: PCV rec at am=240, hiv', () => {

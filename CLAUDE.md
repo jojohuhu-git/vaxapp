@@ -2133,3 +2133,72 @@ Replaced the compact always-visible status pill row with a collapsible `StatusLe
 `data-testid` attributes: `status-legend`, `status-legend-toggle`, `status-legend-content`.
 
 **Tests** added to `ComplianceAuditTab.test.jsx`: legend renders, collapsed by default, expands on click, contains four status names, collapses on second click (5 tests).
+
+---
+
+## Changes shipped (2026-06-04) — Meningococcal ACIP alignment with MeningoVax
+
+Audit-driven corrections after comparing vaxapp's meningococcal logic to the freshly
+ACIP-re-verified MeningoVax reference engine. All five surfaces verified; 2,508 tests pass
+(+23 net). **Not committed — awaiting user authorization.**
+
+### MenB high-risk gate narrowed (B1) — `stateHelpers.js`, `recommendations.js`, `dosePlan.js`, `buildOptimalSchedule.js`
+New `highRiskMenB(risks)` = **asplenia, sickle_cell, complement, microbiologist, outbreak_b** only.
+Per ACIP 2020 MMWR RR-9, **HIV, immunocomp, and HSCT are NOT MenB indications**. The broad
+`highRisk()` (still includes hiv/immunocomp/hsct) is unchanged and still used for PCV/Hib —
+only MenB gating switched to the narrow function. `buildOptimalSchedule.js` got a parallel
+`isHRMenB` (the existing `isHRMen` = asplenia/sickle_cell/complement/hiv stays for MenACWY).
+
+### MenB high-risk = 3-dose for BOTH antigen families (B3, decision A) — `recommendations.js`, `dosePlan.js`, `buildOptimalSchedule.js`
+Previously only FHbp high-risk was a 3-dose accelerated series; 4C high-risk was wrongly modeled
+as 2-dose + 365d booster. Now 4C **and** FHbp high-risk both use the 0/1–2/6m schedule. At
+`menb===2`, both families emit primary D3 (minInt 112, ≥4mo from D2; d1Cross 182 enforces ≥6mo
+from D1). First booster is D4 at minInt 365 (1y after the 3-dose primary), then 730d ongoing.
+`getTotalDoses("MenB")`/`seriesDoses("MenB")` return 3 for high-risk (both families), 2 healthy.
+
+### MenB-4C high-risk D2 interval bug fixed (B2) — `recommendations.js`
+Commit #44 only fixed the healthy 4C interval (→182d) but left high-risk 4C D2 at 182d. Now
+D2 = `hrMenB ? 28 : 182` for both families (high-risk ≥4wk; healthy ≥6mo).
+
+### MenACWY high-risk booster cadence age-keyed (B4, decision C) — `recommendations.js`
+Was flat 1095d (3y). Now distinguishes the FIRST booster (men===2) from subsequent boosters,
+keyed off **age at dose 2**: if primary completed <7y (84m) the first booster is 3y (1095d), else
+5y (1826d); **all subsequent boosters are always 5y (1826d)**. D2 age unknown -> conservative 3y
+for the first booster only. Derived from `hist.MenACWY` D2 date/ageDays. (Refined 2026-06-04 - the
+initial pass applied 3y to every booster in the <7y case; corrected to "first booster 3y, then q5y"
+per immunize.org p2035 / ACIP 2020. MenB high-risk booster - first 1y, then q2y - was already correct.)
+
+### MenACWY indication routing (B6) — `recommendations.js`
+The generic MenACWY high-risk branch now uses `isHighRiskMen` (asplenia/sickle_cell/complement/hiv),
+NOT broad `hr`. So **microbiologist** falls through to its own 1-dose + q5y-revax branch (was
+wrongly getting a 2-dose primary), and immunocomp/hsct no longer get an inappropriate MenACWY
+2-dose primary. New **military** (B8: MenACWY 1 dose, no MenB) and **outbreak_b** (B9: MenB
+high-risk only, no MenACWY) risk factors added in `riskFactors.js`.
+
+### Penbraya/Penmenvy no upper age limit (B5) — `brandRules.js`
+`BRAND_RULES` `maxAgeM: 312` → `null` (matches `COMBOS.maxM: 999`). `isBrandValidForDose` no
+longer blocks indicated adults >25y. MenACWY/MenB `[1,2]` dose gates still block revaccination.
+
+### CLINICAL: MenB ≥10y now enforced on EVERY dose (new bug) — `validation.js`
+Root cause of the clinician-reported bug (6yo with Penmenvy + Penbraya + Bexsero at ~5y: MenACWY
+flagged invalid for both pentavalents, but on MenB only the FIRST dose was flagged). The
+vaccine-level min-age check (`spec.minD`) only ran for `doseIdx === 0`. A vaccine's absolute
+floor applies to every dose; for MenB (≥10y) the D2/D3 pentavalent components below 10y slipped
+through (and `brand_min_age` is filtered from the audit display). Fixed in both the dated and
+unknown-mode paths: `spec.minD` now applies to all doses lacking a per-dose floor (`spec.minByDose[idx]`).
+`scheduleRules.js` `BRAND_MIN` also gained Bexsero/Trumenba (3650d) for the brand-level check.
+
+### MeningoVax side
+MeningoVax already validated per-dose brand min age via `ALL_BRANDS` (Penbraya/Penmenvy at
+minAgeM=120) — it did NOT have the bug. Added a regression test there to lock it in.
+
+### Tests
+- `src/logic/__tests__/regression-pentavalent-menb-minage.test.js` (6) — the new-bug scenario.
+- `src/logic/__tests__/regression-meningococcal-acip-2026.test.js` (17) — B1/B3/B4/B6/B8/B9.
+- Updated `menacwy-menb-matrix.test.js` (4C 3-dose, minInt 112, seriesDoses=3) and
+  `five-surface/high-risk.test.js` (HIV → no MenB).
+- MeningoVax: `regression-pentavalent-menb-minage.test.js` (3). Suite 143 passing.
+
+### Open items for clinician
+- MenACWY age-keyed booster needs dose-2 dates to be precise; unknown D2 age defaults to the
+  conservative 3y. Confirm that fallback is acceptable.
