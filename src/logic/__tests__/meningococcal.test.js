@@ -202,6 +202,40 @@ describe('MenB D3 brand list — both single and combo always offered (2026-05-0
   });
 });
 
+describe('MenB healthy 4C/FHbp — 2025 CDC interval update + rescue dose 3', () => {
+  // Healthy 4C dose 2 minInt is now 6 months (not 1 month) per CDC 2025
+  it('MenB 4C healthy dose 2 requires 6 months', () => {
+    const recs = genRecs(200, { MenB: [{ given: true, brand: 'Bexsero', date: '2026-03-03', mode: 'date' }] }, [], null, {});
+    const d2 = recs.find(r => r.vk === 'MenB' && r.doseNum === 2);
+    expect(d2.minInt).toBe(182);
+  });
+
+  // Rescue dose 3 when 4C dose 2 was early (<6 months after dose 1)
+  it('MenB 4C healthy rescue dose 3 when dose 2 early', () => {
+    const recs = genRecs(216, {
+      MenB: [
+        { given: true, brand: 'Bexsero', date: '2025-09-03', mode: 'date' },
+        { given: true, brand: 'Bexsero', date: '2025-12-03', mode: 'date' }, // ~90 days — early
+      ]
+    }, [], null, {});
+    const d3 = recs.find(r => r.vk === 'MenB' && r.doseNum === 3);
+    expect(d3).toBeDefined();
+    expect(d3.note).toMatch(/rescue/i);
+  });
+
+  // No rescue dose 3 when 4C dose 2 was ≥6 months after dose 1
+  it('MenB 4C healthy no rescue dose 3 when dose 2 was on time', () => {
+    const recs = genRecs(216, {
+      MenB: [
+        { given: true, brand: 'Bexsero', date: '2025-01-03', mode: 'date' },
+        { given: true, brand: 'Bexsero', date: '2025-08-03', mode: 'date' }, // 7 months — OK
+      ]
+    }, [], null, {});
+    const menbRecs = recs.filter(r => r.vk === 'MenB');
+    expect(menbRecs).toHaveLength(0); // series complete, no rec emitted
+  });
+});
+
 describe('MenACWY/MenB — new risk factors (B-A4 harvest)', () => {
   it('120mo complement → MenB rec (high-risk gating)', () => {
     const p = makePatient({ ageMonths: 120, riskConditions: ['complement'] });

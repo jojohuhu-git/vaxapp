@@ -19,10 +19,10 @@
     },
     {
       "id": "MENB-003",
-      "description": "MenB-4C dose 2: minInt 28d after D1 (4C uses 2-dose routine for low-risk)",
+      "description": "MenB-4C dose 2: minInt 182d (≥6mo) after D1 — per CDC 2025 schedule update",
       "patient": { "ageMonths": 192, "dosesGiven": { "MenB": 1 }, "brands": { "MenB": "Bexsero (MenB-4C, 2-dose series)" } },
-      "expect": { "rec": { "vk": "MenB", "props": { "doseNum": 2, "minInt": 28 } } },
-      "rationale": "CDSI MenB-4C SCDM D2 minInt 28d. Code line 475 sets minInt: is4C ? 28 : ... — matches."
+      "expect": { "rec": { "vk": "MenB", "props": { "doseNum": 2, "minInt": 182 } } },
+      "rationale": "UPDATED 2026-06-03: Per CDC 2025 child/adolescent schedule notes (note-mening-b), healthy MenB-4C dose 2 is ≥6 months after dose 1 — same as FHbp 2-dose schedule. Old CDSI value of 28d is superseded by ACIP 2025 guidance. Code now sets minInt: is4C ? 182 : fhbpD2Min."
     },
     {
       "id": "MENB-004",

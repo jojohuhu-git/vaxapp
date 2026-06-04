@@ -724,19 +724,18 @@ describe('MenB shared decision (non-risk, 16–23y)', () => {
   });
 
   // Scenario 25: 17y (204m), D1 Bexsero 3mo ago → D2 needed (≥6mo after D1 for 2-dose)
-  // Wait — for non-risk Bexsero, D2 is ≥1mo (28d) after D1, not 6mo.
-  // 6mo gap applies to non-risk Trumenba. Bexsero D1→D2: ≥1m (28d).
-  it('25. 17y (204m), D1 Bexsero 3mo ago → D2 due (Bexsero: ≥1m apart)', () => {
+  // Per CDC 2025: healthy MenB-4C interval is ≥6 months (not ≥1 month).
+  it('25. 17y (204m), D1 Bexsero → D2 due (Bexsero: ≥6mo apart, 2025 ACIP)', () => {
     const am = 204;
     const hist = { MenB: [{ given: true, brand: 'Bexsero (MenB-4C)' }] };
 
-    // Surface 1: D2 of Bexsero series (≥1m minInt)
+    // Surface 1: D2 of Bexsero series (≥6mo minInt per 2025 ACIP)
     const r = firstRec('MenB', am, hist);
     expect(r).not.toBeNull();
     expect(r.doseNum).toBe(2);
     expect(r.status).toBe('due'); // non-risk D2 has status "due"
-    // Bexsero: minInt 28d
-    expect(r.minInt).toBe(28);
+    // Bexsero: minInt now 182d (≥6 months)
+    expect(r.minInt).toBe(182);
     expect(r.brands.some(b => b.startsWith('Bexsero'))).toBe(true);
 
     // Surface 2
@@ -754,12 +753,15 @@ describe('MenB shared decision (non-risk, 16–23y)', () => {
     expect(doses.length).toBe(1);
   });
 
-  // Scenario 26: 18y (216m), D1 Trumenba 4mo ago, D2 given 4mo after D1 (accelerated)
-  // → D3 needed ≥4mo after D2 (accelerated 3-dose series triggered)
+  // Scenario 26: 18y (216m), D1 Trumenba, D2 given <6mo after D1 → rescue D3 needed
+  // Per CDC 2025: if dose 2 is given <6 months after dose 1, a rescue dose 3 is needed ≥4mo after D2.
   it('26. 18y (216m), Trumenba D1+D2 given <6mo apart → D3 needed (accelerated)', () => {
     const am = 216;
-    // D1 and D2 given, D2 was within 6mo of D1 → triggers 3-dose accelerated
-    const hist = { MenB: [{ given: true, brand: 'Trumenba (MenB-FHbp)' }, { given: true, brand: 'Trumenba (MenB-FHbp)' }] };
+    // D1 and D2 given with dates, D2 was within 6mo of D1 → triggers rescue dose 3
+    const hist = { MenB: [
+      { given: true, brand: 'Trumenba (MenB-FHbp)', date: '2025-09-03', mode: 'date' },
+      { given: true, brand: 'Trumenba (MenB-FHbp)', date: '2025-12-03', mode: 'date' }, // 91 days — early
+    ] };
 
     // Surface 1: D3 needed (Trumenba 2-dose check fires at menb===2)
     const r = firstRec('MenB', am, hist);
