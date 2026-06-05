@@ -67,7 +67,8 @@ export const VBR = { // vaccine brands — combo entries include (contents) for 
   Tdap:    {s:["Adacel (Tdap, ≥7y)","Boostrix (Tdap, ≥10y)"], c:[]},
   Td:      {s:["Tenivac (Td, ≥7y)","Decavac (Td, ≥7y)","Td (generic, ≥7y)"], c:[]},
   HPV:     {s:["Gardasil 9 (HPV, 9-valent)"], c:[]},
-  MenACWY: {s:["Menveo (MenACWY-CRM, ≥2m)","MenQuadfi (MenACWY-TT, ≥2y)"], c:["Penbraya (MenACWY+MenB-FHbp, ≥10y)","Penmenvy (MenACWY+MenB-4C, ≥10y)"]},
+  // D7: Menveo 2-vial (≥2m) is the only formulation for infants/children <10y; Menveo 1-vial (≥10y) is available for adolescents/adults.
+  MenACWY: {s:["Menveo 2-vial (MenACWY-CRM, ≥2m)","Menveo 1-vial (≥10y) (MenACWY-CRM)","MenQuadfi (MenACWY-TT, ≥2y)"], c:["Penbraya (MenACWY+MenB-FHbp, ≥10y)","Penmenvy (MenACWY+MenB-4C, ≥10y)"]},
   MenB:    {s:["Bexsero (MenB-4C)","Trumenba (MenB-FHbp)"], c:["Penbraya (MenACWY+MenB-FHbp, ≥10y)","Penmenvy (MenACWY+MenB-4C, ≥10y)"], lock:true},
   RSV:     {s:["Beyfortus (nirsevimab, 50mg <5kg / 100mg ≥5kg)", "Abrysvo (RSVpreF, maternal vaccine, 32\u201336w gestation)"], c:[]},
   COVID:   {s:["Comirnaty (COVID-19, ≥5y)","mNexspike (COVID-19, ≥12y)","Nuvaxovid (COVID-19, ≥12y, protein subunit)","Spikevax (COVID-19, ≥6mo)"], c:[]},

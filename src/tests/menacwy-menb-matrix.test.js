@@ -312,26 +312,27 @@ describe('MenACWY routine schedule', () => {
     expect(doses.length).toBeGreaterThanOrEqual(1);
   });
 
-  // Scenario 10: 20y (240m), no history → shared decision (1 dose)
-  it('10. 20y (240m), no history → shared decision (1 dose)', () => {
+  // Scenario 10: 20y (240m), no history → D2 fix: catch-up 1 dose (no booster when ≥16y)
+  // Per ACIP job aid: all patients 16–21y unvaccinated get catch-up Dose 1 of 1.
+  it('10. 20y (240m), no history → catch-up 1 dose (16–21y rule)', () => {
     const am = 240;
 
-    // Surface 1: shared clinical decision rec
+    // Surface 1: catch-up (changed from 'recommended' per D2 fix)
     const r = firstRec('MenACWY', am);
     expect(r).not.toBeNull();
     expect(r.doseNum).toBe(1);
-    expect(r.status).toBe('recommended');
+    expect(r.status).toBe('catchup');
     expect(r.brands.some(b => b.includes('Menveo') || b.includes('MenQuadfi'))).toBe(true);
 
     // Surface 2: optimizer includes MenACWY
     expect(regimenCoversVk('MenACWY', am)).toBe(true);
 
-    // Surface 3: brands at 19-21y
+    // Surface 3: brands at 20y
     const brands = forecastBrands('MenACWY', 1, 240, ['MenACWY']);
     expect(brands.some(b => b.includes('Menveo') || b.includes('MenQuadfi'))).toBe(true);
 
-    // Surface 4: not a catch-up scenario
-    expect(recsFor('MenACWY', am).filter(r => r.status === 'catchup')).toHaveLength(0);
+    // Surface 4: is a catch-up scenario
+    expect(recsFor('MenACWY', am).filter(r => r.status === 'catchup')).toHaveLength(1);
 
     // Surface 5: 1 dose (≥16y first dose = complete series)
     const doses = optimalDosesFor('MenACWY', am);
