@@ -230,14 +230,14 @@ describe('D2: pre-16 dose does not satisfy the 16–21y catch-up (any patient, n
 
 describe('D7: Menveo brand-label 2-vial vs 1-vial in vaccineData.js VBR', () => {
   it('VBR.MenACWY.s includes both 2-vial and 1-vial Menveo entries', async () => {
-    const { VBR } = await import('/Users/joannehuang/Downloads/vaxapp-main/src/data/vaccineData.js');
+    const { VBR } = await import('../../data/vaccineData.js');
     const brands = VBR.MenACWY.s;
     expect(brands.some(b => b.includes('2-vial'))).toBe(true);
     expect(brands.some(b => b.includes('1-vial'))).toBe(true);
   });
 
   it('VBR.MenACWY.s 1-vial entry specifies ≥10y', async () => {
-    const { VBR } = await import('/Users/joannehuang/Downloads/vaxapp-main/src/data/vaccineData.js');
+    const { VBR } = await import('../../data/vaccineData.js');
     const oneVial = VBR.MenACWY.s.find(b => b.includes('1-vial'));
     expect(oneVial).toBeDefined();
     expect(oneVial).toMatch(/10y/);
