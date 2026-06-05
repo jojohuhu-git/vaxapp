@@ -452,3 +452,22 @@ The user is a clinician who thinks like a busy provider:
 - No decorative emoji, no pill shapes, no dot bullets
 - Information at point-of-care (not buried in reference panels)
 - Combo antigen lists are redundant — the combo name + Why? button is sufficient
+
+---
+
+## Session: 2026-06-05 — Meningococcal job-aid cross-check (shipped)
+
+Audited vaxapp + MeningoVax against the clinician "Meningococcal Vaccine Job Aid" (.docx,
+user-confirmed vs ACIP/CDC). Fixes landed in both apps; see CLAUDE.md "Changes shipped (2026-06-05)"
+for the per-item detail. vaxapp tests **2,514 → 2,541**.
+
+vaxapp items: D1 (HR infant label of 3→of 4), D2 (generalized 16–21y "no dose at ≥16y → 1 dose"
+catch-up for all patients; fills 18–19y gap; college note), D3 (college pre-16 gap), D5 (7–23mo D2
+= ≥12wk AND ≥12mo, with the 12-mo floor hard-enforced for 7–11m via dynamic minInt), D6 (3-dose
+shortcut for 2–6m starters with D2 ≥7m, five surfaces), D7 (Menveo 2-vial/1-vial labels), D9 (MenB
+healthy 4C note ≥1m→≥6 months). D4 (outbreak_acwy) and D8 (label cosmetics) ignored per clinician.
+
+New test file: `src/logic/__tests__/regression-menacwy-d2-d5-d6-d7.test.js`.
+
+Open follow-up: D7 ≥10y lists 1-vial as preferred (both formulations valid). D2 broadening now
+recommends a catch-up dose for any healthy 16–21yo lacking a ≥16y dose — intended per clinician.

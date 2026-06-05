@@ -2202,3 +2202,40 @@ minAgeM=120) — it did NOT have the bug. Added a regression test there to lock 
 ### Open items for clinician
 - MenACWY age-keyed booster needs dose-2 dates to be precise; unknown D2 age defaults to the
   conservative 3y. Confirm that fallback is acceptable.
+
+---
+
+## Changes shipped (2026-06-05) — Meningococcal job-aid cross-check (D1–D9)
+
+Cross-checked vaxapp + MeningoVax against the clinician "Meningococcal Vaccine Job Aid"
+(.docx, user-confirmed ground truth vs ACIP/CDC). Discrepancies fixed in **both** apps.
+vaxapp tests: **2,514 → 2,541**. Not all numbered items needed a vaxapp change (D4/D8 ignored
+per clinician; some were MeningoVax-only).
+
+- **D1** — HR infant 2–6m MenACWY primary label "Dose N of 3" → "of 4"; 12–23m booster relabeled
+  "of 4" (job aid treats the series incl. the 12-mo booster as 4 doses).
+- **D2** — Generalized the 16–21y MenACWY catch-up. Job aid: "no dose on/after the 16th birthday →
+  catch-up Dose 1 of 1 (no booster)." Now fires for **all** patients (not just college) via the new
+  `menAt16y` / `menAt16yUnknown` computation, including those whose only prior dose was **before 16**,
+  and fills the former **18–19y dead zone**. Status is `catchup` (was the old `recommended`/SCDM 19–21y
+  branch, removed). Note flags this is especially for first-year college residence-hall students.
+- **D3** — College pre-16 gap (a freshman with only a <16y dose got no rec). Fixed by the same
+  `menAt16y` logic; a college-specific branch is kept ahead of the general one for tailored wording.
+- **D5** — 7–23-month high-risk MenACWY **Dose 2 must meet BOTH** ≥12 weeks after dose 1 **AND** be given
+  at ≥12 months of age. Interval corrected 56d (8wk) → **84d (12wk)** for the 7–11m and 12–23m branches.
+  For the 7–11m branch the 12-month floor is **hard-enforced** (not just noted) by setting a dynamic
+  `minInt = max(84, 365 − d1AgeDays)`, so `prevDate + minInt` clears both floors; degrades to 84 only when
+  dose-1 age is unknown. The 2–6m 4-dose primary spacing (28d) is unchanged.
+- **D6** — "3 doses sufficient" shortcut: HR infant who started at 2–6m but whose **Dose 2 was at ≥7m**
+  completes in 3 doses (3rd dose ≥12 weeks after D2 AND ≥12 months of age) — no 4th dose. Detected via
+  `on3DosePath` (`d1Early` 2–6m + `d2Late` ≥7m); unknown ages → conservative 4-dose default. Mirrored
+  across all five surfaces.
+- **D7** — Menveo formulation distinction. 2-vial (≥2 months) vs 1-vial (≥10 years). `recommendations.js`
+  uses an age-conditional `menveoLbl` (≥120m → "Menveo 1-vial", else "Menveo 2-vial"); infant-only
+  branches list 2-vial explicitly. `VBR.MenACWY` + `BRAND_AGE_NOTES` carry both. (≥10y: both formulations
+  are valid; 1-vial is listed as the preferred/default.)
+- **D9** — MenB healthy shared-decision **4C note** "2 doses ≥1m apart" → "≥6 months apart" (stale text;
+  the engine already enforced 182d per CDC-2025 / commit #44). Text-only.
+
+Regression tests: `src/logic/__tests__/regression-menacwy-d2-d5-d6-d7.test.js` (D2/D5/D6/D7 incl. the
+pre-16 catch-up and the 12-month hard floor). MeningoVax got the parallel fixes (see its CLAUDE.md/HANDOFF).
