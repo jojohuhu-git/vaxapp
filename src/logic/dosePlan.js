@@ -6,6 +6,7 @@ import { FORECAST_VISITS } from '../data/forecastData.js';
 import { addD } from './utils.js';
 import { genRecs } from './recommendations.js';
 import { highRisk, highRiskMenB } from './stateHelpers.js';
+import { pcvHighRiskChildPlan, isHighRiskPCV } from './pcvDoses.js';
 
 /**
  * Standard routine ages (months) for each dose by vaccine key.
@@ -102,7 +103,7 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
     // given until the min-interval elapses. In that case anchor at the number
     // of countable doses already given so the projection emits D2 at the next
     // eligible visit rather than skipping straight to D3.
-    const totalDoses = getTotalDoses(vk, rec, fcBrands, am, hist, risks);
+    const totalDoses = getTotalDoses(vk, rec, fcBrands, am, hist, risks, dob);
     const givenCountable = (hist[vk] || []).filter(d => d && d.given).length;
     const lastGivenPeek = (hist[vk] || []).filter(d => d && d.given && (d.date || d.ageDays != null)).slice(-1)[0];
     let lastGivenAgeM = null;
@@ -277,7 +278,7 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
 }
 
 /** Get total doses in series for a vaccine, accounting for brand/age/risk */
-export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) {
+export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], dob = null) {
   switch (vk) {
     case "HepB": {
       // Heplisav-B is a 2-dose series; all other HepB brands are 3-dose
@@ -334,8 +335,14 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = []) 
       return 4;
     }
     case "PCV": {
-      const isHRPCV = (risks || []).some(r => ["asplenia","sickle_cell","hiv","immunocomp","cochlear","chronic_heart","chronic_lung","chronic_kidney","diabetes","chronic_liver"].includes(r));
+      const isHRPCV = isHighRiskPCV(risks);
       const givenPCV = (hist?.PCV || []).filter(d => d.given).length;
+      // High-risk children 24mo–18y: CDC at-risk rule (completed series → 1 PCV20/PPSV23;
+      // incomplete 24–71mo → 1–2 PCV; ≥6y → 1 PCV20). Single source: pcvDoses.js.
+      if (am >= 24 && am < 228 && isHRPCV) {
+        const ppsvCount = (hist?.PPSV23 || []).filter(d => d.given).length;
+        return pcvHighRiskChildPlan(am, hist, dob, ppsvCount).total;
+      }
       // Healthy ≥24m: CDC Table 2 allows only 1–2 doses in catch-up (not a full 4-dose series)
       if (am >= 24 && !isHRPCV) return Math.min(4, givenPCV + 1);
       return 4;

@@ -2239,3 +2239,62 @@ per clinician; some were MeningoVax-only).
 
 Regression tests: `src/logic/__tests__/regression-menacwy-d2-d5-d6-d7.test.js` (D2/D5/D6/D7 incl. the
 pre-16 catch-up and the 12-month hard floor). MeningoVax got the parallel fixes (see its CLAUDE.md/HANDOFF).
+
+---
+
+## Changes shipped (2026-06-07) — High-risk pediatric PCV/PPSV23 alignment with CDC + PneumoVax
+
+### Clinical authority
+CDC Child/Adolescent Immunization Schedule — Pneumococcal notes:
+`https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo`
+
+Cross-checked against PneumoVax (the designated pneumococcal reference engine), which exposed two bugs.
+
+### New single-source module: `src/logic/pcvDoses.js`
+
+The high-risk / at-risk pediatric PCV dose-count logic was previously re-implemented independently in `recommendations.js`, `dosePlan.js`, and `buildOptimalSchedule.js`. The three surfaces had drifted: one required a full 4-dose conjugate series for all high-risk ≥24mo children (over-vaccinating), another offered a single dose, and a third was missing the Option-A PCV20 recommendation entirely. **All three now delegate to `src/logic/pcvDoses.js`**, consistent with the repo's five-surface rule (single source of truth for shared logic).
+
+Key exports:
+- **`PCV_HR_RISKS`** — canonical list of high-risk conditions (`asplenia`, `sickle_cell`, `hiv`, `immunocomp`, `cochlear`, `chronic_heart`, `chronic_lung`, `chronic_kidney`, `diabetes`, `chronic_liver`).
+- **`isHighRiskPCV(risks)`** — replaces the local `isHighRiskPCV` previously duplicated in each surface.
+- **`pcvBands(hist, dob)`** — bands given PCV doses by age-at-administration into `{ given, hasPCV20, before24, ge24, ge72 }`. Doses given at ≥24 months count toward the at-risk catch-up; infant doses do not. Undated doses are conservatively assumed to be infant doses.
+- **`pcvHighRiskChildPlan(am, hist, dob, ppsvCount)`** — returns the complete action plan for children 24mo–18y with an at-risk condition: `{ mode, target, doseNum, remaining, total, complete, ... }`.
+
+### Corrected CDC at-risk rule (now implemented uniformly across all three surfaces)
+
+| Scenario | Action |
+|---|---|
+| Series includes ≥1 PCV20 | Complete — no further PCV or PPSV23 |
+| Completed recommended series (no PCV20, no PPSV23) | **Option A**: 1 PCV20 OR **Option B**: 1 PPSV23 (≥8 weeks after last PCV) |
+| Incomplete series, 24–71mo, ≥3 PCV doses (at any age) | 1 additional dose (≥8 weeks after most recent) |
+| Incomplete series, 24–71mo, <3 PCV doses | 2 additional doses (≥8 weeks apart; only doses given at ≥24mo count as progress) |
+| Child ≥6y (no PCV20) | Option A (PCV20) / Option B (PCV15 then PPSV23) — no infant catch-up series |
+| PPSV23 already given (immunocompromising subset) | 1 PCV20 OR a 2nd PPSV23 ≥5 years after the first |
+
+### Bugs fixed
+
+**Bug 1 — vaxapp over-vaccinating high-risk ≥24mo (three-surface drift):**
+- `recommendations.js`: was emitting a 4-dose conjugate series for all high-risk children ≥24m; was missing the **Option A PCV20** rec alongside PPSV23 (the engine had only ever emitted PPSV23 for this population).
+- `dosePlan.js` `getTotalDoses("PCV")`: was returning 4 for all high-risk, ignoring series completion.
+- `buildOptimalSchedule.js` `seriesDoses("PCV")`: same issue.
+- All three now call `pcvHighRiskChildPlan()` and respect `plan.complete`, `plan.remaining`, and `plan.mode`.
+
+**Bug 2 — PneumoVax completed-series gate (found by cross-check):**
+PneumoVax's 24–71mo at-risk catch-up branch (`src/logic/recommend.js`) was missing a series-completion guard. A child who had already completed a full 4-dose infant series was offered a 5th plain PCV dose instead of the CDC Option A/B path. Fixed by gating the catch-up branch to `pcv.count < 4`, so completed-series children fall through to the Option A (PCV20) / Option B (PPSV23) block.
+
+### Design decision — single high-risk bucket
+
+vaxapp keeps a **single high-risk PCV bucket** (no formal IC / non-IC risk taxonomy split). The immunocompromising subset (`asplenia`, `sickle_cell`, `immunocomp`, `hiv`) is used only for the recurring 2nd-PPSV23 step (≥5 years after a first PPSV23), which continues to be handled directly in each surface rather than in `pcvDoses.js` (PPSV23 is a separate antigen and each surface already has the PPSV23 branch).
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `src/logic/pcvDoses.js` | NEW — single source of truth for at-risk peds PCV plan |
+| `src/logic/recommendations.js` | Delegates to `pcvHighRiskChildPlan()`; adds missing Option-A PCV20 rec |
+| `src/logic/dosePlan.js` | `getTotalDoses("PCV")` delegates to `pcvHighRiskChildPlan()` |
+| `src/logic/buildOptimalSchedule.js` | `seriesDoses("PCV")` delegates to `pcvHighRiskChildPlan()` |
+| `src/logic/__tests__/regression-pcv-highrisk-peds.test.js` | NEW — 10 regression tests |
+
+### Test count
+2541 → 2551 (+10 tests across 1 new test file).
