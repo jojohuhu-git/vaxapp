@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { genRecs } from '../recommendations.js';
 import { makePatient } from './helpers/makePatient.js';
 import { expectRec } from './helpers/expectRecommendation.js';
@@ -15,8 +15,10 @@ describe('IPV', () => {
     expectRec(run(makePatient({ ageMonths: 60, dosesGiven: { IPV: 3 } })), 'IPV', { doseNum: 4 });
   });
 
-  it('228mo (19y), 2 doses → catch-up dose 3 of 3 (adult schedule)', () => {
-    expectRec(run(makePatient({ ageMonths: 228, dosesGiven: { IPV: 2 } })), 'IPV', { doseNum: 3 });
+  it('228mo (19y), 2 doses → null (adult gate — vaxapp is birth-18y only)', () => {
+    // Adult gate: am>=228 returns empty
+    const r = run(makePatient({ ageMonths: 228, dosesGiven: { IPV: 2 } })).filter(x => x.vk === 'IPV');
+    expect(r.length).toBe(0);
   });
 });
 

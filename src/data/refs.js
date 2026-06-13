@@ -206,4 +206,8 @@ export const REFS = {
     url:"https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=pentacel",
     label:"Pentacel prescribing information (DailyMed)"
   },
+  adultSchedule: {
+    url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/adult-age.html",
+    label:"CDC Adult Immunization Schedule (by age)"
+  },
 };

@@ -58,12 +58,12 @@ describe('Tdap — catch-up and routine', () => {
     expect(r).not.toBeNull();
   });
 
-  it('S1: Tdap booster at am=240 (20y) with 5 DTaP + Tdap given >10y ago', () => {
+  it('S1: Tdap booster at am=216 (18y) with 5 DTaP + Tdap given >10y ago', () => {
     const hist = {
       DTaP: [{ given: true }, { given: true }, { given: true }, { given: true }, { given: true }],
       Tdap: [{ given: true, date: '2010-01-01' }]
     };
-    const r = firstRec('Tdap', 240, hist);
+    const r = firstRec('Tdap', 216, hist);
     expect(r).not.toBeNull();
   });
 });

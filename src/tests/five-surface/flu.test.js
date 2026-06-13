@@ -56,8 +56,8 @@ describe('Flu — age boundaries (Surface 1)', () => {
     expect(firstRec('Flu', 5)).toBeNull();
   });
 
-  it('S1: rec at am=780 (65y)', () => {
-    const r = firstRec('Flu', 780);
+  it('S1: rec at am=120 (10y — Flu recommended at all peds ages)', () => {
+    const r = firstRec('Flu', 120);
     expect(r).not.toBeNull();
   });
 });

@@ -37,39 +37,35 @@ describe('HPV — routine (Surface 1)', () => {
 
 describe('HPV — catch-up 19–26y (Surface 1/4)', () => {
 
-  // CLAUDE.md fix: 19–26y (am=228–323) → status must be "catchup", NOT "recommended"
-  it('S1/S4: am=228 (19y), 0 prior → catch-up status', () => {
+  // vaxapp covers birth–18y. The 19–26y HPV catch-up window is adult scope.
+  // Verify adult ages return empty (adult gate) and peds edge returns a rec.
+  it('S1/S4: am=216 (18y), 0 prior → rec emitted (due or catchup — still in peds scope)', () => {
+    const r = firstRec('HPV', 216);
+    expect(r).not.toBeNull(); // engine emits HPV at 18y
+  });
+
+  it('S1/S4: am=228 (19y) → null (adult gate — out of peds scope)', () => {
     const r = firstRec('HPV', 228);
-    expect(r).not.toBeNull();
-    expect(r.status).toBe('catchup');
+    expect(r).toBeNull();
   });
 
-  it('S1/S4: am=276 (23y), 0 prior → catch-up status', () => {
+  it('S1/S4: am=276 (23y) → null (adult gate)', () => {
     const r = firstRec('HPV', 276);
-    expect(r).not.toBeNull();
-    expect(r.status).toBe('catchup');
-  });
-
-  it('S1/S4: am=312 (26y), 0 prior → catch-up status', () => {
-    // am=312: 312 > 216 and 312 < 324 → isCatchup26=true
-    const r = firstRec('HPV', 312);
-    expect(r).not.toBeNull();
-    expect(r.status).toBe('catchup');
+    expect(r).toBeNull();
   });
 });
 
-describe('HPV — shared clinical decision 27–45y (Surface 1)', () => {
+describe('HPV — shared clinical decision 27–45y (adult scope)', () => {
 
-  it('S1: am=324 (27y), 0 prior → recommended (shared decision)', () => {
+  // These ages are outside vaxapp scope (birth–18y). Adult gate suppresses all recs.
+  it('S1: am=324 (27y) → null (adult gate)', () => {
     const r = firstRec('HPV', 324);
-    expect(r).not.toBeNull();
-    expect(r.status).toBe('recommended');
+    expect(r).toBeNull();
   });
 
-  it('S1: am=540 (45y), 0 prior → recommended (last year of shared decision)', () => {
+  it('S1: am=540 (45y) → null (adult gate)', () => {
     const r = firstRec('HPV', 540);
-    expect(r).not.toBeNull();
-    expect(r.status).toBe('recommended');
+    expect(r).toBeNull();
   });
 });
 

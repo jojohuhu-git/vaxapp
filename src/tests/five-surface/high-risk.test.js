@@ -16,8 +16,8 @@ describe('Asplenia — cross-cutting vaccine triggers (Surface 1)', () => {
     expect(r).not.toBeNull();
   });
 
-  it('S1: PCV rec at am=240 (20y), asplenia', () => {
-    const r = firstRec('PCV', 240, {}, ['asplenia']);
+  it('S1: PCV rec at am=216 (18y), asplenia', () => {
+    const r = firstRec('PCV', 216, {}, ['asplenia']);
     expect(r).not.toBeNull();
     expect(r.status).toBe('risk-based');
   });
@@ -56,8 +56,8 @@ describe('HIV — vaccine implications (Surface 1)', () => {
     expect(r).toBeNull();
   });
 
-  it('S1: PCV rec at am=240, hiv', () => {
-    const r = firstRec('PCV', 240, {}, ['hiv']);
+  it('S1: PCV rec at am=216 (18y), hiv', () => {
+    const r = firstRec('PCV', 216, {}, ['hiv']);
     expect(r).not.toBeNull();
   });
 
@@ -85,8 +85,8 @@ describe('Immunocompromised — live vaccine gate (Surface 1)', () => {
     expect(r).toBeNull();
   });
 
-  it('S1: PCV rec for immunocomp at am=240', () => {
-    const r = firstRec('PCV', 240, {}, ['immunocomp']);
+  it('S1: PCV rec for immunocomp at am=216 (18y)', () => {
+    const r = firstRec('PCV', 216, {}, ['immunocomp']);
     expect(r).not.toBeNull();
     expect(r.status).toBe('risk-based');
   });

@@ -31,6 +31,9 @@ function tf(url, frag) {
  * @param {string} dob - patient date of birth (ISO string)
  */
 export function genRecs(am, hist, risks, dob, opts = {}) {
+  // PediVax is for pediatric patients only (birth–18y). Return empty for adults.
+  if (am >= 228) return [];
+
   // opts.today  — ISO date string; enables seasonal gating for Flu/COVID/RSV.
   //               Omit (or pass null) in forecast projections to keep "Annual" visible.
   // opts.cd4    — number or null; CD4% (<14y) or CD4 count (≥14y) for HIV patients.

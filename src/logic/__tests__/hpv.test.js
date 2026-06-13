@@ -2,7 +2,7 @@
 // the great-gates AUDIT.md G1 finding (catch-up cutoff off by 1 year)
 // is locked in here.
 
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { genRecs } from '../recommendations.js';
 import { makePatient } from './helpers/makePatient.js';
 import { expectRec } from './helpers/expectRecommendation.js';
@@ -15,17 +15,20 @@ describe('HPV — age cutoffs', () => {
     expectRec(run(makePatient({ ageMonths: 132 })), 'HPV', { doseNum: 1 });
   });
 
-  it('320mo (26y8m) → still in catch-up window (G1 regression: not SCDM 27–45y)', () => {
-    // Was: am > 312 mis-bucketed 26y1m–26y11m as SCDM. Should be catch-up.
-    expectRec(run(makePatient({ ageMonths: 320 })), 'HPV', { doseNum: 1 });
+  // vaxapp covers birth–18y (am < 228). HPV ages 320m/324m/540m are adult scope.
+  it('320mo (26y8m) → null (adult gate — out of peds scope)', () => {
+    const r = run(makePatient({ ageMonths: 320 })).filter(x => x.vk === 'HPV');
+    expect(r.length).toBe(0);
   });
 
-  it('324mo (27y0m) → SCDM 27–45y window', () => {
-    expectRec(run(makePatient({ ageMonths: 324 })), 'HPV', { doseNum: 1 });
+  it('324mo (27y0m) → null (adult gate)', () => {
+    const r = run(makePatient({ ageMonths: 324 })).filter(x => x.vk === 'HPV');
+    expect(r.length).toBe(0);
   });
 
-  it('540mo (45y) → still SCDM (boundary)', () => {
-    expectRec(run(makePatient({ ageMonths: 540 })), 'HPV', { doseNum: 1 });
+  it('540mo (45y) → null (adult gate)', () => {
+    const r = run(makePatient({ ageMonths: 540 })).filter(x => x.vk === 'HPV');
+    expect(r.length).toBe(0);
   });
 });
 

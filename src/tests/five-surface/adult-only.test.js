@@ -37,19 +37,18 @@ describe('MenACWY — adult paths (Surface 1)', () => {
     expect(r).not.toBeNull();
   });
 
-  it('S1: MenACWY shared decision at am=228 (19-21y)', () => {
-    // Engine: 19-21y → "shared clinical decision" (recommended) for non-high-risk
+  it('S1: at am=228 (adult gate) → null (peds-only tool)', () => {
+    // vaxapp covers birth–18y; am>=228 is out of scope
     const r = firstRec('MenACWY', 228);
-    expect(r).not.toBeNull();
+    expect(r).toBeNull();
   });
 });
 
 describe('Tdap — adult booster (Surface 1)', () => {
 
-  // Every 10 years
-  it('S1: Tdap booster rec at am=240 (20y) with Tdap given >10y ago', () => {
-    const hist = { Tdap: [{ given: true, date: '2010-01-01' }] };
-    const r = firstRec('Tdap', 240, hist);
-    expect(r).not.toBeNull();
+  // vaxapp covers birth–18y; adults are out of scope
+  it('S1: at am=240 (adult gate) → null (peds-only tool)', () => {
+    const r = firstRec('Tdap', 240);
+    expect(r).toBeNull();
   });
 });

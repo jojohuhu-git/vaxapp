@@ -33,8 +33,8 @@ describe('MMR — catch-up (Surface 1/4)', () => {
     expect(r.doseNum).toBe(1);
   });
 
-  it('S1/S4: catch-up at am=240 (20y) with 0 prior', () => {
-    const r = firstRec('MMR', 240);
+  it('S1/S4: catch-up at am=60 (5y) with 0 prior', () => {
+    const r = firstRec('MMR', 60);
     expect(r).not.toBeNull();
   });
 });
@@ -42,7 +42,7 @@ describe('MMR — catch-up (Surface 1/4)', () => {
 describe('MMR — contraindications (Surface 1)', () => {
 
   it('S1: no MMR rec during pregnancy (live vaccine contraindicated)', () => {
-    const r = firstRec('MMR', 240, {}, ['pregnancy']);
+    const r = firstRec('MMR', 60, {}, ['pregnancy']);
     expect(r).toBeNull();
   });
 

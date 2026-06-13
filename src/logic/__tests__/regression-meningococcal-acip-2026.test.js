@@ -79,14 +79,14 @@ describe('B4 — MenACWY high-risk booster cadence keyed to age at dose 2', () =
 });
 
 describe('B6 — microbiologist: MenACWY 1 dose + q5y, plus MenB high-risk', () => {
-  it('unvaccinated adult microbiologist → MenACWY single dose (doseNum 1)', () => {
-    const r = first('MenACWY', 300, {}, ['microbiologist']);
+  it('unvaccinated microbiologist (16y) → MenACWY single dose (doseNum 1)', () => {
+    const r = first('MenACWY', 192, {}, ['microbiologist']);
     expect(r).not.toBeNull();
     expect(r.doseNum).toBe(1);
     expect(r.dose.toLowerCase()).toContain('microbiologist');
   });
-  it('microbiologist with 1 prior dose → q5y revaccination, minInt 1826', () => {
-    const r = first('MenACWY', 300, { MenACWY: givenN('Menveo (MenACWY-CRM, ≥2m)', 1) }, ['microbiologist']);
+  it('microbiologist with 2 prior doses (primary complete) → q5y revaccination, minInt 1826', () => {
+    const r = first('MenACWY', 192, { MenACWY: givenN('Menveo (MenACWY-CRM, ≥2m)', 2) }, ['microbiologist']);
     expect(r.minInt).toBe(1826);
   });
   it('microbiologist ≥10y → MenB high-risk D1', () => {
@@ -97,8 +97,8 @@ describe('B6 — microbiologist: MenACWY 1 dose + q5y, plus MenB high-risk', () 
 });
 
 describe('B8 — military: MenACWY 1 dose, no MenB', () => {
-  it('unvaccinated adult military recruit → MenACWY single dose', () => {
-    const r = first('MenACWY', 240, {}, ['military']);
+  it('unvaccinated military recruit (16y) → MenACWY single dose', () => {
+    const r = first('MenACWY', 192, {}, ['military']);
     expect(r).not.toBeNull();
     expect(r.doseNum).toBe(1);
   });

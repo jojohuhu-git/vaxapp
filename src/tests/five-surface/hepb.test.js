@@ -45,13 +45,13 @@ describe('HepB — five surfaces', () => {
   });
 
   // Surface 1: adult
-  it('S1: rec at am=240 (20y) with 0 prior doses', () => {
-    const r = firstRec('HepB', 240);
+  it('S1: rec at am=216 (18y) with 0 prior doses', () => {
+    const r = firstRec('HepB', 216);
     expect(r).not.toBeNull();
   });
 
-  it('S1: rec at am=240 with diabetes risk', () => {
-    const r = firstRec('HepB', 240, {}, ['diabetes']);
+  it('S1: rec at am=216 (18y) with diabetes risk', () => {
+    const r = firstRec('HepB', 216, {}, ['diabetes']);
     expect(r).not.toBeNull();
   });
 
