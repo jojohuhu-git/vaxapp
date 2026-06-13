@@ -36,7 +36,14 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
   const hr      = isHRPCV || isHRMen;
 
   switch (vk) {
-    case 'HepB': return { totalDoses: 3 };
+    case 'HepB': {
+      // Heplisav-B is a 2-dose series; all other HepB brands are 3-dose. Mirror dosePlan.
+      const hbFcBrand = Object.entries(fcBrands).find(([k, v]) => k.endsWith('_HepB') && v);
+      if (hbFcBrand?.[1]?.startsWith('Heplisav-B')) return { totalDoses: 2 };
+      const hbHistBrand = (hist?.HepB || []).find(d => d.given && d.brand)?.brand;
+      if (hbHistBrand?.startsWith('Heplisav-B')) return { totalDoses: 2 };
+      return { totalDoses: 3 };
+    }
 
     case 'RSV': return null;
 
