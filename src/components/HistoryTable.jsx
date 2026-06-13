@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData';
 import { sortDosesByDate } from '../logic/utils';
+import { isHighRiskMenACWY } from '../logic/stateHelpers';
 import DosePill from './DosePill';
-
-const HIGH_RISK_MEN = ["asplenia", "sickle_cell", "complement", "hiv"];
 
 export default function HistoryTable() {
   const { state } = useApp();
-  const isHighRiskMen = state.risks.some(r => HIGH_RISK_MEN.includes(r));
+  const isHighRiskMen = isHighRiskMenACWY(state.risks);
   const [showAll, setShowAll] = useState(false);
 
   const visibleKeys = showAll

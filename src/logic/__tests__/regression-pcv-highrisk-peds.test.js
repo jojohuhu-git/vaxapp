@@ -130,6 +130,26 @@ describe('PCV high-risk peds — children ≥6y', () => {
 });
 
 describe('PCV high-risk peds — PCV20 completeness + IC recurring step', () => {
+  // M2 regression: a lone PCV20 in an at-risk 24–71mo child with 0 infant doses
+  // is NOT complete — needs 2 at-risk doses (CDC Table 4 Row 1). This was a bug
+  // where pcvDoses.js returned complete: true for any hasPCV20.
+  it('M2: 30mo asplenia, 1 PCV20 at 24mo (0 infant doses) → dose 2 of 2 (NOT complete)', () => {
+    // PCV20 at 24mo = ≥24mo dose, counts as ge24=1; before24=0 → target=2 → remaining=1
+    const p = build(30, ['asplenia'], [[PCV20, 24]]);
+    const r = pcvRecs(p);
+    expect(r).toHaveLength(1);
+    expect(r[0].status).toBe('risk-based');
+    expect(r[0].dose).toMatch(/dose 2 of 2/);
+    expect(pcvTotal(p)).toBe(2);          // target=2 (1 given + 1 remaining = 2 total at-risk doses)
+    expect(optimalPcvCount(p)).toBe(1);   // 1 more dose needed
+  });
+
+  it('M2: 30mo asplenia, 2 PCV20 at ≥24mo → complete', () => {
+    const p = build(30, ['asplenia'], [[PCV20, 24], [PCV20, 26]]);
+    expect(pcvRecs(p)).toHaveLength(0);
+    expect(ppsvRecs(p)).toHaveLength(0);
+  });
+
   it('P17: 8y asplenia, series includes PCV20 → complete (no PCV/PPSV23)', () => {
     const p = build(96, ['asplenia'], [[PCV20, 12]]);
     expect(pcvRecs(p)).toHaveLength(0);

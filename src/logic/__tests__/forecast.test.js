@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { genRecs } from '../recommendations.js';
 import { computeDosePlan } from '../dosePlan.js';
-import { makePatient } from './helpers/makePatient.js';
+import { makePatient, makePatientRaw } from './helpers/makePatient.js';
 
 function project(p, fcBrands = {}) {
   const recs = genRecs(p.am, p.hist, p.risks, p.dob, p.opts);
@@ -211,7 +211,10 @@ describe('Forecast — MenACWY first-dose-at-≥16y means NO booster (smoke-test
 });
 
 describe('Forecast — PCV20 series-completion (regression for Step 3 PCV20 fix)', () => {
-  it('24mo asplenia, 1 PCV20 dose → no further PCV catch-up projected', () => {
+  // M2 fix: a lone PCV20 for an at-risk 24-71mo child with 0 infant doses is NOT
+  // complete — the child needs 2 at-risk catch-up doses (CDC Table 4 Row 1).
+  // The original test codified the M2 bug; this version tests the correct behavior.
+  it('24mo asplenia, 1 PCV20 dose → 1 more PCV dose projected (dose 2 of 2)', () => {
     const plan = project(makePatient({
       ageMonths: 24,
       dosesGiven: { PCV: 1 },
@@ -219,6 +222,25 @@ describe('Forecast — PCV20 series-completion (regression for Step 3 PCV20 fix)
       riskConditions: ['asplenia'],
     }));
     const pcvKeys = Object.keys(plan).filter(k => k.endsWith('_PCV'));
-    expect(pcvKeys, `PCV20 series should be complete; got ${JSON.stringify(pcvKeys)}`).toHaveLength(0);
+    // Should project exactly 1 more PCV dose (dose 2 of 2 at >=24mo)
+    expect(pcvKeys, `Expected 1 projected PCV dose but got ${JSON.stringify(pcvKeys)}`).toHaveLength(1);
+  });
+
+  it('30mo asplenia, 2 PCV20 doses at ≥24mo → no further PCV projected (complete)', () => {
+    // Use makePatientRaw to give doses at specific ages (≥24mo) so pcvBands
+    // correctly classifies them as ge24 doses.
+    const patient = makePatientRaw({
+      ageMonths: 30,
+      hist: {
+        PCV: [
+          { given: true, mode: 'age', ageDays: 24 * 30.4375, brand: 'Prevnar 20 (PCV20) — preferred' },
+          { given: true, mode: 'age', ageDays: 26 * 30.4375, brand: 'Prevnar 20 (PCV20) — preferred' },
+        ],
+      },
+      risks: ['asplenia'],
+    });
+    const plan = project(patient);
+    const pcvKeys = Object.keys(plan).filter(k => k.endsWith('_PCV'));
+    expect(pcvKeys, `PCV20 2-dose at-risk series should be complete; got ${JSON.stringify(pcvKeys)}`).toHaveLength(0);
   });
 });

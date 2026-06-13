@@ -79,9 +79,25 @@ export function pcvBands(hist, dob) {
 export function pcvHighRiskChildPlan(am, hist, dob, ppsvCount = 0) {
   const b = pcvBands(hist, dob);
 
-  // Series already includes PCV20 → complete (CDC: "no further PCV or PPSV23").
+  // Series already includes PCV20 → complete IF the child has enough doses for
+  // their age group (M2 fix: a lone PCV20 does NOT complete for a 24–71mo at-risk
+  // child who still needs 2 doses at ≥24mo; it only completes once the ≥24mo
+  // dose count satisfies the Table 4 rule). Children ≥6y need only 1 PCV20 → done.
+  // Per CDC: "Series includes ≥1 PCV20 — no further PCV or PPSV23 needed" applies
+  // when the series is actually complete (age-appropriate doses met).
   if (b.hasPCV20) {
-    return { ...b, mode: 'pcv20', target: 0, doseNum: 0, remaining: 0, total: b.given, complete: true };
+    // For child ≥6y (am ≥ 72): one PCV20 at any age is the single needed dose → complete.
+    if (am >= 72) {
+      return { ...b, mode: 'pcv20', target: 0, doseNum: 0, remaining: 0, total: b.given, complete: true };
+    }
+    // For child 24–71mo: the PCV20 counts as a ≥24mo catch-up dose. Check whether
+    // the at-risk catch-up requirement (target doses at ≥24mo) is met.
+    const target24 = b.before24 >= 3 ? 1 : 2;
+    if (b.ge24 >= target24) {
+      // Enough at-risk doses given — complete.
+      return { ...b, mode: 'pcv20', target: 0, doseNum: 0, remaining: 0, total: b.given, complete: true };
+    }
+    // Not enough ≥24mo doses yet — fall through to the catch-up block.
   }
 
   // 24–71 months with an INCOMPLETE infant series → finish with plain PCV.

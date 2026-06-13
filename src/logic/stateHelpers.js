@@ -34,6 +34,16 @@ export const highRisk = (risks) => risks.some(r => ["asplenia", "sickle_cell", "
  */
 export const highRiskMenB = (risks) => risks.some(r => ["asplenia", "sickle_cell", "complement", "microbiologist", "outbreak_b"].includes(r));
 
+/**
+ * MenACWY-specific high-risk gate.
+ * Patients with asplenia (incl. sickle cell), complement deficiency, or HIV
+ * require a 2-dose primary series and ongoing revaccination.
+ * Does NOT include microbiologist, immunocomp, or HSCT.
+ * Source: ACIP 2020 MMWR RR-9.
+ */
+export const isHighRiskMenACWY = (risks) =>
+  risks.some(r => ["asplenia", "sickle_cell", "complement", "hiv"].includes(r));
+
 /** Grace period constant (days). */
 export const GRACE = 4;
 
