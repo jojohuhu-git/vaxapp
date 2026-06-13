@@ -15,7 +15,7 @@ export function encState(state) {
   const p = { v: 3, am: state.am, dob: state.dob, r: state.risks, c: state.cd4 ?? null, h: {}, f: state.fcBrands || {} };
   VAX_KEYS.forEach(vk => {
     const d = (state.hist[vk] || []).filter(d => d.given);
-    if (d.length) p.h[vk] = d.map(d => ({ m: d.mode || "date", d: d.date || "", a: d.ageDays || null, b: d.brand || "" }));
+    if (d.length) p.h[vk] = d.map(d => ({ m: d.mode || "date", d: d.date || "", a: d.ageDays ?? null, b: d.brand || "" }));
   });
   try {
     const enc = btoa(JSON.stringify(p));
@@ -33,7 +33,7 @@ export function encState(state) {
 export function decState(enc) {
   try {
     const p = JSON.parse(atob(decodeURIComponent(enc)));
-    if (!p || p.v < 1) return null;
+    if (!p || p.v < 1 || p.v > 3) return null;
     const state = {
       am: p.am || -1,
       dob: p.dob || "",
@@ -45,7 +45,7 @@ export function decState(enc) {
     VAX_KEYS.forEach(vk => state.hist[vk] = []);
     Object.entries(p.h || {}).forEach(([vk, doses]) => {
       if (VAX_KEYS.includes(vk))
-        state.hist[vk] = doses.map(d => ({ mode: d.m || "date", date: d.d || "", ageDays: d.a || null, brand: d.b || "", given: true }));
+        state.hist[vk] = doses.map(d => ({ mode: d.m || "date", date: d.d || "", ageDays: d.a ?? null, brand: d.b || "", given: true }));
     });
     return state;
   } catch {

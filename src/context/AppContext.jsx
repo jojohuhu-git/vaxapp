@@ -312,7 +312,7 @@ function reducer(state, action) {
       let nextHist = { ...state.hist };
       for (const { vk, brand } of targets) {
         const arr = [...(nextHist[vk] || [])];
-        arr.push({ mode: mode || "date", date: date || "", ageDays: ageDays || null, brand: brand || "", given: true });
+        arr.push({ mode: mode || "date", date: date || "", ageDays: ageDays ?? null, brand: brand || "", given: true });
         nextHist = { ...nextHist, [vk]: arr };
       }
       return { ...state, hist: nextHist };

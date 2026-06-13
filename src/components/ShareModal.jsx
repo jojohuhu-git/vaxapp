@@ -7,7 +7,7 @@ export default function ShareModal({ onClose }) {
   const textRef = useRef(null);
 
   const enc = encState(state);
-  const shareUrl = `${window.location.origin}${window.location.pathname}?s=${enc}`;
+  const shareUrl = `${window.location.origin}${window.location.pathname}?s=${encodeURIComponent(enc)}`;
 
   function handleCopy() {
     if (textRef.current) {
