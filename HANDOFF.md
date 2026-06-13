@@ -471,3 +471,24 @@ New test file: `src/logic/__tests__/regression-menacwy-d2-d5-d6-d7.test.js`.
 
 Open follow-up: D7 ≥10y lists 1-vial as preferred (both formulations valid). D2 broadening now
 recommends a catch-up dose for any healthy 16–21yo lacking a ≥16y dose — intended per clinician.
+
+---
+
+## Session: 2026-06-12 — Pneumococcal boundary mirror from PneumoVax (shipped)
+
+PneumoVax's external audit (`REVIEW_FINDINGS.md`, PR #2) found an adult-boundary + at-risk-PCV
+bug cluster. Fixes landed in PneumoVax (108 tests) and the pneumococcal logic was mirrored here
+per the five-surface rule. vaxapp tests **2551 → 2574**.
+
+Clinician decisions: adult pneumococcal rulebook starts at 19y (228mo); PCV21 product usable at
+18y (216mo), kept as a separate constant in PneumoVax.
+
+vaxapp-side change = the **M2 mirror**: an at-risk 24–71mo child with a single PCV20 was wrongly
+"complete". Fixed in `pcvDoses.js` (`pcvHighRiskChildPlan` checks `band.ge24 >= target24`) and the
+consuming surfaces `dosePlan.js`, `buildOptimalSchedule.js` (removed the raw `pcv20 → null`
+shortcut; adult short-circuit gated to `am >= 228`), `recommendations.js`. 2 regression tests added
+to `regression-pcv-highrisk-peds.test.js`. Full per-item detail in CLAUDE.md "Changes shipped
+(2026-06-12)".
+
+Open follow-up (PneumoVax-side, structural): `dateUtils.js` / `Stepper.jsx` are byte-identical
+across PneumoVax/MeningoVax/vaxapp — root cause of the boundary drift; extract to a shared package.

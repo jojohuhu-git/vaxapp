@@ -2298,3 +2298,39 @@ vaxapp keeps a **single high-risk PCV bucket** (no formal IC / non-IC risk taxon
 
 ### Test count
 2541 → 2551 (+10 tests across 1 new test file).
+
+---
+
+## Changes shipped (2026-06-12) — Pneumococcal boundary mirror from PneumoVax
+
+PneumoVax is the pneumococcal reference engine. An external audit of PneumoVax
+(`REVIEW_FINDINGS.md`, PR #2) surfaced an adult-boundary and at-risk-PCV bug cluster; the fixes
+were made in PneumoVax and the relevant pneumococcal logic mirrored here per the five-surface rule.
+vaxapp tests **2551 → 2574**.
+
+### Clinician decisions (shared with PneumoVax)
+- **Adult pneumococcal schedule rulebook begins at the 19th birthday (228mo).** An 18-year-old
+  stays on the child/adolescent schedule.
+- **PCV21 (Capvaxive) product min-age = 18y (216mo)**, kept distinct from the schedule boundary.
+
+### What changed here (M2 mirror — at-risk 24–71mo child)
+The at-risk pediatric PCV path wrongly treated a single PCV20 dose as a completed series for a
+24–71mo child. Fixed across the surfaces that consume `pcvDoses.js`:
+- `src/logic/pcvDoses.js` — `pcvHighRiskChildPlan()` now checks `band.ge24 >= target24` before
+  declaring a series complete on the basis of PCV20.
+- `src/logic/dosePlan.js` — `getTotalDoses("PCV")` already delegates to `pcvHighRiskChildPlan()`;
+  picked up the fix automatically.
+- `src/logic/buildOptimalSchedule.js` — `seriesDoses("PCV")` removed the raw
+  `if (pcv20) return null;` shortcut; the adult `pcv20adult` short-circuit now applies only for
+  `am >= 228`, and the peds path fully delegates to `pcvHighRiskChildPlan()`.
+- `src/logic/recommendations.js` — `pcvSeriesComplete` guard updated (Python edit per the
+  "Editing recommendations.js" Unicode note).
+
+### Tests
+2 M2 regression tests added to `src/logic/__tests__/regression-pcv-highrisk-peds.test.js`
+(30mo asplenia + one PCV20 → "dose 2 of 2", not complete).
+
+### Findings that did NOT apply to vaxapp
+H1–H4 (the 216-vs-228 boundary constant cluster), H5/M1/M3 (infant booster-completeness + catch-up
+label), and L1 (age-group label) are PneumoVax-engine/UI specific — vaxapp's pediatric pneumococcal
+counting already routed through `pcvDoses.js` with correct boundaries and was not affected.

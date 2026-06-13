@@ -197,7 +197,32 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       // earliestAge: pure min-interval answer with no routine floor.
       // Must be computed before isCatchup so advisory-routine vaccines
       // (USE_EARLIEST_FOR_CATCHUP) can use it as the catch-up reference.
-      const earliestAge = prevAge + minIntMonths;
+      let earliestAge = prevAge + minIntMonths;
+
+      // Apply d1Cross constraint: some vaccines require a minimum interval from
+      // Dose 1 to a later dose (e.g. MenB D3 ≥182d from D1). This is independent
+      // of the D2→D3 interval and can be the binding constraint when D1 was given
+      // long before D2 (or D2 was given early in an accelerated schedule).
+      if (spec.d1Cross?.[d] != null) {
+        const d1CrossDays = spec.d1Cross[d];
+        // Find D1 age from history (first given dose with a known date/age)
+        const d1GivenHist = (hist[vk] || []).filter(x => x && x.given && (x.date || x.ageDays != null));
+        if (d1GivenHist.length > 0) {
+          const d1Dose = d1GivenHist[0];
+          let d1AgeM = null;
+          if (d1Dose.date && dob) {
+            const ageDays = (new Date(d1Dose.date) - new Date(dob)) / 86400000;
+            d1AgeM = ageDays / 30.4;
+          } else if (d1Dose.ageDays != null) {
+            d1AgeM = Number(d1Dose.ageDays) / 30.4;
+          }
+          if (d1AgeM != null) {
+            const d1CrossAgeM = d1AgeM + Math.ceil(d1CrossDays / 30.4);
+            if (d1CrossAgeM > earliestAge) earliestAge = d1CrossAgeM;
+          }
+        }
+      }
+
       // dueAge: ACIP-schedule anchor — max(earliest, routine).
       let dueAge = Math.max(earliestAge, routineAge || earliestAge);
 
@@ -244,11 +269,23 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       if (dob && prevDate) {
         const minDate = addD(prevDate, minInt || 28);
         const ageDate = addD(dob, Math.round(actualAge * 30.4));
-        earliestDate = minDate;
+        // Apply d1Cross date constraint: the earliest date must also be at
+        // least d1CrossDays after the D1 administration date (e.g. MenB D3
+        // requires ≥182d from D1 in addition to ≥112d from D2).
+        let d1CrossDate = "";
+        if (spec.d1Cross?.[d] != null) {
+          const d1DoseWithDate = (hist[vk] || []).filter(x => x && x.given && (x.date || (x.ageDays != null && dob)))[0];
+          if (d1DoseWithDate) {
+            const d1Date = d1DoseWithDate.date || addD(dob, Number(d1DoseWithDate.ageDays));
+            d1CrossDate = addD(d1Date, spec.d1Cross[d]);
+          }
+        }
+        const bindingMinDate = d1CrossDate && d1CrossDate > minDate ? d1CrossDate : minDate;
+        earliestDate = bindingMinDate;
         // For catch-up doses the displayed dueDate IS the earliest date.
         // For routine doses, use whichever is later (slot might be later
         // than the minimum interval).
-        dueDate = isCatchup ? minDate : (minDate > ageDate ? minDate : ageDate);
+        dueDate = isCatchup ? bindingMinDate : (bindingMinDate > ageDate ? bindingMinDate : ageDate);
       }
       // Plan key prefix: routine doses use the FORECAST_VISITS slot age (so
       // the existing UI lookup `${visit.m}_${vk}` keeps working). Catch-up

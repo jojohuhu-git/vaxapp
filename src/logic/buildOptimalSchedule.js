@@ -94,14 +94,18 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
 
     case 'PCV': {
       if (am >= 24 && isHRPCV) {
-        const pcv20 = (hist.PCV || []).some(x => x.given && x.brand?.startsWith('Prevnar 20'));
-        if (pcv20) return null;
-        // High-risk children 24mo–18y: CDC at-risk dose counts. Single source: pcvDoses.js.
+        // High-risk children 24mo–18y: delegate to pcvHighRiskChildPlan (single
+        // source of truth). DO NOT short-circuit on pcv20 here — a lone PCV20
+        // in a 24–71mo at-risk child with 0 infant doses is NOT complete (M2 fix).
+        // pcvHighRiskChildPlan.complete accounts for the age-appropriate dose count.
         if (am < 228) {
           const ppsvCount = (hist.PPSV23 || []).filter(d => d.given).length;
           const plan = pcvHighRiskChildPlan(am, hist, dob, ppsvCount);
           return plan.complete ? null : { totalDoses: plan.total };
         }
+        // High-risk adult: if PCV20 given → complete; otherwise 1 dose.
+        const pcv20adult = (hist.PCV || []).some(x => x.given && x.brand?.startsWith('Prevnar 20'));
+        if (pcv20adult) return null;
         return { totalDoses: 1 }; // high-risk adult (existing behavior)
       }
       if (am < 24) return { totalDoses: 4 };

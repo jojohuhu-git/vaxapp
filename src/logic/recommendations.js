@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, highRiskMenB } from './stateHelpers.js';
+import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
 import { pcvHighRiskChildPlan } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
@@ -198,7 +198,9 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // Adults ≥19y (228m) need only 1 PCV dose; children need the full 4-dose primary+booster series.
   // High-risk children 24mo–18y: CDC at-risk completeness (pcvDoses.js single source of truth).
   const hrChildPlan = (isHighRiskPCV && am >= 24 && am < 228) ? pcvHighRiskChildPlan(am, hist, dob, ppsv23) : null;
-  const pcvSeriesComplete = usedPCV20 ? pcv >= 1 : (am >= 228 ? pcv >= 1 : (hrChildPlan ? hrChildPlan.complete : pcv >= 4));
+  // pcvSeriesComplete: for peds with hrChildPlan, delegate to hrChildPlan.complete even when usedPCV20
+  // (M2 fix: a lone PCV20 in an at-risk 24-71mo child is not complete if >=24mo dose requirement unmet).
+  const pcvSeriesComplete = hrChildPlan ? hrChildPlan.complete : (usedPCV20 ? pcv >= 1 : (am >= 228 ? pcv >= 1 : pcv >= 4));
   const pcvBrands = ["Prevnar 20 (PCV20) \u2014 preferred", "Vaxneuvance (PCV15)", "Prevnar 13 (PCV13) \u2014 only if PCV20/PCV15 unavailable"];
   const pcvNote = `PCV20 preferred \u2014 covers 20 serotypes; no PPSV23 needed afterward. If PCV15 used for high-risk patients: add PPSV23 \u22658 weeks after completing PCV series (minimum age 2 years). PCV13 still used if PCV20/PCV15 unavailable or specific clinical indication.`;
   if (am >= 2 && am <= 6 && pcv < 3) {
@@ -500,7 +502,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ── MenACWY ───────────────────────────────────────────────────
   const men = dc(hist, "MenACWY"); const menb = dc(hist, "MenB");
   // Infant high-risk MenACWY: asplenia, complement deficiency, HIV — Menveo only ≥2m
-  const isHighRiskMen = risks.some(x => ["asplenia", "sickle_cell", "complement", "hiv"].includes(x));
+  const isHighRiskMen = isHighRiskMenACWY(risks);
   // College residence-hall rule (ACIP / job aid): a MenACWY dose on/after the 16th birthday
   // satisfies the first-year-resident requirement; doses before age 16 do not count.
   const menacwyGivenAll = (hist.MenACWY || []).filter(d => d.given);
@@ -618,7 +620,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         : "First-year college resident: the prior MenACWY dose was given before age 16. ACIP requires a dose on/after the 16th birthday for residence-hall students \u2014 give 1 dose now.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (am >= 192 && am <= 252 && !menAt16y && !isHighRiskMen) {
+  } else if (am >= 192 && am < 264 && !menAt16y && !isHighRiskMen) {
     // D2: 16\u201321y, unvaccinated, no high-risk \u2014 catch-up Dose 1 of 1 (no booster needed when \u226516y).
     // Covers all patients 16\u201321y who have never received MenACWY, regardless of risk class:
     // military/microbiologist/travel/outbreak are caught by their own branches earlier in this chain.
@@ -671,7 +673,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // HIV, immunocomp, HSCT do NOT have a MenB high-risk indication (B1).
   const hrMenB = highRiskMenB(risks);
   if (am >= 120) {
-    if (menb === 0 && (hrMenB || (am >= 192 && am <= 276))) {
+    if (menb === 0 && (hrMenB || (am >= 192 && am < 288))) {
       r("MenB", hrMenB ? "Dose 1 \u2014 risk-based (high-risk)" : "Dose 1 \u2014 shared clinical decision (preferred 16\u201323y)", 1, hrMenB ? "risk-based" : "recommended",
         hrMenB ? "Risk-based for high-risk patients: 3-dose accelerated schedule (0, 1\u20132 months, 6 months) for BOTH antigen families. MenB-4C (Bexsero/Penmenvy) and MenB-FHbp (Trumenba/Penbraya) are NOT interchangeable \u2014 complete within one family." : "Shared clinical decision making, preferred 16\u201318y. MenB-4C (Bexsero/Penmenvy): 2 doses \u22656 months apart. MenB-FHbp (Trumenba/Penbraya): 2 doses \u22656m apart (or accelerated 3-dose). Penbraya/Penmenvy if MenACWY also starting.",
         men === 0 ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenACWY too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenACWY too (4C family)", "Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"] : ["Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"],

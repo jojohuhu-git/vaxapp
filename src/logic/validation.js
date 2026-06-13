@@ -2,7 +2,7 @@
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
 import { isD, dBetween, addD, fmtD, sortDosesByDate } from './utils.js';
-import { doseAgeDays, doseDate, GRACE } from './stateHelpers.js';
+import { doseAgeDays, doseDate, GRACE, isHighRiskMenACWY } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
 import { REFS } from '../data/refs.js';
@@ -511,8 +511,7 @@ export function auditAll(hist, dob, risks = [], am = -1) {
 
     // MenACWY series overdose: non-high-risk patients need at most 2 doses
     if (vk === "MenACWY") {
-      const isHighRiskMen = risks.some(x =>
-        ["asplenia", "sickle_cell", "complement", "hiv"].includes(x));
+      const isHighRiskMen = isHighRiskMenACWY(risks);
       if (!isHighRiskMen && doses.length > 2) {
         errors.push({ vk, type: "series_over", severity: "warn",
           title: "MenACWY — Extra Dose (series complete for non-high-risk patient)",
