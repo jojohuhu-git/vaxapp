@@ -1,7 +1,7 @@
 export const MIN_INT = {
   // minByDose[doseIdx] = per-dose absolute minimum age in days (null = no per-dose floor)
   HepB:    {minD:0,    maxD1:null, i:[null,28,56,null,null], minByDose:[0,28,168,null,null],       d1Cross:{3:112},                                        note:"Birth dose within 24h. D2 min 4 weeks. D3 min 16 weeks from D1 AND ≥8 weeks after D2."},
-  RV:      {minD:42,   maxD1:105,  i:[null,28,28,null,null], minByDose:[42,null,null,null,null],   note:"D1: 6 weeks–14w6d. Max age any dose: 8 months 0 days."},
+  RV:      {minD:42,   maxD1:104,  i:[null,28,28,null,null], minByDose:[42,null,null,null,null],   note:"D1: 6 weeks–14w6d (14 weeks 6 days = 104 days). Max age any dose: 8 months 0 days."},
   DTaP:    {minD:42,   maxD1:null, i:[null,28,28,182,182],   minByDose:[42,null,null,365,1461],    note:"Min age 6 weeks. D4 min age 12 months + 6 months after D3. D5 min age 4 years."},
   Hib:     {minD:42,   maxD1:null, i:[null,28,28,56,null],   minByDose:[42,null,null,365,null],    note:"Min age 6 weeks. Booster (D3 PedvaxHIB / D4 PRP-T) min age 12 months."},
   PCV:     {minD:42,   maxD1:null, i:[null,28,28,56,null],   minByDose:[42,null,null,365,null],    note:"Min age 6 weeks. D4 booster min age 12 months, min 8 weeks after D3."},
@@ -13,7 +13,7 @@ export const MIN_INT = {
   HepA:    {minD:365,  maxD1:null, i:[null,182,null,null,null],note:"Min age 12 months. D2 min 6 months after D1."},
   Tdap:    {minD:2555, maxD1:null, i:[null,28,180,null,null],note:"Min age 7y (Adacel) or 10y (Boostrix). Routine adolescent: single Tdap at 11–12y. Catch-up ≥7y unvaccinated: 3-dose primary (Tdap → Td/Tdap 4w → Td/Tdap 6mo). If first catch-up dose at 7–9y, also give routine 11–12y Tdap (4 total). Decennial Td/Tdap booster every 10y after primary."},
   Td:      {minD:2555, maxD1:null, i:[null,28,180,null,null],note:"Min age 7 years. Used in tetanus catch-up series (doses 2–3) and decennial booster. D1→D2 min 4 weeks; D2→D3 min 6 months."},
-  HPV:     {minD:3285, maxD1:null, i:[null,150,84,null,null],  iByTotalDoses:{2:[null,152],3:[null,28,84]}, d1Cross:{3:152}, note:"Min age 9 years. 2-dose (<15y): D1→D2 ≥152d. 3-dose (≥15y/immunocomp): D1→D2 ≥28d, D2→D3 ≥84d, D1→D3 ≥152d."},
+  HPV:     {minD:3285, maxD1:null, i:[null,152,84,null,null],  iByTotalDoses:{2:[null,152],3:[null,28,84]}, d1Cross:{3:152}, note:"Min age 9 years. 2-dose (<15y): D1→D2 ≥152d (5 months). 3-dose (≥15y/immunocomp): D1→D2 ≥28d, D2→D3 ≥84d, D1→D3 ≥152d."},
   MenACWY: {minD:60,   maxD1:null, i:[null,56,null,null,null], iCond:[{doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv"], minInterval:84}], note:"High-risk: min 3 months (84d) D1→D2 (Menveo). Routine: 11–12y, booster 16y."},
   MenB:    {minD:3650, maxD1:null, i:[null,28,112,null,null],  iByTotalDoses:{2:[null,182]},             d1Cross:{3:182}, note:"Min age 10y. Bexsero D1→D2 ≥1m; Trumenba standard 2-dose D1→D2 ≥6m; accelerated 3-dose D1→D2 28d, D2→D3 4m, D1→D3 ≥6m."},
   RSV:     {minD:0,    maxD1:243,  i:[null,null,null,null,null],note:"Nirsevimab: <8m first RSV season. Max age 8 months for routine."},
