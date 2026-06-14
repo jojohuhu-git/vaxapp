@@ -33,7 +33,7 @@ function seasonLabel(s) {
  * @param {number|null} totalDoses - total number of given dated doses for this vaccine (used for
  *   schedule-path-aware rules, e.g. HepB 4-dose intermediate dose relaxation)
  */
-export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = null, firstDoseDate = null, totalDoses = null) {
+export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = null, firstDoseDate = null, totalDoses = null, risks = []) {
   const spec = MIN_INT[vk];
   if (!spec) return { ok: true };
   const results = [];
@@ -255,8 +255,10 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
     }
     if (Array.isArray(spec.iCond)) {
       for (const cond of spec.iCond) {
-        if (cond.doseNum === doseIdx + 1 && ageAtDose !== null && ageAtDose >= cond.ageGte) {
-          minInt = cond.minInterval;
+        if (cond.doseNum === doseIdx + 1) {
+          const ageOk = !cond.ageGte || (ageAtDose !== null && ageAtDose >= cond.ageGte);
+          const riskOk = !cond.riskIncludes || cond.riskIncludes.some(r => risks.includes(r));
+          if (ageOk && riskOk) minInt = cond.minInterval;
         }
       }
     }
@@ -575,7 +577,7 @@ export function auditAll(hist, dob, risks = [], am = -1) {
     // Per-dose validation — unknown doses checked only for impossible min-age
     const datedDoses = doses.filter(d => d.mode !== "unknown");
     doses.filter(d => d.mode === "unknown").forEach((dose, idx) => {
-      const vr = validateDose(vk, idx, dose, null, dob, patientAgeDays);
+      const vr = validateDose(vk, idx, dose, null, dob, patientAgeDays, null, null, risks);
       if (!vr.ok && vr.results) {
         vr.results.filter(r => r.type === "min_age_impossible").forEach(r => {
           errors.push({ vk, doseNum: idx + 1, type: "min_age_impossible", severity: "err",
@@ -594,7 +596,7 @@ export function auditAll(hist, dob, risks = [], am = -1) {
 
     datedDoses.forEach((dose, idx) => {
       const prev = idx > 0 ? datedDoses[idx - 1] : null;
-      const vr = validateDose(vk, idx, dose, prev, dob, patientAgeDays, firstDoseDate, datedDoses.length);
+      const vr = validateDose(vk, idx, dose, prev, dob, patientAgeDays, firstDoseDate, datedDoses.length, risks);
       const thisDt = doseDate(dose, dob);
       const effectiveN = thisDt ? effectiveDoseByDate[thisDt] : undefined;
       if (!vr.ok || vr.grace || vr.offLabel) {

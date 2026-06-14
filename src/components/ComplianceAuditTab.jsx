@@ -60,9 +60,9 @@ const STATUS_PILL_LABEL = {
 };
 
 // ── Validation rule summary for popover ───────────────────────────────────────
-function buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses) {
+function buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks) {
   // Run full validation and inspect results
-  const vr = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses);
+  const vr = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses, risks);
   const rules = [];
 
   // Min age
@@ -126,10 +126,10 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
 
   const ageDays = doseAgeDays(dose, dob);
   const band = getDoseBand(vk, doseIdx + 1);
-  const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist);
+  const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist, risks);
   const { status, label, extraScenario } = classification;
 
-  const { vr, rules } = buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses);
+  const { vr, rules } = buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks);
 
   const popH = showRules ? 360 : 240;
   const spaceBelow = window.innerHeight - anchorRect.bottom;
@@ -398,7 +398,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
 function DoseCard({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, hist, risks }) {
   const [anchorRect, setAnchorRect] = useState(null);
 
-  const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist);
+  const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist, risks);
   const { status } = classification;
 
   const pillStyle = STATUS_PILL_STYLE[status] || STATUS_PILL_STYLE.UNKNOWN;
@@ -517,7 +517,7 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks }) {
     ? givenDoses.filter((dose, i) => {
         const firstDate = givenDoses[0]?.date || null;
         const cls = classifyDose(vk, i, dose, totalCount, dob,
-          i > 0 ? givenDoses[i - 1] : null, firstDate, hist);
+          i > 0 ? givenDoses[i - 1] : null, firstDate, hist, risks);
         return cls.status === 'VALID_EXTRA';
       }).length
     : 0;
@@ -635,7 +635,7 @@ function printComplianceAudit({ dob, am, hist, risks }) {
     if (doses.length === 0) return '';
     const meta = VAX_META[vk];
     const rows = doses.map((dose, i) => {
-      const classification = classifyDose(vk, i, dose, doses.length, dob, i > 0 ? doses[i-1] : null, doses[0]?.date, hist);
+      const classification = classifyDose(vk, i, dose, doses.length, dob, i > 0 ? doses[i-1] : null, doses[0]?.date, hist, risks || []);
       const dateLabel = doseDateLabel(dose, dob);
       const ageLabel2 = doseAgeLabel(dose, dob);
       const smartLbl = labelForDose(vk, i, dose, hist, dob, null, risks || []);

@@ -188,6 +188,11 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       }
       // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
       // accelerated series for BOTH antigen families (4C and FHbp). Healthy: 2 doses.
+      // SCOPE LIMIT: the optimizer does not model:
+      //   (a) non-HR FHbp 3-dose rescue (triggered when healthy D1→D2 < 182d)
+      //   (b) HR MenACWY/MenB ongoing revaccination after primary series completion
+      // These require interval-based scheduling logic beyond seriesDoses(). The Full
+      // Forecast (genRecs) handles both correctly. For complex histories, use Forecast.
       return { totalDoses: isHRMenB ? 3 : 2 };
     }
 
@@ -210,14 +215,16 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
     ? `MIN_INT.${vk}.iByTotalDoses[${totalDoses}][${doseNum - 1}]=${minInt}d`
     : `MIN_INT.${vk}.i[${doseNum - 1}]=${minInt}d`;
 
-  // Age-conditional interval (e.g. VAR D2: 84d if <13y, 28d if ≥13y)
+  // Conditional interval overrides (age-based or risk-based, data-driven from spec.iCond)
   if (rule.iCond && prevDate) {
     for (const cond of rule.iCond) {
       if (cond.doseNum === doseNum) {
         const candidateShort = latest(today, addD(prevDate, cond.minInterval));
-        if (!cond.ageGte || diff(dob, candidateShort) >= cond.ageGte) {
+        const ageOk = !cond.ageGte || diff(dob, candidateShort) >= cond.ageGte;
+        const riskOk = !cond.riskIncludes || (ctx?.risks && cond.riskIncludes.some(r => ctx.risks.includes(r)));
+        if (ageOk && riskOk) {
           minInt   = cond.minInterval;
-          intLabel = `MIN_INT.${vk}.iCond[ageGte=${cond.ageGte}]=${cond.minInterval}d`;
+          intLabel = `MIN_INT.${vk}.iCond[${cond.ageGte ? 'ageGte=' + cond.ageGte : 'risk'}]=${cond.minInterval}d`;
         }
       }
     }
@@ -413,15 +420,30 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
   // with old saved URLs; treated as 'fewestVisits'.
   const mode = (opts.mode === 'earliestCompletion') ? 'fewestVisits' : (opts.mode || 'fewestVisits');
   if (mode === 'fewestInjections') {
-    for (const v of visits) substituteCombos(v, dob);
+    for (const v of visits) substituteCombos(v, dob, hist);
   }
 
   return visits;
 }
 
 // Convert a visit's separate-antigen items into combo items where eligible.
-function substituteCombos(visit, dob) {
+// Returns the MenB antigen-family for a brand string ("MenB-4C", "MenB-FHbp", or "").
+// Mirrors forecastLogic.brandFamily for MenB — single antigen axis.
+function menbFamilyOf(brand) {
+  if (!brand) return "";
+  if (brand.startsWith("Bexsero") || brand.startsWith("Penmenvy")) return "MenB-4C";
+  if (brand.startsWith("Trumenba") || brand.startsWith("Penbraya")) return "MenB-FHbp";
+  return "";
+}
+
+function substituteCombos(visit, dob, hist) {
   const ageMonthsAt = ageInMonths(dob, visit.date);
+  // MenB antigen-family lock (VBR.MenB.lock = true in vaccineData.js).
+  // Anchor the family on the first known-brand MenB dose in history; block
+  // substituting a pentavalent combo whose MenB family differs.
+  const firstMenBDose = (hist?.MenB || []).find(d => d.given && d.brand);
+  const estMenBFamily = firstMenBDose ? menbFamilyOf(firstMenBDose.brand) : "";
+
   let changed = true;
   while (changed) {
     changed = false;
@@ -430,6 +452,11 @@ function substituteCombos(visit, dob) {
     for (const [comboName, def] of Object.entries(COMBOS)) {
       // Age window
       if (ageMonthsAt < def.minM || ageMonthsAt > def.maxM) continue;
+      // MenB family lock: skip combos whose MenB component conflicts with established family
+      if (def.c.includes("MenB") && estMenBFamily) {
+        const comboFamily = menbFamilyOf(comboName);
+        if (comboFamily && comboFamily !== estMenBFamily) continue;
+      }
       // Coverage subset check + collect items
       const coveredItems = [];
       let allPresent = true;

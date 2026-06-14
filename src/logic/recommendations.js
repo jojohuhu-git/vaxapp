@@ -632,11 +632,13 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       "ACIP: microbiologists should continue MenACWY revaccination every 5 years as long as occupational exposure persists.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { minInt: 1826, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (am >= 24 && men === 0 && (risks.includes("travel") || risks.includes("outbreak") || risks.includes("exposure"))) {
-    // Travel/exposure-only risk: ACIP specifies 1 dose only (not a 2-dose medical primary).
+  } else if (am >= 24 && men === 0 && risks.includes("travel")) {
+    // Travel-only risk: ACIP specifies 1 dose (not a 2-dose medical primary).
     // Medical HR (asplenia, complement, HIV) is caught by earlier isHighRiskMen branches.
-    r("MenACWY", "Risk-based \u2014 travel/exposure (1 dose)", 1, "risk-based",
-      "ACIP: travelers to/residents of hyperendemic areas or persons with close contact with cases: 1 dose MenACWY. If a medical high-risk indication also applies (asplenia, complement deficiency, HIV), use the 2-dose primary series instead.",
+    // Note: "outbreak" and "exposure" risk IDs were removed — they were undefined; use
+    // isHighRiskMen for outbreak scenarios with medical indication.
+    r("MenACWY", "Risk-based \u2014 international travel (1 dose)", 1, "risk-based",
+      "ACIP: travelers to or residents of hyperendemic areas: 1 dose MenACWY. If a medical high-risk indication also applies (asplenia, complement deficiency, HIV), use the 2-dose primary series instead.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (risks.includes("college") && men >= 1 && !menAt16y && am > 216) {
@@ -767,10 +769,18 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       // D4 (3-dose primary series just completed, either antigen family) — first revax 1y (365d).
       // D5+ — ongoing revaccination every 2–3y (730d).
       const revaxMinInt = (menb === 3) ? 365 : 730;
-      r("MenB", `Revaccination \u2014 dose ${menb + 1} (high-risk, ${menb === 3 ? "1 year after primary series" : "every 2\u20133 years"})`, menb + 1, "risk-based",
-        "ACIP: high-risk patients should continue MenB revaccination every 2\u20133 years as long as high-risk status persists.",
-        mb ? [mb] : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
-        { minInt: revaxMinInt, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
+      // Gate emission: only emit when the interval has elapsed.
+      // When today or lastDate is unknown, emit unconditionally (forecast projections).
+      const revaxLastD = lastDate(hist, "MenB");
+      const revaxEligible = !today || !revaxLastD
+        || (new Date(revaxLastD + 'T00:00:00').getTime() + revaxMinInt * 86400000
+            <= new Date(today + 'T00:00:00').getTime());
+      if (revaxEligible) {
+        r("MenB", `Revaccination \u2014 dose ${menb + 1} (high-risk, ${menb === 3 ? "1 year after primary series" : "every 2\u20133 years"})`, menb + 1, "risk-based",
+          "ACIP: high-risk patients should continue MenB revaccination every 2\u20133 years as long as high-risk status persists.",
+          mb ? [mb] : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
+          { minInt: revaxMinInt, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
+      }
     }
   }
 

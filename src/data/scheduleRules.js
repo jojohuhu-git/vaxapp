@@ -14,7 +14,7 @@ export const MIN_INT = {
   Tdap:    {minD:2555, maxD1:null, i:[null,28,180,null,null],note:"Min age 7y (Adacel) or 10y (Boostrix). Routine adolescent: single Tdap at 11–12y. Catch-up ≥7y unvaccinated: 3-dose primary (Tdap → Td/Tdap 4w → Td/Tdap 6mo). If first catch-up dose at 7–9y, also give routine 11–12y Tdap (4 total). Decennial Td/Tdap booster every 10y after primary."},
   Td:      {minD:2555, maxD1:null, i:[null,28,180,null,null],note:"Min age 7 years. Used in tetanus catch-up series (doses 2–3) and decennial booster. D1→D2 min 4 weeks; D2→D3 min 6 months."},
   HPV:     {minD:3285, maxD1:null, i:[null,150,84,null,null],  iByTotalDoses:{2:[null,152],3:[null,28,84]}, d1Cross:{3:152}, note:"Min age 9 years. 2-dose (<15y): D1→D2 ≥152d. 3-dose (≥15y/immunocomp): D1→D2 ≥28d, D2→D3 ≥84d, D1→D3 ≥152d."},
-  MenACWY: {minD:60,   maxD1:null, i:[null,56,null,null,null],note:"High-risk: min 2 months (Menveo). Routine: 11–12y, booster 16y."},
+  MenACWY: {minD:60,   maxD1:null, i:[null,56,null,null,null], iCond:[{doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv"], minInterval:84}], note:"High-risk: min 3 months (84d) D1→D2 (Menveo). Routine: 11–12y, booster 16y."},
   MenB:    {minD:3650, maxD1:null, i:[null,28,112,null,null],  iByTotalDoses:{2:[null,182]},             d1Cross:{3:182}, note:"Min age 10y. Bexsero D1→D2 ≥1m; Trumenba standard 2-dose D1→D2 ≥6m; accelerated 3-dose D1→D2 28d, D2→D3 4m, D1→D3 ≥6m."},
   RSV:     {minD:0,    maxD1:243,  i:[null,null,null,null,null],note:"Nirsevimab: <8m first RSV season. Max age 8 months for routine."},
   COVID:   {minD:182,  maxD1:null, i:[null,28,null,null,null], note:"Min age 6m (Spikevax), 5y (Comirnaty), 12y (mNexspike/Nuvaxovid)."},
