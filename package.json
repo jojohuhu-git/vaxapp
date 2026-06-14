@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:related": "vitest related --run",
     "test:optimal": "node src/logic/buildOptimalSchedule.test.js",
+    "verify:forecast": "node scripts/verify-forecast.mjs",
     "prepare": "husky"
   },
   "lint-staged": {
