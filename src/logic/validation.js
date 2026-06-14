@@ -674,14 +674,16 @@ export function validatedHistory(hist, dob) {
     const doses = sortedWithIdx.map(x => x.dose);
     const kept = [];
     let validIdx = 0;
+    let firstValidDate = null; // tracks D1 date for d1Cross checks (HepB ≥112d, HPV ≥152d, MenB ≥182d)
     // Total given-and-dated dose count for schedule-path-aware validation (e.g. HepB 4-dose)
     const totalGivenDated = doses.filter(d => d.given && d.mode !== "unknown").length;
     for (const dose of doses) {
       if (!dose.given) { kept.push(dose); continue; }
       if (dose.mode === "unknown") { kept.push(dose); continue; }
       const prevKept = kept.filter(k => k.given && k.mode !== "unknown").slice(-1)[0] || null;
-      const vr = validateDose(vk, validIdx, dose, prevKept, dob, null, null, totalGivenDated);
+      const vr = validateDose(vk, validIdx, dose, prevKept, dob, null, firstValidDate, totalGivenDated);
       if (vr.ok) {
+        if (firstValidDate === null) firstValidDate = doseDate(dose, dob);
         kept.push(dose);
         validIdx++;
       }
