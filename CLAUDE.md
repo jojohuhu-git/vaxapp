@@ -12,7 +12,7 @@ so patient sessions are shareable/bookmarkable without any server.
 - **Vite** for bundling (`npm run dev` = dev server, `npm run build` = production)
 - **Vitest** + React Testing Library for tests (`npm test`)
 - **@react-pdf/renderer** for in-browser PDF generation
-- **Husky** + lint-staged: ESLint runs on every commit (`--max-warnings=0`)
+- **Husky** + lint-staged: runs `vitest related --run` on staged `src/**/*.{js,jsx}` files (ESLint gate is intentionally NOT active — see "Pre-commit hook" section below)
 - Deployed to **GitHub Pages** via `.github/workflows/deploy.yml` on push to `main`
 - `vite.config.js` sets `base: '/vaxapp/'` — all public asset paths MUST use `import.meta.env.BASE_URL`
 
@@ -284,11 +284,13 @@ Always start the preview at the beginning of any session:
 
 ## Pre-commit hook
 
-`husky` runs `npx lint-staged` → `eslint --max-warnings=0` on `src/**/*.{js,jsx}`.
+`husky` runs `npx lint-staged`. The actual `lint-staged` config in `package.json` runs **`vitest related --run`** (related tests only) on staged `src/**/*.{js,jsx}` files. ESLint does NOT run on commit.
 
-All staged JS/JSX files must pass ESLint with zero warnings or errors. The worktree's `package.json` includes the `lint-staged` config.
+**ESLint gate is intentionally NOT enabled.** There are ~85 pre-existing ESLint errors in the codebase that would cause every commit to fail if `eslint --max-warnings=0` were enforced. Enabling the gate is a planned future task once those errors are cleared. For now, you can run `npm run lint` manually to see warnings, but commits will not be blocked by lint.
 
-Common lint errors to fix before committing:
+CI (`.github/workflows/test.yml`) also intentionally omits ESLint for the same reason — see the comment in that file.
+
+When the ESLint gate is eventually enabled, common errors to fix will include:
 - Unused imports/variables (`no-unused-vars`)
 - Missing PropTypes (`react/prop-types`) — add `/* eslint-disable react/prop-types */` at top of file; existing components in this repo do not use PropTypes
 - Unescaped entities in JSX text (`react/no-unescaped-entities`) — wrap text in `{' ... '}` or escape `'` as `\'` inside a string expression
