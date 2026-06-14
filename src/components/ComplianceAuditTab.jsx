@@ -502,6 +502,25 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks }) {
   const totalCount = givenDoses.length;
   const invalidCount = totalCount - validCount;
 
+  // Build a set of raw doses that are considered valid by validatedHistory.
+  // Match by reference identity first; fall back to date+brand comparison for
+  // doses reconstructed from state (validatedHistory returns new objects).
+  // Purpose: so each dose card uses the effective previous dose (per validatedHistory)
+  // rather than the raw previous dose — prevents false-INVALID cascade when D1 is invalid.
+  const validDoseSignatures = new Set(
+    validDoses.map(d => `${d.date || ''}|${d.ageDays ?? ''}|${d.brand || ''}`)
+  );
+  // For each raw dose index, compute the last valid raw dose seen before it.
+  const effectivePrevByRawIdx = [];
+  let lastValidRawDose = null;
+  for (let i = 0; i < givenDoses.length; i++) {
+    effectivePrevByRawIdx.push(lastValidRawDose);
+    const sig = `${givenDoses[i].date || ''}|${givenDoses[i].ageDays ?? ''}|${givenDoses[i].brand || ''}`;
+    if (validDoseSignatures.has(sig)) {
+      lastValidRawDose = givenDoses[i];
+    }
+  }
+
   // Expected total using getTotalDoses
   const recForVk = recs.find(r => r.vk === vk);
   let expectedTotal = null;
@@ -512,11 +531,12 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks }) {
   }
 
   // Count extra doses: doses beyond the standard series total that are VALID_EXTRA
+  // Use effectivePrevByRawIdx for correct interval computation.
   const extraCount = totalCount - validCount >= 0
     ? givenDoses.filter((dose, i) => {
         const firstDate = givenDoses[0]?.date || null;
         const cls = classifyDose(vk, i, dose, totalCount, dob,
-          i > 0 ? givenDoses[i - 1] : null, firstDate, hist, risks);
+          effectivePrevByRawIdx[i], firstDate, hist, risks);
         return cls.status === 'VALID_EXTRA';
       }).length
     : 0;
@@ -539,7 +559,13 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks }) {
   }
 
   const cdcRef = REFS[vk];
-  const firstDoseDate = givenDoses[0]?.date || null;
+  // firstDoseDate for d1Cross checks should be the first VALID dose's date
+  // (the effective D1), not the raw D1 which may have been dropped by validatedHistory.
+  const firstValidDose = givenDoses.find((d, i) => {
+    const sig = `${d.date || ''}|${d.ageDays ?? ''}|${d.brand || ''}`;
+    return validDoseSignatures.has(sig);
+  });
+  const firstDoseDate = firstValidDose?.date || givenDoses[0]?.date || null;
 
   return (
     <div
@@ -611,7 +637,7 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks }) {
             vk={vk}
             doseIdx={i}
             dose={dose}
-            prevDose={i > 0 ? givenDoses[i - 1] : null}
+            prevDose={effectivePrevByRawIdx[i]}
             dob={dob}
             firstDoseDate={firstDoseDate}
             totalDoses={totalCount}
