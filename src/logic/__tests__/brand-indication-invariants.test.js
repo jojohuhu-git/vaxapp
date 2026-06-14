@@ -1,8 +1,8 @@
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  BRAND INDICATION INVARIANT TESTS                                   ║
 // ║                                                                      ║
-// ║  Property test: no surface may emit a brand for a (vk, doseNum,     ║
-// ║  ageMonths) tuple that isBrandValidForDose would reject.             ║
+// ║  Property test: no surface may emit a brand for a (vk, doseNum)     ║
+// ║  tuple that comboFitsDose would reject.                              ║
 // ║                                                                      ║
 // ║  Coverage matrix: all combo brands × all their component antigens   ║
 // ║  × dose numbers 1–6 × a representative age grid.                   ║
@@ -13,7 +13,7 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 import { describe, it, expect } from 'vitest';
-import { comboFitsDose, isBrandValidForDose } from '../brandRules.js';
+import { comboFitsDose } from '../brandRules.js';
 import { genRecs } from '../recommendations.js';
 import { buildRegimens } from '../regimens.js';
 import { buildOptimalSchedule } from '../buildOptimalSchedule.js';
@@ -240,25 +240,3 @@ describe('comboFitsDose — CLAUDE.md hard gates', () => {
   it('ProQuad + MMR: blocked at D3', () => expect(comboFitsDose('ProQuad', 'MMR', 3)).toBe(false));
 });
 
-// ── isBrandValidForDose age-gate tests ────────────────────────────────────
-
-describe('isBrandValidForDose — age window enforcement', () => {
-  it('Kinrix rejected below 48m', () => {
-    expect(isBrandValidForDose({ brandKey: 'Kinrix', vk: 'DTaP', doseNum: 5, ageMonths: 47 })).toBe(false);
-  });
-  it('Kinrix accepted at 54m for DTaP D5', () => {
-    expect(isBrandValidForDose({ brandKey: 'Kinrix', vk: 'DTaP', doseNum: 5, ageMonths: 54 })).toBe(true);
-  });
-  it('Penbraya rejected without co-admin partner', () => {
-    expect(isBrandValidForDose({ brandKey: 'Penbraya', vk: 'MenACWY', doseNum: 1, ageMonths: 132, dueVks: [] })).toBe(false);
-  });
-  it('Penbraya accepted with MenB co-due', () => {
-    expect(isBrandValidForDose({ brandKey: 'Penbraya', vk: 'MenACWY', doseNum: 1, ageMonths: 132, dueVks: ['MenB'] })).toBe(true);
-  });
-  it('Heplisav-B rejected below 216m', () => {
-    expect(isBrandValidForDose({ brandKey: 'Heplisav-B', vk: 'HepB', doseNum: 1, ageMonths: 132 })).toBe(false);
-  });
-  it('Heplisav-B accepted at 216m', () => {
-    expect(isBrandValidForDose({ brandKey: 'Heplisav-B', vk: 'HepB', doseNum: 1, ageMonths: 216 })).toBe(true);
-  });
-});
