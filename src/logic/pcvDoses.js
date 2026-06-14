@@ -68,6 +68,17 @@ export function pcvBands(hist, dob) {
   };
 }
 
+// Check whether at least one PCV dose was administered at ≥12 months of age.
+// Required for the infant series booster to be considered given.
+// Undated doses get benefit-of-the-doubt (consistent with pcvBands counting policy).
+export function hasBoosterDose(pcvHist, dob) {
+  const given = (pcvHist || []).filter((d) => d.given);
+  return given.some((d) => {
+    const a = doseAgeMonths(d, dob);
+    return a == null ? true : a >= 12;
+  });
+}
+
 // High-risk catch-up plan for children 24mo–18y (am 24..227). Adults (≥228mo)
 // are handled by each surface's own adult logic.
 //

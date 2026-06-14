@@ -3,7 +3,7 @@
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
-import { pcvHighRiskChildPlan } from './pcvDoses.js';
+import { pcvHighRiskChildPlan, hasBoosterDose } from './pcvDoses.js';
 import { isLiveVaccineContraindicated } from './stateHelpers.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
@@ -117,7 +117,14 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
         if (pcv20adult) return null;
         return { totalDoses: 1 }; // high-risk adult (existing behavior)
       }
-      if (am < 24) return { totalDoses: 4 };
+      if (am < 24) {
+        // H5: even with 4 given doses, if no dose was at ≥12m the booster is still owed.
+        const givenPCV = dc(hist, 'PCV');
+        if (givenPCV >= 4 && !hasBoosterDose(hist.PCV, dob)) {
+          return { totalDoses: givenPCV + 1 }; // schedules the missing booster
+        }
+        return { totalDoses: 4 };
+      }
       // Healthy 24–59m unvaccinated: CDC Table 2 catch-up = 1 dose. genRecs
       // emits this but buildOptimalSchedule used to skip it. Bug fix 2026-05-07.
       if (am < 60) {

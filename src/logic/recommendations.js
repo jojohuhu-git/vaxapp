@@ -3,7 +3,7 @@
 // ╚══════════════════════════════════════════════════════════════╝
 import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
-import { pcvHighRiskChildPlan } from './pcvDoses.js';
+import { pcvHighRiskChildPlan, hasBoosterDose } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
 
 // Returns the flu-season start year for a given ISO date.
@@ -203,16 +203,19 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   const hrChildPlan = (isHighRiskPCV && am >= 24 && am < 228) ? pcvHighRiskChildPlan(am, hist, dob, ppsv23) : null;
   // pcvSeriesComplete: for peds with hrChildPlan, delegate to hrChildPlan.complete even when usedPCV20
   // (M2 fix: a lone PCV20 in an at-risk 24-71mo child is not complete if >=24mo dose requirement unmet).
-  const pcvSeriesComplete = hrChildPlan ? hrChildPlan.complete : (usedPCV20 ? pcv >= 1 : (am >= 228 ? pcv >= 1 : pcv >= 4));
+  // H5: booster completeness requires a dose administered at ≥12 months (not just count ≥4).
+  // A 13mo with 4 doses all given before 12m still needs the ≥12m booster.
+  const pcvBoosterGiven = (am < 24) ? hasBoosterDose(hist.PCV, dob) : true;
+  const pcvSeriesComplete = hrChildPlan ? hrChildPlan.complete : (usedPCV20 ? pcv >= 1 : (am >= 228 ? pcv >= 1 : (pcv >= 4 && pcvBoosterGiven)));
   const pcvBrands = ["Prevnar 20 (PCV20) \u2014 preferred", "Vaxneuvance (PCV15)", "Prevnar 13 (PCV13) \u2014 only if PCV20/PCV15 unavailable"];
   const pcvNote = `PCV20 preferred \u2014 covers 20 serotypes; no PPSV23 needed afterward. If PCV15 used for high-risk patients: add PPSV23 \u22658 weeks after completing PCV series (minimum age 2 years). PCV13 still used if PCV20/PCV15 unavailable or specific clinical indication.`;
   if (am >= 2 && am <= 6 && pcv < 3) {
     r("PCV", `Dose ${pcv + 1} of 4 (PCV primary, ${am === 2 ? "2" : am === 4 ? "4" : "6"} months)`, pcv + 1, "due", "Primary series at 2, 4, 6 months. Min 4 weeks between doses.", pcvBrands, { minInt: 28, bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
   } else if (am >= 7 && am <= 11 && pcv < 3) {
     r("PCV", `Catch-up \u2014 PCV dose ${pcv + 1} (7\u201311 months)`, pcv + 1, "catchup", "7\u201311 months behind: give remaining primary doses \u22654 weeks apart. Booster still needed at 12\u201315m.", pcvBrands, { minInt: 28, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
-  } else if (am >= 12 && am <= 15 && pcv < 4) {
+  } else if (am >= 12 && am <= 15 && (pcv < 4 || !pcvBoosterGiven)) {
     const needBooster = pcv >= 3;
-    r("PCV", needBooster ? "Dose 4 \u2014 PCV booster (12\u201315 months)" : "Catch-up \u2014 PCV (complete primary + booster)", pcv + 1, needBooster ? "due" : "catchup",
+    r("PCV", needBooster ? "Dose 4 \u2014 PCV booster (12\u201315 months)" : "Catch-up \u2014 PCV (complete primary + booster)", needBooster ? 4 : pcv + 1, needBooster ? "due" : "catchup",
       needBooster ? "Booster dose at 12\u201315 months. Min 8 weeks after dose 3." : "Complete remaining primary doses first (min 4w apart), then booster (min 8w after prior).",
       pcvBrands, { minInt: needBooster ? 56 : 28, bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 16 && am <= 23 && pcv < 4) {
@@ -265,6 +268,26 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         ["Prevnar 20 (PCV20) \u2014 Option A, preferred", "Vaxneuvance (PCV15) \u2014 Option B, follow with PPSV23 \u22658w later"],
         { minInt: 56, bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
     }
+  }
+
+  // ── HSCT advisory: post-transplant PCV re-vaccination ─────────────
+  // Separate from the normal PCV pathway. Fires unconditionally when HSCT is set
+  // (no transplant date → can’t distinguish pre/post; clinician coordinates timing).
+  if (risks.includes('hsct') && am < 228) {
+    r("PCV", "Post-HSCT \u2014 PCV re-vaccination (advisory)", 1, "risk-based",
+      "Child post-HSCT: prior pneumococcal history is considered nullified. Re-vaccinate with 4 doses of PCV20 beginning 3\u20136 months after HSCT \u2014 give 3 doses 4 weeks apart, then a 4th dose \u22656 months after dose 3 AND \u226512 months after HSCT. If PCV20 unavailable: 3 doses of PCV15 (4 weeks apart) starting 3\u20136 months post-HSCT, then PPSV23 \u226512 months after HSCT. Coordinate with transplant/ID team \u2014 your center may use its own protocol. (Timing is relative to transplant date; calendar due-dates not shown.)",
+      ["PCV20 (Prevnar 20) \u2014 preferred", "Vaxneuvance (PCV15) \u2014 follow with PPSV23"],
+      { refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
+  }
+
+  // ── HSCT advisory: post-transplant PCV re-vaccination ──────────────────
+  // Separate from the normal PCV pathway. Fires unconditionally when HSCT is set
+  // (no transplant date — can't distinguish pre/post; clinician coordinates timing).
+  if (risks.includes('hsct') && am < 228) {
+    r("PCV", "Post-HSCT \u2014 PCV re-vaccination (advisory)", 1, "risk-based",
+      "Child post-HSCT: prior pneumococcal history is considered nullified. Re-vaccinate with 4 doses of PCV20 beginning 3\u20136 months after HSCT \u2014 give 3 doses 4 weeks apart, then a 4th dose \u22656 months after dose 3 AND \u226512 months after HSCT. If PCV20 unavailable: 3 doses of PCV15 (4 weeks apart) starting 3\u20136 months post-HSCT, then PPSV23 \u226512 months after HSCT. Coordinate with transplant/ID team \u2014 your center may use its own protocol. (Timing is relative to transplant date; calendar due-dates not shown.)",
+      ["PCV20 (Prevnar 20) \u2014 preferred", "Vaxneuvance (PCV15) \u2014 follow with PPSV23"],
+      { refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
   }
 
   // ── PPSV23 (polysaccharide, Pneumovax 23) — separate from PCV ─
