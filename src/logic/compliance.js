@@ -266,7 +266,7 @@ function extraDoseIndices(vk, totalDoses, standardTotal, hist) {
  * @param {object|null} hist - full patient history {vk: [{dose}]} (for EXTRA detection)
  * @returns {{ status, label, recommendedRange, extraScenario }}
  */
-export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null, firstDoseDate = null, hist = null) {
+export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null, firstDoseDate = null, hist = null, risks = []) {
   // Unknown mode or no DOB → can't compute age
   if (dose.mode === 'unknown' || !dob) {
     return {
@@ -343,7 +343,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
         const fWithinMax = fRecMax === null || ageMonths <= fRecMax + 0.5;
 
         // Run validateDose for the final dose before reporting
-        const vrFinal = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses);
+        const vrFinal = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses, risks);
         if (vrFinal.err && !vrFinal.ok) {
           const firstIssue = vrFinal.results?.[0];
           return {
@@ -379,7 +379,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   }
 
   // Run validateDose to detect errors (for non-extra doses)
-  const vr = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses);
+  const vr = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses, risks);
   if (vr.err && !vr.ok) {
     const firstIssue = vr.results?.[0];
     return {
