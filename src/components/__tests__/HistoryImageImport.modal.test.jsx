@@ -416,3 +416,173 @@ describe('ReviewModal — Feature B: add vaccine dose form', () => {
     expect(txt).toContain(String(initialM + 1)); // now 2 doses
   });
 });
+
+// ── H5 — merge-not-replace: inline-added dates survive raw-text re-parse ──────
+
+describe('ReviewModal — H5: debounce merges with user-added dates', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers(); cleanup(); });
+
+  it('an inline-added date is preserved after raw-text debounce fires', () => {
+    // Start with DTaP D1 only
+    const rows = [{ vk: 'DTaP', dates: ['2022-02-15'], brand: null }];
+    render(
+      <AppProvider>
+        <ReviewModal
+          rows={rows}
+          unrecognized={[]}
+          rawText="DTaP 02/15/2022"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />
+      </AppProvider>
+    );
+
+    // Inline-add a second date via the "+ date" editor
+    act(() => {
+      fireEvent.click(document.querySelector('[data-testid="ocr-add-date-btn-0"]'));
+    });
+    const editor = document.querySelector('[data-testid="ocr-add-date-editor-0"]');
+    const dateInput = editor.querySelector('input[type="text"]');
+    act(() => {
+      fireEvent.change(dateInput, { target: { value: '04/15/2022' } });
+    });
+    act(() => {
+      fireEvent.click(document.querySelector('[data-testid="ocr-add-date-save-0"]'));
+    });
+
+    // Confirm the second date was added (banner shows 2 doses)
+    const banner = () => document.querySelector('[data-testid="ocr-summary-banner"]');
+    expect(banner().textContent).toContain('2');
+
+    // Now edit the raw textarea — this triggers the debounce
+    const ta = document.querySelector('[data-testid="ocr-raw-textarea"]');
+    act(() => {
+      // The raw text still only contains one date — re-parse would normally give 1 dose
+      fireEvent.change(ta, { target: { value: 'DTaP 02/15/2022' } });
+    });
+
+    // Fire the debounce
+    act(() => { vi.advanceTimersByTime(450); });
+
+    // The inline-added date (04/15/2022) must still be present — merge, not replace
+    expect(banner().textContent).toContain('2');
+  });
+
+  it('new vaccines found by re-parse are added without disturbing existing rows', () => {
+    const rows = [{ vk: 'DTaP', dates: ['2022-02-15'], brand: null }];
+    render(
+      <AppProvider>
+        <ReviewModal
+          rows={rows}
+          unrecognized={[]}
+          rawText="DTaP 02/15/2022"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />
+      </AppProvider>
+    );
+
+    const ta = document.querySelector('[data-testid="ocr-raw-textarea"]');
+    act(() => {
+      // Add IPV to the raw text
+      fireEvent.change(ta, { target: { value: 'DTaP 02/15/2022\nIPV 02/15/2022' } });
+    });
+    act(() => { vi.advanceTimersByTime(450); });
+
+    const banner = document.querySelector('[data-testid="ocr-summary-banner"]');
+    // DTaP date preserved + IPV newly added = 2 unique vaccines, 2 doses total
+    expect(banner.textContent).toContain('2');
+  });
+});
+
+// ── H6.2 — confirm-time validation: future + pre-DOB dates ────────────────
+
+describe('ReviewModal — H6.2: confirm-time date validation warnings', () => {
+  afterEach(() => cleanup());
+
+  // Build a future date string (next year) for testing
+  const futureYear = new Date().getFullYear() + 1;
+  const futureIso = `${futureYear}-06-15`;
+  const futureMDY = `06/15/${futureYear}`;
+
+  const ROWS_WITH_FUTURE = [
+    { vk: 'DTaP', dates: [futureIso], brand: null },
+  ];
+
+  function renderH62(extraProps = {}) {
+    const onConfirm = vi.fn();
+    const onCancel  = vi.fn();
+    render(
+      <AppProvider>
+        <ReviewModal
+          rows={ROWS_WITH_FUTURE}
+          unrecognized={[]}
+          rawText={`DTaP ${futureMDY}`}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+          {...extraProps}
+        />
+      </AppProvider>
+    );
+    return { onConfirm, onCancel };
+  }
+
+  it('clicking Import with a future date shows the confirm-warnings panel', () => {
+    renderH62();
+    act(() => {
+      fireEvent.click(document.querySelector('[data-testid="ocr-confirm-btn"]'));
+    });
+    expect(document.querySelector('[data-testid="ocr-confirm-warnings"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="ocr-confirm-warnings"]').textContent)
+      .toContain('future');
+  });
+
+  it('"Remove flagged dates" button removes the bad date and hides the panel', () => {
+    renderH62();
+    act(() => {
+      fireEvent.click(document.querySelector('[data-testid="ocr-confirm-btn"]'));
+    });
+    // Panel is visible
+    expect(document.querySelector('[data-testid="ocr-confirm-warnings"]')).not.toBeNull();
+
+    act(() => {
+      fireEvent.click(document.querySelector('[data-testid="ocr-remove-bad-dates"]'));
+    });
+    // Panel should be gone
+    expect(document.querySelector('[data-testid="ocr-confirm-warnings"]')).toBeNull();
+  });
+
+  it('"Import anyway" proceeds to onConfirm despite future date', () => {
+    const { onConfirm } = renderH62();
+    act(() => {
+      fireEvent.click(document.querySelector('[data-testid="ocr-confirm-btn"]'));
+    });
+    act(() => {
+      fireEvent.click(document.querySelector('[data-testid="ocr-import-anyway"]'));
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('clean dates bypass the warning panel and call onConfirm directly', () => {
+    const cleanRows = [{ vk: 'DTaP', dates: ['2022-02-15'], brand: null }];
+    const onConfirm = vi.fn();
+    render(
+      <AppProvider>
+        <ReviewModal
+          rows={cleanRows}
+          unrecognized={[]}
+          rawText="DTaP 02/15/2022"
+          onConfirm={onConfirm}
+          onCancel={vi.fn()}
+        />
+      </AppProvider>
+    );
+    act(() => {
+      fireEvent.click(document.querySelector('[data-testid="ocr-confirm-btn"]'));
+    });
+    // No warning panel
+    expect(document.querySelector('[data-testid="ocr-confirm-warnings"]')).toBeNull();
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+});

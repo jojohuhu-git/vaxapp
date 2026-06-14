@@ -140,6 +140,8 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
   const [autoApplyStatus, setAutoApplyStatus] = useState(''); // '' | 'pending' | 'updated:N'
   // Guard: skip the debounced effect on the very first render
   const isFirstRun = useRef(true);
+  // H6.2 — confirm-time validation warnings (future dates / pre-DOB dates)
+  const [confirmWarnings, setConfirmWarnings] = useState([]);
 
   // Feature A: which row is showing its inline "+ date" editor
   const [addDateRowIdx, setAddDateRowIdx] = useState(null);
@@ -151,23 +153,23 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
   const [addVaxDate, setAddVaxDate] = useState('');
   const [addVaxBrand, setAddVaxBrand] = useState('');
 
-  // Debounced auto-apply: re-parse whenever editedRawText changes, but skip mount
+  // Debounced auto-apply: re-parse whenever editedRawText changes, but skip mount.
+  // H5 FIX: merge new rows into existing state (union dates) instead of replacing
+  // wholesale — preserves dates the user added via the inline "+ date" button or
+  // the "+ Add vaccine dose" form.
   useEffect(() => {
     if (isFirstRun.current) {
       isFirstRun.current = false;
       return;
     }
     setAutoApplyStatus('pending');
+    // Clear any stale confirm warnings when the user edits the raw text
+    setConfirmWarnings([]);
     const handle = setTimeout(() => {
       const { rows: newRows } = parseOcrText(editedRawText);
-      const prevEnabledByVk = Object.fromEntries(rows.map(r => [r.vk, r.enabled]));
-      setRows(newRows.map(r => ({
-        ...r,
-        enabled: prevEnabledByVk[r.vk] ?? true,
-        dates: [...r.dates],
-      })));
-      const doseCount = newRows.reduce((n, r) => n + r.dates.length, 0);
-      setAutoApplyStatus(`updated:${doseCount}`);
+      setRows(prev => mergeOcrRows(prev, newRows));
+      const totalCount = newRows.reduce((n, r) => n + r.dates.length, 0);
+      setAutoApplyStatus(`updated:${totalCount}`);
       setTimeout(() => setAutoApplyStatus(''), 1500);
     }, 400);
     return () => clearTimeout(handle);
@@ -285,7 +287,62 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
     setAddVaxBrand('');
   }
 
-  function handleConfirm() {
+  // H5: Merge re-parsed rows into current rows, preserving user-added dates.
+  // Strategy: union each vk's dates (keeps manual additions); preserve rows whose
+  // vk the parser no longer sees (user-added vaccines); add any new vks from the
+  // re-parse. Brand from the latest parse wins when non-null.
+  function mergeOcrRows(currentRows, newRows) {
+    const byVk = Object.fromEntries(newRows.map(r => [r.vk, r]));
+    const seen = new Set();
+    const merged = currentRows.map(r => {
+      seen.add(r.vk);
+      const fresh = byVk[r.vk];
+      if (!fresh) return r; // user-added vaccine not found in re-parse — keep as-is
+      const dateSet = new Set([...r.dates, ...fresh.dates]);
+      return {
+        ...r,
+        dates: [...dateSet].sort(),
+        brand: fresh.brand !== null ? fresh.brand : r.brand,
+      };
+    });
+    for (const fresh of newRows) {
+      if (!seen.has(fresh.vk)) {
+        merged.push({ ...fresh, enabled: true, dates: [...fresh.dates] });
+      }
+    }
+    return merged;
+  }
+
+  // H6.2: Validate enabled dates before import.
+  // Returns an array of warnings for dates that are in the future or before DOB.
+  function validateDates() {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const warnings = [];
+    for (const row of rows) {
+      if (!row.enabled) continue;
+      for (const iso of row.dates) {
+        if (!iso || iso.length !== 10) continue;
+        const vkName = VAX_META[row.vk]?.ab || row.vk;
+        if (iso > todayIso) {
+          warnings.push({ iso, vk: row.vk, vkName, reason: 'future' });
+        } else if (dob && iso < dob) {
+          warnings.push({ iso, vk: row.vk, vkName, reason: 'pre-dob' });
+        }
+      }
+    }
+    return warnings;
+  }
+
+  function removeBadDates() {
+    const badSet = new Set(confirmWarnings.map(w => `${w.vk}::${w.iso}`));
+    setRows(prev => prev.map(r => ({
+      ...r,
+      dates: r.dates.filter(d => !badSet.has(`${r.vk}::${d}`)),
+    })));
+    setConfirmWarnings([]);
+  }
+
+  function doImport() {
     // Group enabled doses by date
     const byDate = {};
     for (const row of rows) {
@@ -319,7 +376,19 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
         },
       });
     }
+    setConfirmWarnings([]);
     onConfirm();
+  }
+
+  // H6.2: Gate the import through date validation. First click shows warnings;
+  // "Import anyway" bypasses the check by calling doImport() directly.
+  function handleConfirm() {
+    const warnings = validateDates();
+    if (warnings.length > 0) {
+      setConfirmWarnings(warnings);
+      return;
+    }
+    doImport();
   }
 
   const enabledCount = rows.filter(r => r.enabled).reduce((n, r) => n + r.dates.length, 0);
@@ -705,6 +774,61 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
           </div>
         </div>
 
+        {/* H6.2 — Confirm-time date validation warnings */}
+        {confirmWarnings.length > 0 && (
+          <div
+            data-testid="ocr-confirm-warnings"
+            style={{
+              marginTop: 14,
+              background: 'var(--alt)', border: '1px solid var(--amd)',
+              borderRadius: 'var(--rads)', padding: '10px 14px', fontSize: 11,
+            }}
+          >
+            <div style={{ fontWeight: 700, color: 'var(--a)', marginBottom: 6 }}>
+              {confirmWarnings.length} date{confirmWarnings.length !== 1 ? 's' : ''} may be incorrect:
+            </div>
+            <ul style={{ margin: '0 0 8px 0', paddingLeft: 18, color: 'var(--gy2)' }}>
+              {confirmWarnings.map(w => (
+                <li key={`${w.vk}::${w.iso}`}>
+                  <strong>{w.vkName}</strong> on {fmtIso(w.iso)}&nbsp;&mdash;&nbsp;
+                  {w.reason === 'future' ? 'date is in the future' : 'before patient date of birth'}
+                </li>
+              ))}
+            </ul>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                data-testid="ocr-remove-bad-dates"
+                onClick={removeBadDates}
+                style={{
+                  fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 'var(--rads)',
+                  border: 'none', background: 'var(--a)', color: '#fff', cursor: 'pointer',
+                }}
+              >
+                Remove {confirmWarnings.length} flagged date{confirmWarnings.length !== 1 ? 's' : ''}
+              </button>
+              <button
+                data-testid="ocr-import-anyway"
+                onClick={doImport}
+                style={{
+                  fontSize: 11, padding: '3px 12px', borderRadius: 'var(--rads)',
+                  border: '1px solid var(--gy4)', background: '#fff', color: 'var(--gy2)', cursor: 'pointer',
+                }}
+              >
+                Import anyway
+              </button>
+              <button
+                onClick={() => setConfirmWarnings([])}
+                style={{
+                  fontSize: 11, padding: '3px 12px', borderRadius: 'var(--rads)',
+                  border: '1px solid var(--gy5)', background: 'none', color: 'var(--gy3)', cursor: 'pointer',
+                }}
+              >
+                &times; Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: 18 }}>
           <button onClick={onCancel} style={{
@@ -714,6 +838,7 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
             Cancel
           </button>
           <button
+            data-testid="ocr-confirm-btn"
             onClick={handleConfirm}
             disabled={enabledCount === 0}
             style={{
