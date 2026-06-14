@@ -496,9 +496,20 @@ export default function VisitEntry() {
       brand: brandByVk[vk] || '',
     }));
 
+    // Dedupe dateRows by resolved ISO date (keep first occurrence) to prevent
+    // the same date being submitted twice if the user added two rows then entered the same date.
+    const seenDateKeys = new Set();
+    const dedupedDateRows = dateRows.filter(row => {
+      const key = row.dateVal || (row.parsedAgeDays != null ? `age:${row.parsedAgeDays}` : null);
+      if (!key) return true; // incomplete rows were already rejected above
+      if (seenDateKeys.has(key)) return false;
+      seenDateKeys.add(key);
+      return true;
+    });
+
     // Dispatch one VISIT_ADD per date row
     const newRecentVisits = [];
-    for (const row of dateRows) {
+    for (const row of dedupedDateRows) {
       const visitId = `visit_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       const mode = row.dateVal ? 'date' : 'age';
       const ageDaysFromDate = row.dateVal && dob ? isoToAgeDays(row.dateVal, dob) : null;

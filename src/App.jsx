@@ -304,8 +304,10 @@ function AppInner() {
     try {
       const enc = encState(state);
       if (enc) {
-        const url = `${window.location.pathname}?s=${encodeURIComponent(enc)}`;
-        window.history.replaceState(null, "", url);
+        // Preserve existing params (e.g. ?nb=1 banner-dismissed flag)
+        const params = new URLSearchParams(window.location.search);
+        params.set("s", enc);
+        window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
       }
     } catch {
       // ignore encoding errors

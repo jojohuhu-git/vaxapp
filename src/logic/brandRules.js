@@ -158,9 +158,9 @@ export const BRAND_RULES = [
     brandKey: "Pentacel",
     components: ["DTaP","IPV","Hib"],
     minAgeM: 1.5, maxAgeM: 83,
-    doseRanges: { DTaP: [1,4], IPV: [1,3], Hib: [1,4] },
+    doseRanges: { DTaP: [1,4], IPV: [1,4], Hib: [1,4] },
     requiresCoAdmin: false,
-    notes: "ACIP (FDA says 4y but ACIP overrides to <7y). Hib PRP-T: 4-dose series including booster. IPV doses 1–3 only — at 4–6y visit IPV D4 must use Kinrix/Quadracel paired with DTaP D5. No propagateMaxM — valid for catch-up up to maxM.",
+    notes: "ACIP (FDA says 4y but ACIP overrides to <7y). Hib PRP-T: 4-dose series including booster. IPV doses 1–4 (matches COMBO_DOSE_GATES) — Pentacel is blocked at the 4–6y booster visit by the multi-antigen check (DTaP D5 co-due fails DTaP [1,4] gate), not by an IPV limit. No propagateMaxM — valid for catch-up up to maxM.",
   },
   {
     brandKey: "Kinrix",

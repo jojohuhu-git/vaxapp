@@ -9,6 +9,7 @@ export const CONTRA = {
   MMR:     {ci:["Anaphylaxis to prior dose (neomycin, gelatin)","Pregnancy","Severe immunodeficiency"],prec:["Blood product ≤11m prior","Moderate/severe acute illness","Thrombocytopenia/ITP","Need for TB testing"]},
   VAR:     {ci:["Anaphylaxis to prior dose (neomycin, gelatin)","Pregnancy","Severe immunodeficiency"],prec:["Blood product ≤11m prior","Moderate/severe acute illness","Antivirals within 24h"]},
   HepA:    {ci:["Anaphylaxis to prior dose (neomycin)"],prec:["Moderate/severe acute illness"]},
+  Td:      {ci:["Anaphylaxis to prior dose or component","GBS within 6 weeks of prior tetanus-containing vaccine"],prec:["Arthus-type hypersensitivity reaction after prior tetanus or diphtheria-containing vaccine (defer ≥10 years)","Moderate/severe acute illness"]},
   Tdap:    {ci:["Anaphylaxis to prior dose","Encephalopathy within 7 days of pertussis vaccine"],prec:["Progressive/unstable neurologic disorder","GBS within 6 weeks of tetanus vaccine","Arthus-type reaction after Td","Moderate/severe acute illness"]},
   HPV:     {ci:["Anaphylaxis to prior dose (yeast)"],prec:["Moderate/severe acute illness","Pregnancy – defer"]},
   MenACWY: {ci:["Anaphylaxis to prior dose"],prec:["Moderate/severe acute illness","GBS (Menactra only – use Menveo or MenQuadfi)"]},

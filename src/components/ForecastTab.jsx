@@ -974,7 +974,7 @@ export default function ForecastTab({ recs }) {
                 </div>
               </div>
               {optResult.map((visit, i) => (
-                <OptVisitCard key={i} visit={visit} idx={i} openKey={whyOpenKey} setOpenKey={setWhyOpenKey} allFlatDoses={allFlat} />
+                <OptVisitCard key={visit.date || visit.label || i} visit={visit} idx={i} openKey={whyOpenKey} setOpenKey={setWhyOpenKey} allFlatDoses={allFlat} />
               ))}
               <div style={{ marginTop: 8, fontSize: 10, color: 'var(--gy4)', fontStyle: 'italic' }}>
                 Each dose lands on its earliest legal date. Click Why? to see the spacing or age rule.
@@ -1108,8 +1108,13 @@ export default function ForecastTab({ recs }) {
                 }
               }
 
+              const rowKey = visit.isScheduledEarly
+                ? `early-${visit.m}-${visit.vk || vi}`
+                : visit.isCatchup
+                  ? `cu-${visit.m}-${vi}`
+                  : `rt-${visit.m}`;
               return (
-                <tr key={vi} className={rowClass + (visit.isCatchup ? ' catchup' : '') + (visit.isScheduledEarly ? ' scheduled-early' : '')}>
+                <tr key={rowKey} className={rowClass + (visit.isCatchup ? ' catchup' : '') + (visit.isScheduledEarly ? ' scheduled-early' : '')}>
                   <td className="vlbl">
                     <div className="vlbl-age">
                       {visit.l}
@@ -1296,9 +1301,9 @@ export default function ForecastTab({ recs }) {
                         if (!d.given) continue;
                         let ageM = null;
                         if (d.mode === "date" && d.date && state.dob) {
-                          ageM = (new Date(d.date) - new Date(state.dob)) / 86400000 / 30.4;
+                          ageM = (new Date(d.date + "T12:00:00") - new Date(state.dob + "T12:00:00")) / 86400000 / 30.4375;
                         } else if (d.mode === "age" && d.ageDays != null) {
-                          ageM = Number(d.ageDays) / 30.4;
+                          ageM = Number(d.ageDays) / 30.4375;
                         }
                         if (ageM === null) continue;
                         if (ageM < visit.m + 0.75) n++;
@@ -1311,9 +1316,9 @@ export default function ForecastTab({ recs }) {
                         if (!d.given) continue;
                         let ageM = null;
                         if (d.mode === "date" && d.date && state.dob) {
-                          ageM = (new Date(d.date) - new Date(state.dob)) / 86400000 / 30.4;
+                          ageM = (new Date(d.date + "T12:00:00") - new Date(state.dob + "T12:00:00")) / 86400000 / 30.4375;
                         } else if (d.mode === "age" && d.ageDays != null) {
-                          ageM = Number(d.ageDays) / 30.4;
+                          ageM = Number(d.ageDays) / 30.4375;
                         }
                         if (ageM === null) continue;
                         if (Math.abs(ageM - visit.m) < 0.75) n++;

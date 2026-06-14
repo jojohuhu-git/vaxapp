@@ -93,9 +93,12 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ACIP: 3 doses if any RotaTeq or brand unknown; 2 doses only if ALL confirmed Rotarix
   const rvMax = (rvHasRotaTeq || rvHasUnknown) ? 3 : (rvb.startsWith("Rotarix") ? 2 : 3);
   if (am >= 2 && am <= 8 && rv < rvMax && !risks.includes("immunocomp")) { // RV live: contraindicated in SCID/severe immunodeficiency
-    // Hard cutoff: cannot start after 14w6d (~3.5m), cannot give any dose after 8m
-    if (rv === 0 && am > 3.5) {
-      /* Too late to start — no recommendation, age window closed */
+    // Hard cutoff: cannot start after 14w6d (104 days = 14×7+6), cannot give any dose after 8m
+    // Use DOB-derived age in days when available for precision; fall back to am>3.5 (~106d).
+    const rvAgeDays = dob ? Math.floor((new Date() - new Date(dob + "T12:00:00")) / 86400000) : null;
+    const rvTooLate = rv === 0 && (rvAgeDays !== null ? rvAgeDays > 104 : am > 3.5);
+    if (rvTooLate) {
+      /* Too late to start — age window closed (must start by 14w6d = 104 days) */
     } else if (rv === 0)
       r("RV", "Dose 1 (must start by 14w6d)", 1, "due", "Min age 6 weeks. Must start by 14 weeks 6 days. Rotarix requires 2 doses; RotaTeq requires 3 doses. Complete the series with the same product when possible \u2014 do not defer if that product is unavailable.", ["Rotarix (RV1) \u2014 2-dose series", "RotaTeq (RV5) \u2014 3-dose series"], { bt: "Prefer same product for all doses. If any dose is RotaTeq or brand unknown, 3 doses required. Do not defer vaccination because the original product is unavailable.", textFrag: "maximum age for the first dose", refUrl: REFS.RV.cdcUrl, refLabel: REFS.RV.cdcLabel, refUrl2: REFS.RV.url, refLabel2: REFS.RV.label });
     else {
@@ -120,7 +123,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("DTaP", `Dose ${dt + 1} of 5 (primary series)`, dt + 1, "due", "Primary series at 2, 4, 6 months. Min 4 weeks between doses.", primaryBrands, { minInt: 28, refUrl: REFS.DTaP.cdcUrl, refLabel: REFS.DTaP.cdcLabel, refUrl2: REFS.DTaP.url, refLabel2: REFS.DTaP.label });
   } else if (am >= 7 && am <= 18 && dt < 3) {
     // Catch-up: missed primary doses, still under 18m
-    r("DTaP", `Catch-up \u2014 dose ${dt + 1} of 5 (primary)`, dt + 1, "catchup", `Primary series not complete. Give dose ${dt + 1} now. Min 4 weeks from prior dose.`, dt < 3 ? primaryBrands : ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 28, refUrl: REFS.DTaP.cdcUrl, refLabel: REFS.DTaP.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
+    r("DTaP", `Catch-up \u2014 dose ${dt + 1} of 5 (primary)`, dt + 1, "catchup", `Primary series not complete. Give dose ${dt + 1} now. Min 4 weeks from prior dose.`, primaryBrands, { minInt: 28, refUrl: REFS.DTaP.cdcUrl, refLabel: REFS.DTaP.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
   } else if (am >= 12 && am <= 18 && dt === 3) {
     r("DTaP", "Dose 4 (booster, 15\u201318 months)", 4, "due", "Min 6 months from dose 3. May give as early as 12 months if \u22656 months since dose 3.", ["Daptacel (DTaP only)", "Infanrix (DTaP only)", "Pentacel (DTaP+IPV+Hib)"], { minInt: 182, refUrl: REFS.DTaP.cdcUrl, refLabel: REFS.DTaP.cdcLabel, refUrl2: REFS.DTaP.url, refLabel2: REFS.DTaP.label });
   } else if (am >= 19 && am <= 47 && dt < 4) {

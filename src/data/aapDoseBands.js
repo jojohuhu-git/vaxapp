@@ -129,10 +129,12 @@ export const AAP_DOSE_BANDS = {
 
   // ── HPV ────────────────────────────────────────────────────────────────────
   // Sources: CDC HPV notes; AAP schedule
+  // recMin: 108 (9y) — ACIP/CDC recommends HPV as early as age 9; 11–12y is the
+  // routine target but 9–10y starters are ON TIME, not catch-up.
   HPV: [
-    { dose: 1, recMin: 132, recMax: 144, catchupMax: 324, label: '11–12 yr' },
-    { dose: 2, recMin: 132, recMax: 216, catchupMax: 324, label: '6–12 mo after D1 (2-dose <15y)' },
-    { dose: 3, recMin: 132, recMax: 216, catchupMax: 324, label: '≥15 yr or 3-dose schedule' },
+    { dose: 1, recMin: 108, recMax: 144, catchupMax: 324, label: '9–12 yr (routine)' },
+    { dose: 2, recMin: 108, recMax: 216, catchupMax: 324, label: '6–12 mo after D1 (2-dose <15y)' },
+    { dose: 3, recMin: 108, recMax: 216, catchupMax: 324, label: '≥15 yr or 3-dose schedule' },
   ],
 
   // ── MenACWY ────────────────────────────────────────────────────────────────

@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 /* eslint-disable react/prop-types */
 /**
  * ComplianceAuditTab — per-dose compliance review for every vaccine with history.
