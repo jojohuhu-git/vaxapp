@@ -8,11 +8,16 @@ export const dBetween = (d1, d2) => {
   return Math.round((new Date(d2) - new Date(d1)) / 86400000);
 };
 
-/** Add n days to an ISO date string. Returns "" if d is falsy. */
+/** Add n days to an ISO date string. Returns "" if d is falsy.
+ *  Uses UTC throughout to avoid DST / timezone-offset off-by-one errors:
+ *  parsing "YYYY-MM-DD" as UTC midnight and using setUTCDate ensures the
+ *  result is always the correct calendar date regardless of local timezone.
+ *  (mirrors MeningoVax dateUtils.addDays)
+ */
 export const addD = (d, n) => {
   if (!d) return "";
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
+  const r = new Date(d + "T00:00:00Z");
+  r.setUTCDate(r.getUTCDate() + n);
   return r.toISOString().slice(0, 10);
 };
 
