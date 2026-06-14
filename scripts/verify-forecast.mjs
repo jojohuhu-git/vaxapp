@@ -56,6 +56,17 @@ function expectProj(plan, visitM, vk, predicate, msg) {
   return proj;
 }
 
+// expectCuProj: assert a catch-up projection exists for the given vk+doseNum.
+// High-risk meningococcal doses and other interval-driven doses use catch-up
+// keys ("cu{age}_{vk}") rather than FORECAST_VISITS slot keys, so we search
+// by doseNum instead of a fixed month anchor.
+function expectCuProj(plan, vk, doseNum, msg) {
+  const entries = Object.entries(plan).filter(([k, v]) => k.endsWith("_" + vk) && v.doseNum === doseNum);
+  assert(entries.length > 0, msg,
+    `no projection for ${vk} D${doseNum}. All keys for ${vk}: ${Object.keys(plan).filter(k=>k.endsWith("_"+vk)).join(",")}`);
+  return entries[0]?.[1];
+}
+
 // Scenario runner: tag → fn
 function scenario(name, fn) {
   console.log("\n▶", name);
@@ -63,15 +74,16 @@ function scenario(name, fn) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// SCENARIO 1 — User-reported MenACWY/MenB bugs
+// SCENARIO 1 — High-risk MenACWY/MenB projection
 // 10-year-old, asplenia, no vaccine history.
-// Expected after fix:
-//   • MenACWY D1 fires AT THE PATIENT'S CURRENT AGE (am=120), not at 4–6y
-//   • MenACWY D2 projects at the 11–12y visit (132m), driven by min interval
-//     (8 weeks), NOT at 16y (the routine anchor only applies low-risk).
-//   • MenB D1 fires at am=120 (high-risk, ≥10y), with 3-dose total for
-//     high-risk + default FHbp/no brand chosen.
-//   • Selecting Penbraya at the current visit must NOT push D2 to 16y.
+// Expected behavior:
+//   • MenACWY D1 fires AT THE PATIENT'S CURRENT AGE (am=120)
+//   • MenACWY D2 is a catch-up key ~122m (8 wks after D1), NOT at 16y (192m).
+//     HIGHRISK_SKIPS_ROUTINE returns null for MenACWY, so the projection is
+//     driven by the minimum 56-day interval, not the low-risk 16y anchor.
+//   • MenB D1 fires at am=120 (high-risk, ≥10y), 3-dose total.
+//   • MenB D2 is a catch-up key ~121m (28 days after D1 for high-risk).
+//   • Selecting Penbraya must NOT shift D2 to a later FORECAST_VISITS slot.
 // ════════════════════════════════════════════════════════════════
 scenario("10yo asplenia, no history — MenACWY/MenB", () => {
   const am = 120;
@@ -100,16 +112,18 @@ scenario("10yo asplenia, no history — MenACWY/MenB", () => {
   // Projection with NO brand selected
   const plan = computeDosePlan(am, "", recs, {}, hist, risks);
 
-  // MenACWY D2 must project at 11–12y (132m) — NOT at 16y (192m)
-  expectProj(plan, 132, "MenACWY", p => p.doseNum === 2,
-    "MenACWY D2 projects at 11–12y (interval-based, not 16y routine)");
+  // MenACWY D2: catch-up key at ~122m (8 wks from D1) — NOT at 16y (192m).
+  // High-risk patients use interval-driven catch-up projection ("cu{age}_MenACWY"),
+  // not the low-risk routine 192m anchor.
+  expectCuProj(plan, "MenACWY", 2,
+    "MenACWY D2 projected for high-risk (interval-based catch-up, ~8 wks after D1)");
   assert(!plan["192_MenACWY"],
     "MenACWY D2 must NOT also project at 16y for high-risk",
     plan["192_MenACWY"] ? `unexpected: ${JSON.stringify(plan["192_MenACWY"])}` : "");
 
-  // MenB D2 must project at 11–12y (one month after D1, not 16y)
-  expectProj(plan, 132, "MenB", p => p.doseNum === 2,
-    "MenB D2 projects at 11–12y for high-risk (interval-based)");
+  // MenB D2: catch-up key at ~121m (28 days/high-risk interval from D1)
+  expectCuProj(plan, "MenB", 2,
+    "MenB D2 projected for high-risk (interval-based catch-up, ~1 mo after D1)");
   // MenB D3 must exist (3-dose for high-risk)
   const menb_d3 = Object.entries(plan).find(([k, v]) => k.endsWith("_MenB") && v.doseNum === 3);
   assert(!!menb_d3, "MenB D3 must be projected for high-risk (3-dose total)");
@@ -126,8 +140,8 @@ scenario("10yo asplenia, no history — MenACWY/MenB", () => {
     "204_MenB": "Penbraya (covers MenACWY + MenB)",
   };
   const planPenbrayaMenB = computeDosePlan(am, "", recs, fcBrandsPenbrayaMenB, hist, risks);
-  expectProj(planPenbrayaMenB, 132, "MenB", p => p.doseNum === 2,
-    "MenB D2 stays at 11–12y when Penbraya selected (Bug 2 fix)");
+  expectCuProj(planPenbrayaMenB, "MenB", 2,
+    "MenB D2 projected when Penbraya selected (catch-up interval-based, not delayed to 16y)");
   assert(!planPenbrayaMenB["192_MenB"] || planPenbrayaMenB["192_MenB"].doseNum === 3,
     "Selecting Penbraya does not push MenB D2 to 16y",
     planPenbrayaMenB["192_MenB"] ? `192_MenB: ${JSON.stringify(planPenbrayaMenB["192_MenB"])}` : "");
@@ -145,10 +159,10 @@ scenario("10yo asplenia, no history — MenACWY/MenB", () => {
     "204_MenB": "Penbraya (covers MenACWY + MenB)",
   };
   const planPenbrayaMen = computeDosePlan(am, "", recs, fcBrandsPenbrayaMen, hist, risks);
-  expectProj(planPenbrayaMen, 132, "MenACWY", p => p.doseNum === 2,
-    "MenACWY D2 stays at 11–12y with Penbraya cascade (Bug 3 fix)");
-  expectProj(planPenbrayaMen, 132, "MenB", p => p.doseNum === 2,
-    "MenB D2 stays at 11–12y with Penbraya cascade (Bug 3 fix)");
+  expectCuProj(planPenbrayaMen, "MenACWY", 2,
+    "MenACWY D2 projected with Penbraya cascade (catch-up interval-based, not delayed to 16y)");
+  expectCuProj(planPenbrayaMen, "MenB", 2,
+    "MenB D2 projected with Penbraya cascade (catch-up interval-based)");
   assert(!planPenbrayaMen["204_MenACWY"],
     "MenACWY D2 must NOT project at 17–18y (204m) with Penbraya cascade",
     planPenbrayaMen["204_MenACWY"] ? JSON.stringify(planPenbrayaMen["204_MenACWY"]) : "");
