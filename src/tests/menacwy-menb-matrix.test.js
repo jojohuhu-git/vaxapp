@@ -555,24 +555,66 @@ describe('MenACWY risk-based', () => {
     expect(doses.length).toBe(0);
   });
 
-  // Scenario 19: 6y (asplenia), completed 4-dose primary ending at 14m → booster 3y after
-  it.skip('19. 6y (asplenia), completed 4-dose primary → booster due 3y after primary [BUG: engine uses generic revax interval]', () => {
-    // BUG: Surface 1 — per ACIP, if primary series completed before 7th birthday, first
-    // booster is 3 years after primary completion, then every 5 years.
-    // The current engine uses minInt: 1095 (3 years) for all high-risk revaccination,
-    // which happens to match for the "before 7th birthday" case, but the note/label
-    // does not explicitly distinguish "3y after primary" vs "5y boosters."
-    // Additionally, the engine does not track WHEN the primary was completed to determine
-    // whether the primary ended before age 7.
-    // Surface 5 — buildOptimalSchedule.seriesDoses for isHRMen returns {totalDoses:2},
-    // which is only the primary series — it does NOT schedule ongoing revaccination.
-    const am = 72; // 6y
+  // Scenario 19 — MenACWY HR booster cadence, age-keyed (ACIP 2020 + immunize.org p2035)
+  // Rule:
+  //   isFirstBooster = (men === 2) — primary series is 2-dose for ≥24m high-risk patients.
+  //   First booster: 3y (1095d) if D2 age < 7y (84m) or unknown; 5y (1826d) if D2 age ≥ 7y.
+  //   Subsequent boosters (men >= 3): always 5y (1826d) regardless of D2 age.
+  //
+  //   For the 4-dose infant high-risk series (D1/D2/D3 primary at 2/4/6m + D4 booster at 12m):
+  //   the 4th dose IS the infant booster within the primary series. When the patient is later
+  //   assessed as a 6y child (men=4, given > 2), isFirstBooster = (men===2) = false → the next
+  //   dose is treated as a subsequent booster (5y). This matches MeningoVax exactly.
+  //
+  //   See describe('MenACWY high-risk booster cadence — regression') below for full dated-dose
+  //   coverage of all D2-age branches (Cases A/A2/B/B2/C/C2).
+  it('19a. 6y (72m), asplenia, 2-dose primary with D2 at ~27m (<7y) → first booster minInt 1095d (3y)', () => {
+    // D2 at 27m < 84m → isFirstBooster=true, d2KnownAtOrAfter7=false → 1095d
+    const am = 72;
     const risks = ['asplenia'];
-    const hist = { MenACWY: [{ given: true }, { given: true }, { given: true }, { given: true }] };
+    const hist = { MenACWY: [
+      { given: true, mode: 'age', ageDays: Math.round(24 * 30.4375) }, // D1 at ~24m
+      { given: true, mode: 'age', ageDays: Math.round(27 * 30.4375) }, // D2 at ~27m
+    ]};
     const r = firstRec('MenACWY', am, hist, risks);
-    // Expecting a revaccination rec
     expect(r).not.toBeNull();
-    expect(r.doseNum).toBeGreaterThanOrEqual(5);
+    expect(r.status).toBe('risk-based');
+    expect(r.doseNum).toBe(3);
+    // First booster, D2 known <7y → 3 years
+    expect(r.minInt).toBe(1095);
+
+    // Surface 2
+    expect(regimenCoversVk('MenACWY', am, hist, risks)).toBe(true);
+    // Surface 4: not catch-up
+    expect(recsFor('MenACWY', am, hist, risks).filter(r => r.status === 'catchup')).toHaveLength(0);
+    // Surface 5: primary series complete (2 doses given) → 0 more primary doses in optimizer
+    const doses = optimalDosesFor('MenACWY', am, hist, risks);
+    expect(doses.length).toBe(0);
+  });
+
+  it('19b. 6y (72m), asplenia, 4-dose infant primary (men=4) → subsequent booster minInt 1826d (5y)', () => {
+    // 4-dose infant primary series (D1–D3 primary at 2/4/6m, D4 booster at 12m).
+    // The D4 booster at 12m IS the first booster within the infant series.
+    // When assessed at 6y: men=4, isFirstBooster=(men===2)=false → subsequent booster (5y).
+    // This matches MeningoVax's ≥24m primary2 path exactly.
+    const am = 72;
+    const risks = ['asplenia'];
+    const hist = { MenACWY: [
+      { given: true, mode: 'age', ageDays: Math.round(2  * 30.4375) }, // D1 at 2m
+      { given: true, mode: 'age', ageDays: Math.round(4  * 30.4375) }, // D2 at 4m
+      { given: true, mode: 'age', ageDays: Math.round(6  * 30.4375) }, // D3 at 6m
+      { given: true, mode: 'age', ageDays: Math.round(12 * 30.4375) }, // D4 at 12m
+    ]};
+    const r = firstRec('MenACWY', am, hist, risks);
+    expect(r).not.toBeNull();
+    expect(r.status).toBe('risk-based');
+    expect(r.doseNum).toBe(5); // dose 5 = first post-infant-series booster
+    // men=4 → isFirstBooster=false → subsequent booster interval (5y)
+    expect(r.minInt).toBe(1826);
+
+    // Surface 5: primary series (2 doses in optimizer model) already exceeded → 0 projected
+    const doses = optimalDosesFor('MenACWY', am, hist, risks);
+    expect(doses.length).toBe(0);
   });
 
   // Scenario 20: 12y (asplenia), completed primary at 8y → booster every 5y
@@ -934,21 +976,48 @@ describe('MenB risk-based', () => {
     expect(doses.length).toBe(2);
   });
 
-  // Scenario 32: 14y (168m), asplenia, D1 7mo ago, D2 given just now
-  // → D3 not needed (D2 was ≥6mo after D1 → collapses to 2-dose series)
-  it.skip('32. 14y (168m), asplenia, D1 + D2 given ≥6mo apart → D3 NOT needed [BUG: engine always requires 3-dose for HR FHbp]', () => {
-    // BUG: Surface 1 — per ACIP, high-risk Trumenba: if D2 is given ≥6mo after D1,
-    // the series collapses to 2 doses (D3 not needed). The engine currently always
-    // requires 3 doses for high-risk FHbp (see menb===2 + isFHbp2 && hr branch),
-    // which does not check the actual D1→D2 interval.
-    // Fix needed in recommendations.js: check the interval between D1 and D2 —
-    // if ≥182d (6mo), series is complete at 2 doses.
+  // Scenario 32 — MenB high-risk: 3 doses ALWAYS required (ACIP 2020 + MeningoVax)
+  // ACIP 2020 MMWR RR-9: high-risk patients (asplenia, complement, microbiologist,
+  // serogroup-B outbreak) require a 3-dose accelerated series for BOTH antigen families
+  // (MenB-4C and MenB-FHbp), on the 0/1–2/6-month schedule.
+  //
+  // The old test skip expected D3 to be absent when D1→D2 spacing is ≥6mo. That was
+  // CLINICALLY WRONG: the 2-dose 0/6-month schedule applies only to NON-high-risk shared
+  // clinical decision-making patients. High-risk patients ALWAYS need D3 regardless of
+  // D1→D2 spacing. The engine (recommendations.js, menb===2 && hrMenB branch) already
+  // correctly emits D3 unconditionally for high-risk. This test verifies that behavior.
+  it('32. 14y (168m), asplenia, D1 + D2 FHbp ≥6mo apart → D3 IS still required (HR always 3-dose)', () => {
+    // D1 at 7 months ago, D2 at 1 month ago — spacing > 6 months.
+    // Non-HR 2-dose schedule would be complete; HR 3-dose is NOT complete.
     const am = 168;
     const risks = ['asplenia'];
-    const hist = { MenB: [{ given: true, brand: 'Trumenba (MenB-FHbp)' }, { given: true, brand: 'Trumenba (MenB-FHbp)' }] };
+    const hist = { MenB: [
+      { given: true, brand: 'Trumenba (MenB-FHbp)', mode: 'age', ageDays: Math.round(161 * 30.4375) }, // D1 ~7mo ago
+      { given: true, brand: 'Trumenba (MenB-FHbp)', mode: 'age', ageDays: Math.round(167 * 30.4375) }, // D2 ~1mo ago
+    ]};
+
+    // Surface 1: D3 required (high-risk always 3-dose, regardless of D1→D2 spacing)
     const r = firstRec('MenB', am, hist, risks);
-    // Engine currently emits D3 — should be null (series complete)
-    expect(r).toBeNull(); // FAILS
+    expect(r).not.toBeNull();
+    expect(r.status).toBe('risk-based');
+    expect(r.doseNum).toBe(3);
+    // minInt = 112d (≥4 months from D2); the ≥6mo from D1 constraint is enforced by validation
+    expect(r.minInt).toBe(112);
+
+    // Surface 2
+    expect(regimenCoversVk('MenB', am, hist, risks)).toBe(true);
+
+    // Surface 3: FHbp family locked — only Trumenba/Penbraya
+    const brands32 = forecastBrands('MenB', 3, 168, ['MenB'], r?.brands || [], 'Trumenba (MenB-FHbp)');
+    expect(brands32.some(b => b.includes('Trumenba') || b.includes('Penbraya'))).toBe(true);
+    expect(brands32.every(b => !b.includes('Bexsero') && !b.includes('Penmenvy'))).toBe(true);
+
+    // Surface 4: no catch-up status (this is risk-based)
+    expect(recsFor('MenB', am, hist, risks).filter(r => r.status === 'catchup')).toHaveLength(0);
+
+    // Surface 5: 3-dose high-risk series — 2 given, 1 remaining
+    const doses32 = optimalDosesFor('MenB', am, hist, risks);
+    expect(doses32.length).toBe(1);
   });
 
   // Scenario 33: 16y (192m), asplenia, completed 2-dose Bexsero primary → first booster due 1y later
@@ -987,31 +1056,10 @@ describe('MenB risk-based', () => {
     expect(doses33.length).toBe(1); // 3-dose high-risk series: dose 3 scheduled
   });
 
-  // Scenario 34: 20y (240m), asplenia, primary complete 3y ago, last booster 1y ago → not yet
-  it.skip('34. 20y (240m), asplenia, booster 1y ago → not yet due again (2–3y interval) [BUG: engine always emits revax when menb>=3]', () => {
-    // BUG: Surface 1 — the revaccination branch `hr && menb >= 3` fires unconditionally
-    // whenever menb>=3, regardless of when the last dose was given. Without minInt
-    // enforcement at the genRecs level, it always emits a "revaccination due" rec even
-    // if the last dose was only 1 year ago (within the 2–3y window).
-    // Fix needed: either check prevDate/minInt at the rec engine level, or rely on the UI
-    // to suppress recs within the minInt window. The minInt is set (730d for D4+), so
-    // the UI might suppress it, but the genRecs output is still "due".
-    const am = 240;
-    const risks = ['asplenia'];
-    const hist = { MenB: [
-      { given: true, brand: 'Bexsero (MenB-4C)' },
-      { given: true, brand: 'Bexsero (MenB-4C)' },
-      { given: true, brand: 'Bexsero (MenB-4C)' }, // primary complete
-      { given: true, brand: 'Bexsero (MenB-4C)' }, // booster 1y ago
-    ]};
-    const r = firstRec('MenB', am, hist, risks);
-    // Engine emits D5 with minInt 730d — patient should NOT be due yet at 1y post-booster
-    // (730d = ~2y; we're at 1y). The rec is emitted regardless.
-    expect(r).toBeNull(); // FAILS — engine emits rec
-  });
-
-  // Scenario 35: 18y (216m), asplenia, 2-dose Bexsero, D3 of 3-dose HR primary due
-  it('35. 18y (216m), asplenia, 2-dose Bexsero primary, D3 due (high-risk 3-dose primary)', () => {
+  // Scenario 35: 18y (216m), asplenia, 2-dose Bexsero primary complete, no booster → D3 due
+  // Bexsero (4C) high-risk 3-dose schedule: D3 minInt 112d (≥4mo after D2), also ≥6mo from D1.
+  // Note: 300m (25y) is outside PediVax scope (adult cap at 228m per PR #50); using 216m.
+  it('35. 18y (216m), asplenia, 2-dose Bexsero primary, D3 of 3-dose HR schedule due, minInt 112d', () => {
     const am = 216;
     const risks = ['asplenia'];
     const hist = { MenB: [
