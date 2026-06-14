@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { genRecs } from '../logic/recommendations';
 import { validatedHistory } from '../logic/validation';
+import { REFS } from '../data/refs';
 import TabBar from './TabBar';
 import RecTab from './RecTab';
 import PlanTab from './PlanTab';
@@ -83,6 +84,28 @@ export default function MainPanel() {
         <div className="empty-state">
           <h2>Select Patient Age to Begin</h2>
           <p>Choose an age or enter a date of birth to generate vaccine recommendations based on the 2025 CDC/ACIP schedule.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (effectiveAm >= 228) {
+    return (
+      <div className="card">
+        <div className="empty-state">
+          <h2>Adult Patient</h2>
+          <p>
+            This tool covers children through age 18. For adults, see the{' '}
+            <a
+              href={REFS.adultSchedule.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--g)', textDecoration: 'underline' }}
+            >
+              CDC adult immunization schedule
+            </a>
+            .
+          </p>
         </div>
       </div>
     );

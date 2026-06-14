@@ -48,6 +48,37 @@ export const isHighRiskMenACWY = (risks) =>
 export const GRACE = 4;
 
 /**
+ * Returns true if the given live vaccine is contraindicated for this patient.
+ * Mirrors the conditions checked in genRecs before emitting MMR, VAR, and RV recs.
+ *
+ * @param {"MMR"|"VAR"|"RV"} vk - vaccine key
+ * @param {string[]} risks - risk factor IDs
+ * @param {number|null} cd4 - CD4 count (null = unknown)
+ * @returns {boolean}
+ */
+export function isLiveVaccineContraindicated(vk, risks, cd4) {
+  const isImmunocomp = risks.includes('immunocomp');
+  const isHIV = risks.includes('hiv');
+  const isPregnant = risks.includes('pregnancy');
+
+  // HIV suppression threshold: CD4% <14% for <14y, CD4 count <200 for ≥14y.
+  // buildOptimalSchedule does not have patient age at the time this helper is called,
+  // so we conservatively treat any CD4 <200 as suppressed (covers both thresholds).
+  const hivSuppressed = isHIV && cd4 != null && cd4 < 200;
+
+  if (vk === 'MMR' || vk === 'VAR') {
+    // Contraindicated: severe immunodeficiency, HIV-suppressed, or pregnancy.
+    return isImmunocomp || hivSuppressed || isPregnant;
+  }
+  if (vk === 'RV') {
+    // Contraindicated in severe combined immunodeficiency (immunocomp).
+    // HIV alone is NOT a contraindication per ACIP.
+    return isImmunocomp;
+  }
+  return false;
+}
+
+/**
  * Get effective age in days for a dose (returns null if unknown).
  * @param {object} dose - dose object with mode, date, ageDays
  * @param {string} dob - patient date of birth (ISO string)

@@ -116,70 +116,62 @@ describe('C1 — MenB D3 d1Cross (≥182d from D1) applied in dosePlan projectio
   });
 });
 
-// ─── M1: MenACWY catch-up 21y boundary ───────────────────────────────────────
-describe('M1 — MenACWY catch-up upper bound: "through 21 years" = am < 264 (22nd birthday)', () => {
-  it('am=252 (21st birthday) → catch-up rec emitted (included)', () => {
-    const r = first('MenACWY', 252, {}, []);
-    // Should get a catch-up rec (no dose at ≥16y assumed)
+// ─── M1: MenACWY catch-up — vaxapp peds boundary ────────────────────────────
+// vaxapp covers birth-18y (am<228). The engine's MenACWY catch-up window goes
+// through 21y per ACIP, but that range is adult scope for this app.
+// Boundary: am=216 (18y) emits catch-up; am=228 (19y) returns empty (adult gate).
+describe('M1 — MenACWY catch-up upper bound: vaxapp peds boundary (18y = last year)', () => {
+  it('am=216 (18y) → catch-up rec emitted (last peds year in catch-up window)', () => {
+    const r = first('MenACWY', 216, {}, []);
     expect(r).not.toBeNull();
     expect(r.status).toBe('catchup');
   });
 
-  it('am=257 (21y 5m) → catch-up still emitted (was incorrectly excluded at old am<=252)', () => {
-    const r = first('MenACWY', 257, {}, []);
+  it('am=220 (18y 4m) → catch-up rec emitted (within peds scope)', () => {
+    const r = first('MenACWY', 220, {}, []);
     expect(r).not.toBeNull();
     expect(r.status).toBe('catchup');
   });
 
-  it('am=263 (just before 22nd birthday) → catch-up still emitted', () => {
-    const r = first('MenACWY', 263, {}, []);
+  it('am=225 (just before 228m adult gate) → catch-up emitted', () => {
+    const r = first('MenACWY', 225, {}, []);
     expect(r).not.toBeNull();
     expect(r.status).toBe('catchup');
   });
 
-  it('am=264 (22nd birthday) → catch-up NO LONGER emitted (past the window)', () => {
-    const r = first('MenACWY', 264, {}, []);
-    // At 264m (22nd birthday), the catch-up window is closed
-    // (may get a shared-decision rec instead, but not the specific catch-up branch)
-    if (r) {
-      expect(r.status).not.toBe('catchup');
-    }
+  it('am=228 (19y = adult gate) → NO rec emitted (peds-only tool)', () => {
+    const r = first('MenACWY', 228, {}, []);
+    // Adult gate: genRecs returns [] at am>=228
+    expect(r).toBeNull();
   });
 });
 
-// ─── M2: MenB shared-decision upper bound ────────────────────────────────────
-describe('M2 — MenB D1 shared-decision upper bound: "through 23 years" = am < 288 (24th birthday)', () => {
-  it('am=276 (23rd birthday) → shared-decision rec still emitted (was the old boundary)', () => {
-    const r = first('MenB', 276, {}, []);
+// ─── M2: MenB shared-decision — vaxapp peds boundary ────────────────────────
+// vaxapp covers birth-18y (am<228). The engine's MenB SCD window goes through
+// 23y per ACIP, but that range is adult scope for this app.
+// Boundary: am=216 (18y) emits SCD; am=228 (19y) returns empty (adult gate).
+describe('M2 — MenB D1 shared-decision: vaxapp peds boundary (18y = last peds year)', () => {
+  it('am=216 (18y) → shared-decision rec emitted (last peds year in SCD window)', () => {
+    const r = first('MenB', 216, {}, []);
     expect(r).not.toBeNull();
     expect(r.status).toBe('recommended');
     expect(r.doseNum).toBe(1);
   });
 
-  it('am=281 (23y 5m) → shared-decision emitted (was incorrectly excluded at old am<=276)', () => {
-    const r = first('MenB', 281, {}, []);
+  it('am=220 (18y 4m) → shared-decision emitted (within peds scope)', () => {
+    const r = first('MenB', 220, {}, []);
     expect(r).not.toBeNull();
     expect(r.status).toBe('recommended');
   });
 
-  it('am=287 (just before 24th birthday) → shared-decision still emitted', () => {
-    const r = first('MenB', 287, {}, []);
-    expect(r).not.toBeNull();
-    expect(r.status).toBe('recommended');
+  it('am=228 (19y = adult gate) → NO rec emitted (peds-only tool)', () => {
+    const r = first('MenB', 228, {}, []);
+    // Adult gate: genRecs returns [] at am>=228
+    expect(r).toBeNull();
   });
 
-  it('am=288 (24th birthday) → shared-decision NOT emitted (past window)', () => {
-    const r = first('MenB', 288, {}, []);
-    // Healthy 24y with no MenB history should have no routine/shared-decision rec
-    // (may still appear if high-risk, but default healthy should not)
-    if (r) {
-      // If emitted, it should NOT be shared-decision for a healthy patient
-      expect(r.status).not.toBe('recommended');
-    }
-  });
-
-  it('high-risk (asplenia) at am=288 still gets MenB D1 risk-based', () => {
-    const r = first('MenB', 288, {}, ['asplenia']);
+  it('high-risk (asplenia) at am=216 still gets MenB D1 risk-based', () => {
+    const r = first('MenB', 216, {}, ['asplenia']);
     expect(r).not.toBeNull();
     expect(r.status).toBe('risk-based');
   });

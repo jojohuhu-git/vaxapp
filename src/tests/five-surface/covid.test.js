@@ -16,8 +16,8 @@ describe('COVID — annual recommendation (Surface 1)', () => {
     expect(r).not.toBeNull();
   });
 
-  it('S1: rec at am=240 (20y adult)', () => {
-    const r = firstRec('COVID', 240);
+  it('S1: rec at am=60 (5y — COVID recommended ≥6m)', () => {
+    const r = firstRec('COVID', 60);
     expect(r).not.toBeNull();
   });
 

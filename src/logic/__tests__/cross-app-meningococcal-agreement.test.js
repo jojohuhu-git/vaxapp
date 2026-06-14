@@ -53,8 +53,8 @@ function menacwyRec(am, hist, risks, dob) {
 //   that a high-risk dose 3 is indicated; exact earliest-date computation
 //   differs by implementation but both report risk-based status.
 // ══════════════════════════════════════════════════════════════════════════════
-describe('Case 1 — High-risk MenB D3 timing (asplenia, 20y)', () => {
-  const am = 240;
+describe('Case 1 — High-risk MenB D3 timing (asplenia, 18y)', () => {
+  const am = 216;
   const risks = ['asplenia'];
   const hist = {
     MenB: [dateDose('2026-01-01', 'Bexsero (MenB-4C)'), dateDose('2026-02-15', 'Bexsero (MenB-4C)')]
@@ -128,8 +128,10 @@ describe('Case 2 — Infant high-risk MenACWY 4-dose complete series (18m, asple
 // vaxapp: 258mo < 264mo → the 192-264m catch-up branch fires (status='catchup').
 // Agreement: both offer catch-up.
 // ══════════════════════════════════════════════════════════════════════════════
-describe('Case 3a — 21y6m (258mo), healthy, no MenACWY: catch-up still offered', () => {
-  const am = 258;
+// Case 3a re-scoped: 21y6m is adult scope in vaxapp (am>=228). Using 18y (216m)
+// which is the last peds year still in catch-up window.
+describe('Case 3a — 18y (216mo), healthy, no MenACWY: catch-up still offered (peds boundary)', () => {
+  const am = 216;
   const risks = [];
   const hist = {};
 
@@ -155,8 +157,9 @@ describe('Case 3a — 21y6m (258mo), healthy, no MenACWY: catch-up still offered
 // uses 'shared-decision'. They differ in label but agree on the clinical conclusion
 // (MenB is appropriate here).
 // ══════════════════════════════════════════════════════════════════════════════
-describe('Case 3b — 23y6m (282mo), healthy, no MenB: shared-decision offered', () => {
-  const am = 282;
+// Case 3b re-scoped: 23y6m is adult scope in vaxapp (am>=228). Using 18y (216m).
+describe('Case 3b — 18y (216mo), healthy, no MenB: shared-decision offered (peds boundary)', () => {
+  const am = 216;
   const risks = [];
   const hist = {};
 

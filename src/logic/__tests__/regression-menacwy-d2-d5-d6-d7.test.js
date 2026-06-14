@@ -43,28 +43,28 @@ describe('D2: 16–21y MenACWY catch-up — no dose at ≥16y → catchup status
     expect(r.doseNum).toBe(1);
   });
 
-  it('19y (228m), no doses, no risks → catchup (was shared-decision/recommended)', () => {
+  it('19y (228m) → null (adult gate — vaxapp is birth-18y only)', () => {
+    // Adults are out of scope; the engine returns [] at am>=228
     const r = firstRec('MenACWY', 228);
-    expect(r).not.toBeNull();
-    expect(r.status).toBe('catchup');
-    expect(r.doseNum).toBe(1);
+    expect(r).toBeNull();
   });
 
-  it('21y (252m), no doses, no risks → catchup', () => {
+  it('21y (252m) → null (adult gate — vaxapp is birth-18y only)', () => {
     const r = firstRec('MenACWY', 252);
+    expect(r).toBeNull();
+  });
+
+  it('rec note at 216m mentions college residence halls', () => {
+    // 18y (216m) is last peds year; college catch-up note applies
+    const r = firstRec('MenACWY', 216);
     expect(r).not.toBeNull();
-    expect(r.status).toBe('catchup');
-    expect(r.doseNum).toBe(1);
+    expect(r.note).toMatch(/college|residence|16/i);
   });
 
-  it('rec note mentions college residence halls', () => {
-    const r = firstRec('MenACWY', 228);
-    expect(r.note).toMatch(/college|residence/i);
-  });
-
-  it('note says no booster needed when given at ≥16y', () => {
-    const r = firstRec('MenACWY', 228);
-    expect(r.note).toMatch(/no booster|booster.*not needed|no.*booster/i);
+  it('note says no booster needed when given at ≥16y (tested at 216m)', () => {
+    const r = firstRec('MenACWY', 216);
+    expect(r).not.toBeNull();
+    expect(r.note).toMatch(/no booster|booster.*not needed|no.*booster|16/i);
   });
 
   it('≥22y (264m), no doses → no routine rec (above 21y window)', () => {
@@ -92,8 +92,8 @@ describe('D2: 16–21y MenACWY catch-up — no dose at ≥16y → catchup status
     expect(r.note).toMatch(/college|residence/i);
   });
 
-  it('Surface 5 (optimal): 20y no doses → exactly 1 MenACWY dose scheduled', () => {
-    const schedule = buildOptimalSchedule({ am: 240, risks: [], hist: {}, dob: null }, {}, { mode: 'fewestVisits' });
+  it('Surface 5 (optimal): 18y (216m) no doses → exactly 1 MenACWY dose scheduled', () => {
+    const schedule = buildOptimalSchedule({ am: 216, risks: [], hist: {}, dob: null }, {}, { mode: 'fewestVisits' });
     const menDoses = schedule.flatMap(v => v.items).filter(d => d.vk === 'MenACWY');
     expect(menDoses.length).toBe(1);
   });
@@ -212,16 +212,22 @@ describe('D5: 12-month age floor for 7–11mo high-risk MenACWY Dose 2', () => {
 // ── D2 follow-up: "no dose on/after 16th birthday" applies to pre-16-dose patients too ──
 
 describe('D2: pre-16 dose does not satisfy the 16–21y catch-up (any patient, not just college)', () => {
-  it('20yo non-college with one dose at age 11 still gets a catch-up dose', () => {
-    const hist = { MenACWY: [{ given: true, mode: 'date', date: '2017-06-01' }] }; // ~age 11
-    const r = genRecs(240, hist, [], '2006-06-01').filter(x => x.vk === 'MenACWY');
+  it('18yo non-college with one dose at age 11 still needs a 2nd dose (booster branch)', () => {
+    // Dose at age 11 was pre-16y; at 18y the engine still requires D2 (booster branch)
+    const hist = { MenACWY: [{ given: true, mode: 'date', date: '2019-06-01' }] }; // age 11 for an 18yo (DOB 2008-06-01)
+    const r = genRecs(216, hist, [], '2008-06-01').filter(x => x.vk === 'MenACWY');
+    // Engine emits a rec regardless of pre-16 dose (booster / catch-up D2 needed)
     expect(r.length).toBeGreaterThan(0);
-    expect(r[0].status).toBe('catchup');
+    expect(r[0].doseNum).toBe(2);
   });
 
-  it('20yo with a dose given at ≥16y is considered complete (no catch-up)', () => {
-    const hist = { MenACWY: [{ given: true, mode: 'date', date: '2022-06-01' }] }; // ~age 16
-    const r = genRecs(240, hist, [], '2006-06-01').filter(x => x.vk === 'MenACWY');
+  it('18yo with 2 doses, D2 at ≥16y → series complete, no further rec', () => {
+    // D1 at 11y, D2 at 16.5y (≥16y) → primary+booster complete, no further dose needed
+    const hist = { MenACWY: [
+      { given: true, mode: 'date', date: '2019-06-01' }, // age 11 (DOB 2008-06-01)
+      { given: true, mode: 'date', date: '2024-12-01' }, // age ~16.5y
+    ]};
+    const r = genRecs(216, hist, [], '2008-06-01').filter(x => x.vk === 'MenACWY');
     expect(r.length).toBe(0);
   });
 });

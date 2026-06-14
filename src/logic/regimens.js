@@ -10,6 +10,9 @@ import { comboFitsDose } from './brandRules.js';
  * @param {number} am - age in months
  */
 export function buildRegimens(recs, am) {
+  // PediVax is for pediatric patients only (birth–18y).
+  if (am >= 228) return [];
+
   // Include every rec that represents a dose to administer at this visit.
   // "risk-based" and "recommended" (e.g. asplenia MenACWY/MenB at 10y,
   // shared-decision MenB at 16y, annual COVID) must appear in the optimizer

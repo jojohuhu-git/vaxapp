@@ -312,12 +312,12 @@ describe('MenACWY routine schedule', () => {
     expect(doses.length).toBeGreaterThanOrEqual(1);
   });
 
-  // Scenario 10: 20y (240m), no history → D2 fix: catch-up 1 dose (no booster when ≥16y)
-  // Per ACIP job aid: all patients 16–21y unvaccinated get catch-up Dose 1 of 1.
-  it('10. 20y (240m), no history → catch-up 1 dose (16–21y rule)', () => {
-    const am = 240;
+  // Scenario 10: 18y (216m), no history → catch-up 1 dose (16–21y rule, peds-scope version)
+  // (The engine's catch-up window extends to 21y, but vaxapp covers birth-18y; 216m is last peds year.)
+  it('10. 18y (216m), no history → catch-up 1 dose (16–18y rule)', () => {
+    const am = 216;
 
-    // Surface 1: catch-up (changed from 'recommended' per D2 fix)
+    // Surface 1: catch-up
     const r = firstRec('MenACWY', am);
     expect(r).not.toBeNull();
     expect(r.doseNum).toBe(1);
@@ -327,8 +327,8 @@ describe('MenACWY routine schedule', () => {
     // Surface 2: optimizer includes MenACWY
     expect(regimenCoversVk('MenACWY', am)).toBe(true);
 
-    // Surface 3: brands at 20y
-    const brands = forecastBrands('MenACWY', 1, 240, ['MenACWY']);
+    // Surface 3: brands at 18y
+    const brands = forecastBrands('MenACWY', 1, 216, ['MenACWY']);
     expect(brands.some(b => b.includes('Menveo') || b.includes('MenQuadfi'))).toBe(true);
 
     // Surface 4: is a catch-up scenario
@@ -607,11 +607,11 @@ describe('MenACWY risk-based', () => {
     expect(doses.length).toBe(0);
   });
 
-  // Scenario 21: 30y (360m), asplenia, last dose 6y ago → booster due
-  it('21. 30y (360m), asplenia, last dose 6y ago → booster due (overdue)', () => {
-    const am = 360;
+  // Scenario 21: 18y (216m), asplenia, 3 prior doses (primary+booster), 4th dose due
+  it('21. 18y (216m), asplenia, 3 prior doses → D4 booster due (risk-based)', () => {
+    const am = 216;
     const risks = ['asplenia'];
-    // Completed primary (2 doses) + 1 prior booster — now overdue
+    // 3 doses given: primary + first booster — 4th dose (subsequent booster) due
     const hist = { MenACWY: [{ given: true }, { given: true }, { given: true }] };
 
     // Surface 1: revaccination dose 4
@@ -624,7 +624,7 @@ describe('MenACWY risk-based', () => {
     expect(regimenCoversVk('MenACWY', am, hist, risks)).toBe(true);
 
     // Surface 3
-    const brands = forecastBrands('MenACWY', 4, 360, ['MenACWY'], r.brands);
+    const brands = forecastBrands('MenACWY', 4, 216, ['MenACWY'], r.brands);
     expect(brands.some(b => b.includes('Menveo') || b.includes('MenQuadfi'))).toBe(true);
 
     // Surface 4: risk-based
@@ -788,9 +788,9 @@ describe('MenB shared decision (non-risk, 16–23y)', () => {
     expect(doses.length).toBe(0); // engine behavior: series "complete" at 2 doses per seriesDoses
   });
 
-  // Scenario 27: 23y (276m), no history → shared decision, last age window
-  it('27. 23y (276m), no history → MenB shared decision (last year of window)', () => {
-    const am = 276;
+  // Scenario 27: 18y (216m), no history → shared decision (last peds year in 16-23y window)
+  it('27. 18y (216m), no history → MenB shared decision (within peds scope)', () => {
+    const am = 216;
 
     // Surface 1: D1 shared decision
     const r = firstRec('MenB', am);
@@ -802,7 +802,7 @@ describe('MenB shared decision (non-risk, 16–23y)', () => {
     expect(regimenCoversVk('MenB', am)).toBe(true);
 
     // Surface 3
-    const brands = forecastBrands('MenB', 1, 276, ['MenB'], r.brands);
+    const brands = forecastBrands('MenB', 1, 216, ['MenB'], r.brands);
     expect(brands.some(b => b.includes('Bexsero') || b.includes('Trumenba'))).toBe(true);
 
     // Surface 4: not catch-up
@@ -1010,12 +1010,10 @@ describe('MenB risk-based', () => {
     expect(r).toBeNull(); // FAILS — engine emits rec
   });
 
-  // Scenario 35: 25y (300m), asplenia, 2-dose Bexsero primary complete, no booster → first booster due
-  // Bexsero (4C): primary = 2 doses. First booster = 1 year after primary (minInt 365d).
-  it('35. 25y (300m), asplenia, 2-dose Bexsero primary complete, no booster → D3 booster due, minInt 365d', () => {
-    const am = 300;
+  // Scenario 35: 18y (216m), asplenia, 2-dose Bexsero, D3 of 3-dose HR primary due
+  it('35. 18y (216m), asplenia, 2-dose Bexsero primary, D3 due (high-risk 3-dose primary)', () => {
+    const am = 216;
     const risks = ['asplenia'];
-    // 2 doses given = complete 4C primary (Bexsero: 2-dose primary)
     const hist = { MenB: [
       { given: true, brand: 'Bexsero (MenB-4C)' },
       { given: true, brand: 'Bexsero (MenB-4C)' },
@@ -1026,20 +1024,19 @@ describe('MenB risk-based', () => {
     expect(r).not.toBeNull();
     expect(r.status).toBe('risk-based');
     expect(r.doseNum).toBe(3);
-    // 4C HR primary D3: minInt 112d (≥4mo from D2)
     expect(r.minInt).toBe(112);
 
     // Surface 2
     expect(regimenCoversVk('MenB', am, hist, risks)).toBe(true);
 
     // Surface 3
-    const brands35 = forecastBrands('MenB', 3, 300, ['MenB'], r?.brands || [], 'Bexsero (MenB-4C)');
+    const brands35 = forecastBrands('MenB', 3, 216, ['MenB'], r?.brands || [], 'Bexsero (MenB-4C)');
     expect(brands35.some(b => b.includes('Bexsero'))).toBe(true);
 
     // Surface 4
     expect(recsFor('MenB', am, hist, risks).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5: high-risk 3-dose series (seriesDoses returns 3) — D3 still outstanding
+    // Surface 5: high-risk 3-dose series — D3 still outstanding
     const doses35 = optimalDosesFor('MenB', am, hist, risks);
     expect(doses35.length).toBe(1);
   });
@@ -1333,12 +1330,12 @@ describe('MenACWY high-risk booster cadence — regression', () => {
   });
 
   it('Case B: primary completed ≥7y — first booster (men===2) minInt 1826d', () => {
-    // Patient now 30y (360m). D1 at age 20y, D2 at age 21y — both ≥7y.
+    // Patient now 18y (216m). D1 at age 9y, D2 at age 10y — both ≥7y.
     const today = '2026-06-04';
-    const dob = monthsBefore(today, 360); // born 30 years ago
-    const d1Date = monthsBefore(today, 120); // age 20y
-    const d2Date = monthsBefore(today, 108); // age 21y
-    const am = 360;
+    const dob = monthsBefore(today, 216); // born 18 years ago
+    const d1Date = monthsBefore(today, 108); // age 9y
+    const d2Date = monthsBefore(today, 96); // age 10y
+    const am = 216;
     const risks = ['complement'];
     const hist = {
       MenACWY: [
@@ -1356,13 +1353,13 @@ describe('MenACWY high-risk booster cadence — regression', () => {
   });
 
   it('Case B2: primary completed ≥7y — subsequent booster (men===3) minInt 1826d', () => {
-    // Patient 40y (480m). Primary at 20/21y, first booster at 26y, now needs second booster.
+    // Patient 18y (216m). D1 at 9y, D2 at 10y, first booster at 14y → D4 subsequent booster due.
     const today = '2026-06-04';
-    const dob = monthsBefore(today, 480); // born 40 years ago
-    const d1Date = monthsBefore(today, 240); // age 20y
-    const d2Date = monthsBefore(today, 228); // age 21y
-    const d3Date = monthsBefore(today, 168); // age 26y (first booster, ≥5y after D2)
-    const am = 480;
+    const dob = monthsBefore(today, 216); // born 18 years ago
+    const d1Date = monthsBefore(today, 108); // age 9y
+    const d2Date = monthsBefore(today, 96); // age 10y
+    const d3Date = monthsBefore(today, 48); // age 14y (first booster)
+    const am = 216;
     const risks = ['asplenia'];
     const hist = {
       MenACWY: [
@@ -1374,8 +1371,7 @@ describe('MenACWY high-risk booster cadence — regression', () => {
     const r = recWithDob(am, hist, risks, dob);
     expect(r).not.toBeNull();
     expect(r.doseNum).toBe(4);
-    // Subsequent booster → ALWAYS 5 years (same as Case B first booster coincidentally,
-    // but the label must say "subsequent booster")
+    // Subsequent booster → ALWAYS 5 years
     expect(r.minInt).toBe(1826);
     expect(r.dose).toMatch(/every 5 year|5 year.*subsequent/i);
   });
@@ -1400,7 +1396,7 @@ describe('MenACWY high-risk booster cadence — regression', () => {
 
   it('Case C2: D2 age unknown — subsequent booster (men===3) ALWAYS 5y', () => {
     // Even with unknown D2 age, subsequent boosters are 5y
-    const am = 240; // 20y
+    const am = 216; // 18y (peds scope)
     const risks = ['asplenia'];
     const hist = {
       MenACWY: [

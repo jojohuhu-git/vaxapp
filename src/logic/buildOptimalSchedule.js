@@ -4,6 +4,7 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan } from './pcvDoses.js';
+import { isLiveVaccineContraindicated } from './stateHelpers.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
 
@@ -25,7 +26,7 @@ function resolveBrand(vk, fcBrands, hist) {
 
 // ── Series total-dose count ───────────────────────────────────────
 // Returns { totalDoses }, { status:'NEEDS_HUMAN_REVIEW', rule }, or null (not indicated).
-function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
+function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
   const isHRPCV = risks.some(r => ['asplenia', 'sickle_cell', 'hiv', 'immunocomp', 'cochlear', 'chronic_heart',
     'chronic_lung', 'chronic_kidney', 'diabetes', 'chronic_liver'].includes(r));
   const isHRMen = risks.some(r => ['asplenia', 'sickle_cell', 'complement', 'hiv'].includes(r));
@@ -40,6 +41,7 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
     case 'RSV': return null;
 
     case 'RV': {
+      if (isLiveVaccineContraindicated('RV', risks, cd4)) return null;
       const age = diff(dob, today);
       if (age >= 243 || (age > 105 && dc(hist, 'RV') === 0)) return null;
       // ACIP: 3 doses if any RotaTeq OR any brand unknown; 2 only if ALL confirmed Rotarix.
@@ -134,8 +136,8 @@ function seriesDoses(vk, { am, risks, hist, dob, today }, fcBrands) {
     case 'Flu':
       return { totalDoses: dc(hist, 'Flu') === 0 && am < 108 ? 2 : 1 };
 
-    case 'MMR':  return am >= 12 ? { totalDoses: 2 } : null;
-    case 'VAR':  return am >= 12 ? { totalDoses: 2 } : null;
+    case 'MMR':  return (am >= 12 && !isLiveVaccineContraindicated('MMR', risks, cd4)) ? { totalDoses: 2 } : null;
+    case 'VAR':  return (am >= 12 && !isLiveVaccineContraindicated('VAR', risks, cd4)) ? { totalDoses: 2 } : null;
     case 'HepA': return am >= 12 ? { totalDoses: 2 } : null;
 
     // 2-dose if first dose given before age 15y (5475d) and not immunocompromised; else 3-dose
@@ -284,12 +286,16 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
 // ── Main ──────────────────────────────────────────────────────────
 export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
   const { am, risks, hist = {} } = patient;
+  // PediVax is for pediatric patients only (birth–18y).
+  if (am >= 228) return [];
+
   const today       = opts.today ?? new Date().toISOString().slice(0, 10);
   const maxPerVisit = opts.maxInjectionsPerVisit ?? 20;
   // If no DOB provided, synthesize one from am (age in months) so age-based
   // constraints don't crash. Schedule dates will be approximate but valid.
   const dob = patient.dob ?? addD(today, -Math.round(am * 30.4375));
-  const ctx = { dob, am, risks: risks ?? [], hist: hist ?? {}, today };
+  const cd4 = patient.cd4 ?? null;
+  const ctx = { dob, am, risks: risks ?? [], hist: hist ?? {}, today, cd4 };
 
   const VAX_ORDER = ['HepB', 'RSV', 'RV', 'DTaP', 'Tdap', 'IPV', 'Hib', 'PCV', 'PPSV23',
                      'MMR', 'VAR', 'HepA', 'Flu', 'HPV', 'MenACWY', 'MenB', 'COVID'];
