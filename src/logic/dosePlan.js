@@ -46,7 +46,13 @@ const HIGHRISK_SKIPS_ROUTINE = new Set(["MenACWY", "MenB"]);
 // (e.g. MMR D2 at 4-6y) hides the fact that it can be given ~4 weeks later.
 // For these vaccines, use earliestAge (min-interval only) as the catch-up
 // reference so the Full Forecast shows the dose at the soonest eligible date.
-const USE_EARLIEST_FOR_CATCHUP = new Set(["MMR", "VAR", "MenACWY"]);
+//
+// MenACWY is intentionally NOT in this set: for low-risk patients, the 16y
+// booster (D2) is a specific ACIP recommendation, not merely advisory —
+// D2 should stay anchored at 192m (16y). For high-risk patients,
+// HIGHRISK_SKIPS_ROUTINE already returns routineAge=null, which causes
+// the catch-up path to activate without needing this override.
+const USE_EARLIEST_FOR_CATCHUP = new Set(["MMR", "VAR"]);
 
 /**
  * Given the current state, compute projected future dose schedule.
