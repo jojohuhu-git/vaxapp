@@ -124,6 +124,11 @@ export function parseDate(token) {
   const day   = parseInt(m[2], 10);
   const year  = parseInt(m[3], 10);
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  // Round-trip verify: JS Date normalises impossible dates (e.g. Feb 31 → Mar 2).
+  // If the constructed date doesn't match the parsed numbers, the calendar date
+  // doesn't exist — reject it rather than silently rolling over.
+  const d = new Date(year, month - 1, day);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
   const mm = String(month).padStart(2, '0');
   const dd = String(day).padStart(2, '0');
   return `${year}-${mm}-${dd}`;  // ISO

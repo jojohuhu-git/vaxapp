@@ -25,7 +25,7 @@ vi.mock('@react-pdf/renderer', () => ({
   StyleSheet: { create: (s) => s },
 }));
 
-import { parseOcrText, normalizeAntigen, inferBrand } from '../../logic/ocrParser';
+import { parseOcrText, normalizeAntigen, inferBrand, parseDate } from '../../logic/ocrParser';
 import { prettifyRawOcr } from '../HistoryImageImport';
 
 // ── Verbatim IIS strings ───────────────────────────────────────────────────
@@ -516,5 +516,49 @@ describe('prettifyRawOcr', () => {
     const result = prettifyRawOcr(input);
     // Should not have triple blank lines
     expect(result).not.toContain('\n\n\n');
+  });
+});
+
+// ── parseDate — round-trip calendar verification (H6.1) ───────────────────
+
+describe('parseDate — round-trip calendar verification', () => {
+  it('accepts a valid date (2/28/2024 — last day of Feb in a leap year)', () => {
+    expect(parseDate('2/28/2024')).toBe('2024-02-28');
+  });
+
+  it('accepts 2/29/2024 (leap year — exists)', () => {
+    expect(parseDate('2/29/2024')).toBe('2024-02-29');
+  });
+
+  it('rejects 2/31/2024 (February never has 31 days)', () => {
+    expect(parseDate('2/31/2024')).toBeNull();
+  });
+
+  it('rejects 2/29/2023 (2023 is not a leap year)', () => {
+    expect(parseDate('2/29/2023')).toBeNull();
+  });
+
+  it('rejects 4/31/2023 (April has only 30 days)', () => {
+    expect(parseDate('4/31/2023')).toBeNull();
+  });
+
+  it('rejects month > 12', () => {
+    expect(parseDate('13/1/2024')).toBeNull();
+  });
+
+  it('rejects day 0', () => {
+    expect(parseDate('3/0/2024')).toBeNull();
+  });
+
+  it('accepts valid boundary: 12/31/2023', () => {
+    expect(parseDate('12/31/2023')).toBe('2023-12-31');
+  });
+
+  it('accepts zero-padded format 02/28/2024', () => {
+    expect(parseDate('02/28/2024')).toBe('2024-02-28');
+  });
+
+  it('accepts dash-separated format 2-28-2024', () => {
+    expect(parseDate('2-28-2024')).toBe('2024-02-28');
   });
 });
