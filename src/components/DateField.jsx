@@ -1,9 +1,10 @@
 /* eslint-disable react/prop-types */
-// DateField — text input (MM/DD/YYYY mask) paired with a native calendar
-// picker icon. The text input is the primary path for fast keyboard entry;
-// the calendar icon opens the browser's date picker for clicking through
-// older dates. Both sync to the same ISO value.
-import { useEffect, useRef, useState } from 'react';
+// DateField — text input with an MM/DD/YYYY mask. (A calendar-icon picker
+// using the native <input type="date"> popup was removed: Chrome/Safari
+// treat mouse-wheel scroll over a focused date input as a value spinner,
+// so scrolling to browse months silently committed the wrong date and
+// closed the popup. Typing is the reliable path.)
+import { useEffect, useState } from 'react';
 import { fmtDateInput, parseDateInput } from '../logic/utils';
 
 function applyDateMask(digits) {
@@ -25,22 +26,11 @@ export default function DateField({
   autoFocus = false, // optional: focus the text input on mount
 }) {
   const [text, setText] = useState(() => fmtDateInput(value));
-  const dateRef = useRef(null);
 
   // Keep the masked text in sync when value changes externally
   useEffect(() => {
     setText(fmtDateInput(value));
   }, [value]);
-
-  const openPicker = () => {
-    if (!dateRef.current) return;
-    // Modern browsers: showPicker(); fall back to focus() for Safari < 16.4
-    if (typeof dateRef.current.showPicker === 'function') {
-      try { dateRef.current.showPicker(); return; } catch { /* fall through */ }
-    }
-    dateRef.current.focus();
-    dateRef.current.click();
-  };
 
   const handleTextChange = (e) => {
     // Strip all non-digit characters first — this makes the mask idempotent
@@ -89,57 +79,24 @@ export default function DateField({
   };
 
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      <input
-        id={id}
-        type="text"
-        inputMode="numeric"
-        placeholder={placeholder}
-        value={text}
-        onChange={handleTextChange}
-        onKeyDown={handleKeyDown}
-        onBlur={handleBlur}
-        aria-label={ariaLabel}
-        autoFocus={autoFocus}
-        style={{
-          width,
-          fontSize: 12,
-          padding: '4px 6px',
-          borderColor: hasError ? '#c0392b' : undefined,
-        }}
-      />
-      <button
-        type="button"
-        onClick={openPicker}
-        aria-label="Open calendar picker"
-        title="Open calendar"
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          padding: '3px 6px', background: 'var(--wh)', border: '1px solid var(--gy5)',
-          borderRadius: 4, cursor: 'pointer', color: 'var(--gy2)',
-        }}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
-          <rect x="3" y="5" width="18" height="16" rx="1" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-          <line x1="8" y1="3" x2="8" y2="7" />
-          <line x1="16" y1="3" x2="16" y2="7" />
-        </svg>
-      </button>
-      {/* Hidden native date input that supplies the OS calendar UI */}
-      <input
-        ref={dateRef}
-        type="date"
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
-        tabIndex={-1}
-        aria-hidden="true"
-        style={{
-          position: 'absolute', width: 1, height: 1,
-          opacity: 0, pointerEvents: 'none',
-        }}
-      />
-    </div>
+    <input
+      id={id}
+      type="text"
+      inputMode="numeric"
+      data-testid="date-field"
+      placeholder={placeholder}
+      value={text}
+      onChange={handleTextChange}
+      onKeyDown={handleKeyDown}
+      onBlur={handleBlur}
+      aria-label={ariaLabel}
+      autoFocus={autoFocus}
+      style={{
+        width,
+        fontSize: 12,
+        padding: '4px 6px',
+        borderColor: hasError ? '#c0392b' : undefined,
+      }}
+    />
   );
 }

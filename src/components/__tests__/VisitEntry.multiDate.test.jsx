@@ -111,9 +111,15 @@ function clickSubmit(container) {
   act(() => { fireEvent.click(btn); });
 }
 
-// Returns all hidden date inputs in the form (one per date row when DOB is set)
+// Returns all DateField (masked MM/DD/YYYY text) inputs — one per date row
 function getDateInputs(container) {
-  return [...container.querySelectorAll('input[type="date"]')];
+  return [...container.querySelectorAll('[data-testid="date-field"]')];
+}
+
+// Fire a change with an ISO date, converted to the DateField's MM/DD/YYYY mask
+function changeDate(input, iso) {
+  const [y, m, d] = iso.split('-');
+  fireEvent.change(input, { target: { value: `${m}/${d}/${y}` } });
 }
 
 // Returns all × (remove row) buttons — they have title="Remove this date row"
@@ -212,12 +218,12 @@ describe('VisitEntry — multi-date', () => {
     const addBtn = screen.getByText('+ Add another visit date');
     act(() => { fireEvent.click(addBtn); });
 
-    const dateInputs2 = c2.querySelectorAll('input[type="date"]');
+    const dateInputs2 = c2.querySelectorAll('[data-testid="date-field"]');
     expect(dateInputs2).toHaveLength(2);
 
     // Fill both dates
-    act(() => { fireEvent.change(dateInputs2[0], { target: { value: '2009-03-01' } }); });
-    act(() => { fireEvent.change(dateInputs2[1], { target: { value: '2009-05-01' } }); });
+    act(() => { changeDate(dateInputs2[0], '2009-03-01'); });
+    act(() => { changeDate(dateInputs2[1], '2009-05-01'); });
 
     // Select DTaP
     const dtapBtn = [...c2.querySelectorAll('button')].find(b => b.textContent.trim() === 'DTaP');
@@ -236,7 +242,7 @@ describe('VisitEntry — multi-date', () => {
     expect(removeVisitBtns).toHaveLength(2);
 
     // Form resets to 1 empty date row
-    expect(c2.querySelectorAll('input[type="date"]')).toHaveLength(1);
+    expect(c2.querySelectorAll('[data-testid="date-field"]')).toHaveLength(1);
   });
 
   // ── Test 5 ────────────────────────────────────────────────────────────────
@@ -258,7 +264,7 @@ describe('VisitEntry — multi-date', () => {
 
     // Fill the first date but leave the second empty
     const dateInputs = getDateInputs(container);
-    act(() => { fireEvent.change(dateInputs[0], { target: { value: '2009-03-01' } }); });
+    act(() => { changeDate(dateInputs[0], '2009-03-01'); });
 
     clickSubmit(container);
 
@@ -272,7 +278,7 @@ describe('VisitEntry — multi-date', () => {
 
     // Fill date but select no vaccines
     const dateInputs = getDateInputs(container);
-    act(() => { fireEvent.change(dateInputs[0], { target: { value: '2009-03-01' } }); });
+    act(() => { changeDate(dateInputs[0], '2009-03-01'); });
 
     // Submit button should be disabled (canSubmit = false when selectedVks.length === 0)
     const submitBtn = [...container.querySelectorAll('button')].find(
@@ -326,7 +332,7 @@ describe('VisitEntry — multi-date', () => {
 
     // Fill the first date row so combos appear
     const dateInputs = getDateInputs(container);
-    act(() => { fireEvent.change(dateInputs[0], { target: { value: '2025-03-01' } }); });
+    act(() => { changeDate(dateInputs[0], '2025-03-01'); });
 
     // Add second date row and fill it
     const addBtn2 = screen.getByText('+ Add another visit date');
@@ -334,7 +340,7 @@ describe('VisitEntry — multi-date', () => {
 
     const dateInputs2 = getDateInputs(container);
     expect(dateInputs2).toHaveLength(2);
-    act(() => { fireEvent.change(dateInputs2[1], { target: { value: '2025-05-01' } }); });
+    act(() => { changeDate(dateInputs2[1], '2025-05-01'); });
 
     // Vaxelis combo chip should be visible (patient is 2m, Vaxelis minM=6wks)
     const vaxelisBtn = [...container.querySelectorAll('button')].find(
@@ -376,7 +382,7 @@ describe('VisitEntry — multi-date', () => {
     const { container } = renderVisitEntry();
 
     const dateInputs = getDateInputs(container);
-    act(() => { fireEvent.change(dateInputs[0], { target: { value: '2009-05-01' } }); });
+    act(() => { changeDate(dateInputs[0], '2009-05-01'); });
 
     clickChip(container, 'HepB');
     clickSubmit(container);

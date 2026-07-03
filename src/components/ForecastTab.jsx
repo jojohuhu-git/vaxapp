@@ -892,7 +892,14 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                   return (
                     <div key={rec.vk} className="today-rec">
                       <div className="today-rec-main">
-                        <span className={`today-badge ${statusBadgeClass}`}>{statusText}</span>
+                        <span
+                          className={`today-badge ${statusBadgeClass}`}
+                          title={rec.status === "recommended"
+                            ? "Not universally recommended — offer after individual risk discussion. ACIP shared clinical decision-making (SDM) category."
+                            : undefined}
+                        >
+                          {statusText}
+                        </span>
                         <span className="today-vax" style={{ color: VAX_META[rec.vk]?.c }}>
                           {VAX_META[rec.vk]?.n || rec.vk}
                         </span>

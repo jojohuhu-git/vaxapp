@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { buildRegimens } from '../logic/regimens';
 import { analyzeCombo } from '../logic/comboAnalyzer';
@@ -36,7 +36,6 @@ function SevRow({ item }) {
 
 export default function RegTab({ recs }) {
   const { state } = useApp();
-  const [analysis, setAnalysis] = useState(null);
   const [custSel, setCustSel] = useState([]);
   const am = getEffectiveAm(state).effectiveAm;
 
@@ -48,16 +47,26 @@ export default function RegTab({ recs }) {
   const ADMIN_STATUSES = new Set(["due", "catchup", "risk-based", "recommended"]);
   const adminRecs = recs.filter(r => ADMIN_STATUSES.has(r.status));
   const needed = [...new Set(adminRecs.map(r => r.vk))];
+  const neededKey = needed.join(',');
+
+  // Preselect every vaccine due at this visit — no "Analyze Selected" click
+  // needed for the common case. Re-syncs whenever the due-today list changes
+  // (new patient, new visit), but a user's manual narrowing survives re-renders
+  // that don't change the due list.
+  useEffect(() => {
+    setCustSel(needed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [neededKey]);
 
   // Only count selections that are currently visible as checkboxes. Stale
   // entries (vk previously selected, no longer needed at this visit) are
-  // filtered out so the "Analyze Selected (N)" counter matches reality.
+  // filtered out so the chip selection matches reality.
   const visibleSel = custSel.filter(vk => needed.includes(vk));
 
-  function handleAnalyze() {
-    const result = analyzeCombo(visibleSel, am);
-    setAnalysis(result);
-  }
+  const analysis = useMemo(
+    () => (visibleSel.length > 0 ? analyzeCombo(visibleSel, am) : null),
+    [visibleSel.join(','), am]
+  );
 
   if (!regimens.length) {
     return (
@@ -112,7 +121,7 @@ export default function RegTab({ recs }) {
           Brand Constraints Analyzer
         </div>
         <div style={{ fontSize: 10.5, color: "#888", marginBottom: 6 }}>
-          Select vaccines being given at this visit to check brand interchangeability and co-administration rules.
+          Every vaccine due today is checked by default. Uncheck any to see the plan for a subset only.
         </div>
         <div className="cgrid">
           {needed.map(vk => (
@@ -126,13 +135,6 @@ export default function RegTab({ recs }) {
             </label>
           ))}
         </div>
-        <button
-          className="aibtn"
-          disabled={visibleSel.length === 0}
-          onClick={handleAnalyze}
-        >
-          Analyze Selected ({visibleSel.length})
-        </button>
 
         {analysis && (
           <div className="aiout">

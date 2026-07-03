@@ -68,18 +68,12 @@ function getChip(container, ab) {
   return [...buttons].find(b => b.textContent.trim() === ab) || null;
 }
 
-// Helper: set the DateField to an ISO date by firing a change on the hidden date input.
+// Helper: set the DateField (masked MM/DD/YYYY text input) to an ISO date.
 function setDateField(container, iso) {
-  const hiddenDate = container.querySelector('input[type="date"]');
-  if (hiddenDate) {
-    act(() => { fireEvent.change(hiddenDate, { target: { value: iso } }); });
-    return;
-  }
-  // Fallback: text input
-  const textInputs = container.querySelectorAll('input[type="text"]');
-  if (textInputs.length > 0) {
-    act(() => { fireEvent.change(textInputs[0], { target: { value: iso } }); });
-  }
+  const [y, m, d] = iso.split('-');
+  const masked = `${m}/${d}/${y}`;
+  const field = container.querySelector('[data-testid="date-field"]');
+  act(() => { fireEvent.change(field, { target: { value: masked } }); });
 }
 
 // Helper: click the Add Visit button
