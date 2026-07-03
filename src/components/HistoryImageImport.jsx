@@ -613,7 +613,7 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
               style={{ marginTop: 3, cursor: 'pointer' }}
             />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: VAX_META[row.vk]?.c || 'var(--g)', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--gy)', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
                 {VAX_META[row.vk]?.n || row.vk}
                 {row.brand && (
                   <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--gy3)', fontStyle: 'italic' }}>

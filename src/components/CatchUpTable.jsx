@@ -47,7 +47,7 @@ export default function CatchUpTable() {
               return (
                 <tr key={vk}>
                   <td>
-                    <span style={{ fontWeight: 700, color: meta.c }}>{meta.ab}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--gy)' }}>{meta.ab}</span>
                     <br />
                     <span style={{ fontSize: 9.5, color: "#888" }}>{meta.n}</span>
                   </td>

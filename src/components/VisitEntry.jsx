@@ -844,7 +844,7 @@ export default function VisitEntry() {
                         const brand = v.brandByVk[vk];
                         return (
                           <div key={vk} className="ve-undo-detail-row">
-                            <span className="ve-undo-detail-vk" style={{ color: VAX_META[vk]?.c || 'var(--g)' }}>
+                            <span className="ve-undo-detail-vk" style={{ color: 'var(--gy)' }}>
                               {VAX_META[vk]?.ab || vk}
                             </span>
                             <span className={`ve-undo-detail-brand${brand ? '' : ' unknown'}`}>

@@ -235,7 +235,7 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
       >
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
-          <div style={{ fontWeight: 700, fontSize: 12, color: meta?.c || 'var(--g)' }}>
+          <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--gy)' }}>
             {meta?.n || vk} — {smartLabel.label}
           </div>
           <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--gy4)', lineHeight: 1, padding: '0 2px', flexShrink: 0 }} title="Close">&times;</button>
