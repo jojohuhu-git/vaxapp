@@ -2916,3 +2916,112 @@ owner flagged that real IIS/EHR printouts can list a vaccine name and its brand 
 lines/columns, so `ocrParser.js`/`comboAnalyzer.js`'s row-building needs a plan for associating a
 name-only line with a brand-only line before any CVX or geometry work starts. See also project
 memory `project_iis_import_deferred` for a related, separately-deferred IIS paste-text feature.
+
+---
+
+## Changes shipped (2026-07-03) — item #10 (one color system) + item #6 Phases A/B
+
+### Item #10 — one color system
+
+Shipped in full. `VAX_META`'s per-vaccine `.c` hex field (`src/data/vaccineData.js`) is deleted;
+every surface that used to color a vaccine name/abbreviation by `meta.c` (`ForecastTab.jsx` ×5,
+`CatchUpTable.jsx`, `BrandCards.jsx`, `DosePill.jsx`, `HistoryTable.jsx`, `HistoryImageImport.jsx`,
+`VisitEntry.jsx`, `ComplianceAuditTab.jsx`) now renders in plain ink (`var(--gy)`) with weight for
+hierarchy. `ComplianceAuditTab.jsx` also lost a decorative color-swatch dot next to the vaccine
+name (same "which vaccine" signal the roadmap flagged) and, in passing, a real bug: that row's
+heading referenced an undefined CSS var `--gy1` (silently falling back to inherit) — fixed to
+`--gy` while touching the same line. The existing 4-color status scheme (`statusColors()` in
+`ShotListPDF.jsx`, `summary-status-chip.*` in `App.css`) is untouched and is now the only color
+system in the app. Merged to `main` at `ec28b6e` (PR [#78](https://github.com/jojohuhu-git/vaxapp/pull/78), squash). 4420 tests pass.
+
+### Item #6 — visit-card-first forecast redesign (largest remaining item)
+
+Scoped into 3 sequential PRs per owner preference ("one PR at a time, check in after each") rather
+than one large PR, since the roadmap itself sized this as "the size of the whole mobile-card
+project." **Phases A and B are shipped; Phase C is not started.**
+
+**Phase A** — merged to `main` at `94b1b61` (PR [#79](https://github.com/jojohuhu-git/vaxapp/pull/79)). New `src/components/VisitCard.jsx`
+(`VisitCardShell`/`DoseRow`/`ComboDoseRow`), pure presentational, no data-layer imports. The
+Fewest Injections view (`OptVisitCard`/`OptDoseRow`) was rewired onto these shared components
+instead of its own bespoke `.fct-opt-card*` JSX; CSS renamed to shared `.vcard*` classes. Zero
+changes to `buildOptimalSchedule.js`'s return shape or the Routine matrix. New
+`src/components/__tests__/VisitCard.test.jsx`. 4432 tests pass.
+
+**Phase B** — open as PR [#80](https://github.com/jojohuhu-git/vaxapp/pull/80) on branch `visit-card-phase-b`, **not yet merged — this is
+where the next session should pick up**. Makes the visit-card list the *default* Immunization
+Schedule view at every viewport width, replacing the always-visible 18-column matrix. Key changes:
+
+- `buildVisitCardItems()` (`ForecastTab.jsx`) — previously the read-only data source behind the
+  now-deleted mobile-only `.fcm-cards` view — was extended with brand `<select>` dropdowns, the
+  "earliest" move affordance (including the merged-into-existing-visit case, `visit._earlyDoses`),
+  click-to-open clinical-note popovers (reusing the existing `CellPopover`), and combo "Why?"
+  buttons. It's now the status/data builder that feeds the primary card view.
+- The 18-column matrix is **unchanged** — same `visits`/`dosePlan`/`displayVks` computation, same
+  per-cell render loop — just moved inside a `<details className="fct-full-grid">` collapsed by
+  default, labeled "Full antigen grid ▸", for the column-audit use case.
+- The old `.fcm-cards` mobile-only duplicate (and its CSS, including the
+  `@media(max-width:700px){.fc-wrap{display:none}}` swap) is **deleted** — Phase C's planned
+  cleanup was folded into Phase B rather than carrying three renderers (matrix + old mobile cards
+  + new cards) for an extra review cycle.
+- **Scoping deviation from the original plan, confirmed with the owner before proceeding**: the
+  plan called for extracting the matrix's per-cell status logic into one shared pure function used
+  by both the matrix and the cards. Once the actual code was read, it turned out to be ~380 lines
+  deeply interleaved with `dispatch`/`setState` closures across 6+ branches (scheduled-early,
+  merged-early, catch-up-skip, moved-dose, multiple skip-guards) — not the ~200-line pure
+  computation originally scoped from a summary. A literal extraction was judged too high-risk for
+  one pass. Cards use an **independently-written** status builder instead, reusing the same
+  lower-level helpers (`dosePlan`, `orderedBrandsForVisit`, `getTotalDoses`, `fmtProjection`,
+  `resolveDropdownBrand`). **This means the matrix and the cards now have two separate
+  implementations of "what does this vaccine's chip say at this visit" — accepted as a permanent
+  tradeoff, not a temporary one, in exchange for not risking either view.** A future session should
+  not assume there's a single source of truth here; a fix to one may need porting to the other.
+- **Known gap (pre-existing, not a Phase B regression)**: a dose moved via "earliest" displays
+  correctly at its new or merged visit card, but its *original* slot doesn't show the matrix's
+  "→ moved, revert to slot" indicator — it's simply omitted there. The old mobile-only card view
+  had this same limitation; Phase B carried it forward rather than fixing it (out of scope).
+  Read the comment above `buildVisitCardItems` in `ForecastTab.jsx` before touching this.
+- **Two bugs found and fixed during this session's own review** (before the owner even looked):
+  (1) `.vcard-label`'s catch-up/earliest tag rendered flush against the age text — fixed with
+  `display:inline-flex;gap:7px` to match the matrix's original `.vlbl-age` spacing. (2) The
+  "N past visits — click to show" toggle only lifted one of the two hide gates in the card
+  render loop — a second filter (`!showFull && !isAlwaysVisible(visit)`) still hid every past
+  visit except overdue/imminent/next-routine ones even after `showPast` flipped true, so the
+  toggle looked broken (only the current visit's catch-up bucket was ever visible). Fixed in
+  `ForecastTab.jsx`'s card-list render loop only — **the matrix (inside the collapsed "Full
+  antigen grid") has this exact same latent bug and was deliberately left untouched**, since
+  Phase B's stated scope was "matrix stays exactly as before." Worth a small follow-up fix
+  there someday, low priority since the matrix is no longer the default view.
+- New test file `src/components/__tests__/ForecastTab.cardRendering.test.jsx`: default view is
+  cards (matrix collapsed and closed by default), brand dropdown presence, earliest-button +
+  merge-into-existing-card behavior (this test caught the `_earlyDoses` handling gap before it
+  shipped), brand cascade, catch-up-card isolation, expired-vaccine omission, and a regression
+  guard for the past-visits-toggle fix. New query helpers `getCardByLabel`/`getCardDoseRowByVk` in
+  `src/test-helpers/renderForecast.jsx` (additive — existing `getCellByVk`/`getRowByLabel`/etc.
+  helpers are unchanged and still target the matrix, which is why
+  `ForecastTab.rendering`/`.completedColumn`/`.smoke`/`.todayPanel.test.jsx` all pass **unmodified**
+  — happy-dom keeps `<details>` content queryable even when the element is closed).
+- Verified live in preview at desktop and mobile (375px): Today's Visit panel unchanged, card
+  list renders correctly with all interactive affordances, "earliest" move/merge works, past-visits
+  toggle now works, "Full antigen grid ▸" expands to the untouched original matrix, no horizontal
+  overflow at mobile width. 4442 tests pass, build clean, no new lint errors.
+
+### HANDOFF — start here for the next session
+
+1. **PR [#80](https://github.com/jojohuhu-git/vaxapp/pull/80) (`visit-card-phase-b`) is open, not merged.** Get owner review/merge before
+   starting Phase C — don't stack Phase C on top of an unmerged Phase B.
+2. **Phase C, once #80 is merged**: mobile/responsive polish pass on the new card view (spot-check
+   spacing/wrapping at narrow widths beyond what's already been checked at 375px), and revisit the
+   roadmap's suggestion (§3) of replacing the old "N past window / N not yet eligible" overflow-chip
+   text with an inline per-card note (e.g. "RV window closed at 8 mo") — this was *not* implemented
+   in Phase B since expired/not-yet-eligible vaccines simply don't render as cards at all now
+   (arguably already satisfies the roadmap's core intent — "columns stop being the hiding unit" —
+   but the inline explanatory note itself is still a nice-to-have, not shipped).
+3. **Do not attempt to unify the matrix's and cards' status logic** into one shared function unless
+   explicitly asked — this was scoped out deliberately this session (see the "scoping deviation"
+   note above) after reading the actual matrix code, not a shortcut taken carelessly. If a clinical
+   logic bug is found in one view, check whether the same bug exists in the other before assuming
+   a single fix covers both.
+4. **The matrix's own "past visits" toggle has the same latent hide-gate bug** the card view had
+   (fixed this session, card-list only). Low priority since the matrix isn't the default view
+   anymore, but worth a one-line fix if anyone's in that code again.
+5. Roadmap item #5 (OCR accuracy) is still parked — see the note directly above this entry.
