@@ -65,7 +65,7 @@ export default function CatchUpTab() {
       </div>
 
       <div style={{ marginTop: 10, fontSize: 11, color: "var(--gy3)", fontStyle: "italic" }}>
-        Brand-specific age windows and dose-number constraints are in <strong>Plan → Brand Constraints</strong>.
+        Brand-specific age windows and dose-number constraints are in the <strong>Brand Rules</strong> tab.
       </div>
     </div>
   );

@@ -560,6 +560,8 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 @media(max-width:700px){
   .fc-wrap{display:none;}
   .fcm-cards{display:block;}
+  /* Card view has no clickable cells — the hint only applies to the table. */
+  .fct-legend-click-hint{display:none;}
 }
 
 /* TOUCH TARGETS — dose pills, "Why" links, and clickable forecast chips

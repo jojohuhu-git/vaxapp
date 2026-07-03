@@ -28,7 +28,7 @@ export default function HistoryTable() {
           {visibleKeys.length === 0 && (
             <tr>
               <td colSpan={2} style={{ fontSize: 11, color: '#888', fontStyle: 'italic', padding: '8px 4px' }}>
-                No vaccines recorded yet. Use Quick Add above, or{' '}
+                No vaccines recorded yet. Use Add Visit above, or{' '}
                 <button
                   type="button"
                   onClick={() => setShowAll(true)}

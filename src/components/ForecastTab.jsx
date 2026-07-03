@@ -177,7 +177,7 @@ function visitDateLabel(dob, visitM) {
 }
 
 function fmtDateShort(iso) {
-  if (!iso) return "";
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
   return new Date(iso + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
@@ -310,7 +310,7 @@ function explainOptConstraint(dose, allFlatDoses) {
   }
   if (raw.includes('.d1Cross[')) {
     const d1 = findPrevOptDose(vk, 2, allFlatDoses) || allFlatDoses.find(d => d.vk === vk && d.doseNum === 1);
-    return { summary: `${hd} after Dose 1`, detail: `${vk} D${doseNum} must be at least ${hd} after Dose 1${d1?.date ? ` (planned ${d1.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
+    return { summary: `${hd} after Dose 1`, detail: `${vk} D${doseNum} must be at least ${hd} after Dose 1${d1?.date ? ` (planned ${fmtDateShort(d1.date) || d1.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
   }
   const prevVaxMatch = raw.match(/\.prevVax\[(\w+)\]=(\d+)d/);
   if (prevVaxMatch) {
@@ -322,15 +322,15 @@ function explainOptConstraint(dose, allFlatDoses) {
   }
   if (raw.includes('.iCond[')) {
     const prev = findPrevOptDose(vk, doseNum, allFlatDoses);
-    return { summary: `${hd} after previous dose (age-adjusted)`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}. Interval is age-adjusted.${liveVaxLine}`, refUrl, refLabel };
+    return { summary: `${hd} after previous dose (age-adjusted)`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${fmtDateShort(prev.date) || prev.date})` : ''}. Interval is age-adjusted.${liveVaxLine}`, refUrl, refLabel };
   }
   if (raw.includes('.iByTotalDoses[')) {
     const prev = findPrevOptDose(vk, doseNum, allFlatDoses);
-    return { summary: `${hd} after previous dose (catch-up path)`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
+    return { summary: `${hd} after previous dose (catch-up path)`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${fmtDateShort(prev.date) || prev.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
   }
   if (raw.includes('.i[')) {
     const prev = findPrevOptDose(vk, doseNum, allFlatDoses);
-    return { summary: `${hd} after previous dose`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
+    return { summary: `${hd} after previous dose`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${fmtDateShort(prev.date) || prev.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
   }
   return { summary: 'Schedule constraint', detail: raw, refUrl, refLabel };
 }
@@ -441,7 +441,7 @@ function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses }) {
   return (
     <div className="fct-opt-card">
       <div className="fct-opt-card-head">
-        <span className="fct-opt-card-title">Visit {idx + 1} — {visit.date}</span>
+        <span className="fct-opt-card-title">Visit {idx + 1} — {fmtDateShort(visit.date) || visit.date}</span>
         <span className="fct-opt-card-count">{visit.items.length} injection{visit.items.length !== 1 ? 's' : ''}</span>
       </div>
       <div className="fct-opt-card-body">
@@ -981,7 +981,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                 <div key={i} className="fct-opt-partial-row">
                   <span style={{ fontWeight: 600, color: VAX_META[d.vk]?.c || 'var(--gy)', minWidth: 68 }}>{d.vk}</span>
                   <span className="fct-opt-partial-dose">D{d.doseNum}/{d.totalDoses}</span>
-                  <span className="fct-opt-partial-date">{d.date}</span>
+                  <span className="fct-opt-partial-date">{fmtDateShort(d.date) || d.date}</span>
                 </div>
               ))}
             </div>
@@ -996,7 +996,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               <div className="fct-opt-stats">
                 <div><div className="fct-opt-stat-num">{optResult.length}</div><div className="fct-opt-stat-label">visits</div></div>
                 <div><div className="fct-opt-stat-num">{totalInj}</div><div className="fct-opt-stat-label">injections</div></div>
-                {lastDate && <div><div className="fct-opt-stat-date">{lastDate}</div><div className="fct-opt-stat-label">series complete</div></div>}
+                {lastDate && <div><div className="fct-opt-stat-date">{fmtDateShort(lastDate) || lastDate}</div><div className="fct-opt-stat-label">series complete</div></div>}
                 <div className="fct-opt-stats-pdf-wrap">
                   <PdfDownloadButton
                     buildDoc={async () => {
@@ -1015,6 +1015,10 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               ))}
               <div className="fct-opt-footnote">
                 Each dose lands on its earliest legal date. Click Why? to see the spacing or age rule.
+                {recs.some(r => r.vk === 'RSV') && (
+                  <> RSV-mAb (nirsevimab) is seasonal passive immunization, not a vaccine series — it is
+                  excluded from this optimization; administer per Today&apos;s Visit above.</>
+                )}
               </div>
             </div>
           );
@@ -1055,7 +1059,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         <span className="fct-legend-exp">■</span> past window&ensp;
         <span className="fct-legend-notyet">■</span> not yet eligible&ensp;
         <span className="fct-legend-proj">■</span> projected.&ensp;
-        Click a cell for clinical notes.
+        <span className="fct-legend-click-hint">Click a cell for clinical notes.</span>
       </div>
       <div className="fc-wrap">
         <table className="fc-tbl">
