@@ -2781,3 +2781,103 @@ Roadmap in `docs/ux-review-2026-07-03.md` §6, owner's chosen order for what's n
 Items 7, 8, 9, and the DateField fix are done and need no further follow-up. Item 1 and 4 are done
 but 1's "conflict is unreachable via normal UI" observation above is worth a second look if anyone
 revisits `MainPanel.jsx`'s conflict branch.
+
+---
+
+## Changes shipped (2026-07-03, item #3) — reference consolidation into Compare Regimens
+
+Roadmap item #3 from `docs/ux-review-2026-07-03.md` §2 (owner's next-up item after 1/4/7/8/9).
+Branch `reference-consolidation`.
+
+**Housekeeping first**: `docs/ux-review-2026-07-03.md`, which the prior session log entry links
+to, had never actually been merged to `main` — it only existed on the stray
+`forecast-ux-defect-fixes` branch (whose other commits *were* squash-merged as PR #72, but the
+doc commit was missed). Re-added it to `main` in this branch so the link resolves.
+
+### What shipped
+
+- **`src/logic/comboAnalyzer.js` rebuilt to generate, not hardcode.** `analyzeCombo()` previously
+  restated combo/brand/age facts as ~20 hardcoded prose strings that had already drifted once from
+  the canonical data files. Now it generates rows from three sources: a generic loop over
+  `COMBO_DOSE_GATES` (any combo whose full antigen set is selected and whose `COMBOS[name]`
+  age window contains the patient — this also means analyzeCombo now suggests the infant combos
+  Vaxelis/Pediarix/Pentacel, which it never did before), `brandAgeNotesFor()` from
+  `brandAgeNotes.js` (already existed, was previously only used by the standalone Brand Rules
+  tab), and a new `src/data/interchangeRules.js` for the handful of facts that are genuinely
+  prose-only (MenB antigen-family lock, RV mixing preference, Hib-booster Vaxelis exclusion,
+  Tdap 7–9y Adacel-preferred, MMR+VAR spacing, Flu<2y IIV-only, birth-dose HBIG, PCV+Flu-ok,
+  same-day-safety). Added a `sev` field to `BRAND_AGE_NOTES` entries so they can double as
+  constraint rows. Moved `COMBO_REFS` from the old Brand Rules tab into `brandRules.js` so both
+  the analyzer and the reference view cite the same sources. Return shape
+  (`{constraints, coNotes}`, `{sev, txt, ref, refUrl}`) unchanged, so `RegTab`'s `SevRow` renderer
+  and `menacwy-menb-matrix.test.js`'s string-matched assertions needed no changes.
+  **One real content gap found and fixed in the process**: the Tdap 7–9y Adacel-vs-Boostrix
+  on-label distinction existed only in the old hardcoded analyzer text, not in `BRAND_AGE_NOTES` —
+  added as an `interchangeRules.js` entry rather than silently dropped.
+- **Brand Rules tab + Catch-up Schedule modal merged into Compare Regimens.** New
+  `src/components/RegimenFullReference.jsx` (moved out of the deleted
+  `BrandConstraintsPanel.jsx`) renders as a collapsed `<details>` "Full reference" section below
+  RegTab's existing (already patient-scoped, auto-run) constraint analyzer: same-day-safety/
+  MenB-lock/RV-preference boxes (now sourced from `interchangeRules.js` instead of duplicate inline
+  JSX prose), all age-relevant combo dose-gate cards, all history-relevant brand age-window cards,
+  and the full catch-up table (`CatchUpTab.jsx` renamed to `CatchUpTable.jsx`, stale "Plan → Brand
+  Constraints" footer line dropped since that section is now directly above it in the same tab).
+  `TabBar.jsx` lost the "Brand Rules" tab and the "Catch-up Schedule ↗" button/modal;
+  `MainPanel.jsx` lost `ReferenceModal`/`showRef`; `AppContext.jsx`'s `validTabs` lost
+  `"constraints"`. `PlanTab.jsx`'s intro copy had a stale "Brand-specific rules... are in the
+  **Brand Rules** tab" reference — fixed (tab no longer exists).
+- Some cosmetic detail was traded for single-sourcing: the old Brand Rules tab's bespoke JSX had
+  bold inline sub-phrases (e.g. "**3 doses required**" in the RV box) that the shared
+  `interchangeRules.js` plain-text rows don't carry. Content is unchanged; only inline emphasis
+  is lost. Flagged here in case anyone wants HTML-formatted interchange rules later.
+
+Deleted `src/components/__tests__/ReferenceModal.escape.test.jsx` (modal no longer exists — the
+three-dismiss-paths rule is for portal popovers, not inline accordions, so this isn't a
+regression). Added `src/logic/__tests__/comboAnalyzer.test.js` (generation logic, node env) and
+`src/components/__tests__/RegTab.fullReference.test.jsx` (accordion rendering, happy-dom).
+
+Test count: 4397 → 4411 (net +14: −1 deleted ReferenceModal test, +12 comboAnalyzer tests, +3
+RegTab full-reference tests — some cover multiple assertions). All tests pass. Build clean.
+
+### Follow-on — Brand Constraints Analyzer reorganized into labeled sections
+
+Owner feedback after the above shipped: the analyzer's flat severity-colored row list was still
+hard to scan, and a scoping question came up — should the collapsed "Full reference" accordion be
+removed in favor of only showing the 3-4 categories for the currently-selected vaccines? Talked
+through the tradeoff (losing pre-visit lookup / lookup for vaccines not due today / the one-page
+catch-up grid for planning ahead) and the owner chose to **keep the Full Reference accordion
+as-is, unchanged**, and instead restructure just the auto-run analyzer.
+
+`analyzeCombo()`'s return shape grew structured fields alongside the existing flat `constraints`
+array (kept for back-compat with `menacwy-menb-matrix.test.js`'s string-matched assertions):
+`interchangeRows`, `ageWindowNotes`, `comboCards`, `intervalCards` — each the raw data a card
+component can render directly, plus a `category` tag on each flat `constraints` row. `RegTab.jsx`
+now renders the analyzer as four labeled sections in order — **Interchanging Brands** (antigen-
+family/mixing facts — MenB lock, RV mixing, Hib-booster exclusion, Tdap 7–9y preference) →
+**Brand Age Windows** → **Doses Approved For** (now uses the same `ComboDoseCard` badge rendering
+as the Full Reference accordion instead of prose) → **Minimum Interval** (new — per-vaccine min
+age/interval cards from `MIN_INT`, scoped to only the currently-selected vaccines, not the full
+18-vaccine catalog) — with **Co-Administration Notes always last**. Extracted `ComboDoseCard`,
+`BrandAgeCard`, and the new `IntervalCard` into `src/components/BrandCards.jsx` so the analyzer
+and the Full Reference accordion share the same card components rather than duplicate JSX.
+`IntervalCard` uses `fmtAgeClinical`/`fmtIntervalClinical` from `ageFormat.js` (existing canonical
+formatters) rather than reimplementing day/week/month formatting.
+
+Also fixed the concrete bug that prompted this: the owner noticed Rotavirus mixing guidance
+appearing for a patient whose RV catch-up window had already closed (ACIP hard-stops RV D1 at
+14w6d). In the analyzer this is a non-issue by construction — the checkbox list only offers
+vaccines actually in `recs` (which excludes RV once its window closes), so `analyzeCombo()` never
+receives `"RV"` in that case. The stale-looking RV box the owner saw was actually in the *Full
+Reference* accordion, whose `showRV` condition is deliberately broader (age-based, not strict
+current-eligibility) since that's a browse-everything reference surface — left unchanged per the
+"keep as-is" decision above, but noted here in case a future session wants to tighten it.
+
+New test files: `src/components/__tests__/RegTab.analyzerSections.test.jsx` (section order, RV
+omission, interval scoping). `comboAnalyzer.test.js` extended with a `describe` block for the new
+structured fields. All tests pass (4420 total), build clean, verified in the live preview.
+
+### HANDOFF — what's left
+
+Roadmap order from `docs/ux-review-2026-07-03.md` §6: **10** (one color system) next, then **6**
+(visit-card-first forecast redesign, largest item), **5** (OCR accuracy) still parked pending a
+design conversation about name-only/brand-only line association.

@@ -8,6 +8,7 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 import { VBR } from '../data/vaccineData.js';
 import { BRAND_MIN } from '../data/scheduleRules.js';
+import { REFS } from '../data/refs.js';
 
 // ── Combo dose-number gates ───────────────────────────────────────────────
 // For each combo brand, for each component antigen, the inclusive [min, max]
@@ -35,6 +36,38 @@ export const COMBO_DOSE_GATES = {
   Penbraya:  { MenACWY: [1, 2], MenB: [1, 2] },
   Penmenvy:  { MenACWY: [1, 2], MenB: [1, 2] },
   Twinrix:   { HepA: [1, null], HepB: [1, null] },
+};
+
+// ── Per-combo citations ──────────────────────────────────────────────────
+// One entry per antigen the combo covers, so every claim (dose-gate card,
+// analyzeCombo() combo-suggestion row) can be verified against a CDC/
+// immunize.org source. Shared by comboAnalyzer.js and RegimenFullReference.
+export const COMBO_REFS = {
+  Vaxelis:   [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' },
+              { url: REFS.IPV.cdcUrl,  label: 'CDC Polio Notes' },
+              { url: REFS.Hib.cdcUrl,  label: 'CDC Hib Notes' },
+              { url: REFS.HepB.cdcUrl, label: 'CDC HepB Notes' },
+              { url: 'https://www.immunize.org/ask-experts/topic/combo-vaccines/dtap-ipv-hib-hepb/', label: 'immunize.org: DTaP-IPV-Hib-HepB combos' }],
+  Pediarix:  [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' },
+              { url: REFS.HepB.cdcUrl, label: 'CDC HepB Notes' },
+              { url: REFS.IPV.cdcUrl,  label: 'CDC Polio Notes' },
+              { url: 'https://www.immunize.org/ask-experts/topic/combo-vaccines/dtap-ipv-hepb/', label: 'immunize.org: DTaP-IPV-HepB combos' }],
+  Pentacel:  [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' },
+              { url: REFS.IPV.cdcUrl,  label: 'CDC Polio Notes' },
+              { url: REFS.Hib.cdcUrl,  label: 'CDC Hib Notes' },
+              { url: 'https://www.immunize.org/ask-experts/topic/combo-vaccines/dtap-ipv-hib/', label: 'immunize.org: DTaP-IPV-Hib combos' }],
+  Kinrix:    [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' },
+              { url: REFS.IPV.cdcUrl,  label: 'CDC Polio Notes' }],
+  Quadracel: [{ url: REFS.DTaP.cdcUrl, label: 'CDC DTaP Notes' },
+              { url: REFS.IPV.cdcUrl,  label: 'CDC Polio Notes' }],
+  ProQuad:   [{ url: REFS.MMR.cdcUrl,  label: 'CDC MMR Notes' },
+              { url: REFS.VAR.cdcUrl,  label: 'CDC Varicella Notes' }],
+  Penbraya:  [{ url: REFS.MenACWY.cdcUrl, label: 'CDC MenACWY Notes' },
+              { url: REFS.MenB.cdcUrl,    label: 'CDC MenB Notes' }],
+  Penmenvy:  [{ url: REFS.MenACWY.cdcUrl, label: 'CDC MenACWY Notes' },
+              { url: REFS.MenB.cdcUrl,    label: 'CDC MenB Notes' }],
+  Twinrix:   [{ url: REFS.HepA.cdcUrl, label: 'CDC HepA Notes' },
+              { url: REFS.HepB.cdcUrl, label: 'CDC HepB Notes' }],
 };
 
 /**

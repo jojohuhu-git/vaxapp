@@ -2,7 +2,7 @@ import { MIN_INT } from '../data/scheduleRules';
 import { VAX_META, VAX_KEYS } from '../data/vaccineData';
 import { REFS } from '../data/refs';
 
-export default function CatchUpTab() {
+export default function CatchUpTable() {
   return (
     <div>
       <div style={{ fontSize: 11, color: "var(--gy3)", marginBottom: 8 }}>
@@ -62,10 +62,6 @@ export default function CatchUpTab() {
             })}
           </tbody>
         </table>
-      </div>
-
-      <div style={{ marginTop: 10, fontSize: 11, color: "var(--gy3)", fontStyle: "italic" }}>
-        Brand-specific age windows and dose-number constraints are in <strong>Plan → Brand Constraints</strong>.
       </div>
     </div>
   );
