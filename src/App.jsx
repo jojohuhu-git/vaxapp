@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AppProvider, useApp, useRecs } from './context/AppContext';
-import { encState, decState } from './logic/urlState';
+import { encState, decState, RESET_SNAPSHOT_KEY } from './logic/urlState';
 import { RISK_FACTORS } from './data/riskFactors';
 import Header from './components/Header';
 import PatientInfo from './components/PatientInfo';
@@ -215,6 +215,41 @@ function AppInner() {
     } catch { /* ignore */ }
   };
 
+  // Reset safety net: a snapshot is written to localStorage right before Reset
+  // clears the patient (see Header.jsx). Offer a one-shot restore until it's
+  // used or dismissed, and only while no patient is currently loaded — once a
+  // new patient starts (or a share link is opened), the snapshot is stale.
+  const [resetSnapshot, setResetSnapshot] = useState(() => {
+    try {
+      return localStorage.getItem(RESET_SNAPSHOT_KEY);
+    } catch {
+      return null;
+    }
+  });
+
+  // Re-read localStorage whenever the patient becomes empty — this is what
+  // happens the instant Reset fires (Header.jsx writes the snapshot, then
+  // dispatches CLEAR_ALL), not just on a fresh mount/reopened tab.
+  useEffect(() => {
+    if (state.am >= 0 || state.dob) return;
+    try {
+      setResetSnapshot(localStorage.getItem(RESET_SNAPSHOT_KEY));
+    } catch { /* ignore */ }
+  }, [state.am, state.dob]);
+
+  const clearResetSnapshot = () => {
+    try {
+      localStorage.removeItem(RESET_SNAPSHOT_KEY);
+    } catch { /* ignore */ }
+    setResetSnapshot(null);
+  };
+
+  const restorePreviousPatient = () => {
+    const decoded = resetSnapshot ? decState(resetSnapshot) : null;
+    if (decoded) dispatch({ type: "RESTORE_STATE", payload: decoded });
+    clearResetSnapshot();
+  };
+
   // Restore state from URL on mount
   useEffect(() => {
     try {
@@ -257,6 +292,20 @@ function AppInner() {
             <strong>PediVax Clinical Vaccine Planner</strong> &mdash; Enter the patient&apos;s age, vaccination history, and risk factors. The engine generates recommendations, regimen options, and a full forecast aligned with the 2025 CDC/ACIP immunization schedule.
           </div>
           <button onClick={dismissBanner} className="top-banner-close">
+            &times;
+          </button>
+        </div>
+      )}
+
+      {resetSnapshot && state.am < 0 && !state.dob && (
+        <div className="top-banner">
+          <div className="top-banner-text">
+            Patient data was cleared by Reset.{" "}
+            <button onClick={restorePreviousPatient} className="top-banner-link">
+              Restore previous patient
+            </button>
+          </div>
+          <button onClick={clearResetSnapshot} className="top-banner-close">
             &times;
           </button>
         </div>

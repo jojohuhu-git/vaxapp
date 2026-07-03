@@ -1,10 +1,18 @@
 import { useApp } from '../context/AppContext';
+import { encState, RESET_SNAPSHOT_KEY } from '../logic/urlState';
 
 export default function Header({ onShare }) {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
 
   function handleReset() {
     if (window.confirm("Clear all patient data and start over?")) {
+      if (state.am >= 0 || state.dob) {
+        try {
+          localStorage.setItem(RESET_SNAPSHOT_KEY, encState(state));
+        } catch {
+          // localStorage unavailable (private browsing, quota) — Reset still proceeds.
+        }
+      }
       dispatch({ type: "CLEAR_ALL" });
       window.history.replaceState(null, "", window.location.pathname);
     }

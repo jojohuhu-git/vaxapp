@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { useApp, getEffectiveAm, useRecs } from '../context/AppContext';
 import { REFS } from '../data/refs';
 import TabBar from './TabBar';
-import RecTab from './RecTab';
 import PlanTab from './PlanTab';
 import ForecastTab from './ForecastTab';
 import CatchUpTab from './CatchUpTab';
@@ -123,7 +122,6 @@ export default function MainPanel() {
         <TabBar onReference={() => setShowRef(true)} />
 
         {state.tab === "compliance" && <ComplianceAuditTab recs={recs} validHist={validHist} />}
-        {state.tab === "recs" && <RecTab recs={recs} validHist={validHist} />}
         {state.tab === "plan" && <PlanTab recs={recs} />}
         {state.tab === "constraints" && <BrandConstraintsPanel recs={recs} />}
         {state.tab === "forecast" && <ForecastTab recs={recs} validHist={validHist} />}

@@ -24,14 +24,12 @@ src/
     AppContext.jsx      Global state (useReducer), getEffectiveAm(), AppProvider
   components/
     MainPanel.jsx       Routes tabs, calls useRecs() (AppContext) for recs + validHist
-    TabBar.jsx          Tabs: Compliance Audit | Recommendations | Compare Regimens | Brand Rules | Immunization Schedule | Catch-up Schedule ↗ (modal)
+    TabBar.jsx          Tabs: Compliance Audit | Immunization Schedule | Compare Regimens | Brand Rules | Catch-up Schedule ↗ (modal)
     ComplianceAuditTab.jsx  Per-dose compliance classifier with popover detail
-    RecTab.jsx          Recommendations list with filter buttons (All/Due/Catch-up/Risk-Based/Shared decision)
-    RecCard.jsx         Single recommendation card with brand dropdown; open/collapsed state is local (useState), not global
     PlanTab.jsx         Sub-modes: Regimen Optimizer (RegTab) | Brand Constraints
     RegTab.jsx          Regimen optimizer UI + custom-build antigen picker (custSel is local useState)
     BrandConstraintsPanel.jsx  Combo dose gates + brand age window reference
-    ForecastTab.jsx     "Immunization Schedule" tab: visit table + view toggle (Routine/Earliest Completion/Fewest Injections) + embedded Today's Visit / Optimal Schedule panels
+    ForecastTab.jsx     "Immunization Schedule" tab: visit table + view toggle (Routine/Earliest Completion/Fewest Injections) + embedded Today's Visit / Optimal Schedule panels. Today's Visit panel is the one due-today list in the app (2026-07: absorbed the standalone Recommendations tab, RecTab/RecCard, deleted as fully redundant — see docs/archive/agent-session-log.md)
     BrandScheduleTab.jsx    Static infant brand strategy reference (Pediarix/Vaxelis/Pentacel)
     CatchUpTab.jsx      CDC Table 2 catch-up reference (accessed via "Catch-up Schedule ↗" modal in MainPanel's ReferenceModal)
     PatientInfo.jsx     Age typeahead + DOB DateField + mismatch hint
@@ -53,11 +51,11 @@ src/
     ComboSuggestionsPanel.jsx  Persistent combo suggestion panel in PatientDrawer
 
     Orphaned (present in repo, not wired into any route — verify before assuming they run):
-    TodayTab.jsx        Superseded by RecTab's due-filter default; intentionally retained per docs/archive/agent-session-log.md
     QuickAdd.jsx        Not imported anywhere currently
     (StatusBar.jsx was deleted 2026-07 — fully superseded by PatientSummaryBar in App.jsx)
     (OptimalScheduleTab.jsx was deleted 2026-07 — orphaned, never imported; ForecastTab.jsx's inline optimal-schedule rendering superseded it)
     (AuditPanel.jsx was deleted 2026-07 — superseded by AuditFooter.jsx (2026-05-21), then fully by ComplianceAuditTab.jsx (2026-05-30); never removed until now)
+    (TodayTab.jsx was deleted 2026-07 — already orphaned; RecTab.jsx/RecCard.jsx also deleted same pass, fully superseded by ForecastTab.jsx's Today's Visit panel)
   logic/
     recommendations.js  genRecs(am, hist, risks, dob, opts) — central rec engine
     forecastLogic.js    orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly
@@ -107,16 +105,16 @@ src/
 }
 ```
 
-Ephemeral UI state (rec-card open/collapsed, custom-regimen antigen picker) lives in local `useState` in `RecCard.jsx`/`RegTab.jsx`, not in this reducer — moved out 2026-07 so toggling a card doesn't re-render the whole tree.
+Ephemeral UI state (rec-card open/collapsed, custom-regimen antigen picker) lives in local `useState` in `RegTab.jsx`, not in this reducer — moved out 2026-07 so toggling a card doesn't re-render the whole tree.
 
 Key computed value: `getEffectiveAm(state)` returns `{ effectiveAm, conflict, dobAm, manualAm }`. `useRecs()` (also exported from AppContext.jsx) returns `{ effectiveAm, conflict, validHist, recs }`, memoized — the single shared computation of `validatedHistory()` + `genRecs()` used by both `PatientSummaryBar` (App.jsx) and `MainPanel.jsx`.
 DOB-derived age takes precedence over manual age; conflict = both set but disagree beyond tolerance.
 
-Default tab: `"recs"` (Recommendations). Tab bar order is Compliance Audit | Recommendations | Compare Regimens | Brand Rules | Immunization Schedule, plus a "Catch-up Schedule ↗" button that opens `CatchUpTab` in a modal. Default filter: `"due"`.
+Default tab: `"forecast"` (Immunization Schedule). Tab bar order is Compliance Audit | Immunization Schedule | Compare Regimens | Brand Rules, plus a "Catch-up Schedule ↗" button that opens `CatchUpTab` in a modal. (2026-07: the standalone Recommendations tab was removed — its due-today content was fully duplicated by Immunization Schedule's Today's Visit panel, so `filter` state and `SET_FILTER` were also removed.)
 
 ## Reducer Actions
 
-`SET_AGE`, `SET_DOB`, `SET_RISKS`, `ADD_VISIT`, `REMOVE_VISIT`, `SET_TAB`, `SET_FILTER`,
+`SET_AGE`, `SET_DOB`, `SET_RISKS`, `ADD_VISIT`, `REMOVE_VISIT`, `SET_TAB`,
 `FC_BRAND_CHANGE`, `RESET_FORECAST`, `RESTORE_STATE`, `SET_CD4`, `EDIT_DOSE`
 
 `FC_BRAND_CHANGE` payload accepts optional `fcKey` (primary write key) and `siblingFcKeys` (a `{sibVk: planKey}` map for combo cascade at catch-up rows). Catch-up rows use `cu{age}_{vk}` keys, not `{visitM}_{vk}`.
@@ -124,12 +122,11 @@ Default tab: `"recs"` (Recommendations). Tab bar order is Compliance Audit | Rec
 ## Tab Structure
 
 ```
-Compliance Audit | Recommendations | Plan               | Forecast      | Reference ↗ (modal)
-                   ├ All            ├ Regimen Optimizer   ├ Routine        └ Catch-up Schedule
-                   ├ Due (default)  └ Brand Constraints   ├ Earliest
-                   ├ Catch-up                               Completion
-                   ├ Risk-Based                           └ Fewest
-                   └ SCD                                    Injections
+Compliance Audit | Immunization Schedule            | Compare Regimens    | Brand Rules | Catch-up Schedule ↗ (modal)
+                   ├ Today's Visit (due-today list,    ├ Regimen Optimizer
+                   │  brand dropdowns, Why rationale)  └ Brand Constraints
+                   └ Routine / Earliest Completion /
+                      Fewest Injections schedule views
 ```
 
 ## App Layout

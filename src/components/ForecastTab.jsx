@@ -9,7 +9,7 @@ import { genRecs } from '../logic/recommendations';
 import { orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly } from '../logic/forecastLogic';
 import { dc } from '../logic/stateHelpers';
 import { computeDosePlan, fmtProjection, fmtEarliestDate, getTotalDoses } from '../logic/dosePlan';
-import { validatedHistory } from '../logic/validation';
+import { validatedHistory, auditAll } from '../logic/validation';
 import { addD, todayISO } from '../logic/utils';
 import { humanDays, fmtAm } from '../logic/ageFormat';
 import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
@@ -485,6 +485,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
   const today = todayISO();
   const optPatient = { dob: state.dob || null, am, risks: state.risks ?? [], hist: validHist };
 
+  const errCount = auditAll(state.hist, state.dob, state.risks, state.am)
+    .filter(e => e.severity === "err").length;
+
   // Compute projected dose plan
   const dosePlan = computeDosePlan(am, state.dob, recs, state.fcBrands, validHist, state.risks);
 
@@ -750,6 +753,13 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
   return (
     <div>
+      {errCount > 0 && (
+        <div className="fct-err-banner">
+          <strong>{errCount} schedule error{errCount !== 1 ? "s" : ""}</strong> detected in vaccination history.
+          Review the Compliance Audit tab for details.
+        </div>
+      )}
+
       {/* ── VIEW TOGGLE ──────────────────────────────────────────── */}
       <div className="fct-view-toggle">
         {[

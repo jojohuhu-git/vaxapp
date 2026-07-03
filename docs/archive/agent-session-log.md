@@ -2586,3 +2586,86 @@ pick an approach and build it**:
 **Before starting either**: the 3 commits from this session (branch `ux-review-handoff-fixes`) are
 not yet pushed or turned into a PR. Ask the user whether to open the PR now or keep building on the
 same branch first.
+
+---
+
+## Changes shipped (2026-07-03, continued) — B7 tab consolidation + B8 localStorage safety net
+
+PR #71 (the handoff above) merged. This continues on a new branch,
+`tab-consolidation-reset-safety-net`, after a design conversation with the user resolved both
+deferred items above.
+
+### Key discovery during design — B7 wasn't a merge, it was a deletion
+
+Planning turned up that the "Recommendations" tab (`RecTab.jsx`/`RecCard.jsx`) was already fully
+duplicated by the "Today's Visit" panel embedded in the Immunization Schedule tab
+(`ForecastTab.jsx`) — same brand-aware dropdowns (`orderedBrandsForVisit()`), same status badges,
+same expandable "Why" rationale. `RecTab`/`RecCard` had no other importers. So B7 became: delete
+the redundant tab, port the one thing it had that the Today panel didn't (the schedule-error
+banner), and clean up a second already-orphaned file (`TodayTab.jsx`) discovered in the same pass.
+
+- Tab bar: Compliance Audit | Recommendations | Compare Regimens | Brand Rules | Immunization
+  Schedule | Catch-up Schedule ↗ → **Compliance Audit | Immunization Schedule | Compare Regimens |
+  Brand Rules | Catch-up Schedule ↗** (5 → 4 real tabs). Default landing tab changed from
+  `"recs"` to `"forecast"`.
+- Deleted `RecTab.jsx`, `RecCard.jsx`, `TodayTab.jsx` (already-orphaned), and the stale
+  `TodayTab.test.jsx` (which — per its own header comment — actually tested `RecTab`, not
+  `TodayTab`, left over from an earlier fold). Replaced with
+  `ForecastTab.todayPanel.test.jsx` covering the Today panel's brand dropdown and the new
+  error banner.
+- Removed `state.filter`/`SET_FILTER` from `AppContext.jsx` — only ever consumed by the deleted
+  `RecTab`'s filter chips; the Today panel has no equivalent and doesn't need one.
+- Ported the schedule-error banner (`auditAll()`, previously only in `RecTab`) into
+  `ForecastTab.jsx`'s Today's Visit panel as `.fct-err-banner`.
+- Decision on Brand Rules + Catch-up Schedule grouping: **left as-is**, not merged into one
+  "Reference" bucket as the original review suggested. Catch-up Schedule is generic
+  (identical for every patient) and was already a header-level modal link, not a tab — the
+  right home for pure reference content. Brand Rules is patient-specific (age-gated eligible
+  brands) and stays a first-class tab so it isn't buried next to generic material.
+- No changes to `regimens.js`, `comboAnalyzer.js`, `forecastLogic.js`, `buildOptimalSchedule.js`,
+  or `recommendations.js` — pure UI composition change reusing already-computed engine output.
+
+### B8 — localStorage safety net (PWA half deferred)
+
+Original roadmap item 9 bundled two unrelated things: a Reset safety net, and a full PWA
+(manifest/service worker/add-to-home-screen). Scoped down in conversation to **just the safety
+net**, snapshotting only at Reset time (not continuous autosave) — the PWA half stays deferred to
+a future session.
+
+- Reused existing serialization instead of inventing new format: `encState()`/`decState()`
+  (`urlState.js`, the same functions the `?s=` share URL uses) and the existing `RESTORE_STATE`
+  reducer action (already used to hydrate from a shared URL on mount).
+- `Header.jsx`'s `handleReset()` now writes `encState(state)` to
+  `localStorage['pedivax_reset_snapshot']` before dispatching `CLEAR_ALL`, but only when there's
+  a real patient (`state.am >= 0 || state.dob` — DOB-only patients, entered without an age
+  quick-select, needed this OR since `SET_DOB` alone never sets `state.am`).
+- `App.jsx` shows a dismissible "Patient data was cleared by Reset. [Restore previous patient]"
+  banner (reusing the existing `.top-banner` pattern) whenever a snapshot exists and no patient
+  is currently loaded.
+- **Bug caught during manual browser verification, fixed same session**: the banner's
+  `resetSnapshot` state was read from `localStorage` only once, in a lazy `useState` initializer
+  at mount. That covers "snapshot survives closing and reopening the tab" but silently missed the
+  more common case — clicking Reset *within the same session* never re-read `localStorage`, so
+  the banner never appeared until the next full reload. Fixed with a `useEffect` that re-reads
+  `localStorage` whenever the patient becomes empty (`state.am < 0 && !state.dob`), which fires
+  both right after Reset and on a fresh mount with a stale snapshot. Caught by driving the actual
+  Reset button in the live preview, not just automated tests — the original automated test only
+  exercised the "pre-existing snapshot + fresh render" path and would not have caught this.
+- Test coverage added for both the snapshot-write side (`Header.resetSnapshot.test.jsx`) and the
+  banner/restore side (`App.resetSnapshot.test.jsx`), including the same-session Reset case that
+  exposed the bug above.
+
+Test count: 4389 → 4397 (net +8: −6 from deleted RecTab/TodayTab tests, +4 new Today-panel tests,
++4 Header snapshot tests, +6 App restore-banner tests — some new tests cover multiple `it()`
+cases each). Build verified clean. Two commits on branch `tab-consolidation-reset-safety-net`,
+not yet pushed or PR'd.
+
+### HANDOFF — what's left (as of 2026-07-03, end of this session)
+
+Both B7 and B8 (safety-net scope) are done. What remains:
+
+1. **PWA / offline** (manifest, service worker, add-to-home-screen) — explicitly deferred out of
+   B8's scope in this session's design conversation. Not scoped in any detail yet.
+2. Push `tab-consolidation-reset-safety-net` and open a PR — not yet done as of this entry.
+3. The B6 touch-target CSS (from the *previous* log entry, PR #71) is still only verified to
+   parse/register, not visually confirmed on a real touchscreen — tooling limitation persists.
