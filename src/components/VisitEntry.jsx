@@ -179,13 +179,13 @@ function DateRow({ row, dob, showRemove, onChange, onRemove, autoFocus = false }
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 6 }}>
+    <div className="dr-row">
       {dob ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy2)' }}>
+        <div className="dr-col">
+          <label className="dr-label">
             Visit Date
           </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="dr-field-line">
             <DateField
               value={row.dateVal}
               onChange={handleDateChange}
@@ -194,32 +194,27 @@ function DateRow({ row, dob, showRemove, onChange, onRemove, autoFocus = false }
               autoFocus={autoFocus}
             />
             {ageHintLabel && (
-              <span style={{ fontSize: 11, color: 'var(--gy3)', whiteSpace: 'nowrap' }}>
+              <span className="dr-age-hint">
                 at age {ageHintLabel}
               </span>
             )}
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy2)' }}>
+        <div className="dr-col">
+          <label className="dr-label">
             Age at Visit
           </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="dr-field-line">
             <input
               type="text"
               value={row.ageInput}
               onChange={handleAgeInputChange}
               placeholder="e.g. 2 months, 4y, 15d"
-              style={{
-                width: 160, fontSize: 12, padding: '4px 8px',
-                border: '1px solid var(--gy5)',
-                borderRadius: 'var(--rads)',
-                background: 'var(--wh)', color: 'var(--gy)',
-              }}
+              className="dr-age-input"
             />
             {row.parsedAgeDays != null && (
-              <span style={{ fontSize: 10, color: 'var(--gy3)' }}>
+              <span className="dr-age-parsed">
                 → {ageLabel(daysToMonths(row.parsedAgeDays))}
               </span>
             )}
@@ -231,12 +226,7 @@ function DateRow({ row, dob, showRemove, onChange, onRemove, autoFocus = false }
           type="button"
           onClick={onRemove}
           title="Remove this date row"
-          style={{
-            border: '1px solid var(--gy5)', background: 'var(--wh)',
-            color: 'var(--gy3)', borderRadius: 'var(--rads)',
-            fontSize: 13, cursor: 'pointer', padding: '2px 7px',
-            lineHeight: 1, alignSelf: 'flex-end', marginBottom: 1,
-          }}
+          className="dr-remove-btn"
         >
           &times;
         </button>
@@ -597,18 +587,10 @@ export default function VisitEntry() {
   const canSubmit = selectedVks.length > 0;
 
   return (
-    <div style={{ marginBottom: 12 }}>
+    <div className="ve-wrap">
       {/* ── Visit Entry Form ── */}
-      <div
-        style={{
-          background: 'var(--glt)',
-          border: '1.5px solid var(--gmd)',
-          borderRadius: 'var(--rad)',
-          padding: '12px 14px 10px',
-        }}
-        onKeyDown={handleFormKeyDown}
-      >
-        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--g)', textTransform: 'uppercase', letterSpacing: '.7px', marginBottom: 6 }}>
+      <div className="ve-form" onKeyDown={handleFormKeyDown}>
+        <div className="ve-form-title">
           Add Visit
         </div>
 
@@ -626,27 +608,19 @@ export default function VisitEntry() {
         ))}
 
         {/* "+ Add another visit" link */}
-        <div style={{ marginBottom: 10 }}>
-          <button
-            type="button"
-            onClick={addDateRow}
-            style={{
-              background: 'none', border: 'none', padding: 0,
-              fontSize: 11, color: 'var(--g)', cursor: 'pointer',
-              textDecoration: 'underline', fontWeight: 600,
-            }}
-          >
+        <div className="ve-add-date-row">
+          <button type="button" onClick={addDateRow} className="ve-add-date-link">
             + Add another visit date
           </button>
           {dateRows.length > 1 && (
-            <span style={{ fontSize: 11, color: 'var(--gy3)', marginLeft: 8 }}>
+            <span className="ve-add-date-count">
               {dateRows.length} dates — same vaccines will be recorded for each
             </span>
           )}
         </div>
 
         {/* Row: Vaccine selection hint */}
-        <div style={{ color: '#999', fontSize: '0.78rem', marginBottom: 6 }}>
+        <div className="ve-hint">
           Select one or more vaccines given at this visit.
         </div>
 
@@ -661,16 +635,16 @@ export default function VisitEntry() {
           const showCombos = patientAgeKnown && anyRowFilled && sortedCombos.length > 0;
           if (!showCombos) return null;
           return (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--gy3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 5 }}>
+            <div className="ve-combo-section">
+              <div className="ve-combo-label">
                 Combination Vaccines
               </div>
               {dateRows.length > 1 && comboAgesM.length < dateRows.length && (
-                <div style={{ fontSize: 10, color: 'var(--gy3)', marginBottom: 5 }}>
+                <div className="ve-combo-note">
                   Showing combos valid at all entered visit ages
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              <div className="ve-combo-chips">
                 {sortedCombos.map(comboName => {
                   const covers = COMBO_COVERS[comboName] || [];
                   // A combo is "active" only if the user explicitly selected it via its chip
@@ -693,17 +667,10 @@ export default function VisitEntry() {
                           selectCombo(comboName);
                         }
                       }}
-                      style={{
-                        fontSize: 11, padding: '3px 9px', borderRadius: 'var(--rads)',
-                        border: `1.5px solid ${isActive ? 'var(--g)' : 'var(--gy4)'}`,
-                        background: isActive ? 'var(--g)' : 'var(--wh)',
-                        color: isActive ? '#fff' : 'var(--gy2)',
-                        cursor: 'pointer', fontWeight: isActive ? 700 : 500,
-                        transition: 'background .12s, border-color .12s',
-                      }}
+                      className={`ve-combo-chip${isActive ? ' on' : ''}`}
                     >
                       {comboName}
-                      <span style={{ fontWeight: 400, fontSize: 10, marginLeft: 3, opacity: .75 }}>
+                      <span className="ve-combo-chip-covers">
                         ({covers.map(vk => VAX_META[vk]?.ab || vk).join('+')})
                       </span>
                     </button>
@@ -715,11 +682,11 @@ export default function VisitEntry() {
         })()}
 
         {/* Individual antigen chips — always visible */}
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--gy3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 5 }}>
+        <div className="ve-antigen-section">
+          <div className="ve-antigen-label">
             Individual Antigens
           </div>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <div className="ve-antigen-chips">
             {sortedVaks.map(vk => {
               const selected = selectedVks.includes(vk);
               const meta = VAX_META[vk];
@@ -728,14 +695,7 @@ export default function VisitEntry() {
                   key={vk}
                   type="button"
                   onClick={() => toggleVk(vk)}
-                  style={{
-                    fontSize: 11, padding: '3px 9px', borderRadius: 'var(--rads)',
-                    border: `1.5px solid ${selected ? 'var(--g)' : 'var(--gy5)'}`,
-                    background: selected ? 'var(--g)' : 'var(--wh)',
-                    color: selected ? '#fff' : 'var(--gy2)',
-                    cursor: 'pointer', fontWeight: selected ? 700 : 500,
-                    transition: 'background .12s, border-color .12s',
-                  }}
+                  className={`ve-antigen-chip${selected ? ' on' : ''}`}
                 >
                   {meta?.ab || vk}
                 </button>
@@ -746,38 +706,23 @@ export default function VisitEntry() {
 
         {/* Brand dropdowns for selected vaccines */}
         {selectedVks.length > 0 && (
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--gy3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 5 }}>
+          <div className="ve-brand-section">
+            <div className="ve-brand-label">
               Brands (optional)
             </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div className="ve-brand-list">
               {selectedVks.map(vk => {
                 const opts = brandOptsForVk(vk);
                 const currentBrand = brandByVk[vk] || '';
                 return (
-                  <div
-                    key={vk}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 5,
-                      background: 'var(--wh)', border: '1px solid var(--gy5)',
-                      borderRadius: 'var(--rads)', padding: '3px 8px',
-                    }}
-                  >
-                    <span style={{
-                      fontSize: 11, fontWeight: 700, color: 'var(--g)',
-                      minWidth: 32, flexShrink: 0,
-                    }}>
+                  <div key={vk} className="ve-brand-item">
+                    <span className="ve-brand-ab">
                       {VAX_META[vk]?.ab || vk}
                     </span>
                     <select
                       value={currentBrand}
                       onChange={e => setBrand(vk, e.target.value)}
-                      style={{
-                        fontSize: 11, border: 'none', background: 'transparent',
-                        color: currentBrand ? 'var(--gy)' : 'var(--gy3)',
-                        padding: '1px 2px', minWidth: 100, maxWidth: 200,
-                        outline: 'none',
-                      }}
+                      className={`ve-brand-select${currentBrand ? ' chosen' : ''}`}
                     >
                       {opts.map(o => (
                         <option key={o.value} value={o.value}>{o.label}</option>
@@ -786,11 +731,7 @@ export default function VisitEntry() {
                     <button
                       type="button"
                       onClick={() => toggleVk(vk)}
-                      style={{
-                        border: 'none', background: 'none', color: 'var(--gy4)',
-                        fontSize: 13, cursor: 'pointer', lineHeight: 1, padding: '0 2px',
-                        flexShrink: 0,
-                      }}
+                      className="ve-brand-remove-btn"
                       title={`Remove ${VAX_META[vk]?.ab || vk}`}
                     >
                       &times;
@@ -804,11 +745,7 @@ export default function VisitEntry() {
 
         {/* Combo hint */}
         {comboHint && (
-          <div style={{
-            fontSize: 11, padding: '5px 10px', marginBottom: 8,
-            background: 'var(--blt)', border: '1px solid var(--bmd)', borderRadius: 'var(--rads)',
-            color: 'var(--b)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-          }}>
+          <div className="ve-combo-hint">
             <span>
               {comboHint.covers.map(vk => VAX_META[vk]?.ab || vk).join(' + ')} selected with unknown brand — was this{' '}
               <strong>{comboHint.comboName}</strong>?
@@ -816,11 +753,7 @@ export default function VisitEntry() {
             <button
               type="button"
               onClick={() => applyComboHint(comboHint.comboName)}
-              style={{
-                fontSize: 11, padding: '2px 8px', borderRadius: 'var(--rads)',
-                border: '1px solid var(--b2)', background: 'var(--b2)',
-                color: '#fff', cursor: 'pointer', fontWeight: 600,
-              }}
+              className="ve-combo-hint-btn"
             >
               Yes, use {comboHint.comboName}
             </button>
@@ -829,37 +762,17 @@ export default function VisitEntry() {
 
         {/* Duplicate antigen warning */}
         {dupHint && (
-          <div style={{
-            fontSize: 11, padding: '6px 10px', marginBottom: 8,
-            background: 'var(--alt)', border: '1px solid var(--amd)', borderRadius: 'var(--rads)',
-            color: 'var(--a)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-          }}>
+          <div className="ve-dup-hint">
             <span>
               {dupHint.rowDates.map(d => fmtDate(d)).join(', ')} already{' '}
               {dupHint.rowDates.length > 1 ? 'have' : 'has'}{' '}
               {dupHint.dupVks.map(vk => VAX_META[vk]?.ab || vk).join(', ')}.{' '}
               Add as duplicate?
             </span>
-            <button
-              type="button"
-              onClick={() => handleCommit(true)}
-              style={{
-                fontSize: 11, padding: '2px 8px', borderRadius: 'var(--rads)',
-                border: '1px solid var(--a2)', background: 'var(--a2)',
-                color: '#fff', cursor: 'pointer', fontWeight: 600,
-              }}
-            >
+            <button type="button" onClick={() => handleCommit(true)} className="ve-dup-hint-add">
               Add anyway
             </button>
-            <button
-              type="button"
-              onClick={() => setDupHint(null)}
-              style={{
-                fontSize: 11, padding: '2px 8px', borderRadius: 'var(--rads)',
-                border: '1px solid var(--gy4)', background: 'var(--wh)',
-                color: 'var(--gy2)', cursor: 'pointer',
-              }}
-            >
+            <button type="button" onClick={() => setDupHint(null)} className="ve-dup-hint-cancel">
               Cancel
             </button>
           </div>
@@ -867,17 +780,13 @@ export default function VisitEntry() {
 
         {/* Message */}
         {msg && (
-          <div style={{ fontSize: 11, color: 'var(--r)', marginBottom: 6 }}>{msg}</div>
+          <div className="ve-msg">{msg}</div>
         )}
 
         {/* Commit button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
+        <div className="ve-submit-row">
           {selectedVks.length > 0 && (
-            <span style={{
-              fontSize: 11, color: 'var(--gy3)',
-              background: 'var(--gy6)', border: '1px solid var(--gy5)',
-              borderRadius: 'var(--rads)', padding: '2px 8px',
-            }}>
+            <span className="ve-submit-count">
               {selectedVks.length} vaccine{selectedVks.length !== 1 ? 's' : ''}
               {dateRows.length > 1 ? ` × ${dateRows.length} dates` : ' selected'}
             </span>
@@ -886,14 +795,7 @@ export default function VisitEntry() {
             type="button"
             onClick={() => handleCommit(false)}
             disabled={!canSubmit}
-            style={{
-              fontSize: 12, fontWeight: 700, padding: '5px 18px',
-              borderRadius: 'var(--rads)', border: 'none',
-              background: canSubmit ? 'var(--g)' : 'var(--gy5)',
-              color: canSubmit ? '#fff' : 'var(--gy3)',
-              cursor: canSubmit ? 'pointer' : 'default',
-              transition: 'background .15s',
-            }}
+            className={`ve-submit-btn${canSubmit ? ' enabled' : ''}`}
           >
             + Add Visit{dateRows.length > 1 ? `s (${dateRows.length})` : ''}
           </button>
@@ -902,57 +804,39 @@ export default function VisitEntry() {
 
       {/* ── Undo Strip ── */}
       {recentVisits.length > 0 && (
-        <div style={{ marginTop: 8 }}>
-          <div style={{ color: '#999', fontSize: '0.78rem', marginBottom: 5 }}>
+        <div className="ve-undo-wrap">
+          <div className="ve-undo-label">
             Recently added — click to expand, × to remove
           </div>
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          <div className="ve-undo-list">
             {recentVisits.map(v => {
               const isExpanded = expandedVisitId === v.visitId;
               return (
-                <div
-                  key={v.visitId}
-                  style={{
-                    display: 'flex', flexDirection: 'column',
-                    fontSize: 11,
-                    background: isExpanded ? 'var(--glt)' : 'var(--gy6)',
-                    border: `1px solid ${isExpanded ? 'var(--gmd)' : 'var(--gy5)'}`,
-                    borderRadius: 'var(--rads)',
-                    color: 'var(--gy2)',
-                    transition: 'background .12s, border-color .12s',
-                  }}
-                >
+                <div key={v.visitId} className={`ve-undo-chip${isExpanded ? ' expanded' : ''}`}>
                   {/* Chip header row */}
                   <div
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      padding: '3px 8px', cursor: 'pointer', userSelect: 'none',
-                    }}
+                    className="ve-undo-chip-head"
                     onClick={() => setExpandedVisitId(isExpanded ? null : v.visitId)}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedVisitId(isExpanded ? null : v.visitId); } }}
                   >
                     {v.date ? (
-                      <span style={{ fontWeight: 600 }}>{fmtDate(v.date)}</span>
+                      <span className="ve-undo-date">{fmtDate(v.date)}</span>
                     ) : (
-                      <span style={{ fontWeight: 600 }}>
+                      <span className="ve-undo-date">
                         {v.ageDays != null ? `~${ageLabel(daysToMonths(v.ageDays))}` : 'Unknown'}
                       </span>
                     )}
-                    <span style={{ color: 'var(--gy3)' }}>·</span>
+                    <span className="ve-undo-dot">·</span>
                     <span>{visitLabel(v)}</span>
-                    <span style={{ fontSize: 10, color: 'var(--gy4)', marginLeft: 2 }}>
+                    <span className="ve-undo-chevron">
                       {isExpanded ? '▲' : '▼'}
                     </span>
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleRemoveVisit(v.visitId); }}
-                      style={{
-                        border: 'none', background: 'none', color: 'var(--gy4)',
-                        fontSize: 13, cursor: 'pointer', lineHeight: 1, padding: '0 2px',
-                        flexShrink: 0,
-                      }}
+                      className="ve-undo-remove"
                       title="Remove this visit"
                     >
                       &times;
@@ -960,19 +844,15 @@ export default function VisitEntry() {
                   </div>
                   {/* Expanded brand detail */}
                   {isExpanded && (
-                    <div style={{
-                      borderTop: '1px solid var(--gmd)',
-                      padding: '6px 10px',
-                      display: 'flex', flexDirection: 'column', gap: 3,
-                    }}>
+                    <div className="ve-undo-detail">
                       {v.vks.map(vk => {
                         const brand = v.brandByVk[vk];
                         return (
-                          <div key={vk} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <span style={{ fontWeight: 700, color: VAX_META[vk]?.c || 'var(--g)', minWidth: 36, fontSize: 10 }}>
+                          <div key={vk} className="ve-undo-detail-row">
+                            <span className="ve-undo-detail-vk" style={{ color: VAX_META[vk]?.c || 'var(--g)' }}>
                               {VAX_META[vk]?.ab || vk}
                             </span>
-                            <span style={{ color: brand ? 'var(--gy2)' : 'var(--gy4)', fontSize: 11 }}>
+                            <span className={`ve-undo-detail-brand${brand ? '' : ' unknown'}`}>
                               {brand || 'brand unknown'}
                             </span>
                           </div>
@@ -988,7 +868,7 @@ export default function VisitEntry() {
       )}
 
       {/* Ref for age input — unused but kept for potential external focus management */}
-      <span ref={ageInputRef} style={{ display: 'none' }} />
+      <span ref={ageInputRef} className="ve-hidden-ref" />
     </div>
   );
 }
