@@ -11,7 +11,7 @@ import { dc } from '../logic/stateHelpers';
 import { computeDosePlan, fmtProjection, fmtEarliestDate, getTotalDoses } from '../logic/dosePlan';
 import { validatedHistory } from '../logic/validation';
 import { addD, todayISO } from '../logic/utils';
-import { humanDays } from '../logic/ageFormat';
+import { humanDays, fmtAm } from '../logic/ageFormat';
 import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
 import { REFS } from '../data/refs';
 import PdfDownloadButton from './PdfDownloadButton';
@@ -54,18 +54,6 @@ function minAgeLabelForVk(vk) {
   // Whole-year thresholds (2y, 7y, 9y, 10y) display cleanly without decimals.
   if (Math.abs(years - Math.round(years)) < 0.1) return `≥${Math.round(years)} years`;
   return `≥${years.toFixed(1)} years`;
-}
-
-// Full-word age formatter: 2 → "2 months", 14 → "1 year 2 months", 84 → "7 years".
-// Used by today's visit header and moved-dose age chips.
-function fmtAgeWords(m) {
-  if (m == null || isNaN(m)) return '';
-  const mm = Math.round(m);
-  if (mm < 12) return `${mm} month${mm !== 1 ? 's' : ''}`;
-  const y = Math.floor(mm / 12);
-  const r = mm % 12;
-  const yLabel = `${y} year${y !== 1 ? 's' : ''}`;
-  return r === 0 ? yLabel : `${yLabel} ${r} month${r !== 1 ? 's' : ''}`;
 }
 
 // Short display label for a brand option. Keeps the option's `value` as the
@@ -290,7 +278,7 @@ function printVisitSummary({ am, dob, recs, fcBrands }) {
 }
 
 // ── Optimal Schedule helpers ────────────────────────────────────
-// humanDays is imported from ageFormat.js (shared with OptimalScheduleTab)
+// humanDays is imported from ageFormat.js
 
 function findPrevOptDose(vk, doseNum, allFlatDoses) {
   return allFlatDoses
@@ -468,7 +456,7 @@ function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses }) {
 
 // ── Main component ─────────────────────────────────────────────
 
-export default function ForecastTab({ recs }) {
+export default function ForecastTab({ recs, validHist: validHistProp }) {
   const { state, dispatch } = useApp();
   const am = getEffectiveAm(state).effectiveAm;
 
@@ -491,7 +479,7 @@ export default function ForecastTab({ recs }) {
 
   // Filter history to countable doses only (drops invalid/uncountable doses
   // like a Kinrix IPV at 2 months) so the projection advances correctly.
-  const validHist = validatedHistory(state.hist, state.dob);
+  const validHist = validHistProp ?? validatedHistory(state.hist, state.dob);
 
   // Patient object for optimal schedule engine
   const today = todayISO();
@@ -789,7 +777,7 @@ export default function ForecastTab({ recs }) {
           <div className="today-hdr">
             <div className="today-hdr-left">
               <span className="today-title">Today&apos;s Visit</span>
-              <span className="today-age">{fmtAgeWords(am)}</span>
+              <span className="today-age">{fmtAm(am)}</span>
               {state.dob && (
                 <span className="today-visit-date">{visitDateLabel(state.dob, am)}</span>
               )}
@@ -1175,7 +1163,7 @@ export default function ForecastTab({ recs }) {
                       const origProj = dosePlan[visit.earlyFcKey];
                       const info = scheduledEarliest.get(visit.earlyFcKey);
                       if (!origProj || !info) return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
-                      const scheduledDate = info.date && state.dob ? fmtDateShort(info.date) : `~${fmtAgeWords(info.ageM)}`;
+                      const scheduledDate = info.date && state.dob ? fmtDateShort(info.date) : `~${fmtAm(info.ageM)}`;
                       const isAnnual = vk === "Flu" || vk === "COVID";
                       const dChip = isAnnual ? "Annual" : origProj.totalDoses > 1 ? `Dose ${origProj.doseNum} of ${origProj.totalDoses}` : `Dose ${origProj.doseNum}`;
                       // Brand picker for the moved dose. Standalone scheduled-early
@@ -1235,7 +1223,7 @@ export default function ForecastTab({ recs }) {
                       }
                       const movedDate = info.date && state.dob
                         ? fmtDateShort(info.date)
-                        : `~${fmtAgeWords(info.ageM)}`;
+                        : `~${fmtAm(info.ageM)}`;
                       const isAnnualMv = vk === "Flu" || vk === "COVID";
                       const dChipMv = isAnnualMv
                         ? "Annual"
@@ -1269,7 +1257,7 @@ export default function ForecastTab({ recs }) {
                     // CASE 3: Dose moved to earliest row — show indicator + brand dropdown + revert.
                     if (scheduledEarliest.has(fcKey)) {
                       const info = scheduledEarliest.get(fcKey);
-                      const movedDate = info.date && state.dob ? fmtDateShort(info.date) : `~${fmtAgeWords(info.ageM)}`;
+                      const movedDate = info.date && state.dob ? fmtDateShort(info.date) : `~${fmtAm(info.ageM)}`;
                       const rec3 = visitRecMap[vk];
                       const dn3 = rec3 ? rec3.doseNum : (dc(validHist, vk) + 1);
                       // Brand validity must use the MOVED age (info.ageM), not

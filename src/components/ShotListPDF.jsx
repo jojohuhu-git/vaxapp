@@ -2,6 +2,7 @@
 /* eslint-disable react/prop-types */
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { VAX_META } from '../data/vaccineData';
+import { fmtAm } from '../logic/ageFormat';
 
 const s = StyleSheet.create({
   page:       { padding: '18mm 16mm', fontFamily: 'Helvetica', fontSize: 9, color: '#222' },
@@ -57,12 +58,6 @@ const s = StyleSheet.create({
   cRoute:  { width: 55 },
   cInit:   { width: 35 },
 });
-
-function fmtAm(m) {
-  if (m < 12) return `${m} month${m !== 1 ? 's' : ''}`;
-  const y = Math.floor(m / 12), mo = m % 12;
-  return `${y} year${y !== 1 ? 's' : ''}` + (mo ? ` ${mo}m` : '');
-}
 
 function statusLabel(st) {
   if (st === 'due') return 'Routine';

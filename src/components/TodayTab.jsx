@@ -5,7 +5,6 @@ import { VAX_META, COMBO_COVERS } from '../data/vaccineData';
 import { FORECAST_VISITS } from '../data/forecastData';
 import { orderedBrandsForVisit } from '../logic/forecastLogic';
 import { getTotalDoses } from '../logic/dosePlan';
-import { validatedHistory } from '../logic/validation';
 
 // Grouped brand dropdown: combination vaccines in one optgroup, standalones in another.
 function BrandSelect({ bOpts, value, onChange, className }) {
@@ -124,10 +123,9 @@ function fmtAge(am) {
   return `${y} year${y !== 1 ? 's' : ''} ${m} month${m !== 1 ? 's' : ''}`;
 }
 
-export default function TodayTab({ recs }) {
+export default function TodayTab({ recs, validHist }) {
   const { state, dispatch } = useApp();
   const { effectiveAm: am } = getEffectiveAm(state);
-  const validHist = validatedHistory(state.hist, state.dob);
 
   // Separate "due today" (routine/risk-based/shared) from catch-up (overdue).
   const dueNow = recs.filter(r => r.status !== 'catchup');

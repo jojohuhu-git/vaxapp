@@ -40,7 +40,6 @@ src/
     HistoryTable.jsx    Compact/expanded vaccination history table
     DosePill.jsx        Clickable dose pill with detail popover and inline edit
     AuditFooter.jsx     Fixed bottom strip: shows schedule audit errors/warnings; hidden when clean
-    AuditPanel.jsx      Detailed audit panel with renumbering cards
     Header.jsx          Logo + Share/Reset buttons
     DateField.jsx       Masked MM/DD/YYYY input + calendar picker
     ShareModal.jsx      Share URL modal
@@ -56,8 +55,9 @@ src/
     Orphaned (present in repo, not wired into any route — verify before assuming they run):
     TodayTab.jsx        Superseded by RecTab's due-filter default; intentionally retained per docs/archive/agent-session-log.md
     QuickAdd.jsx        Not imported anywhere currently
-    OptimalScheduleTab.jsx  Not imported anywhere; ForecastTab.jsx has its own inline optimal-schedule rendering that appears to supersede it
     (StatusBar.jsx was deleted 2026-07 — fully superseded by PatientSummaryBar in App.jsx)
+    (OptimalScheduleTab.jsx was deleted 2026-07 — orphaned, never imported; ForecastTab.jsx's inline optimal-schedule rendering superseded it)
+    (AuditPanel.jsx was deleted 2026-07 — superseded by AuditFooter.jsx (2026-05-21), then fully by ComplianceAuditTab.jsx (2026-05-30); never removed until now)
   logic/
     recommendations.js  genRecs(am, hist, risks, dob, opts) — central rec engine
     forecastLogic.js    orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly

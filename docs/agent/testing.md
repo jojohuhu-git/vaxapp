@@ -35,7 +35,7 @@ The helper mocks `@react-pdf/renderer` (which can't run in happy-dom) and seeds 
 
 **When a UI test is mandatory:**
 - Bug reports describing what the user SEES, not what the engine returns
-- Any change to `ForecastTab.jsx`, `OptimalScheduleTab.jsx`, the `AppContext` reducer (`FC_BRAND_CHANGE`), or scheduled-early flow
+- Any change to `ForecastTab.jsx`, the `AppContext` reducer (`FC_BRAND_CHANGE`), or scheduled-early flow
 - New cell-rendering paths (CASE 1/2/2.5/3 in ForecastTab)
 
 ## Key Test Files

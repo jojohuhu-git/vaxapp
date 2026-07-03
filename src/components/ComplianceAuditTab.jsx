@@ -488,16 +488,15 @@ function DoseCard({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses,
 }
 
 // ── VaccineRow ─────────────────────────────────────────────────────────────────
-function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks }) {
+function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist }) {
   const meta = VAX_META[vk];
 
   // Get all given doses (not just validated — show all for audit purposes)
   const givenDoses = doses.filter(d => d.given);
   if (givenDoses.length === 0) return null;
 
-  // Count valid doses using validatedHistory
-  const vh = validatedHistory(hist, dob);
-  const validDoses = (vh[vk] || []).filter(d => d.given);
+  // Count valid doses using validatedHistory (computed once by the parent)
+  const validDoses = (validHist[vk] || []).filter(d => d.given);
   const validCount = validDoses.length;
   const totalCount = givenDoses.length;
   const invalidCount = totalCount - validCount;
@@ -822,10 +821,16 @@ function StatusLegend() {
 }
 
 // ── Main ComplianceAuditTab ────────────────────────────────────────────────────
-export default function ComplianceAuditTab() {
+export default function ComplianceAuditTab({ recs: recsProp, validHist: validHistProp }) {
   const { state } = useApp();
   const { effectiveAm: am } = getEffectiveAm(state);
   const { hist, dob, risks, fcBrands } = state;
+
+  // Accept recs/validHist from the parent's useRecs() call (avoids recomputing
+  // for the whole tab); fall back to a local computation for standalone/test
+  // rendering where no parent has supplied them.
+  const validHist = validHistProp ?? validatedHistory(hist, dob);
+  const recs = recsProp ?? genRecs(am, validHist, risks, dob, { today: todayISO(), cd4: state.cd4 });
 
   const [staleDismissed, setStaleDismissed] = useState(() => {
     try { return sessionStorage.getItem(SESSION_KEY) === '1'; } catch { return false; }
@@ -843,11 +848,6 @@ export default function ComplianceAuditTab() {
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return { label: `${months[parseInt(m, 10) - 1]} ${y}` };
   }, []);
-
-  const recs = genRecs(am, validatedHistory(hist, dob), risks, dob, {
-    today: todayISO(),
-    cd4: state.cd4,
-  });
 
   // Only vaccines with at least one given dose
   const vaccinesWithHistory = VAX_KEYS.filter(vk =>
@@ -898,6 +898,7 @@ export default function ComplianceAuditTab() {
           fcBrands={fcBrands || {}}
           am={am}
           risks={risks}
+          validHist={validHist}
         />
       ))}
 

@@ -12,6 +12,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { VAX_META, VAX_KEYS, VBR, COMBOS, COMBO_COVERS } from '../data/vaccineData';
+import { addD, dBetween } from '../logic/utils';
 import DateField from './DateField';
 
 // ── Age label helpers ─────────────────────────────────────────────────────────
@@ -30,18 +31,12 @@ function ageLabel(ageM) {
 
 function dobPlusDays(dob, days) {
   if (!dob) return '';
-  const d = new Date(dob + 'T00:00:00');
-  if (isNaN(d)) return '';
-  d.setDate(d.getDate() + Math.round(days));
-  return d.toISOString().slice(0, 10);
+  return addD(dob, Math.round(days));
 }
 
 function isoToAgeDays(iso, dob) {
   if (!iso || !dob) return null;
-  const d = new Date(iso + 'T00:00:00');
-  const b = new Date(dob + 'T00:00:00');
-  if (isNaN(d) || isNaN(b)) return null;
-  return Math.round((d - b) / 86400000);
+  return dBetween(dob, iso);
 }
 
 // Parse a user-typed age string like "2m", "2 months", "4y", "15d", "1y 6m" → days

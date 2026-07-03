@@ -38,7 +38,7 @@ All components use CSS custom properties — never add inline hex literals in ne
 
 ## Portal Popover Pattern
 
-Used in `OptimalScheduleTab`, `ForecastTab`, `DosePill`, `ComplianceAuditTab`.
+Used in `ForecastTab`, `DosePill`, `ComplianceAuditTab`.
 
 ```jsx
 // Always portal to document.body to escape overflow:hidden containers
