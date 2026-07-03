@@ -130,6 +130,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .tab{padding:10px 18px;border-radius:0;border:none;background:transparent;font-size:var(--fs-md);color:var(--gy2);font-weight:600;transition:all .15s;border-bottom:3px solid transparent;margin-bottom:-1px;}
 .tab:hover{color:var(--g);background:var(--glt);}
 .tab.on{background:transparent;color:var(--g);border-bottom-color:var(--g);}
+.tab-push-right{margin-left:auto;}
 
 /* REC CARDS */
 .rc{border-radius:var(--rads);border:1px solid var(--gy5);border-left:4px solid var(--gy4);padding:13px 16px;margin-bottom:9px;background:var(--wh);}
@@ -323,6 +324,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .drawer-head-label{font-size:13px;font-weight:700;color:var(--g);}
 .drawer-done-btn{padding:7px 22px;font-size:13px;font-weight:700;background:var(--g);color:#fff;border:none;border-radius:var(--rads);cursor:pointer;font-family:inherit;letter-spacing:.2px;}
 .drawer-cols{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start;}
+.drawer-cols>*{min-width:0;}
 .drawer-col-left{display:flex;flex-direction:column;gap:12px;}
 .drawer-section-title{margin-bottom:8px;}
 .drawer-risk-acc{border:1px solid var(--gy5);border-radius:var(--rads);}
@@ -515,3 +517,23 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 @media(max-width:900px){.reg-grid{grid-template-columns:1fr 1fr;}.rgrid{grid-template-columns:1fr 1fr;}.cgrid{grid-template-columns:1fr 1fr;}}
 @media(max-width:768px){.logo p{display:none;}}
 @media(max-width:560px){.reg-grid,.rgrid,.cgrid{grid-template-columns:1fr;}}
+
+/* MOBILE — tab bar becomes a scrollable single row instead of wrapping to N rows */
+@media(max-width:700px){
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
+  .tab{white-space:nowrap;flex-shrink:0;padding:10px 14px;}
+  .tab-push-right{margin-left:0;}
+}
+
+/* MOBILE — patient drawer: single column instead of a fixed 340px + 1fr grid
+   (the fixed column alone nearly fills a 375px viewport, pushing history off-screen) */
+@media(max-width:700px){
+  .drawer-panel{max-height:100vh;padding:14px 14px 18px;}
+  .drawer-cols{grid-template-columns:1fr;gap:18px;}
+  /* .htbl-wrap is overflow-x:visible on desktop (sticky-column layout assumes
+     room to spare); on a narrow single-column drawer the history table's
+     natural content width (e.g. the "no vaccines yet" empty-state row) would
+     otherwise force the whole page to scroll horizontally. Contain the
+     scroll to the table itself instead. */
+  .htbl-wrap{overflow-x:auto;}
+}
