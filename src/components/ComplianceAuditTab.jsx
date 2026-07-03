@@ -186,7 +186,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6, marginBottom: 10 }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: meta?.c || 'var(--g)' }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--gy)' }}>
               {meta?.n || vk}
             </div>
             <div style={{ fontSize: 11, color: 'var(--gy3)' }}>{smartLabel.label}</div>
@@ -579,14 +579,10 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
     >
       {/* Row header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-        {/* Color swatch + name */}
+        {/* Name */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <span style={{
-            display: 'inline-block', width: 10, height: 10,
-            borderRadius: 2, background: meta?.c || '#888', flexShrink: 0,
-          }} />
-          <span style={{
-            fontSize: 13, fontWeight: 700, color: 'var(--gy1)',
+            fontSize: 13, fontWeight: 700, color: 'var(--gy)',
             textTransform: 'uppercase', letterSpacing: '.3px',
           }}>
             {meta?.n || vk}

@@ -102,7 +102,7 @@ export function IntervalCard({ vk, spec }) {
       borderRadius: 'var(--rads)', padding: '10px 14px', marginBottom: 8,
       background: 'var(--wh)', fontSize: 12, lineHeight: 1.55, color: 'var(--gy2)',
     }}>
-      <div style={{ fontWeight: 700, fontSize: 13, color: meta?.c || 'var(--gy)', marginBottom: 4 }}>
+      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--gy)', marginBottom: 4 }}>
         {meta?.ab || vk}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: spec.note ? 6 : 0 }}>

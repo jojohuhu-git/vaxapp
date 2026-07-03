@@ -52,7 +52,7 @@ export default function HistoryTable() {
             return (
               <tr key={vk}>
                 <td style={{ whiteSpace: "nowrap" }}>
-                  <span className="vax-ab" style={{ color: meta.c }}>{meta.ab}</span>
+                  <span className="vax-ab" style={{ color: 'var(--gy)' }}>{meta.ab}</span>
                   <br />
                   <span className="vax-nm">{meta.n}</span>
                 </td>

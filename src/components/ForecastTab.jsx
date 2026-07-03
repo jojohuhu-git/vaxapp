@@ -426,11 +426,10 @@ function OptDoseRow({ dose, doseKey, openKey, setOpenKey, allFlatDoses }) {
       </div>
     );
   }
-  const meta = VAX_META[dose.vk];
   const brandShort = dose.brand ? dose.brand.split(' ')[0] : '';
   return (
     <div className="fct-opt-dose-row">
-      <span style={{ fontSize: 11, fontWeight: 600, color: meta?.c || 'var(--gy)', minWidth: 68 }}>{dose.vk}</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy)', minWidth: 68 }}>{dose.vk}</span>
       <span className="fct-opt-dose-num">D{dose.doseNum}/{dose.totalDoses}{brandShort && <span className="fct-opt-dose-brand">({brandShort})</span>}</span>
       <OptWhyButton doseKey={doseKey} openKey={openKey} setOpenKey={setOpenKey} explanation={explanation} />
     </div>
@@ -900,7 +899,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                         >
                           {statusText}
                         </span>
-                        <span className="today-vax" style={{ color: VAX_META[rec.vk]?.c }}>
+                        <span className="today-vax" style={{ color: 'var(--gy)' }}>
                           {VAX_META[rec.vk]?.n || rec.vk}
                         </span>
                         <span className="today-dose">{doseChip}</span>
@@ -988,7 +987,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               </div>
               {partial.map((d, i) => (
                 <div key={i} className="fct-opt-partial-row">
-                  <span style={{ fontWeight: 600, color: VAX_META[d.vk]?.c || 'var(--gy)', minWidth: 68 }}>{d.vk}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--gy)', minWidth: 68 }}>{d.vk}</span>
                   <span className="fct-opt-partial-dose">D{d.doseNum}/{d.totalDoses}</span>
                   <span className="fct-opt-partial-date">{d.date}</span>
                 </div>
@@ -1080,7 +1079,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                     className="vcol"
                     title={isNotYet ? `Patient not yet eligible (${minAgeLabelForVk(vk)})` : undefined}
                     style={{
-                      color: (isExp || isNotYet) ? 'var(--gy4)' : VAX_META[vk]?.c,
+                      color: (isExp || isNotYet) ? 'var(--gy4)' : 'var(--gy)',
                       textDecoration: isExp ? 'line-through' : undefined,
                       fontStyle: isNotYet ? 'italic' : undefined,
                     }}
@@ -1606,7 +1605,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               <div className="fcm-card-items">
                 {items.map(it => (
                   <div key={it.vk} className="fcm-item">
-                    <span className="fcm-item-vk" style={{ color: VAX_META[it.vk]?.c }}>{VAX_META[it.vk]?.ab || it.vk}</span>
+                    <span className="fcm-item-vk" style={{ color: 'var(--gy)' }}>{VAX_META[it.vk]?.ab || it.vk}</span>
                     <span className={`fch fch-${it.cls}`}>{it.label}</span>
                     {it.sub && <span className="fcm-item-sub">{it.sub}</span>}
                   </div>
