@@ -17,6 +17,7 @@ function initHist() {
 const INIT = {
   am: -1,
   dob: "",
+  dobEstimated: false, // true when dob was back-computed from the Age quick-estimate, not entered directly
   risks: [],
   cd4: null,   // CD4% (<14y) or CD4 count cells/µL (≥14y) for HIV patients
   hist: initHist(),
@@ -73,7 +74,10 @@ function reducer(state, action) {
       return { ...state, am: action.payload, fcBrands: {} };
 
     case "SET_DOB":
-      return { ...state, dob: action.payload };
+      return { ...state, dob: action.payload, dobEstimated: false };
+
+    case "SET_DOB_ESTIMATED":
+      return { ...state, dob: action.payload, dobEstimated: true };
 
     case "TOGGLE_RISK": {
       const id = action.payload;

@@ -234,7 +234,7 @@ export default function PatientInfo() {
     return `DOB suggests ${dobLabel} — conflict detected.`;
   })();
 
-  const ageOnlyNote = state.am >= 0 && !state.dob;
+  const ageOnlyNote = state.am >= 0 && (!state.dob || state.dobEstimated);
 
   const showCD4 = state.risks.includes("hiv");
   const cd4IsPercent = state.am >= 0 && state.am < 168;
@@ -275,7 +275,7 @@ export default function PatientInfo() {
             const months = v === '' ? -1 : Number(v);
             dispatch({ type: 'SET_AGE', payload: months });
             if (months >= 0) {
-              dispatch({ type: 'SET_DOB', payload: monthsToDob(months) });
+              dispatch({ type: 'SET_DOB_ESTIMATED', payload: monthsToDob(months) });
             }
           }}
         />

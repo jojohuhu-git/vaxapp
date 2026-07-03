@@ -151,7 +151,9 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
         {dobLabel && (
           <>
             <span className="summary-dot">·</span>
-            <span className="summary-dob">DOB {dobLabel}</span>
+            <span className="summary-dob">
+              DOB {state.dobEstimated && '~'}{dobLabel}{state.dobEstimated && ' (est.)'}
+            </span>
           </>
         )}
 

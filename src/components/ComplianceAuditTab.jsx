@@ -52,7 +52,7 @@ const STATUS_PILL_STYLE = {
 
 const STATUS_PILL_LABEL = {
   ON_TIME:    'ON TIME',
-  VALID:      'VALID',
+  VALID:      'VALID · OFF-WINDOW',
   VALID_EXTRA:'VALID · EXTRA',
   INVALID:    'INVALID',
   UNKNOWN:    'UNKNOWN',
@@ -710,7 +710,7 @@ const LEGEND_ENTRIES = [
   },
   {
     key: 'VALID',
-    label: 'VALID',
+    label: 'VALID · OFF-WINDOW',
     def: 'Outside the routine window, but counts toward series completion. May be early (via combination-vaccine schedule) or late (catch-up).',
   },
   {

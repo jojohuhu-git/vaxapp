@@ -806,8 +806,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               <button
                 onClick={() => dispatch({ type: "RESET_FORECAST" })}
                 className="fct-reset-btn"
+                title="Clears brand selections for this forecast — does not change patient data or history."
               >
-                Reset Forecast
+                Reset Brand Selections
               </button>
               <PdfDownloadButton
                 buildDoc={async () => {

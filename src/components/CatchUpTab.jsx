@@ -35,8 +35,12 @@ export default function CatchUpTab() {
               };
               const fmtAge = (d) => {
                 if (d === 0) return "Birth";
-                if (d >= 365) return `${(d / 365).toFixed(1)}y (${d}d)`;
-                if (d >= 30) return `${(d / 30.4).toFixed(1)}m (${d}d)`;
+                if (d >= 365) {
+                  const y = d / 365;
+                  return `${Number.isInteger(y) ? y : y.toFixed(1)}y (${d}d)`;
+                }
+                if (d >= 182) return `${Math.round(d / 30.4)}m (${d}d)`;
+                if (d >= 28) return `${Math.round(d / 7)}w (${d}d)`;
                 return `${d}d`;
               };
 

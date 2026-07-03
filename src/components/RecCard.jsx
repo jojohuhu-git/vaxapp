@@ -111,6 +111,7 @@ export default function RecCard({ rec, validHist: validHistProp }) {
           {seriesSummary && (
             <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>{seriesSummary}</div>
           )}
+          {rec.brandTip && <div className="btip" style={{ marginTop: 4, marginBottom: 0 }}>{rec.brandTip}</div>}
         </div>
         <span
           className="rc-badge"
@@ -140,8 +141,6 @@ export default function RecCard({ rec, validHist: validHistProp }) {
               <strong>Booster schedule:</strong> {cadence}
             </div>
           )}
-
-          {rec.brandTip && <div className="btip">{rec.brandTip}</div>}
 
           <div className="blbl">Other licensed brands (for reference)</div>
           <div className="bwrap">
