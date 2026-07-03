@@ -42,7 +42,7 @@ const STATUS_LABEL = {
 };
 
 /* eslint-disable react/prop-types */
-export default function RecCard({ rec }) {
+export default function RecCard({ rec, validHist: validHistProp }) {
   const { state } = useApp();
   const { effectiveAm } = getEffectiveAm(state);
   const [isOpen, setIsOpen] = useState(false);
@@ -91,7 +91,7 @@ export default function RecCard({ rec }) {
   const cadence = BOOSTER_CADENCE[rec.vk];
 
   // Build compact dose history from validated history (engine's view)
-  const vh = validatedHistory(state.hist, state.dob);
+  const vh = validHistProp ?? validatedHistory(state.hist, state.dob);
   const validDoses = (vh[rec.vk] || []).filter(d => d.given);
   const givenHistory = validDoses.length > 0
     ? validDoses.map((d, i) => {
@@ -111,6 +111,7 @@ export default function RecCard({ rec }) {
           {seriesSummary && (
             <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>{seriesSummary}</div>
           )}
+          {rec.brandTip && <div className="btip" style={{ marginTop: 4, marginBottom: 0 }}>{rec.brandTip}</div>}
         </div>
         <span
           className="rc-badge"
@@ -140,8 +141,6 @@ export default function RecCard({ rec }) {
               <strong>Booster schedule:</strong> {cadence}
             </div>
           )}
-
-          {rec.brandTip && <div className="btip">{rec.brandTip}</div>}
 
           <div className="blbl">Other licensed brands (for reference)</div>
           <div className="bwrap">

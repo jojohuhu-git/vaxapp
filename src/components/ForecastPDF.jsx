@@ -1,6 +1,7 @@
 // ForecastPDF.jsx — Full Forecast PDF styled to match SchedulePDF format.
 /* eslint-disable react/prop-types */
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { fmtAm } from '../logic/ageFormat';
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica', color: '#222' },
@@ -43,12 +44,6 @@ const styles = StyleSheet.create({
     fontSize: 7, color: '#999', textAlign: 'center',
   },
 });
-
-function fmtAm(m) {
-  if (m < 12) return `${m} month${m !== 1 ? 's' : ''}`;
-  const y = Math.floor(m / 12), mo = m % 12;
-  return `${y} year${y !== 1 ? 's' : ''}` + (mo ? ` ${mo} month${mo !== 1 ? 's' : ''}` : '');
-}
 
 function fmtRiskList(risks) {
   if (!risks || risks.length === 0) return 'None entered';

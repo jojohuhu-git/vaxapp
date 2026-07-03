@@ -3,7 +3,7 @@ import { useApp, getEffectiveAm } from '../context/AppContext';
 import { COMBO_COVERS } from '../data/vaccineData';
 import { FORECAST_VISITS } from '../data/forecastData';
 import { orderedBrandsForVisit } from '../logic/forecastLogic';
-import { auditAll } from '../logic/validation';
+import { auditAll, validatedHistory } from '../logic/validation';
 import RecCard from './RecCard';
 
 const STATUS_ORDER = ["due", "catchup", "risk-based", "recommended"];
@@ -114,11 +114,11 @@ function RecBrandDropdown({ rec, am, state, dispatch, allDueVks, doseNumByVk }) 
 }
 
 // Wrapper around RecCard that injects a brand dropdown for due/catchup recs.
-function RecCardWithBrand({ rec, am, state, dispatch, allDueVks, doseNumByVk }) {
+function RecCardWithBrand({ rec, am, state, dispatch, allDueVks, doseNumByVk, validHist }) {
   const showBrand = rec.status === 'due' || rec.status === 'catchup';
   return (
     <div>
-      <RecCard rec={rec} />
+      <RecCard rec={rec} validHist={validHist} />
       {showBrand && (
         <div style={{ padding: '0 12px 10px', marginTop: -4 }}>
           <RecBrandDropdown
@@ -135,9 +135,10 @@ function RecCardWithBrand({ rec, am, state, dispatch, allDueVks, doseNumByVk }) 
   );
 }
 
-export default function RecTab({ recs }) {
+export default function RecTab({ recs, validHist: validHistProp }) {
   const { state, dispatch } = useApp();
   const { effectiveAm: am } = getEffectiveAm(state);
+  const validHist = validHistProp ?? validatedHistory(state.hist, state.dob);
 
   const errors = auditAll(state.hist, state.dob, state.risks, state.am);
   const errCount = errors.filter(e => e.severity === "err").length;
@@ -221,6 +222,7 @@ export default function RecTab({ recs }) {
           dispatch={dispatch}
           allDueVks={allDueVks}
           doseNumByVk={doseNumByVk}
+          validHist={validHist}
         />
       ))}
 

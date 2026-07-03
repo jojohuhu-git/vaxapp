@@ -5,14 +5,13 @@ import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { isLiveVaccineContraindicated } from './stateHelpers.js';
-import { todayISO } from './utils.js';
+import { todayISO, addD, dBetween } from './utils.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
 
 // ── Date helpers ──────────────────────────────────────────────────
-const _d     = iso => new Date(iso + 'T00:00:00');
-const addD   = (iso, n) => { const x = _d(iso); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
-const diff   = (a, b)  => (_d(b) - _d(a)) / 86400000;
+const _d     = iso => new Date(iso + 'T00:00:00Z');
+const diff   = dBetween;
 const latest = (...ds) => ds.filter(Boolean).reduce((m, x) => (x >= m ? x : m));
 
 // ── History helpers ───────────────────────────────────────────────

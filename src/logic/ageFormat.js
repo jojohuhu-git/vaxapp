@@ -8,7 +8,7 @@
  * fmtIntervalClinical(days) — for inter-dose or dose-to-limit spacing
  *
  * Day-level precision is intentionally omitted from the primary clinical label
- * and reserved for the dimmed secondary line in AuditPanel.
+ * and reserved for the dimmed secondary line in ComplianceAuditTab.
  */
 
 /**
@@ -64,17 +64,8 @@ export function fmtIntervalClinical(days) {
 }
 
 /**
- * Legacy fmtDuration alias — same as fmtIntervalClinical.
- * Used by AuditPanel parseDoseReason technical detail lines.
- * Kept for backward compatibility with any direct callers.
- */
-export function fmtDuration(days) {
-  return fmtIntervalClinical(days);
-}
-
-/**
- * humanDays — shared replacement for the local humanDays() in ForecastTab and
- * OptimalScheduleTab. Same semantics as fmtIntervalClinical but prefers exact
+ * humanDays — shared replacement for the local humanDays() in ForecastTab.
+ * Same semantics as fmtIntervalClinical but prefers exact
  * round values (whole years / whole months / whole weeks) when they align.
  *
  * This is for scheduling constraint labels, not audit messages.
@@ -93,16 +84,20 @@ export function humanDays(d) {
 }
 
 /**
- * Format a patient age (in months) for the summary bar and drawer.
+ * Format a patient age (in months) as clinical text — CDC/ACIP style, matching
+ * fmtAgeClinical's day-based threshold (years at 24 months, not 12). Canonical
+ * "age in months as text" formatter — used by the summary bar/drawer, the
+ * forecast tab's visit headers and moved-dose chips, and both PDF exports.
  * Below 24 months: "N months". At/above 24 months: "Y years" or "Y years M months".
- * am < 0 means no age set.
+ * am === 0 → "Birth". am == null / NaN / negative → '' (no age available).
  */
 export function fmtAm(am) {
-  if (am < 0) return null;
-  if (am === 0) return 'Birth';
-  if (am < 24) return `${am} month${am !== 1 ? 's' : ''}`;
-  const y = Math.floor(am / 12);
-  const m = am % 12;
+  if (am == null || isNaN(am) || am < 0) return '';
+  const mm = Math.round(am);
+  if (mm === 0) return 'Birth';
+  if (mm < 24) return `${mm} month${mm !== 1 ? 's' : ''}`;
+  const y = Math.floor(mm / 12);
+  const m = mm % 12;
   const yLabel = `${y} year${y !== 1 ? 's' : ''}`;
   return m ? `${yLabel} ${m} month${m !== 1 ? 's' : ''}` : yLabel;
 }

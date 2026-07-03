@@ -80,7 +80,7 @@ describe('fmtIntervalClinical', () => {
   });
 });
 
-describe('humanDays (shared with ForecastTab / OptimalScheduleTab)', () => {
+describe('humanDays (shared with ForecastTab)', () => {
   it('handles null', () => {
     expect(humanDays(null)).toBe('');
   });

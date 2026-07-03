@@ -25,7 +25,7 @@ Before claiming any fix is done:
 ## When to Add a UI Test (Mandatory)
 
 - A bug report where the user describes what they SEE on screen, not what the engine returns.
-- Any change to `ForecastTab.jsx`, `OptimalScheduleTab.jsx`, the `AppContext` reducer (especially `FC_BRAND_CHANGE` cascade), or scheduled-early flow.
+- Any change to `ForecastTab.jsx`, the `AppContext` reducer (especially `FC_BRAND_CHANGE` cascade), or scheduled-early flow.
 - New cell-rendering paths (CASE 1/2/2.5/3 in ForecastTab).
 
 ## Mirror Checklist (copy for every fix)

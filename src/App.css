@@ -558,3 +558,16 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
   .fc-wrap{display:none;}
   .fcm-cards{display:block;}
 }
+
+/* TOUCH TARGETS — dose pills, "Why" links, and clickable forecast chips
+   default to desktop-dense sizing (11px font, 2-4px padding), well under the
+   ~44px touch-target guideline. Scoped to (pointer:coarse) so mouse/trackpad
+   users keep the denser desktop layout; only .fch-info (the clickable
+   variant) is targeted so static status chips in the packed matrix aren't
+   inflated. */
+@media (pointer: coarse) {
+  .today-why, .fct-why-btn{font-size:13px;padding:6px 10px;}
+  .fch-info{font-size:13px;padding:6px 9px;}
+  .dpill{padding:8px 11px;min-height:40px;}
+  .dpill select,.dpill input{font-size:13px;}
+}

@@ -2487,3 +2487,102 @@ suggested order:
 
 Also still open from Phase 1: item 6 in the original roadmap (bundle work, §4.1) was addressed by
 Phase 1 PR #65's lazy-loading of `@react-pdf/renderer`; no further bundle work is currently flagged.
+
+---
+
+## Changes shipped (2026-07-03) — Phase-1 follow-ups (A1-A4) + roadmap items B5-B6
+
+Continuation of the HANDOFF above. All four Phase-1 follow-ups (A1-A4) and two more mobile-UX
+roadmap items (B5, B6) are now done. Work is on branch `ux-review-handoff-fixes`, **3 commits, not
+yet pushed or PR'd** (`main` is protected — branch → PR → `gh pr merge --squash` per root
+`CLAUDE.md`).
+
+### Commit 1 — Phase-1 follow-ups (A1-A4)
+- **A1 — date-math bug**: `VisitEntry.jsx dobPlusDays()`/`isoToAgeDays()` and
+  `buildOptimalSchedule.js`'s local `addD`/`diff` mixed local-time parsing with UTC arithmetic
+  (bug only manifests in timezones ahead of UTC). Both now delegate to the canonical
+  `addD()`/`dBetween()` in `logic/utils.js`.
+- **A2 — orphaned tab**: `OptimalScheduleTab.jsx` deleted (confirmed never imported; superseded by
+  `ForecastTab.jsx`'s inline rendering). Stale references in `ageFormat.js`, `ForecastTab.jsx`, and
+  4 `docs/agent/*.md` files cleaned up.
+- **A3 — validHist dedup**: `validatedHistory()` was recomputed per-card in `RecCard.jsx` and
+  per-row in `ComplianceAuditTab.jsx`'s `VaccineRow` (up to ~18x per render), plus redundantly at
+  the top of several tab components even though `MainPanel.jsx` already computes it once via
+  `useRecs()`. `MainPanel` now threads `validHist` down through `RecTab` → `RecCard` and
+  `ComplianceAuditTab` → `VaccineRow`; each component keeps a `validHistProp ?? validatedHistory(...)`
+  fallback so standalone/test rendering still works. `TodayTab.jsx` (already-orphaned) simplified
+  the same way.
+  - **New discovery mid-fix**: `AuditPanel.jsx` turned out to be *also* fully orphaned — not
+    imported anywhere, despite `docs/agent/architecture.md` listing it as active. Investigated via
+    `git log`: superseded first by `AuditFooter.jsx` (2026-05-21 commit `b509595`, see its own
+    commit message), then fully by `ComplianceAuditTab.jsx` (2026-05-30 PR #42), just never
+    deleted. Confirmed with the user and deleted, along with the now-unreachable `fmtDuration()`
+    helper in `ageFormat.js` (its only caller was `AuditPanel`'s `parseDoseReason`).
+- **A4 — age-format consolidation**: four copies of "format age in months as text" existed
+  (`ageFormat.js fmtAm` at 24mo threshold + "Birth" case; `ForecastTab.jsx fmtAgeWords`,
+  `ForecastPDF.jsx fmtAm`, `ShotListPDF.jsx fmtAm` all at 12mo threshold). Turned out **not** to be
+  an arbitrary style choice — `ageFormat.js`'s neighboring `fmtAgeClinical` docstring cites the
+  CDC/ACIP convention of switching to years at 24 months, matching the *existing* `fmtAm`, not the
+  three duplicates. Consolidated all four call sites onto one `fmtAm()` in `ageFormat.js`
+  (24mo threshold), fixing a real copy inconsistency, not just dead code. Verified live: Forecast
+  tab's "TODAY'S VISIT" header for a 17-month-old now correctly shows "17 months" instead of
+  "1 year 5 months".
+
+### Commit 2 — UX copy fixes (B5)
+Per `docs/ux-code-review-2026-07-02.md` roadmap item 7:
+- Synthetic DOB (written when a patient's age is entered via the quick-estimate field instead of a
+  real DOB) is now badged `~MM/DD/YYYY (est.)` in the summary bar. New `state.dobEstimated` flag in
+  `AppContext.jsx` (`SET_DOB` clears it, new `SET_DOB_ESTIMATED` action sets it); **not persisted
+  through `urlState.js`** (resets to false on share/reload) — a deliberate scope call, since it's a
+  UI trust hint, not clinical data, and touching the URL schema/versioning was out of scope. Also
+  fixed a dead condition: the drawer's "Estimated age" hint checked `!state.dob`, which could never
+  be true because DOB was always auto-populated the instant an age was selected — now checks
+  `state.dobEstimated` instead and actually fires.
+- Compliance Audit's amber "VALID" pill relabeled "VALID · OFF-WINDOW" (amber read as a problem
+  state; the status can mean early-via-combo or late-via-catchup, so avoided "off-schedule"
+  wording that would only be accurate for the late case).
+- Catch-up Guidance modal: `CatchUpTab.jsx`'s min-age column showed decimal months ("1.4m (42d)")
+  for ages under 2 months; now shows weeks ("6w (42d)"), matching the interval columns' existing
+  (and CDC-conventional) week-based formatting for that range.
+- "Reset Forecast" button renamed "Reset Brand Selections" with a tooltip — old label read as
+  destructive to patient data; it only clears brand picks (`RESET_FORECAST` → `fcBrands: {}`).
+- `rec.brandTip` (e.g. RV's "3 doses required if brand unknown") moved from the expanded-only card
+  body to the always-visible collapsed header in `RecCard.jsx`, so brand-dependent dose-count
+  caveats (RV, Hib, PCV) are visible without clicking into the card.
+
+### Commit 3 — touch-target/font-size floor (B6)
+Per roadmap item 6: dose pills (`.dpill`), "Why" links (`.today-why`, `.fct-why-btn`), and
+clickable forecast chips (`.fch-info` only — not the ~15 other static `.fch-*` status-badge
+variants, since bumping every chip in the packed 18-column matrix would blow up the layout for no
+accessibility benefit) now get 13px font + more generous padding under
+`@media (pointer: coarse)`. Scoped to that media query so mouse/trackpad desktop users keep the
+denser layout. Verified the rule parses and registers correctly via `document.styleSheets`
+inspection — **not visually verified on a real touchscreen**, since the preview tooling in this
+session has no touch/coarse-pointer emulation.
+
+Test count held at 4389 throughout (no new tests added — these were bug fixes/refactors/CSS with
+existing coverage, not new features). Build verified clean after every commit.
+
+### HANDOFF — what's left (as of 2026-07-03, end of this session)
+
+All of item A (four Phase-1 follow-ups) and roadmap items 5-6 are done. Two items remain, both
+explicitly flagged as needing a conversation with the user before implementation — **do not just
+pick an approach and build it**:
+
+1. **Tab consolidation** (roadmap item 7, `docs/ux-code-review-2026-07-02.md` §2C/§6) — 6 top-level
+   tabs (Compliance Audit / Recommendations / Compare Regimens / Brand Rules / Immunization
+   Schedule / Catch-up Schedule) have overlapping content (e.g. "what's due today" appears in three
+   places). Report suggests merging Recommendations + the Forecast tab's "Today" panel into one
+   tab, and grouping Brand Rules + Catch-up Schedule under a "Reference" menu (6 → 4). **Needs a
+   design check-in with the user first** — this was explicitly agreed on 2026-07-02; the user was
+   asked in this session whether to discuss now and said yes, but the conversation ended before
+   that discussion happened.
+2. **localStorage safety net + PWA** (roadmap item 8) — offline support + add-to-home-screen. The
+   app has no backend, so this is a natural fit, but it isn't scoped in detail yet (what state to
+   persist locally, PWA manifest/service-worker approach, how it interacts with the existing
+   URL-is-the-only-persistence model). User confirmed in this session they still want it scoped
+   out, but scoping hasn't started. Larger effort than everything else in this log entry.
+
+**Before starting either**: the 3 commits from this session (branch `ux-review-handoff-fixes`) are
+not yet pushed or turned into a PR. Ask the user whether to open the PR now or keep building on the
+same branch first.

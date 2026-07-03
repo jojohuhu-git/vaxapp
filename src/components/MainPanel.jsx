@@ -55,7 +55,7 @@ function ReferenceModal({ onClose }) {
 export default function MainPanel() {
   const { state, dispatch } = useApp();
   const { dobAm, manualAm } = getEffectiveAm(state);
-  const { effectiveAm, conflict, recs } = useRecs();
+  const { effectiveAm, conflict, recs, validHist } = useRecs();
   const [showRef, setShowRef] = useState(false);
 
   if (conflict) {
@@ -122,11 +122,11 @@ export default function MainPanel() {
       <div className="card">
         <TabBar onReference={() => setShowRef(true)} />
 
-        {state.tab === "compliance" && <ComplianceAuditTab />}
-        {state.tab === "recs" && <RecTab recs={recs} />}
+        {state.tab === "compliance" && <ComplianceAuditTab recs={recs} validHist={validHist} />}
+        {state.tab === "recs" && <RecTab recs={recs} validHist={validHist} />}
         {state.tab === "plan" && <PlanTab recs={recs} />}
         {state.tab === "constraints" && <BrandConstraintsPanel recs={recs} />}
-        {state.tab === "forecast" && <ForecastTab recs={recs} />}
+        {state.tab === "forecast" && <ForecastTab recs={recs} validHist={validHist} />}
       </div>
     </>
   );
