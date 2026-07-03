@@ -249,6 +249,6 @@ it(scenario.name, () => {
 - Never use FDA package insert ages over ACIP/immunize.org ages.
 - Lint must pass with zero warnings (pre-commit hook will reject otherwise).
 - Do not edit the engine files (`recommendations.js`, `forecastLogic.js`, `buildOptimalSchedule.js`, etc.) in this task — only write tests and document divergences.
-- Edit only inside the worktree at `/Users/joannehuang/Downloads/vaxapp-main/.claude/worktrees/eloquent-feistel-e159f2/`. Confirm every file path starts with that prefix before writing.
+- Work in the repo root (or a worktree if one was set up for this task — check `git worktree list` to confirm your path).
 
 When done, report: scenarios covered, skipped rows with diagnosis, recommended fix order across all five surfaces.

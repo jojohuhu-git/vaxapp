@@ -243,7 +243,7 @@ Scenarios:
 
 ## Hard rules
 
-- Edit only inside the worktree at `/Users/joannehuang/Downloads/vaxapp-main/.claude/worktrees/eloquent-feistel-e159f2/`.
+- Work in the repo root (or a worktree if one was set up for this task — check `git worktree list` to confirm your path).
 - Do not modify engine files in this task — tests only.
 - Do not weaken `comboValidForDose` gates.
 - ACIP/CDC/AAP/immunize.org over FDA package inserts.

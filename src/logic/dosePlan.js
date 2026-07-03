@@ -6,7 +6,7 @@ import { FORECAST_VISITS } from '../data/forecastData.js';
 import { addD } from './utils.js';
 import { genRecs } from './recommendations.js';
 import { highRisk, highRiskMenB } from './stateHelpers.js';
-import { pcvHighRiskChildPlan, isHighRiskPCV } from './pcvDoses.js';
+import { pcvHighRiskChildPlan, isHighRiskPCV, isPCV7 } from './pcvDoses.js';
 
 /**
  * Standard routine ages (months) for each dose by vaccine key.
@@ -379,7 +379,7 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
     }
     case "PCV": {
       const isHRPCV = isHighRiskPCV(risks);
-      const givenPCV = (hist?.PCV || []).filter(d => d.given).length;
+      const givenPCV = (hist?.PCV || []).filter(d => d.given && !isPCV7(d)).length;
       // High-risk children 24mo–18y: CDC at-risk rule (completed series → 1 PCV20/PPSV23;
       // incomplete 24–71mo → 1–2 PCV; ≥6y → 1 PCV20). Single source: pcvDoses.js.
       if (am >= 24 && am < 228 && isHRPCV) {

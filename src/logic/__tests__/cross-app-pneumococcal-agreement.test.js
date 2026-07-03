@@ -18,6 +18,8 @@
 //   8. Healthy 7m, 0 doses → 3-dose catch-up (2 primary + 1 booster)
 //   9. At-risk (hiv) 3y, PCV20 already given (1 dose) → complete (Option A)
 //  10. Healthy 18m, 3 primary doses → booster overdue at 16–23m
+//  11. PCV7 not counting — healthy 2m with 1 prior PCV7 dose still needs D1
+//  12. PCV7 not counting — at-risk 3y with 1 PCV7 + 1 PCV15 → still needs 1 more dose
 //
 // PneumoVax reference: ~/Downloads/PneumoVax (branch: main as of 2026-06-13)
 
@@ -152,6 +154,34 @@ describe('Cross-app agreement — PneumoVax pediatric PCV fixture', () => {
     // PneumoVax: booster at 16–23m as catch-up
     expect(rec.doseNum).toBe(4);
     expect(rec.status).toMatch(/^(due|catchup)$/);
+  });
+
+  // ── PCV7 not-counting (Cases 11–12) ──────────────────────────────────────────
+  // PCV7 (Prevnar 7) is never counted toward the series per ACIP/immunize.org.
+  // Mirrors PneumoVax's noncounting() rule in validate.js.
+
+  it('Case 11: healthy 2m, 1 prior PCV7 dose → D1 still due (PCV7 does not count)', () => {
+    const hist = {
+      PCV: [{ given: true, mode: 'age', ageDays: 30, brand: 'Prevnar 7 (PCV7)' }],
+    };
+    const rec = pcvRec(2, hist);
+    expect(rec).not.toBeNull();
+    expect(rec.doseNum).toBe(1); // PCV7 not counted, patient is PCV-naïve
+    expect(rec.status).toBe('due');
+  });
+
+  it('Case 12: at-risk 3y, 1 PCV7 + 1 PCV15 → 1 more dose still needed (PCV7 excluded)', () => {
+    // PCV7 not counted → only 1 counting dose (PCV15) at ≥24m.
+    // At-risk 24–71m with <3 infant doses: needs 2 doses at ≥24m. 1 given → 1 more.
+    const hist = {
+      PCV: [
+        { given: true, mode: 'age', ageDays: 61, brand: 'Prevnar 7 (PCV7)' },   // not counted
+        { given: true, mode: 'age', ageDays: 730, brand: 'Vaxneuvance (PCV15)' }, // counted, at ≥24m
+      ],
+    };
+    const rec = pcvRec(36, hist, ['asplenia']);
+    expect(rec).not.toBeNull(); // still needs another dose
+    expect(rec.status).toBe('risk-based');
   });
 
 });

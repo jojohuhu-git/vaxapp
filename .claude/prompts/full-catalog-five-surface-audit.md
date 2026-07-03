@@ -297,7 +297,7 @@ For each fix:
 
 ## Hard rules
 
-- Edit only inside `/Users/joannehuang/Downloads/vaxapp-main/.claude/worktrees/eloquent-feistel-e159f2/`.
+- Work in the repo root (or a worktree if one was set up for this task — check `git worktree list` to confirm your path).
 - Do not modify engine files in this task — tests only.
 - Do not weaken `comboValidForDose` gates.
 - Do not duplicate scenarios from `menacwy-menb-matrix.test.js` or `catchup-4m-6y.test.js` (extend the latter to forecast/optimizer/optimal schedule rather than re-asserting recs).
