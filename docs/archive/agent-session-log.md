@@ -2876,8 +2876,43 @@ New test files: `src/components/__tests__/RegTab.analyzerSections.test.jsx` (sec
 omission, interval scoping). `comboAnalyzer.test.js` extended with a `describe` block for the new
 structured fields. All tests pass (4420 total), build clean, verified in the live preview.
 
-### HANDOFF — what's left
+Merged to `main` at `8ea36b2` (PR [#76](https://github.com/jojohuhu-git/vaxapp/pull/76), squash).
+Branch `reference-consolidation` deleted (local + remote). Tests on `main`: 4420 pass.
 
-Roadmap order from `docs/ux-review-2026-07-03.md` §6: **10** (one color system) next, then **6**
-(visit-card-first forecast redesign, largest item), **5** (OCR accuracy) still parked pending a
-design conversation about name-only/brand-only line association.
+### HANDOFF — start here for the next session (item #10: one color system)
+
+Roadmap is `docs/ux-review-2026-07-03.md` §6 (now correctly present on `main` as of this
+session — a prior session's doc commit had been silently dropped from a squash merge; if a future
+`git show main:docs/ux-review-2026-07-03.md` ever fails again, that file is the source of truth
+for the whole roadmap and must be restored before continuing, not re-derived from memory).
+
+**Next up: item #10 — one color system.** Stop using color to mean "which vaccine" and reserve
+color only for "what's the status." Concretely:
+- `VAX_META` (`src/data/vaccineData.js`) currently gives each of the 16 vaccines its own signature
+  hex (`.c` field) — used for vaccine name/label coloring across the table, mobile cards, PDF, and
+  popovers (e.g. `BrandCards.jsx`'s new `IntervalCard` heading color, shipped this session, uses
+  `meta.c` — one of the surfaces that will need to change).
+- The 4-color status scheme already exists: `statusColors()` in `ShotListPDF.jsx` and the
+  `summary-status-chip.{due,catchup,risk-based,recommended}` CSS classes in `App.css`. Reuse these
+  — don't invent a second status palette.
+- Expect this to touch every surface that currently renders a vaccine name in its signature color:
+  the routine/catch-up tables, mobile forecast cards, Shot List/Schedule PDFs, and any popover that
+  colors a vaccine label. Search for `VAX_META[...]\.c` and `meta\.c` usages as a starting point —
+  this session's `IntervalCard` in `src/components/BrandCards.jsx` is one such usage to include.
+- Design detail is in `docs/ux-review-2026-07-03.md` §1g and the roadmap table row for item #10
+  ("Medium (polish)" priority) — read that before scoping, and confirm with the owner whether
+  vaccine names should render in plain ink with weight/hierarchy only, or keep some very light
+  differentiation.
+
+**After #10: item #6 — visit-card-first forecast redesign** (largest remaining item, "the size of
+the whole mobile-card project" per the owner's own estimate). Full design in
+`docs/ux-review-2026-07-03.md` §3 — read it in full before scoping; it also proposes deleting the
+separate mobile-card rendering path (`fcm-cards`) in `ForecastTab.jsx` in favor of one shared card
+component used by both Routine and Fewest Injections views.
+
+**Still parked: item #5 (OCR accuracy)** — do not start without a fresh design conversation first.
+The report's CVX-code/word-geometry plan (§4) assumes OCR text maps one vaccine per line; the
+owner flagged that real IIS/EHR printouts can list a vaccine name and its brand on different
+lines/columns, so `ocrParser.js`/`comboAnalyzer.js`'s row-building needs a plan for associating a
+name-only line with a brand-only line before any CVX or geometry work starts. See also project
+memory `project_iis_import_deferred` for a related, separately-deferred IIS paste-text feature.
