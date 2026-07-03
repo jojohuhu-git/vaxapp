@@ -1134,10 +1134,16 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         )}
         {visits.map((visit, vi) => {
           if (visit.m < am && !showPast && !visit.isScheduledEarly && !isOverdue(visit)) return null;
-          if (!showFull && !isAlwaysVisible(visit)) return null;
-
           const isCurr = visit.m === am;
           const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
+          // "N past visits — click to show" must reveal ALL past visits, not
+          // just the ones isAlwaysVisible() already shows (overdue/imminent/
+          // next-routine). Without this, showPast flips true but this second
+          // gate still hides most past rows unless "Show full forecast" is
+          // ALSO on — the toggle looked broken/blank.
+          const isRevealedPast = isPast && showPast;
+          if (!showFull && !isAlwaysVisible(visit) && !isRevealedPast) return null;
+
           const items = buildVisitCardItems(visit);
           if (items.length === 0) return null;
 

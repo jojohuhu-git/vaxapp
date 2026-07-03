@@ -113,4 +113,28 @@ describe('ForecastTab — visit-card list is the default view', () => {
     const rows = Array.from(container.querySelectorAll('.vcard-dose-vk')).map(el => el.textContent.trim());
     expect(rows).not.toContain('RV');
   });
+
+  it('clicking "N past visits — click to show" reveals past visit cards without needing "Show full forecast" too', () => {
+    // Regression guard: the past-visits toggle only lifted one of two hide
+    // gates (showPast bypassed the first, but isAlwaysVisible() — which only
+    // allows today/overdue/imminent/next-routine — still hid most past rows
+    // unless showFull was ALSO on). Clicking the toggle looked like it did
+    // nothing; only the current visit's catch-up bucket was visible.
+    const { container } = renderForecast({ am: 24 });
+
+    // Before expanding: past routine visits like "2 months" must not be present.
+    expect(getCardByLabel(container, '2 months')).toBeNull();
+
+    const toggleBtn = Array.from(container.querySelectorAll('button'))
+      .find(b => b.textContent.includes('past visit'));
+    expect(toggleBtn, 'expected a "past visits" toggle button').toBeTruthy();
+    act(() => { fireEvent.click(toggleBtn); });
+
+    // After expanding — without touching "Show full forecast" — several
+    // distinct past routine-visit cards must now be present.
+    expect(getCardByLabel(container, '1 month')).not.toBeNull();
+    expect(getCardByLabel(container, '2 months')).not.toBeNull();
+    expect(getCardByLabel(container, '4 months')).not.toBeNull();
+    expect(getCardByLabel(container, '6 months')).not.toBeNull();
+  });
 });
