@@ -939,6 +939,7 @@ export default function HistoryImageImport() {
   const [progress, setProgress] = useState(null);   // null | string | 'done' | 'error'
   const [errorMsg, setErrorMsg] = useState('');
   const [review, setReview] = useState(null);        // { rows, unrecognized, rawText } | null
+  const [expanded, setExpanded] = useState(false);
   const fileInputRef = useRef(null);
 
   const runOcr = useCallback(async (files) => {
@@ -1046,64 +1047,98 @@ export default function HistoryImageImport() {
     return progress;
   };
 
+  const showFull = expanded || progress !== null;
+
   return (
     <div style={{ marginBottom: 10 }}>
-      {/* Drop zone */}
-      <div
-        role="button"
-        tabIndex={0}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onClick={() => fileInputRef.current?.click()}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click(); } }}
-        data-testid="ocr-drop-zone"
-        style={{
-          border: `2px dashed ${isDragging ? 'var(--g)' : 'var(--gy4)'}`,
-          borderRadius: 'var(--rads)',
-          padding: '10px 14px',
-          cursor: 'pointer',
-          background: isDragging ? 'var(--glt)' : 'transparent',
-          transition: 'border-color .15s, background .15s',
-          textAlign: 'center',
-        }}
-      >
-        {progress === null && (
-          <>
-            <span style={{ fontSize: 11, color: 'var(--gy3)' }}>
-              Drop image file(s) here, or click to select.{' '}
-              <span style={{ fontStyle: 'italic' }}>Save snips as JPEG or PNG first.</span>
-            </span>
-            <div style={{ fontSize: 10, color: 'var(--gy3)', marginTop: 4 }}>
-              Multiple images supported. For best results, screenshot at 100%+ zoom.
-            </div>
-          </>
-        )}
-        {progressText() !== null && (
-          <span style={{ fontSize: 11, color: 'var(--gy2)' }}>
-            {progressText()}
-          </span>
-        )}
-        {progress === 'done' && (
-          <span style={{ fontSize: 11, color: 'var(--g)' }}>
-            OCR complete — reviewing results…
-          </span>
-        )}
-        {progress === 'error' && (
-          <span style={{ fontSize: 11, color: 'var(--r)' }}>
-            OCR failed.
-          </span>
-        )}
-      </div>
+      {!showFull && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          data-testid="ocr-expand-row"
+          style={{
+            width: '100%', textAlign: 'left', background: 'transparent',
+            border: '1px dashed var(--gy5)', borderRadius: 'var(--rads)',
+            padding: '6px 10px', fontSize: 11, color: 'var(--gy3)', cursor: 'pointer',
+          }}
+        >
+          + Import from image…
+        </button>
+      )}
 
-      {/* Disclaimer */}
-      <div style={{ fontSize: 10, color: 'var(--gy4)', marginTop: 4 }}>
-        OCR is approximate. Review every entry before confirming.
-      </div>
+      {showFull && (
+        <>
+          {/* Drop zone */}
+          <div
+            role="button"
+            tabIndex={0}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click(); } }}
+            data-testid="ocr-drop-zone"
+            style={{
+              border: `2px dashed ${isDragging ? 'var(--g)' : 'var(--gy4)'}`,
+              borderRadius: 'var(--rads)',
+              padding: '10px 14px',
+              cursor: 'pointer',
+              background: isDragging ? 'var(--glt)' : 'transparent',
+              transition: 'border-color .15s, background .15s',
+              textAlign: 'center',
+            }}
+          >
+            {progress === null && (
+              <>
+                <span style={{ fontSize: 11, color: 'var(--gy3)' }}>
+                  Drop image file(s) here, or click to select.{' '}
+                  <span style={{ fontStyle: 'italic' }}>Save snips as JPEG or PNG first.</span>
+                </span>
+                <div style={{ fontSize: 10, color: 'var(--gy3)', marginTop: 4 }}>
+                  Multiple images supported. For best results, screenshot at 100%+ zoom.
+                </div>
+              </>
+            )}
+            {progressText() !== null && (
+              <span style={{ fontSize: 11, color: 'var(--gy2)' }}>
+                {progressText()}
+              </span>
+            )}
+            {progress === 'done' && (
+              <span style={{ fontSize: 11, color: 'var(--g)' }}>
+                OCR complete — reviewing results…
+              </span>
+            )}
+            {progress === 'error' && (
+              <span style={{ fontSize: 11, color: 'var(--r)' }}>
+                OCR failed.
+              </span>
+            )}
+          </div>
 
-      {/* Error message */}
-      {errorMsg && (
-        <div style={{ fontSize: 11, color: 'var(--r)', marginTop: 4 }}>{errorMsg}</div>
+          {/* Disclaimer */}
+          <div style={{ fontSize: 10, color: 'var(--gy4)', marginTop: 4 }}>
+            OCR is approximate. Review every entry before confirming.
+          </div>
+
+          {/* Error message */}
+          {errorMsg && (
+            <div style={{ fontSize: 11, color: 'var(--r)', marginTop: 4 }}>{errorMsg}</div>
+          )}
+
+          {progress === null && (
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              style={{
+                background: 'transparent', border: 'none', color: 'var(--gy3)',
+                fontSize: 10.5, cursor: 'pointer', marginTop: 4, padding: 0,
+              }}
+            >
+              ▲ Collapse
+            </button>
+          )}
+        </>
       )}
 
       {/* Hidden file input — multiple attribute enables multi-select */}

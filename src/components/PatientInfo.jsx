@@ -218,21 +218,22 @@ export default function PatientInfo() {
   const { state, dispatch } = useApp();
 
   const dobMonths = state.dob ? dobToMonths(state.dob) : null;
-  const dobHint = (() => {
-    if (dobMonths === null) return null;
-    if (state.am < 0) return null;
+  const monthsLabel = (m) => {
+    const y = Math.floor(m / 12);
+    const remM = m % 12;
+    return m < 24
+      ? `${m} month${m !== 1 ? 's' : ''}`
+      : remM === 0
+        ? `${y} year${y !== 1 ? 's' : ''}`
+        : `${y}y ${remM}m`;
+  };
+  const hasConflict = (() => {
+    if (dobMonths === null || state.am < 0) return false;
     const diff = Math.abs(dobMonths - state.am);
     const tolerance = state.am < 24 ? 1 : state.am < 72 ? 3 : state.am < 144 ? 6 : 12;
-    if (diff <= tolerance) return null;
-    const dobYears = Math.floor(dobMonths / 12);
-    const dobRemMonths = dobMonths % 12;
-    const dobLabel = dobMonths < 24
-      ? `${dobMonths} month${dobMonths !== 1 ? 's' : ''}`
-      : dobRemMonths === 0
-        ? `${dobYears} year${dobYears !== 1 ? 's' : ''}`
-        : `${dobYears}y ${dobRemMonths}m`;
-    return `DOB suggests ${dobLabel} — conflict detected.`;
+    return diff > tolerance;
   })();
+  const dobHint = hasConflict ? `DOB suggests ${monthsLabel(dobMonths)} — conflict detected.` : null;
 
   const ageOnlyNote = state.am >= 0 && (!state.dob || state.dobEstimated);
 
@@ -290,7 +291,25 @@ export default function PatientInfo() {
             background: "#fdf0ef", border: "1px solid #f5b7b1",
             padding: "3px 7px", borderRadius: 2,
           }}>
-            ⚠ {dobHint}
+            <div>⚠ {dobHint}</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+              <button
+                type="button"
+                className="addbtn"
+                style={{ fontSize: 11, padding: '3px 8px' }}
+                onClick={() => dispatch({ type: 'SET_AGE', payload: dobMonths })}
+              >
+                Use DOB → {monthsLabel(dobMonths)}
+              </button>
+              <button
+                type="button"
+                className="addbtn"
+                style={{ fontSize: 11, padding: '3px 8px' }}
+                onClick={() => dispatch({ type: 'SET_DOB', payload: '' })}
+              >
+                Use age → {monthsLabel(state.am)} (clear DOB)
+              </button>
+            </div>
           </div>
         )}
       </div>

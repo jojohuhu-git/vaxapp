@@ -8,6 +8,7 @@ import ForecastTab from './ForecastTab';
 import CatchUpTab from './CatchUpTab';
 import BrandConstraintsPanel from './BrandConstraintsPanel';
 import ComplianceAuditTab from './ComplianceAuditTab';
+import PatientInfo from './PatientInfo';
 function ReferenceModal({ onClose }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -57,7 +58,7 @@ export default function MainPanel() {
   const { effectiveAm, conflict, recs, validHist } = useRecs();
   const [showRef, setShowRef] = useState(false);
 
-  if (conflict) {
+  const conflictBanner = conflict && (() => {
     const dobLabel = dobAm != null
       ? (dobAm < 24 ? `${dobAm} month${dobAm !== 1 ? 's' : ''}` : `${Math.floor(dobAm / 12)} year${Math.floor(dobAm / 12) !== 1 ? 's' : ''}`)
       : '?';
@@ -65,18 +66,25 @@ export default function MainPanel() {
       ? (manualAm < 24 ? `${manualAm} month${manualAm !== 1 ? 's' : ''}` : `${Math.floor(manualAm / 12)} year${Math.floor(manualAm / 12) !== 1 ? 's' : ''}`)
       : '?';
     return (
+      <div className="note-box" style={{ margin: '12px 12px 0', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span>Age ({ageLabel}) and date of birth ({dobLabel}) don&apos;t match — resolve in the patient drawer, or:</span>
+        <button className="addbtn" onClick={() => dispatch({ type: 'SET_AGE', payload: dobAm })}>
+          Use DOB → {dobLabel}
+        </button>
+        <button className="addbtn" onClick={() => dispatch({ type: 'SET_DOB', payload: '' })}>
+          Use Age → {ageLabel} (clear DOB)
+        </button>
+      </div>
+    );
+  })();
+
+  if (conflict) {
+    return (
       <div className="card">
+        {conflictBanner}
         <div className="empty-state">
           <h2>Age / DOB Conflict</h2>
-          <p>The selected age ({ageLabel}) does not match the date of birth ({dobLabel}). Please resolve before viewing recommendations.</p>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 12 }}>
-            <button className="addbtn" onClick={() => dispatch({ type: 'SET_AGE', payload: dobAm })}>
-              Use DOB → {dobLabel}
-            </button>
-            <button className="addbtn" onClick={() => dispatch({ type: 'SET_DOB', payload: '' })}>
-              Use Age → {ageLabel} (clear DOB)
-            </button>
-          </div>
+          <p>Recommendations are paused until the conflict above is resolved.</p>
         </div>
       </div>
     );
@@ -87,7 +95,10 @@ export default function MainPanel() {
       <div className="card">
         <div className="empty-state">
           <h2>Select Patient Age to Begin</h2>
-          <p>Choose an age or enter a date of birth to generate vaccine recommendations based on the 2025 CDC/ACIP schedule.</p>
+          <p>Enter a date of birth or age below to generate vaccine recommendations based on the 2025 CDC/ACIP schedule.</p>
+        </div>
+        <div className="empty-state-input">
+          <PatientInfo />
         </div>
       </div>
     );

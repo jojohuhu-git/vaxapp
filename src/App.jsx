@@ -85,8 +85,8 @@ function PatientDrawer({ onClose }) {
             <div>
               <div className="ctitle drawer-section-title">Vaccination history</div>
               <ComboSuggestionsPanel />
-              <HistoryImageImport />
               <VisitEntry />
+              <HistoryImageImport />
               <div className="drawer-history-wrap">
                 <HistoryTable />
               </div>
@@ -104,6 +104,36 @@ function PatientDrawer({ onClose }) {
 }
 
 const STATUS_LABELS = { due: 'Due', catchup: 'Catch-up', 'risk-based': 'Risk-based', recommended: 'Shared decision' };
+
+// The handful of risk factors that most change the recommended plan (PCV/MenACWY/MenB
+// high-risk pathways), surfaced as one-click chips instead of two clicks into the drawer.
+const QUICK_RISK_CHIPS = [
+  { id: 'rsv_risk', l: 'Preterm / high-risk infant' },
+  { id: 'asplenia', l: 'Asplenia' },
+  { id: 'immunocomp', l: 'Immunocompromised' },
+  { id: 'pregnancy', l: 'Pregnancy' },
+];
+
+function RiskQuickChips() {
+  const { state, dispatch } = useApp();
+  return (
+    <div className="risk-quick-chips">
+      {QUICK_RISK_CHIPS.map(({ id, l }) => {
+        const active = state.risks.includes(id);
+        return (
+          <button
+            key={id}
+            type="button"
+            className={`risk-quick-chip${active ? ' active' : ''}`}
+            onClick={(e) => { e.stopPropagation(); dispatch({ type: 'TOGGLE_RISK', payload: id }); }}
+          >
+            {l}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function PatientSummaryBar({ onEdit, drawerOpen }) {
   const { state } = useApp();
@@ -192,6 +222,7 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
           {drawerOpen ? 'Close ▲' : 'Edit ▾'}
         </span>
       </div>
+      {(effectiveAm >= 0 || state.dob) && <RiskQuickChips />}
     </div>
   );
 }
