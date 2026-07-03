@@ -3,6 +3,11 @@
 // ╚══════════════════════════════════════════════════════════════╝
 import { VAX_KEYS } from '../data/vaccineData.js';
 
+// localStorage key for the one-shot "Restore previous patient" snapshot taken
+// right before Reset clears the patient. Shares the same encoded shape as
+// the `?s=` share URL (encState/decState) — no separate serialization needed.
+export const RESET_SNAPSHOT_KEY = 'pedivax_reset_snapshot';
+
 /**
  * Encode application state to a URL-safe string.
  * @param {object} state - state object with am, dob, risks, hist
