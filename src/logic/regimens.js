@@ -1,8 +1,8 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  REGIMEN OPTIMIZER                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { COMBOS, VBR } from '../data/vaccineData.js';
-import { comboFitsDose } from './brandRules.js';
+import { COMBOS } from '../data/vaccineData.js';
+import { comboFitsDose, firstEligibleStandaloneBrand } from './brandRules.js';
 
 /**
  * Build regimen options (fewest injections, fewest brands, single-antigen).
@@ -20,7 +20,7 @@ export function buildRegimens(recs, am) {
   const ADMIN_STATUSES = new Set(["due", "catchup", "risk-based", "recommended"]);
   // De-dupe by vk — multiple recs for the same vk (e.g. PCV + PPSV23) still
   // collapse to one slot in the regimen; the standalone brand fallback picks
-  // the first VBR option.
+  // the first age-eligible VBR option (see firstEligibleStandaloneBrand).
   const neededSet = new Set();
   // Track the dose number being given at this visit per vk (max across recs for
   // that vk if multiple) — needed to gate dose-limited combos like Vaxelis
@@ -77,7 +77,7 @@ export function buildRegimens(recs, am) {
     // Fill remaining needed vaccines with first standalone option
     for (const v of needed) {
       if (!cov.has(v)) {
-        const br = (VBR[v]?.s || [v])[0];
+        const br = firstEligibleStandaloneBrand(v, am);
         shots.push({ brand: br, covers: [v], desc: br, isCombo: false });
         brands.add(br); cov.add(v);
       }

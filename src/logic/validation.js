@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { isD, dBetween, addD, fmtD, sortDosesByDate } from './utils.js';
+import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO } from './utils.js';
 import { doseAgeDays, doseDate, GRACE, isHighRiskMenACWY } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
@@ -44,9 +44,8 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
 
   // Unknown mode: check for impossible min-age conflicts, then skip timing checks
   if (dose.mode === "unknown") {
-    const todayISO = new Date().toISOString().slice(0, 10);
     const currentAgeDays = isD(dob)
-      ? dBetween(dob, todayISO)
+      ? dBetween(dob, todayISO())
       : patientAgeDays;
 
     if (currentAgeDays !== null) {
@@ -431,9 +430,8 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
  */
 export function auditAll(hist, dob, risks = [], am = -1) {
   const errors = [];
-  const todayISO = new Date().toISOString().slice(0, 10);
   const patientAgeDays = isD(dob)
-    ? dBetween(dob, todayISO)
+    ? dBetween(dob, todayISO())
     : (am >= 0 ? Math.round(am * 30.4) : null);
   // Pre-compute validated history to detect effective dose renumbering
   const vh = validatedHistory(hist, dob);

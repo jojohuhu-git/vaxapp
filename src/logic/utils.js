@@ -24,6 +24,34 @@ export const addD = (d, n) => {
 /** Validate that s is a valid ISO date (YYYY-MM-DD). */
 export const isD = s => !!(s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s)));
 
+/** Today's date as a local-timezone ISO string (YYYY-MM-DD).
+ *  `new Date().toISOString()` returns the *UTC* calendar date, which is a day
+ *  ahead of local in every US timezone during evening hours (e.g. 8pm ET is
+ *  already past midnight UTC) — this is the "Today's visit: Jul 3" bug when
+ *  the real local date is Jul 2. Always use this instead for "today".
+ */
+export function todayISO() {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+/** Age in whole months from an ISO DOB string to today. Returns null if invalid.
+ *  Parses dob as UTC midnight and compares against today's local calendar date
+ *  (re-expressed in UTC) so the result never shifts by a day depending on the
+ *  browser's timezone offset (see addD's UTC rationale above).
+ */
+export function dobToMonths(dob) {
+  if (!isD(dob)) return null;
+  const birth = new Date(dob + "T00:00:00Z");
+  if (isNaN(birth)) return null;
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  let months = (today.getUTCFullYear() - birth.getUTCFullYear()) * 12
+             + (today.getUTCMonth() - birth.getUTCMonth());
+  if (today.getUTCDate() < birth.getUTCDate()) months--;
+  return Math.max(0, months);
+}
+
 /** Format an ISO date string for display (e.g. "Jan 5, 2025"). */
 export const fmtD = s => {
   if (!isD(s)) return s || "\u2014";

@@ -17,6 +17,7 @@ import ShareModal from './components/ShareModal';
 import Disclaimer from './components/Disclaimer';
 import { genRecs } from './logic/recommendations';
 import { validatedHistory } from './logic/validation';
+import { todayISO } from './logic/utils';
 
 function fmtAm(am) {
   if (am < 0) return null;
@@ -171,7 +172,7 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
   if (effectiveAm >= 0 && !conflict) {
     const vh = validatedHistory(state.hist, state.dob);
     const recs = genRecs(effectiveAm, vh, state.risks, state.dob, {
-      today: new Date().toISOString().slice(0, 10), cd4: state.cd4,
+      today: todayISO(), cd4: state.cd4,
     });
     recs.forEach(r => { if (recCounts[r.status] !== undefined) recCounts[r.status]++; });
   }

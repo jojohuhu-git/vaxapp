@@ -32,6 +32,22 @@ describe('urlState — encState / decState round-trip', () => {
     expect(out.cd4).toBe(350);
   });
 
+  it('preserves am=0 (newborn entered by age, no DOB) — not coerced to -1', () => {
+    const state = { am: 0, dob: null, risks: [], cd4: null, hist: emptyHist(), fcBrands: {} };
+    const out = roundTrip(state);
+    expect(out.am).toBe(0);
+  });
+
+  it('preserves visitId per dose so visit grouping survives share/reload', () => {
+    const hist = emptyHist();
+    hist['DTaP'] = [{ mode: 'date', date: '2024-03-01', ageDays: null, brand: 'Pediarix', given: true, visitId: 'visit_123_abc' }];
+    hist['HepB'] = [{ mode: 'date', date: '2024-03-01', ageDays: null, brand: 'Pediarix', given: true, visitId: 'visit_123_abc' }];
+    const state = { am: 6, dob: '2024-01-01', risks: [], cd4: null, hist, fcBrands: {} };
+    const out = roundTrip(state);
+    expect(out.hist['DTaP'][0].visitId).toBe('visit_123_abc');
+    expect(out.hist['HepB'][0].visitId).toBe('visit_123_abc');
+  });
+
   it('preserves a birth-dose with ageDays=0 (not dropped by || null)', () => {
     const hist = emptyHist();
     hist['HepB'] = [{ mode: 'age', date: '', ageDays: 0, brand: 'Engerix-B', given: true }];

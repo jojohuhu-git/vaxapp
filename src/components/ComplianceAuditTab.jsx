@@ -17,7 +17,7 @@ import { classifyDose, RULES_REGISTRY } from '../logic/compliance';
 import { fmtAgeClinical, fmtIntervalClinical } from '../logic/ageFormat';
 import { doseAgeDays, doseDate } from '../logic/stateHelpers';
 import { getDoseBand } from '../data/aapDoseBands';
-import { fmtDateInput, addD } from '../logic/utils';
+import { fmtDateInput, addD, todayISO } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
 import { genRecs } from '../logic/recommendations';
 import { labelForDose } from '../logic/annualLabel';
@@ -845,7 +845,7 @@ export default function ComplianceAuditTab() {
   }, []);
 
   const recs = genRecs(am, validatedHistory(hist, dob), risks, dob, {
-    today: new Date().toISOString().slice(0, 10),
+    today: todayISO(),
     cd4: state.cd4,
   });
 
