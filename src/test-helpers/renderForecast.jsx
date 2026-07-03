@@ -152,3 +152,25 @@ export function expandForecast(container) {
     .find(b => b.textContent.includes('Show full forecast'));
   if (btn) act(() => { fireEvent.click(btn); });
 }
+
+// ── Card query helpers (roadmap item #6 — visit-card list) ─────
+// The primary Routine view (default, above the collapsed "Full antigen
+// grid") renders one .vcard per visit with a .vcard-label and one
+// .vcard-dose-row per due vaccine, each carrying a .vcard-dose-vk label.
+
+export function getCardByLabel(container, labelStartsWith) {
+  const cards = Array.from(container.querySelectorAll('.vcard'));
+  return cards.find(c => {
+    const lbl = c.querySelector('.vcard-label');
+    return lbl && lbl.textContent.trim().startsWith(labelStartsWith);
+  }) || null;
+}
+
+export function getCardDoseRowByVk(card, vk) {
+  if (!card) return null;
+  const rows = Array.from(card.querySelectorAll('.vcard-dose-row'));
+  return rows.find(r => {
+    const label = r.querySelector('.vcard-dose-vk');
+    return label && label.textContent.trim() === vk;
+  }) || null;
+}

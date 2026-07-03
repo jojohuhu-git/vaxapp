@@ -2,8 +2,8 @@
 // Shared visit-card presentation layer for the Immunization Schedule tab.
 // Pure/presentational — no data fetching, no logic-layer imports. Consumed by
 // adapters that translate a data source's own shape (buildOptimalSchedule's
-// flat dose list today; buildVisitTimeline+dosePlan in a later phase) into
-// these props.
+// flat dose list; buildVisitTimeline+dosePlan via buildVisitCardItems in
+// ForecastTab.jsx) into these props.
 
 export function VisitCardShell({ label, dateLabel, countLabel, isCurr, isPast, isCatchup, isScheduledEarly, children }) {
   const cls = ['vcard'];
@@ -27,14 +27,19 @@ export function VisitCardShell({ label, dateLabel, countLabel, isCurr, isPast, i
   );
 }
 
-export function DoseRow({ vk, chipText, brandText, right }) {
+export function DoseRow({ vk, chipText, chipClassName, brandText, dateLabel, onChipClick, right }) {
   return (
     <div className="vcard-dose-row">
       <span className="vcard-dose-vk">{vk}</span>
-      <span className="vcard-dose-chip">
+      <span
+        className={chipClassName ? chipClassName : 'vcard-dose-chip'}
+        style={onChipClick ? { cursor: 'pointer' } : undefined}
+        onClick={onChipClick}
+      >
         {chipText}
         {brandText && <span className="vcard-dose-brand">({brandText})</span>}
       </span>
+      {dateLabel && <span className="fc-date">{dateLabel}</span>}
       {right}
     </div>
   );
