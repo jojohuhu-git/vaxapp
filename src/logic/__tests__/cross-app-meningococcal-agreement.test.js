@@ -39,44 +39,51 @@ function menacwyRec(am, hist, risks, dob) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Case 1 — High-risk MenB D3 timing
-// Patient: 20y, asplenia. D1 on 2026-01-01, D2 on 2026-02-15 (6 weeks later).
-// D3 requires ≥6 months from D1 (2026-07-01) AND ≥4 months from D2 (~2026-06-15).
-// Today (2026-06-12) D3 is NOT yet due (just barely fails both checks).
+// Case 1 — High-risk MenB D3 timing (dual-floor enforcement)
+// Patient: 18y, asplenia. D1 on 2026-01-01, D2 on 2026-02-15 (6 weeks later).
+// D3 requires ≥6 months from D1 (2026-07-01) AND ≥4 months from D2 (2026-06-15).
 //
-// MeningoVax: status='risk-based', doseLabel='Dose 3 of 3 (high-risk, 4C)',
-//   dueToday=false, earliestNextDate ~2026-07-01 (D1+6m binds).
-// vaxapp: status='risk-based', doseNum=3, minInt=112 (≥4mo from D2 — engine
-//   does not independently track the D1+6m floor in minInt; it relies on the
-//   actual date comparison in genRecs for the "not yet due" state).
-// Agreement: BOTH engines produce a Dose 3 rec. The key clinical conclusion is
-//   that a high-risk dose 3 is indicated; exact earliest-date computation
-//   differs by implementation but both report risk-based status.
+// MeningoVax: dueToday=false on 2026-06-12; earliestNextDate=2026-07-01 (D1+6m binds).
+// vaxapp (post-fix): when today is known, genRecs suppresses D3 until both
+//   floors are met. When today is null (undated visit), D3 is emitted unconditionally
+//   (consistent with dosePlan/buildOptimalSchedule behavior for undated histories).
 // ══════════════════════════════════════════════════════════════════════════════
-describe('Case 1 — High-risk MenB D3 timing (asplenia, 18y)', () => {
+describe('Case 1 — High-risk MenB D3 timing — dual-floor gate (asplenia, 18y)', () => {
   const am = 216;
   const risks = ['asplenia'];
+  const d1 = '2026-01-01';
+  const d2 = '2026-02-15';
   const hist = {
-    MenB: [dateDose('2026-01-01', 'Bexsero (MenB-4C)'), dateDose('2026-02-15', 'Bexsero (MenB-4C)')]
+    MenB: [dateDose(d1, 'Bexsero (MenB-4C)'), dateDose(d2, 'Bexsero (MenB-4C)')]
   };
 
-  it('emits a Dose 3 MenB rec', () => {
-    const r = menbRec(am, hist, risks);
+  // Without today: D3 emitted unconditionally (undated visit context)
+  it('today=null → D3 emitted (undated visit, conservative behavior)', () => {
+    const r = genRecs(am, hist, risks, null, {}).find(r => r.vk === 'MenB');
     expect(r).not.toBeNull();
     expect(r.doseNum).toBe(3);
-  });
-
-  it('rec is risk-based (not shared-decision)', () => {
-    const r = menbRec(am, hist, risks);
     expect(r.status).toBe('risk-based');
   });
 
-  it('brands are 4C (Bexsero) — family locked by D1', () => {
-    const r = menbRec(am, hist, risks);
-    // 4C family: only Bexsero and/or Penmenvy should appear
-    const brands = r.brands || [];
+  // 2026-06-12: D1→today=162d (<182), D2→today=116d (≥112) — D1 floor NOT met
+  it('today=2026-06-12 → D3 suppressed (162d from D1 < 182d floor)', () => {
+    const r = genRecs(am, hist, risks, null, { today: '2026-06-12' }).find(r => r.vk === 'MenB');
+    expect(r).toBeUndefined();
+  });
+
+  // 2026-07-05: D1→today=185d (≥182), D2→today=140d (≥112) — both floors met
+  it('today=2026-07-05 → D3 emitted (185d from D1, 140d from D2 — both floors met)', () => {
+    const r = genRecs(am, hist, risks, null, { today: '2026-07-05' }).find(r => r.vk === 'MenB');
+    expect(r).not.toBeNull();
+    expect(r.doseNum).toBe(3);
+    expect(r.status).toBe('risk-based');
+  });
+
+  // Brand lock persists through the fix
+  it('brands are 4C only (Bexsero/Penmenvy) — family locked by D1', () => {
+    const r = genRecs(am, hist, risks, null, { today: '2026-07-05' }).find(r => r.vk === 'MenB');
+    const brands = r?.brands || [];
     expect(brands.some(b => b.startsWith('Bexsero') || b.startsWith('Penmenvy'))).toBe(true);
-    // FHbp brands must NOT appear
     expect(brands.some(b => b.startsWith('Trumenba') || b.startsWith('Penbraya'))).toBe(false);
   });
 });

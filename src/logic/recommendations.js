@@ -3,7 +3,7 @@
 // ╚══════════════════════════════════════════════════════════════╝
 import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
-import { pcvHighRiskChildPlan, hasBoosterDose } from './pcvDoses.js';
+import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
 
 // Returns the flu-season start year for a given ISO date.
@@ -196,7 +196,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ── PCV (conjugate: PCV13/PCV15/PCV20) ───────────────────────
   // PPSV23 is now tracked separately under hist["PPSV23"] — dc(hist,"PCV") counts
   // only conjugate doses, preventing PPSV23 from masking an incomplete PCV series.
-  const pcv = dc(hist, "PCV");
+  const pcv = (hist.PCV || []).filter(d => d.given && !isPCV7(d)).length;
   const ppsv23 = dc(hist, "PPSV23");
   const isHighRiskPCV = risks.some(x => ["asplenia", "sickle_cell", "hiv", "immunocomp", "cochlear", "chronic_heart", "chronic_lung", "chronic_kidney", "diabetes", "chronic_liver"].includes(x));
   // PCV20 = series complete after 1 dose (no PPSV23 needed). PCV15/PCV13 require PPSV23 follow-up.
@@ -739,13 +739,22 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       // low-risk patients on the 2-dose schedule are already complete.
       if (hrMenB) {
         // High-risk 3-dose primary (BOTH 4C and FHbp): dose 3 \u22656 months after dose 1 AND \u22654 months after dose 2.
-        const fam3 = isFHbp2 ? "FHbp" : "4C";
-        const brands3 = isFHbp2
-          ? ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp, \u226510y)"]
-          : ["Bexsero (MenB-4C)", "Penmenvy (MenACWY+MenB-4C, \u226510y)"];
-        r("MenB", `Dose 3 of 3 (MenB-${fam3} high-risk, accelerated 3-dose)`, 3, "risk-based",
-          `MenB-${fam3} dose 3: \u22656 months after dose 1 AND \u22654 months after dose 2 (high-risk 3-dose 0/1\u20132/6m schedule). Required for high-risk patients (asplenia, complement deficiency, microbiologist, serogroup-B outbreak).`,
-          brands3, { minInt: 112, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
+        // Enforce both date floors before emitting. When today or a date is unknown,
+        // emit unconditionally (matches forecast/dosePlan behavior for undated histories).
+        const menbGivenHR = (hist.MenB || []).filter(d => d.given);
+        const menbD1HR = menbGivenHR[0]?.date;
+        const menbD2HR = menbGivenHR[1]?.date;
+        const d1FloorMet = !today || !menbD1HR || dBetween(menbD1HR, today) >= 182;
+        const d2FloorMet = !today || !menbD2HR || dBetween(menbD2HR, today) >= 112;
+        if (d1FloorMet && d2FloorMet) {
+          const fam3 = isFHbp2 ? "FHbp" : "4C";
+          const brands3 = isFHbp2
+            ? ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp, \u226510y)"]
+            : ["Bexsero (MenB-4C)", "Penmenvy (MenACWY+MenB-4C, \u226510y)"];
+          r("MenB", `Dose 3 of 3 (MenB-${fam3} high-risk, accelerated 3-dose)`, 3, "risk-based",
+            `MenB-${fam3} dose 3: \u22656 months after dose 1 AND \u22654 months after dose 2 (high-risk 3-dose 0/1\u20132/6m schedule). Required for high-risk patients (asplenia, complement deficiency, microbiologist, serogroup-B outbreak).`,
+            brands3, { minInt: 112, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
+        }
       } else if (!hrMenB) {
       // Non-high-risk: 2-dose series is standard. If d1\u2192d2 was < 6 months,
       // a rescue dose 3 is needed \u22654 months after dose 2.

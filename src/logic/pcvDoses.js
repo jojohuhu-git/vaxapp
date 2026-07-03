@@ -25,6 +25,10 @@
 //         immunize.org p2016 Table 4 (companion grid).
 // ─────────────────────────────────────────────────────────────────────────
 
+/** PCV7 (Prevnar 7) doses are recorded but never count toward the series.
+ *  Per ACIP/immunize.org: treat the patient as PCV-naïve for these doses. */
+export const isPCV7 = (d) => !!d.brand?.startsWith('Prevnar 7');
+
 export const PCV_HR_RISKS = [
   'asplenia', 'sickle_cell', 'hiv', 'immunocomp', 'cochlear',
   'chronic_heart', 'chronic_lung', 'chronic_kidney', 'diabetes', 'chronic_liver',
@@ -52,7 +56,7 @@ function doseAgeMonths(d, dob) {
 // `before24` includes undated doses (assumed infant). `ge24` is dated/age-known
 // doses at ≥24 months (never assumed). `ge72` is the subset at ≥6 years.
 export function pcvBands(hist, dob) {
-  const doses = (hist?.PCV || []).filter((d) => d.given);
+  const doses = (hist?.PCV || []).filter((d) => d.given && !isPCV7(d));
   let before24 = 0, ge24 = 0, ge72 = 0, undated = 0;
   for (const d of doses) {
     const a = doseAgeMonths(d, dob);
@@ -72,7 +76,7 @@ export function pcvBands(hist, dob) {
 // Required for the infant series booster to be considered given.
 // Undated doses get benefit-of-the-doubt (consistent with pcvBands counting policy).
 export function hasBoosterDose(pcvHist, dob) {
-  const given = (pcvHist || []).filter((d) => d.given);
+  const given = (pcvHist || []).filter((d) => d.given && !isPCV7(d));
   return given.some((d) => {
     const a = doseAgeMonths(d, dob);
     return a == null ? true : a >= 12;
