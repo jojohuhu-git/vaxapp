@@ -2669,3 +2669,115 @@ Both B7 and B8 (safety-net scope) are done. What remains:
 2. Push `tab-consolidation-reset-safety-net` and open a PR — not yet done as of this entry.
 3. The B6 touch-target CSS (from the *previous* log entry, PR #71) is still only verified to
    parse/register, not visually confirmed on a real touchscreen — tooling limitation persists.
+
+---
+
+## Changes shipped (2026-07-03, continued again) — roadmap items 1/4/7/8/9 + DateField calendar-picker fix
+
+New session, working from the roadmap in `docs/ux-review-2026-07-03.md` §6. Owner reviewed the
+full report and picked an order: **1, 4, 7, 8, 9 together first → 3 → 10 → 6**, with **5 (OCR)
+explicitly parked** — the owner wants to brainstorm it further first because real IIS/EHR entries
+mix a general vaccine name in one place with the brand elsewhere, and the report's CVX-code plan
+needs to account for that before implementation starts. Branch `ux-quickwins-batch1` off `main`,
+one combined PR (owner's choice over five separate PRs, since the items are all small).
+
+### What shipped — PR #74, merged to main (squashed) at `fa04229`
+
+- **#1 Empty-state input**: `MainPanel.jsx`'s `effectiveAm < 0` branch now renders `<PatientInfo />`
+  directly (reused, not reimplemented) below the existing heading/copy, so the DOB + age typeahead
+  are usable immediately instead of the screen being text-only.
+- **#4 Auto-run analyzer**: `RegTab.jsx`'s Brand Constraints Analyzer no longer has an "Analyze
+  Selected (N)" button. `custSel` now initializes to every due-today `vk` (synced via a
+  `useEffect` keyed on the due-list identity, so it resets on patient/visit change but survives a
+  user's manual narrowing within the same visit) and `analysis` is a `useMemo` over the current
+  selection — zero clicks for the common case, chips still let a user narrow to "what if only
+  these two."
+- **#7 Age/DOB conflict**: resolution moved into `PatientInfo.jsx` — the existing `dobHint` warning
+  now has two inline buttons ("Use DOB → X" / "Use age → Y") right in the drawer. `MainPanel.jsx`'s
+  conflict branch was **not** changed to render the normal tabs with `recs=[]`, because several
+  tabs (e.g. ForecastTab's "No vaccines are due at this visit") would show a misleadingly-normal
+  empty state during an actual conflict — instead it's a smaller, calmer `note-box` banner with the
+  same quick-fix buttons as fallback. Also discovered: **conflict is effectively unreachable through
+  normal UI use** now, since typing either DOB or age always re-syncs the other field
+  (`PatientInfo.jsx`'s `DateField onChange` dispatches `SET_AGE` too, and the age typeahead
+  dispatches `SET_DOB_ESTIMATED`) — it can only occur via imported/share-URL state with
+  inconsistent values baked in. Not fixed further since it's out of the common path; flagged here
+  in case someone wants to make it fully unreachable (e.g. skip the whole branch and rely on the
+  drawer banner only) or add a regression test for the import case.
+- **#8 Drawer reorder**: `App.jsx`'s `PatientDrawer` now renders `VisitEntry` before
+  `HistoryImageImport` (previously reversed). `HistoryImageImport.jsx` collapses to a slim
+  "+ Import from image…" row by default (`expanded` state, auto-expands while `progress !== null`
+  so an in-flight OCR run is never hidden mid-scan). `HistoryTable.jsx`'s "+ Show N more vaccines"
+  relabeled "Advanced: show N more vaccines" to signal it's the secondary path vs. Add Visit.
+  **Bonus fix caught in the same pass**: `HistoryTable.jsx`'s empty-state copy still said "Use
+  Quick Add above" — the *previous* stale-copy session (commit `15e2895`) fixed a different
+  occurrence and missed this one. Fixed now.
+- **#9 Risk chips + SDM tooltip**: `App.jsx` adds `RiskQuickChips` (4 toggle chips — preterm/
+  high-risk infant → `rsv_risk`, asplenia → `asplenia`, immunocompromised → `immunocomp`, pregnancy
+  → `pregnancy` — all dispatching the existing `TOGGLE_RISK` action) under the summary bar,
+  gated on a patient being loaded. `ForecastTab.jsx`'s "Shared decision" badge (Today panel) now has
+  a `title=` tooltip explaining the ACIP SDM category; the matrix-cell text variant elsewhere in
+  the same file already reads "(shared clinical decision)" as plain text and didn't need one.
+
+### Follow-on fix — DateField calendar-picker removed
+
+Manual verification of #1 surfaced a real bug, not caused by this session's changes but newly
+visible once users started typing DOB on the empty state: `DateField.jsx`'s calendar-icon button
+opened a hidden native `<input type="date">` via `showPicker()`. Chrome/Safari treat mouse-wheel
+scroll over a *focused* date input as a value spinner — so a user scrolling to browse months
+inside the popup was actually incrementing/decrementing the hidden input's value directly,
+committing an unintended date and closing the popup, which read as "it jumps to the next screen
+by itself" (because any valid DOB immediately clears `effectiveAm < 0` and swaps the empty state
+for the full recs view).
+
+Considered three options with the owner (partial `onWheel` guard / build a custom in-app calendar
+/ remove the picker) — **owner chose removal**. `DateField.jsx` is now just the masked MM/DD/YYYY
+text input; the calendar button, hidden native input, and `showPicker()`/ref plumbing are gone.
+Typing was always the reliable path and is unaffected. Three tests
+(`DosePill.edit.test.jsx`, `VisitEntry.duplicate.test.jsx`, `VisitEntry.multiDate.test.jsx`) queried
+`input[type="date"]` directly and needed updating to target the new `data-testid="date-field"`
+text input with MM/DD/YYYY-formatted values instead of ISO. Shipped in the same PR (#74).
+
+All 4,397 tests pass both before and after the calendar-picker fix. Both commits pushed, PR opened,
+CI green, squash-merged to `main` at `fa04229`, branch deleted (local + remote).
+
+### HANDOFF — what's left (as of 2026-07-03, end of this session)
+
+Roadmap in `docs/ux-review-2026-07-03.md` §6, owner's chosen order for what's next:
+
+1. **#3 Reference consolidation (do next)** — merge Brand Rules + Catch-up Schedule into Compare
+   Regimens as "one tab, three progressive layers" (design fully spelled out in report §2:
+   patient-scoped constraint rows auto-generated from `COMBO_DOSE_GATES`/`BRAND_AGE_NOTES`/
+   `MIN_INT`, collapsed "Full reference" accordion below). The real work is rebuilding
+   `analyzeCombo()` (`src/logic/comboAnalyzer.js`) to *generate* its output from those three data
+   sources instead of the current hardcoded prose strings — that's the single-source-of-truth fix
+   the owner is after, not just a UI move. Note #4 (already shipped) was designed as "a shippable
+   slice of #3," so the auto-run/preselection behavior in `RegTab.jsx` should carry forward
+   unchanged when #3 restructures the tab. Touches `brandRules.js`/combo logic — likely warrants
+   the five-surface-verification checklist even though the *display* is UI-only, since
+   `analyzeCombo()`'s rebuild changes how constraint text is derived.
+2. **#10 One color system (after #3)** — stop using color to mean "which vaccine" (currently 16
+   vaccines each have a signature hex in `VAX_META`, `src/data/vaccineData.js`) and reserve color
+   only for "what's the status" (the 4-color `statusColors()` scheme already in
+   `ShotListPDF.jsx`, and the `summary-status-chip.{due,catchup,risk-based,recommended}` CSS
+   classes in `App.css`). Touches every surface that renders a vaccine name with its `VAX_META.c`
+   color (table, mobile cards, PDF, popovers) — expect this to be a search-and-replace across the
+   five surfaces, not a one-file change.
+3. **#6 Visit-card-first forecast redesign (largest, do last)** — full design in report §3: make
+   the "visit card" layout (currently only in Fewest Injections) the shared layout for both
+   Routine and Fewest Injections views, with the 18-column matrix demoted to a collapsed "Full
+   antigen grid." Owner's own estimate: "the size of the whole mobile-card project." Read report
+   §3 in full before scoping — it also proposes deleting the separate mobile-card rendering path
+   (`fcm-cards`) in favor of one shared card component, which is a net code reduction but touches
+   `ForecastTab.jsx` extensively.
+4. **#5 OCR accuracy (parked, do NOT start without a fresh design pass)** — the report's plan
+   (CVX-code table, word-geometry parsing, binarization, confidence outlines — report §4) assumes
+   OCR text maps cleanly to one vaccine per line. The owner flagged a real gap: EHR printouts can
+   list a general vaccine name in one column/line and its brand in a different one, so a naive
+   CVX-code lookup or line-regex match could silently misattribute brand to the wrong antigen row.
+   Needs a conversation about how `ocrParser.js`/`comboAnalyzer.js`'s row-building should associate
+   a name-only line with a brand-only line before any CVX or geometry work starts.
+
+Items 7, 8, 9, and the DateField fix are done and need no further follow-up. Item 1 and 4 are done
+but 1's "conflict is unreachable via normal UI" observation above is worth a second look if anyone
+revisits `MainPanel.jsx`'s conflict branch.
