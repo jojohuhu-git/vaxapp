@@ -4,7 +4,7 @@
 
 Direction B — "Modern Minimal": white header, 6px max radius, no pill shapes, no legend dots/bullets. Status is communicated by **color tinting and text labels**, not shape or icons.
 
-- RecCards have a colored left border + subtle background tint per status
+- Today's Visit panel rows (ForecastTab) have a colored badge + subtle background tint per status
 - PatientSummaryBar shows colored rectangular chips (not circles)
 - AuditFooter icon is a square (borderRadius: 4), not a circle
 - Do not re-add decorative emoji, dot bullets, or pill shapes without explicit instruction
@@ -66,7 +66,7 @@ Every popover must have three dismiss paths:
 
 ## Status Labels
 
-Standardized "Shared decision" (not "Shared Clinical Decision" or "SCD") across all surfaces: RecTab filter, RecCard badge, StatusBar chips, ForecastTab today-visit status.
+Standardized "Shared decision" (not "Shared Clinical Decision" or "SCD") across all surfaces: PatientSummaryBar chips, ForecastTab Today's Visit status badges.
 
 ## Forecast Tab Notes
 

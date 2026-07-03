@@ -21,8 +21,7 @@ const INIT = {
   risks: [],
   cd4: null,   // CD4% (<14y) or CD4 count cells/µL (≥14y) for HIV patients
   hist: initHist(),
-  tab: "recs",
-  filter: "due",
+  tab: "forecast",
   fcBrands: {},
 };
 
@@ -180,13 +179,10 @@ function reducer(state, action) {
     }
 
     case "SET_TAB": {
-      const validTabs = new Set(["compliance", "recs", "plan", "constraints", "forecast"]);
-      const tab = validTabs.has(action.payload) ? action.payload : "recs";
+      const validTabs = new Set(["compliance", "plan", "constraints", "forecast"]);
+      const tab = validTabs.has(action.payload) ? action.payload : "forecast";
       return { ...state, tab };
     }
-
-    case "SET_FILTER":
-      return { ...state, filter: action.payload };
 
     case "FC_BRAND_CHANGE": {
       const { visitM, vk, brandName, fcKey: explicitFcKey, siblingFcKeys } = action.payload;
