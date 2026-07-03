@@ -2345,3 +2345,73 @@ The at-risk pediatric PCV path wrongly treated a single PCV20 dose as a complete
 H1–H4 (the 216-vs-228 boundary constant cluster), H5/M1/M3 (infant booster-completeness + catch-up
 label), and L1 (age-group label) are PneumoVax-engine/UI specific — vaxapp's pediatric pneumococcal
 counting already routed through `pcvDoses.js` with correct boundaries and was not affected.
+
+---
+
+## Changes shipped (2026-07-02/03) — UX/code review Phase 1 (defects + performance)
+
+Full review at `docs/ux-code-review-2026-07-02.md`. Phase 1 = roadmap items 1, 2, 5 (the
+"safe, no visual change" items) plus dead-code cleanup found along the way. Shipped as two PRs.
+
+### PR #64 — correctness defects
+- **Regimen Optimizer brand age gate**: standalone brand picks used `VBR[vk].s[0]` unconditionally
+  (a display order, not an age order) — an 8-month-old's Optimal Regimen showed "Comirnaty (≥5y)"
+  instead of Spikevax. Fixed with `firstEligibleStandaloneBrand()`, the new shared age-gate in
+  `brandRules.js` (mirrors how `comboFitsDose` already gates combos).
+- **UTC/local "today" drift**: `new Date().toISOString().slice(0,10)` was used for "today" in
+  10 places — returns the UTC calendar date, a day ahead of local in US timezones during the
+  evening (cause of "Today's visit: Jul 3" when the real date was Jul 2). Added `todayISO()` to
+  `utils.js`; replaced every call site.
+- **Duplicate `dobToMonths()`**: `AppContext.jsx`'s copy parsed DOB as UTC then read with local
+  getters (day-off bug); `PatientInfo.jsx`'s copy was correct but duplicated. Consolidated into
+  `utils.js`.
+- **Share-URL `am=0` bug**: `p.am || -1` dropped a newborn entered as `am=0`. Now `p.am ?? -1`.
+- **`visitId` lost on share/reload**: now round-trips through `encState`/`decState`.
+- Also added the missing Escape-key dismiss to the Catch-up Guidance modal (three-dismiss-paths
+  UI rule).
+
+### PR #65 — performance + cleanup
+- **Lazy-load `@react-pdf/renderer`**: new `PdfDownloadButton` component dynamically imports the
+  PDF library + template component on click instead of eagerly on mount (all 4 `PDFDownloadLink`
+  call sites replaced). Main bundle 636 KB gzip → ~139 KB gzip.
+- **Memoized `genRecs()`/`validatedHistory()`**: new `useRecs()` hook in `AppContext.jsx`
+  (useMemo, keyed on clinical inputs); `App.jsx`'s `PatientSummaryBar` and `MainPanel.jsx` both
+  use it instead of independently recomputing on every render.
+- **Ephemeral UI state moved out of the reducer**: `RecCard`'s open/collapsed state and `RegTab`'s
+  custom-regimen antigen picker (`custSel`) are now local `useState`, not global reducer state.
+- **Dead code removed**: `StatusBar.jsx` (already documented above as superseded by
+  `PatientSummaryBar`) deleted along with its CSS; dead `.app`/`.sidebar`/`.main` two-column-grid
+  CSS, `.legend`/`.leg`/`.leg-dot`, and legacy `.fc-tbl-compact` rules removed. Deduplicated
+  `fmtAm()` from `App.jsx` into `ageFormat.js`.
+- Corrected stale parts of `docs/agent/architecture.md` (default tab, tab labels, state shape,
+  file map — flagged `TodayTab.jsx`/`QuickAdd.jsx`/`OptimalScheduleTab.jsx` as present-but-unwired).
+- Fixed `vite.config.js` not reading the dev-tooling harness's assigned `PORT` env var.
+
+Test count: 3954 → 4389 (mostly from the exhaustive standalone-brand-age invariant added across
+every VBR vaccine × age combination).
+
+### Follow-ups found but NOT fixed (flagged as separate tasks, still open)
+1. **Latent date-math bugs**: `VisitEntry.jsx` `dobPlusDays()` and `buildOptimalSchedule.js`'s
+   local `addD` both mix local-time parsing with UTC-time arithmetic (same class of bug already
+   fixed elsewhere via `utils.js addD()`) — can shift a computed date by a day depending on
+   timezone. Neither is fixed yet.
+2. **`OptimalScheduleTab.jsx` is fully orphaned** — not imported/rendered anywhere in the app
+   (confirmed via grep, no `React.lazy` usage exists in the codebase). `ForecastTab.jsx` has its
+   own inline "Optimal Schedule" rendering that appears to supersede it. Needs a human decision:
+   delete it, or wire it up if it was meant to be a separate route.
+3. **`validatedHistory()` duplication is wider than PR #64 fixed**: `RecCard.jsx` (~line 93) calls
+   it independently *inside* the per-card render — i.e. once per recommendation card shown, not
+   once per page. Same pattern also appears in `AuditPanel.jsx`, `ComplianceAuditTab.jsx`,
+   `ForecastTab.jsx`, `OptimalScheduleTab.jsx`, `TodayTab.jsx`. Should route through the new
+   `useRecs()` hook or receive `validHist` as a prop instead of recomputing.
+4. **Four different copies of "format age in months" logic**: `ageFormat.js fmtAm()` (24mo
+   threshold, "Birth" case), `ForecastTab.jsx fmtAgeWords()` (12mo threshold), `ForecastPDF.jsx
+   fmtAm()` (12mo threshold), `ShotListPDF.jsx fmtAm()` (12mo threshold, abbreviates "3m"). Needs
+   a decision on whether these conventions are intentionally different per-surface or should be
+   unified, then consolidated into named exports in `ageFormat.js`.
+
+### Still to do — Phase 2+ of the mobile UX roadmap
+Phase 2 (CSS migration — move inline styles in `App.jsx`/`PatientDrawer`/`VisitEntry`/
+`ForecastTab.jsx` into classes) is the prerequisite for all mobile work and has not been started.
+See `docs/ux-code-review-2026-07-02.md` §3 for the full phased mobile plan (drawer collapse,
+scrollable tab bar, forecast card view, touch targets, tab consolidation, localStorage safety net).
