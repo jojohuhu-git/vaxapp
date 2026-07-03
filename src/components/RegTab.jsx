@@ -35,8 +35,9 @@ function SevRow({ item }) {
 }
 
 export default function RegTab({ recs }) {
-  const { state, dispatch } = useApp();
+  const { state } = useApp();
   const [analysis, setAnalysis] = useState(null);
+  const [custSel, setCustSel] = useState([]);
   const am = getEffectiveAm(state).effectiveAm;
 
   const regimens = buildRegimens(recs, am);
@@ -51,7 +52,7 @@ export default function RegTab({ recs }) {
   // Only count selections that are currently visible as checkboxes. Stale
   // entries (vk previously selected, no longer needed at this visit) are
   // filtered out so the "Analyze Selected (N)" counter matches reality.
-  const visibleSel = state.custSel.filter(vk => needed.includes(vk));
+  const visibleSel = custSel.filter(vk => needed.includes(vk));
 
   function handleAnalyze() {
     const result = analyzeCombo(visibleSel, am);
@@ -118,8 +119,8 @@ export default function RegTab({ recs }) {
             <label key={vk} className="cck">
               <input
                 type="checkbox"
-                checked={state.custSel.includes(vk)}
-                onChange={() => dispatch({ type: "TOGGLE_CUST_SEL", payload: vk })}
+                checked={custSel.includes(vk)}
+                onChange={() => setCustSel(sel => sel.includes(vk) ? sel.filter(v => v !== vk) : [...sel, vk])}
               />
               <span>{VAX_META[vk]?.ab || vk}</span>
             </label>

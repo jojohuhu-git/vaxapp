@@ -1,9 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useState, useEffect } from 'react';
-import { useApp, getEffectiveAm } from '../context/AppContext';
-import { genRecs } from '../logic/recommendations';
-import { validatedHistory } from '../logic/validation';
-import { todayISO } from '../logic/utils';
+import { useApp, getEffectiveAm, useRecs } from '../context/AppContext';
 import { REFS } from '../data/refs';
 import TabBar from './TabBar';
 import RecTab from './RecTab';
@@ -57,7 +54,8 @@ function ReferenceModal({ onClose }) {
 
 export default function MainPanel() {
   const { state, dispatch } = useApp();
-  const { effectiveAm, conflict, dobAm, manualAm } = getEffectiveAm(state);
+  const { dobAm, manualAm } = getEffectiveAm(state);
+  const { effectiveAm, conflict, recs } = useRecs();
   const [showRef, setShowRef] = useState(false);
 
   if (conflict) {
@@ -117,16 +115,6 @@ export default function MainPanel() {
       </div>
     );
   }
-
-  // Use a history filtered to only valid/countable doses. Doses that must be
-  // repeated (interval/age violations, non-countable off-label administrations
-  // like Kinrix IPV <4y) are excluded so the rec engine correctly advances the
-  // series instead of treating an invalid dose as complete.
-  const validHist = validatedHistory(state.hist, state.dob);
-  const recs = genRecs(effectiveAm, validHist, state.risks, state.dob, {
-    today: todayISO(),
-    cd4: state.cd4,
-  });
 
   return (
     <>

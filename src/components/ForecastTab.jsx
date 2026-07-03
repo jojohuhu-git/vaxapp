@@ -1,7 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { PDFDownloadLink } from '@react-pdf/renderer';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { FORECAST_VISITS } from '../data/forecastData';
 import { VAX_META, COMBO_COVERS, VAX_KEYS } from '../data/vaccineData';
@@ -15,9 +14,7 @@ import { addD, todayISO } from '../logic/utils';
 import { humanDays } from '../logic/ageFormat';
 import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
 import { REFS } from '../data/refs';
-import ForecastPDF from './ForecastPDF';
-import ShotListPDF from './ShotListPDF';
-import SchedulePDF from './SchedulePDF';
+import PdfDownloadButton from './PdfDownloadButton';
 
 // Primary CDC reference for each combo brand — surfaces in the Forecast "Why?" popover.
 const COMBO_PRIMARY_REF = {
@@ -761,17 +758,20 @@ export default function ForecastTab({ recs }) {
                   >
                     Print Visit Summary
                   </button>
-                  <PDFDownloadLink
-                    document={<ShotListPDF am={am} dob={state.dob} recs={recs} fcBrands={state.fcBrands} />}
+                  <PdfDownloadButton
+                    buildDoc={async () => {
+                      const { default: ShotListPDF } = await import('./ShotListPDF');
+                      return ShotListPDF({ am, dob: state.dob, recs, fcBrands: state.fcBrands });
+                    }}
                     fileName="pedivax-shot-list.pdf"
                     style={{
                       fontSize: 11, padding: "4px 10px", background: "#1a3a6b", color: "#fff",
                       borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
-                      textDecoration: "none", display: "inline-block",
+                      border: "none", textDecoration: "none", display: "inline-block",
                     }}
                   >
                     {({ loading }) => loading ? "Preparing…" : "Shot List PDF"}
-                  </PDFDownloadLink>
+                  </PdfDownloadButton>
                 </>
               )}
               <button
@@ -783,17 +783,20 @@ export default function ForecastTab({ recs }) {
               >
                 Reset Forecast
               </button>
-              <PDFDownloadLink
-                document={<ForecastPDF am={am} dob={state.dob} risks={state.risks} rows={pdfRows} />}
+              <PdfDownloadButton
+                buildDoc={async () => {
+                  const { default: ForecastPDF } = await import('./ForecastPDF');
+                  return ForecastPDF({ am, dob: state.dob, risks: state.risks, rows: pdfRows });
+                }}
                 fileName="pedivax-forecast.pdf"
                 style={{
                   fontSize: 11, padding: "4px 10px", background: "#2e7d32", color: "#fff",
                   borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
-                  textDecoration: "none", display: "inline-block",
+                  border: "none", textDecoration: "none", display: "inline-block",
                 }}
               >
                 {({ loading }) => loading ? "Preparing…" : "Download Schedule"}
-              </PDFDownloadLink>
+              </PdfDownloadButton>
             </div>
           </div>
 
@@ -964,13 +967,16 @@ export default function ForecastTab({ recs }) {
                 <div><div style={{ fontSize: 18, fontWeight: 700, color: 'var(--g)' }}>{totalInj}</div><div style={{ fontSize: 10, color: 'var(--gy3)' }}>injections</div></div>
                 {lastDate && <div><div style={{ fontSize: 14, fontWeight: 700, color: 'var(--g)' }}>{lastDate}</div><div style={{ fontSize: 10, color: 'var(--gy3)' }}>series complete</div></div>}
                 <div style={{ marginLeft: 'auto' }}>
-                  <PDFDownloadLink
-                    document={<SchedulePDF patient={optPatient} mode={optView} visits={optResult} />}
+                  <PdfDownloadButton
+                    buildDoc={async () => {
+                      const { default: SchedulePDF } = await import('./SchedulePDF');
+                      return SchedulePDF({ patient: optPatient, mode: optView, visits: optResult });
+                    }}
                     fileName={`pedivax-schedule-${optView}-${today}.pdf`}
-                    style={{ padding: '5px 12px', background: 'var(--g)', color: '#fff', fontSize: 11, fontWeight: 600, textDecoration: 'none', borderRadius: 'var(--rads)', display: 'inline-block' }}
+                    style={{ padding: '5px 12px', background: 'var(--g)', color: '#fff', fontSize: 11, fontWeight: 600, border: 'none', textDecoration: 'none', borderRadius: 'var(--rads)', display: 'inline-block' }}
                   >
                     {({ loading }) => loading ? 'Preparing PDF…' : 'Download PDF'}
-                  </PDFDownloadLink>
+                  </PdfDownloadButton>
                 </div>
               </div>
               {optResult.map((visit, i) => (

@@ -1,9 +1,11 @@
 /* eslint-disable react/prop-types */
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useMemo } from 'react';
 import { VAX_KEYS, COMBO_COVERS, COMBOS, VBR } from '../data/vaccineData.js';
 import { FORECAST_VISITS } from '../data/forecastData.js';
-import { dobToMonths } from '../logic/utils.js';
+import { dobToMonths, todayISO } from '../logic/utils.js';
+import { genRecs } from '../logic/recommendations.js';
+import { validatedHistory } from '../logic/validation.js';
 
 // ── Initial state ──────────────────────────────────────────────
 function initHist() {
@@ -20,9 +22,6 @@ const INIT = {
   hist: initHist(),
   tab: "recs",
   filter: "due",
-  openR: {},
-  openC: {},
-  custSel: [],
   fcBrands: {},
 };
 
@@ -179,29 +178,11 @@ function reducer(state, action) {
     case "SET_TAB": {
       const validTabs = new Set(["compliance", "recs", "plan", "constraints", "forecast"]);
       const tab = validTabs.has(action.payload) ? action.payload : "recs";
-      return { ...state, tab, openR: {}, openC: {} };
+      return { ...state, tab };
     }
 
     case "SET_FILTER":
       return { ...state, filter: action.payload };
-
-    case "TOGGLE_REC_OPEN": {
-      const i = action.payload;
-      return { ...state, openR: { ...state.openR, [i]: !state.openR[i] } };
-    }
-
-    case "TOGGLE_CONTRA_OPEN": {
-      const i = action.payload;
-      return { ...state, openC: { ...state.openC, [i]: !state.openC[i] } };
-    }
-
-    case "TOGGLE_CUST_SEL": {
-      const vk = action.payload;
-      const custSel = state.custSel.includes(vk)
-        ? state.custSel.filter(v => v !== vk)
-        : [...state.custSel, vk];
-      return { ...state, custSel };
-    }
 
     case "FC_BRAND_CHANGE": {
       const { visitM, vk, brandName, fcKey: explicitFcKey, siblingFcKeys } = action.payload;
@@ -423,4 +404,25 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
+}
+
+// Single computation of validHist + recs, shared by every consumer (previously
+// PatientSummaryBar and MainPanel each ran validatedHistory()+genRecs() on
+// every render independently). Memoized so typing in the drawer only re-runs
+// the rec engine when clinical inputs actually change.
+export function useRecs() {
+  const { state } = useApp();
+  const { effectiveAm, conflict } = getEffectiveAm(state);
+  const validHist = useMemo(
+    () => validatedHistory(state.hist, state.dob),
+    [state.hist, state.dob]
+  );
+  const recs = useMemo(() => {
+    if (effectiveAm < 0 || conflict) return [];
+    return genRecs(effectiveAm, validHist, state.risks, state.dob, {
+      today: todayISO(),
+      cd4: state.cd4,
+    });
+  }, [effectiveAm, conflict, validHist, state.dob, state.risks, state.cd4]);
+  return { effectiveAm, conflict, validHist, recs };
 }

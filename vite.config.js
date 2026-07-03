@@ -5,6 +5,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: '/vaxapp/',
   plugins: [react()],
+  server: {
+    port: Number(process.env.PORT) || 5174,
+  },
   test: {
     // Default environment for logic-engine tests. UI rendering tests opt into
     // happy-dom per-file with `// @vitest-environment happy-dom` at the top.
