@@ -464,18 +464,22 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .fct-combo-why-btn{font-size:10px;padding:1px 6px;border-radius:var(--rads);margin-left:4px;border:1px solid var(--amd);background:var(--alt);color:var(--a);cursor:pointer;line-height:1.2;font-weight:600;white-space:nowrap;}
 .fct-combo-why-btn.open{background:var(--a);color:#fff;}
 
-/* OPTIMAL SCHEDULE VIEW */
-.fct-opt-combo-row{display:flex;align-items:center;gap:4px;padding:3px 0 3px 6px;background:var(--alt);border-radius:var(--rads);margin-bottom:2px;}
-.fct-opt-combo-name{font-size:11px;font-weight:700;color:var(--a);}
-.fct-opt-combo-doses{font-size:10px;color:var(--gy3);}
-.fct-opt-dose-row{display:flex;align-items:center;gap:6px;padding:2px 0;}
-.fct-opt-dose-num{font-size:10px;color:var(--gy3);}
-.fct-opt-dose-brand{color:var(--gy4);margin-left:3px;}
-.fct-opt-card{border:1px solid var(--gy5);border-radius:var(--rads);margin-bottom:8px;overflow:hidden;}
-.fct-opt-card-head{background:var(--gy6);padding:5px 10px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--gy5);}
-.fct-opt-card-title{font-size:11px;font-weight:700;color:var(--g);}
-.fct-opt-card-count{font-size:10px;color:var(--gy3);}
-.fct-opt-card-body{padding:6px 10px;}
+/* SHARED VISIT CARD (VisitCard.jsx) — used by Fewest Injections; Routine view in a later phase */
+.vcard{border:1px solid var(--gy5);border-radius:var(--rads);margin-bottom:8px;overflow:hidden;background:var(--wh);}
+.vcard.curr{border-left:4px solid var(--g);}
+.vcard.past{background:#F5F4F0;}
+.vcard-head{background:var(--gy6);padding:5px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--gy5);}
+.vcard-label{font-size:11px;font-weight:700;color:var(--g);}
+.vcard-date{font-size:10px;color:var(--gy3);}
+.vcard-count{font-size:10px;color:var(--gy3);}
+.vcard-body{padding:6px 10px;}
+.vcard-dose-row{display:flex;align-items:center;gap:6px;padding:2px 0;}
+.vcard-dose-vk{font-size:11px;font-weight:600;color:var(--gy);min-width:68px;}
+.vcard-dose-chip{font-size:10px;color:var(--gy3);}
+.vcard-dose-brand{color:var(--gy4);margin-left:3px;}
+.vcard-combo-row{display:flex;align-items:center;gap:4px;padding:3px 0 3px 6px;background:var(--alt);border-radius:var(--rads);margin-bottom:2px;}
+.vcard-combo-name{font-size:11px;font-weight:700;color:var(--a);}
+.vcard-combo-doses{font-size:10px;color:var(--gy3);}
 .fct-opt-error{padding:12px;background:var(--rlt);border:1px solid var(--rmd);border-radius:var(--rads);font-size:12px;color:var(--r);}
 .fct-opt-blocked{background:var(--alt);border:1px solid var(--amd);border-radius:var(--rads);padding:12px;font-size:12px;}
 .fct-opt-blocked-title{color:var(--a);}

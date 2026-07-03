@@ -15,6 +15,7 @@ import { humanDays, fmtAm } from '../logic/ageFormat';
 import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
 import { REFS } from '../data/refs';
 import PdfDownloadButton from './PdfDownloadButton';
+import { VisitCardShell, DoseRow, ComboDoseRow } from './VisitCard';
 
 // Primary CDC reference for each combo brand — surfaces in the Forecast "Why?" popover.
 const COMBO_PRIMARY_REF = {
@@ -417,38 +418,37 @@ function ComboWhyButton({ comboName, doseKey, openKey, setOpenKey }) {
 
 function OptDoseRow({ dose, doseKey, openKey, setOpenKey, allFlatDoses }) {
   const explanation = explainOptConstraint(dose, allFlatDoses);
+  const whyBtn = <OptWhyButton doseKey={doseKey} openKey={openKey} setOpenKey={setOpenKey} explanation={explanation} />;
   if (dose._combo) {
     return (
-      <div className="fct-opt-combo-row">
-        <span className="fct-opt-combo-name">{dose.comboName}</span>
-        <span className="fct-opt-combo-doses">{dose.coveredDoses.map(d => `${d.vk} D${d.doseNum}`).join(', ')}</span>
-        <OptWhyButton doseKey={doseKey} openKey={openKey} setOpenKey={setOpenKey} explanation={explanation} />
-      </div>
+      <ComboDoseRow
+        comboName={dose.comboName}
+        coveredText={dose.coveredDoses.map(d => `${d.vk} D${d.doseNum}`).join(', ')}
+        right={whyBtn}
+      />
     );
   }
   const brandShort = dose.brand ? dose.brand.split(' ')[0] : '';
   return (
-    <div className="fct-opt-dose-row">
-      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--gy)', minWidth: 68 }}>{dose.vk}</span>
-      <span className="fct-opt-dose-num">D{dose.doseNum}/{dose.totalDoses}{brandShort && <span className="fct-opt-dose-brand">({brandShort})</span>}</span>
-      <OptWhyButton doseKey={doseKey} openKey={openKey} setOpenKey={setOpenKey} explanation={explanation} />
-    </div>
+    <DoseRow
+      vk={dose.vk}
+      chipText={`D${dose.doseNum}/${dose.totalDoses}`}
+      brandText={brandShort}
+      right={whyBtn}
+    />
   );
 }
 
 function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses }) {
   return (
-    <div className="fct-opt-card">
-      <div className="fct-opt-card-head">
-        <span className="fct-opt-card-title">Visit {idx + 1} — {visit.date}</span>
-        <span className="fct-opt-card-count">{visit.items.length} injection{visit.items.length !== 1 ? 's' : ''}</span>
-      </div>
-      <div className="fct-opt-card-body">
-        {visit.items.map((d, i) => (
-          <OptDoseRow key={i} dose={d} doseKey={`${idx}-${i}`} openKey={openKey} setOpenKey={setOpenKey} allFlatDoses={allFlatDoses} />
-        ))}
-      </div>
-    </div>
+    <VisitCardShell
+      label={`Visit ${idx + 1} — ${visit.date}`}
+      countLabel={`${visit.items.length} injection${visit.items.length !== 1 ? 's' : ''}`}
+    >
+      {visit.items.map((d, i) => (
+        <OptDoseRow key={i} dose={d} doseKey={`${idx}-${i}`} openKey={openKey} setOpenKey={setOpenKey} allFlatDoses={allFlatDoses} />
+      ))}
+    </VisitCardShell>
   );
 }
 
