@@ -537,3 +537,24 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
      scroll to the table itself instead. */
   .htbl-wrap{overflow-x:auto;}
 }
+
+/* FORECAST — mobile card view (replaces the 18-column matrix under 700px,
+   which can only show ~1 column on a phone). Same underlying data as the
+   table, condensed to done/due/projected states; brand editing and the
+   moved-dose workflow remain matrix (desktop) only. */
+.fcm-cards{display:none;}
+.fcm-past-toggle{width:100%;text-align:left;margin-bottom:8px;}
+.fcm-card{border:1px solid var(--gy5);border-radius:var(--rads);margin-bottom:8px;overflow:hidden;background:var(--wh);}
+.fcm-card.curr{border-left:4px solid var(--g);}
+.fcm-card.past{background:#F5F4F0;}
+.fcm-card-head{display:flex;justify-content:space-between;align-items:baseline;padding:8px 12px;background:var(--gy6);border-bottom:1px solid var(--gy5);gap:8px;flex-wrap:wrap;}
+.fcm-card-label{font-size:13px;font-weight:700;color:var(--gy);}
+.fcm-card-date{font-size:11px;color:var(--gy3);}
+.fcm-card-items{padding:8px 12px;display:flex;flex-direction:column;gap:8px;}
+.fcm-item{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.fcm-item-vk{font-size:13px;font-weight:700;min-width:64px;}
+.fcm-item-sub{font-size:11px;color:var(--gy3);}
+@media(max-width:700px){
+  .fc-wrap{display:none;}
+  .fcm-cards{display:block;}
+}
