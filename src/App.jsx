@@ -31,72 +31,51 @@ function PatientDrawer({ onClose }) {
 
   return createPortal(
     <>
-      <div
-        style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,.25)' }}
-        onClick={onClose}
-      />
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 401,
-        background: '#fff', borderBottom: '1px solid #d0d7e2',
-        boxShadow: '0 4px 24px rgba(0,0,0,.14)',
-        maxHeight: '85vh', overflowY: 'auto',
-        padding: '16px 20px 20px',
-      }}>
-        <div style={{ maxWidth: 1380, margin: '0 auto' }}>
+      <div className="drawer-scrim" onClick={onClose} />
+      <div className="drawer-panel">
+        <div className="drawer-inner">
           {/* Header row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--g)' }}>
+          <div className="drawer-head">
+            <span className="drawer-head-label">
               Edit patient
             </span>
-            <button
-              onClick={onClose}
-              style={{
-                padding: '7px 22px', fontSize: 13, fontWeight: 700,
-                background: 'var(--g)', color: '#fff',
-                border: 'none', borderRadius: 'var(--rads)', cursor: 'pointer',
-                fontFamily: 'inherit', letterSpacing: '.2px',
-              }}
-            >
+            <button onClick={onClose} className="drawer-done-btn">
               Done
             </button>
           </div>
 
           {/* Two-column: left = patient info + risk accordion, right = vaccination history */}
-          <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 24, alignItems: 'start' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="drawer-cols">
+            <div className="drawer-col-left">
               <div>
-                <div className="ctitle" style={{ marginBottom: 8 }}>Patient information</div>
+                <div className="ctitle drawer-section-title">Patient information</div>
                 <PatientInfo />
               </div>
 
               {/* Risk factors — collapsible accordion */}
-              <div style={{ border: '1px solid var(--gy5)', borderRadius: 'var(--rads)' }}>
+              <div className="drawer-risk-acc">
                 <button
                   type="button"
                   onClick={() => setRiskOpen(v => !v)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 12, fontWeight: 700, color: 'var(--gy2)', borderRadius: 'var(--rads)',
-                  }}
+                  className="drawer-risk-acc-btn"
                 >
                   <span>
                     Risk factors
                     {riskCount > 0 && (
-                      <span style={{ marginLeft: 7, fontSize: 11, fontWeight: 600, padding: '1px 7px', background: 'var(--alt)', color: 'var(--a)', border: '1px solid var(--amd)', borderRadius: 'var(--rads)' }}>
+                      <span className="drawer-risk-count">
                         {riskCount} selected
                       </span>
                     )}
                     {riskCount === 0 && (
-                      <span style={{ marginLeft: 6, fontWeight: 400, color: 'var(--gy4)', fontSize: 11 }}>
+                      <span className="drawer-risk-count-none">
                         (none)
                       </span>
                     )}
                   </span>
-                  <span style={{ fontSize: 10, color: 'var(--gy4)' }}>{riskOpen ? '▲' : '▼'}</span>
+                  <span className="drawer-risk-chevron">{riskOpen ? '▲' : '▼'}</span>
                 </button>
                 {riskOpen && (
-                  <div style={{ padding: '0 12px 12px', borderTop: '1px solid var(--gy5)' }}>
+                  <div className="drawer-risk-body">
                     <RiskGrid />
                   </div>
                 )}
@@ -104,17 +83,17 @@ function PatientDrawer({ onClose }) {
             </div>
 
             <div>
-              <div className="ctitle" style={{ marginBottom: 8 }}>Vaccination history</div>
+              <div className="ctitle drawer-section-title">Vaccination history</div>
               <ComboSuggestionsPanel />
               <HistoryImageImport />
               <VisitEntry />
-              <div style={{ marginTop: 8 }}>
+              <div className="drawer-history-wrap">
                 <HistoryTable />
               </div>
             </div>
           </div>
 
-          <div style={{ marginTop: 20 }}>
+          <div className="drawer-disclaimer">
             <Disclaimer />
           </div>
         </div>
@@ -124,12 +103,6 @@ function PatientDrawer({ onClose }) {
   );
 }
 
-const STATUS_CHIP_STYLE = {
-  due:         { bg: 'var(--glt)', color: 'var(--g)',  border: 'var(--gmd)' },
-  catchup:     { bg: 'var(--alt)', color: 'var(--a)',  border: 'var(--amd)' },
-  'risk-based':{ bg: 'var(--rlt)', color: 'var(--r)',  border: 'var(--rmd)' },
-  recommended: { bg: 'var(--blt)', color: 'var(--b)',  border: 'var(--bmd)' },
-};
 const STATUS_LABELS = { due: 'Due', catchup: 'Catch-up', 'risk-based': 'Risk-based', recommended: 'Shared decision' };
 
 function PatientSummaryBar({ onEdit, drawerOpen }) {
@@ -161,43 +134,32 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
   const activeStatuses = Object.entries(recCounts).filter(([, n]) => n > 0);
 
   return (
-    <div style={{ maxWidth: 1380, margin: '8px auto 0', padding: '0 14px', position: 'sticky', top: 52, zIndex: 150, background: '#fff', paddingBottom: 4 }}>
+    <div className="summary-bar-wrap">
       <div
         role="button"
         tabIndex={0}
         onClick={onEdit}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit(); } }}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-          background: drawerOpen ? 'var(--glt)' : 'var(--gy6)',
-          border: `1px solid ${drawerOpen ? 'var(--gmd)' : 'var(--gy5)'}`,
-          borderRadius: 'var(--rads)', padding: '8px 14px', fontSize: 13,
-          cursor: 'pointer', userSelect: 'none',
-          transition: 'background .15s, border-color .15s',
-        }}
+        className={`summary-bar${drawerOpen ? ' is-open' : ''}`}
       >
         {/* Age */}
-        <span style={{ fontWeight: 700, color: effectiveAm >= 0 ? 'var(--g)' : 'var(--gy4)', minWidth: 56 }}>
+        <span className={`summary-age${effectiveAm >= 0 ? ' has-age' : ''}`}>
           {ageLabel}
         </span>
 
         {/* DOB */}
         {dobLabel && (
           <>
-            <span style={{ color: 'var(--gy5)' }}>·</span>
-            <span style={{ color: 'var(--gy2)', fontSize: 12 }}>DOB {dobLabel}</span>
+            <span className="summary-dot">·</span>
+            <span className="summary-dob">DOB {dobLabel}</span>
           </>
         )}
 
         {/* Risk factors */}
         {state.risks.length > 0 && (
           <>
-            <span style={{ color: 'var(--gy5)' }}>·</span>
-            <span style={{
-              fontSize: 11, fontWeight: 600, padding: '2px 7px',
-              background: 'var(--alt)', color: 'var(--a)',
-              border: '1px solid var(--amd)', borderRadius: 'var(--rads)',
-            }}>
+            <span className="summary-dot">·</span>
+            <span className="summary-risk-chip">
               {riskText}
             </span>
           </>
@@ -206,39 +168,25 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
         {/* Color-coded rec status chips */}
         {activeStatuses.length > 0 && (
           <>
-            <span style={{ color: 'var(--gy5)' }}>·</span>
-            <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-              {activeStatuses.map(([status, count]) => {
-                const s = STATUS_CHIP_STYLE[status];
-                return (
-                  <span key={status} style={{
-                    fontSize: 11, fontWeight: 700, padding: '2px 8px',
-                    background: s.bg, color: s.color,
-                    border: `1px solid ${s.border}`, borderRadius: 'var(--rads)',
-                  }}>
-                    {count} {STATUS_LABELS[status]}
-                  </span>
-                );
-              })}
+            <span className="summary-dot">·</span>
+            <span className="summary-status-chips">
+              {activeStatuses.map(([status, count]) => (
+                <span key={status} className={`summary-status-chip ${status}`}>
+                  {count} {STATUS_LABELS[status]}
+                </span>
+              ))}
             </span>
           </>
         )}
 
         {/* Conflict badge (replaces circle dot) */}
         {conflict && (
-          <span style={{
-            fontSize: 11, fontWeight: 700, padding: '2px 8px',
-            background: 'var(--rlt)', color: 'var(--r)',
-            border: '1px solid var(--rmd)', borderRadius: 'var(--rads)',
-          }}>
+          <span className="summary-conflict-chip">
             Age conflict
           </span>
         )}
 
-        <span style={{
-          marginLeft: 'auto', flexShrink: 0, fontSize: 12,
-          fontWeight: 600, color: 'var(--g)',
-        }}>
+        <span className="summary-edit-label">
           {drawerOpen ? 'Close ▲' : 'Edit ▾'}
         </span>
       </div>
@@ -302,30 +250,11 @@ function AppInner() {
       <Header onShare={() => setShowShare(true)} />
 
       {bannerOpen && (
-        <div style={{
-          background: "linear-gradient(90deg, #e6f7ef 0%, #eaf3fb 100%)",
-          border: "1px solid #9fdec5",
-          borderRadius: 8,
-          padding: "10px 16px",
-          maxWidth: 1280,
-          margin: "10px auto 0",
-          display: "flex",
-          alignItems: "flex-start",
-          gap: 10,
-          fontSize: 12,
-          color: "#0E4A30",
-          lineHeight: 1.5,
-        }}>
-          <div style={{ flex: 1 }}>
+        <div className="top-banner">
+          <div className="top-banner-text">
             <strong>PediVax Clinical Vaccine Planner</strong> &mdash; Enter the patient&apos;s age, vaccination history, and risk factors. The engine generates recommendations, regimen options, and a full forecast aligned with the 2025 CDC/ACIP immunization schedule.
           </div>
-          <button
-            onClick={dismissBanner}
-            style={{
-              border: "none", background: "none", cursor: "pointer",
-              fontSize: 16, color: "#888", flexShrink: 0, padding: "0 4px",
-            }}
-          >
+          <button onClick={dismissBanner} className="top-banner-close">
             &times;
           </button>
         </div>

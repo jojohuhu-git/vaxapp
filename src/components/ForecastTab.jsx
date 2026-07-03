@@ -123,46 +123,39 @@ function CellPopover({ chipText, rec, anchorRect, onClose }) {
 
   return createPortal(
     <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 500 }} onClick={onClose} />
-      <div style={{
-        position: 'absolute', top, left, zIndex: 501,
-        background: '#fff', border: '1px solid #c5d0e0',
-        borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,.18)',
-        padding: '10px 14px', width: 272,
-        maxWidth: 'calc(100vw - 16px)', fontSize: 12, lineHeight: 1.5,
-        fontFamily: 'inherit',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6, gap: 6 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#1a3a6b', flex: 1 }}>
+      <div className="fct-popover-scrim" onClick={onClose} />
+      <div className="fct-popover" style={{ top, left }}>
+        <div className="fct-popover-head">
+          <div className="fct-popover-title">
             {chipText}
           </div>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 16, color: '#888', lineHeight: 1, padding: '0 2px', flexShrink: 0 }} title="Close">&times;</button>
+          <button onClick={onClose} className="fct-popover-close" title="Close">&times;</button>
         </div>
         {rec?.note ? (
-          <p style={{ margin: '0 0 6px', color: '#333' }}>{rec.note}</p>
+          <p className="fct-popover-note">{rec.note}</p>
         ) : (
-          <p style={{ margin: '0 0 4px', color: '#888', fontStyle: 'italic', fontSize: 11 }}>
+          <p className="fct-popover-empty">
             No clinical note available.
           </p>
         )}
         {rec?.brandTip && (
-          <p style={{ margin: '0 0 6px', color: '#555', fontStyle: 'italic', fontSize: 11 }}>
+          <p className="fct-popover-brandtip">
             {rec.brandTip}
           </p>
         )}
         {(rec?.refUrl || rec?.refUrl2) && (
-          <div style={{ borderTop: '1px solid #eee', paddingTop: 6, marginTop: 4 }}>
+          <div className="fct-popover-refs">
             {rec.refUrl && (
               <a href={rec.refUrl} target="_blank" rel="noreferrer"
                 onClick={e => e.stopPropagation()}
-                style={{ display: 'block', fontSize: 11, color: '#1a3a6b', marginBottom: 3, textDecoration: 'none' }}>
+                className="fct-popover-ref-link">
                 🔗 {rec.refLabel || 'Reference'}
               </a>
             )}
             {rec.refUrl2 && (
               <a href={rec.refUrl2} target="_blank" rel="noreferrer"
                 onClick={e => e.stopPropagation()}
-                style={{ display: 'block', fontSize: 11, color: '#1a3a6b', textDecoration: 'none' }}>
+                className="fct-popover-ref-link">
                 🔗 {rec.refLabel2 || 'Reference'}
               </a>
             )}
@@ -367,16 +360,16 @@ function OptWhyPopover({ explanation, anchorRect, onClose }) {
   const left = Math.max(window.scrollX + 8, Math.min(anchorRect.left + window.scrollX, window.scrollX + window.innerWidth - W - 8));
   return createPortal(
     <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={onClose} />
-      <div style={{ position: 'absolute', top, left, zIndex: 1000, background: '#fff', border: '1px solid var(--gy5)', borderRadius: 'var(--rads)', boxShadow: '0 4px 12px rgba(0,0,0,.12)', padding: '8px 10px', width: W, fontSize: 11 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4, gap: 6 }}>
-          <div style={{ fontWeight: 700, color: 'var(--g)', flex: 1 }}>{explanation.summary}</div>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--gy3)', lineHeight: 1, padding: '0 2px', flexShrink: 0 }} title="Close">&times;</button>
+      <div className="fct-popover-scrim high" onClick={onClose} />
+      <div className="fct-opt-popover" style={{ top, left, width: W }}>
+        <div className="fct-opt-popover-head">
+          <div className="fct-opt-popover-title">{explanation.summary}</div>
+          <button onClick={onClose} className="fct-opt-popover-close" title="Close">&times;</button>
         </div>
-        <div style={{ lineHeight: 1.45, color: 'var(--gy2)' }}>{explanation.detail}</div>
+        <div className="fct-opt-popover-detail">{explanation.detail}</div>
         {explanation.refUrl && (
-          <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--gy6)' }}>
-            <a href={explanation.refUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--b)', textDecoration: 'underline' }}>{explanation.refLabel} ↗</a>
+          <div className="fct-opt-popover-ref">
+            <a href={explanation.refUrl} target="_blank" rel="noopener noreferrer">{explanation.refLabel} ↗</a>
           </div>
         )}
       </div>
@@ -395,7 +388,7 @@ function OptWhyButton({ doseKey, openKey, setOpenKey, explanation }) {
   };
   return (
     <>
-      <button ref={btnRef} type="button" onClick={handleClick} title="Why this date?" style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--rads)', marginLeft: 4, border: '1px solid var(--gy5)', background: isOpen ? 'var(--g)' : 'var(--gy6)', color: isOpen ? '#fff' : 'var(--gy2)', cursor: 'pointer', lineHeight: 1.2 }}>
+      <button ref={btnRef} type="button" onClick={handleClick} title="Why this date?" className={`fct-why-btn${isOpen ? ' open' : ''}`}>
         Why?
       </button>
       {isOpen && <OptWhyPopover explanation={explanation} anchorRect={anchorRect} onClose={() => setOpenKey(null)} />}
@@ -426,13 +419,7 @@ function ComboWhyButton({ comboName, doseKey, openKey, setOpenKey }) {
   return (
     <>
       <button ref={btnRef} type="button" onClick={handleClick} title={`Why ${comboName}?`}
-        style={{
-          fontSize: 10, padding: '1px 6px', borderRadius: 'var(--rads)', marginLeft: 4,
-          border: '1px solid var(--amd)',
-          background: isOpen ? 'var(--a)' : 'var(--alt)',
-          color: isOpen ? '#fff' : 'var(--a)',
-          cursor: 'pointer', lineHeight: 1.2, fontWeight: 600, whiteSpace: 'nowrap',
-        }}>
+        className={`fct-combo-why-btn${isOpen ? ' open' : ''}`}>
         Why?
       </button>
       {isOpen && <OptWhyPopover explanation={explanation} anchorRect={anchorRect} onClose={() => setOpenKey(null)} />}
@@ -444,9 +431,9 @@ function OptDoseRow({ dose, doseKey, openKey, setOpenKey, allFlatDoses }) {
   const explanation = explainOptConstraint(dose, allFlatDoses);
   if (dose._combo) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 0 3px 6px', background: 'var(--alt)', borderRadius: 'var(--rads)', marginBottom: 2 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--a)' }}>{dose.comboName}</span>
-        <span style={{ fontSize: 10, color: 'var(--gy3)' }}>{dose.coveredDoses.map(d => `${d.vk} D${d.doseNum}`).join(', ')}</span>
+      <div className="fct-opt-combo-row">
+        <span className="fct-opt-combo-name">{dose.comboName}</span>
+        <span className="fct-opt-combo-doses">{dose.coveredDoses.map(d => `${d.vk} D${d.doseNum}`).join(', ')}</span>
         <OptWhyButton doseKey={doseKey} openKey={openKey} setOpenKey={setOpenKey} explanation={explanation} />
       </div>
     );
@@ -454,9 +441,9 @@ function OptDoseRow({ dose, doseKey, openKey, setOpenKey, allFlatDoses }) {
   const meta = VAX_META[dose.vk];
   const brandShort = dose.brand ? dose.brand.split(' ')[0] : '';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
+    <div className="fct-opt-dose-row">
       <span style={{ fontSize: 11, fontWeight: 600, color: meta?.c || 'var(--gy)', minWidth: 68 }}>{dose.vk}</span>
-      <span style={{ fontSize: 10, color: 'var(--gy3)' }}>D{dose.doseNum}/{dose.totalDoses}{brandShort && <span style={{ color: 'var(--gy4)', marginLeft: 3 }}>({brandShort})</span>}</span>
+      <span className="fct-opt-dose-num">D{dose.doseNum}/{dose.totalDoses}{brandShort && <span className="fct-opt-dose-brand">({brandShort})</span>}</span>
       <OptWhyButton doseKey={doseKey} openKey={openKey} setOpenKey={setOpenKey} explanation={explanation} />
     </div>
   );
@@ -464,12 +451,12 @@ function OptDoseRow({ dose, doseKey, openKey, setOpenKey, allFlatDoses }) {
 
 function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses }) {
   return (
-    <div style={{ border: '1px solid var(--gy5)', borderRadius: 'var(--rads)', marginBottom: 8, overflow: 'hidden' }}>
-      <div style={{ background: 'var(--gy6)', padding: '5px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--gy5)' }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--g)' }}>Visit {idx + 1} — {visit.date}</span>
-        <span style={{ fontSize: 10, color: 'var(--gy3)' }}>{visit.items.length} injection{visit.items.length !== 1 ? 's' : ''}</span>
+    <div className="fct-opt-card">
+      <div className="fct-opt-card-head">
+        <span className="fct-opt-card-title">Visit {idx + 1} — {visit.date}</span>
+        <span className="fct-opt-card-count">{visit.items.length} injection{visit.items.length !== 1 ? 's' : ''}</span>
       </div>
-      <div style={{ padding: '6px 10px' }}>
+      <div className="fct-opt-card-body">
         {visit.items.map((d, i) => (
           <OptDoseRow key={i} dose={d} doseKey={`${idx}-${i}`} openKey={openKey} setOpenKey={setOpenKey} allFlatDoses={allFlatDoses} />
         ))}
@@ -709,7 +696,7 @@ export default function ForecastTab({ recs }) {
   return (
     <div>
       {/* ── VIEW TOGGLE ──────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div className="fct-view-toggle">
         {[
           { id: null,               label: 'Routine Schedule',    subtitle: 'Standard CDC/ACIP well-child visit timeline' },
           { id: 'fewestInjections', label: 'Fewest Injections',   subtitle: 'Substitutes combo brands to minimize total injections' },
@@ -717,18 +704,12 @@ export default function ForecastTab({ recs }) {
           <button
             key={String(v.id)}
             onClick={() => setOptView(v.id)}
-            style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
-              padding: '7px 14px', borderRadius: 'var(--rads)', border: '1px solid', cursor: 'pointer',
-              transition: 'all .13s', textAlign: 'left',
-              background: optView === v.id ? 'var(--glt)' : 'var(--wh)',
-              borderColor: optView === v.id ? 'var(--g)' : 'var(--gy5)',
-            }}
+            className={`fct-view-btn${optView === v.id ? ' on' : ''}`}
           >
-            <span style={{ fontSize: 12, fontWeight: 700, color: optView === v.id ? 'var(--g)' : 'var(--gy2)' }}>
+            <span className={`fct-view-btn-label${optView === v.id ? ' on' : ''}`}>
               {v.label}
             </span>
-            <span style={{ fontSize: 10, color: 'var(--gy3)', marginTop: 1, fontWeight: 400 }}>
+            <span className="fct-view-btn-sub">
               {v.subtitle}
             </span>
           </button>
@@ -751,10 +732,7 @@ export default function ForecastTab({ recs }) {
                 <>
                   <button
                     onClick={() => printVisitSummary({ am, dob: state.dob, recs, fcBrands: state.fcBrands })}
-                    style={{
-                      fontSize: 11, padding: "4px 10px", background: "var(--wh)", color: "var(--gy2)",
-                      border: "1px solid var(--gy5)", borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
-                    }}
+                    className="fct-print-btn"
                   >
                     Print Visit Summary
                   </button>
@@ -764,11 +742,7 @@ export default function ForecastTab({ recs }) {
                       return ShotListPDF({ am, dob: state.dob, recs, fcBrands: state.fcBrands });
                     }}
                     fileName="pedivax-shot-list.pdf"
-                    style={{
-                      fontSize: 11, padding: "4px 10px", background: "#1a3a6b", color: "#fff",
-                      borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
-                      border: "none", textDecoration: "none", display: "inline-block",
-                    }}
+                    className="fct-shotlist-btn"
                   >
                     {({ loading }) => loading ? "Preparing…" : "Shot List PDF"}
                   </PdfDownloadButton>
@@ -776,10 +750,7 @@ export default function ForecastTab({ recs }) {
               )}
               <button
                 onClick={() => dispatch({ type: "RESET_FORECAST" })}
-                style={{
-                  fontSize: 11, padding: "4px 10px", background: "#fff", color: "#8b1a1a",
-                  border: "1px solid #d4b0b0", borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
-                }}
+                className="fct-reset-btn"
               >
                 Reset Forecast
               </button>
@@ -789,11 +760,7 @@ export default function ForecastTab({ recs }) {
                   return ForecastPDF({ am, dob: state.dob, risks: state.risks, rows: pdfRows });
                 }}
                 fileName="pedivax-forecast.pdf"
-                style={{
-                  fontSize: 11, padding: "4px 10px", background: "#2e7d32", color: "#fff",
-                  borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
-                  border: "none", textDecoration: "none", display: "inline-block",
-                }}
+                className="fct-download-btn"
               >
                 {({ loading }) => loading ? "Preparing…" : "Download Schedule"}
               </PdfDownloadButton>
@@ -921,36 +888,36 @@ export default function ForecastTab({ recs }) {
           optError = e.message;
         }
         if (optError) return (
-          <div style={{ padding: 12, background: 'var(--rlt)', border: '1px solid var(--rmd)', borderRadius: 'var(--rads)', fontSize: 12, color: 'var(--r)' }}>
+          <div className="fct-opt-error">
             {optError}
           </div>
         );
         if (optResult?.status === 'BLOCKED') return (
-          <div style={{ background: 'var(--alt)', border: '1px solid var(--amd)', borderRadius: 'var(--rads)', padding: 12, fontSize: 12 }}>
-            <strong style={{ color: 'var(--a)' }}>Schedule Blocked</strong>
-            <div style={{ color: 'var(--gy2)', marginTop: 4 }}>{optResult.reason}</div>
+          <div className="fct-opt-blocked">
+            <strong className="fct-opt-blocked-title">Schedule Blocked</strong>
+            <div className="fct-opt-blocked-reason">{optResult.reason}</div>
           </div>
         );
         if (optResult?.status === 'NEEDS_HUMAN_REVIEW') {
           const partial = optResult.partialDoses ?? [];
           return (
             <div>
-              <div style={{ background: 'var(--rlt)', border: '1px solid var(--rmd)', borderRadius: 'var(--rads)', padding: 10, marginBottom: 12 }}>
-                <div style={{ fontWeight: 700, color: 'var(--r)', marginBottom: 6 }}>
+              <div className="fct-opt-review-box">
+                <div className="fct-opt-review-title">
                   Human Review Required — {optResult.rules.length} missing rule{optResult.rules.length !== 1 ? 's' : ''}
                 </div>
                 {optResult.rules.map((r, i) => (
-                  <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid var(--rlt)', fontSize: 11 }}>
-                    <span style={{ fontWeight: 700, color: 'var(--r)', marginRight: 6 }}>[{r.doseNum != null ? `${r.vk} D${r.doseNum}` : r.vk}]</span>
-                    <span style={{ color: 'var(--gy2)' }}>{r.rule}</span>
+                  <div key={i} className="fct-opt-review-rule">
+                    <span className="fct-opt-review-rule-tag">[{r.doseNum != null ? `${r.vk} D${r.doseNum}` : r.vk}]</span>
+                    <span className="fct-opt-review-rule-text">{r.rule}</span>
                   </div>
                 ))}
               </div>
               {partial.map((d, i) => (
-                <div key={i} style={{ display: 'flex', gap: 6, padding: '2px 0', fontSize: 11 }}>
+                <div key={i} className="fct-opt-partial-row">
                   <span style={{ fontWeight: 600, color: VAX_META[d.vk]?.c || 'var(--gy)', minWidth: 68 }}>{d.vk}</span>
-                  <span style={{ color: 'var(--gy3)' }}>D{d.doseNum}/{d.totalDoses}</span>
-                  <span style={{ color: 'var(--gy4)' }}>{d.date}</span>
+                  <span className="fct-opt-partial-dose">D{d.doseNum}/{d.totalDoses}</span>
+                  <span className="fct-opt-partial-date">{d.date}</span>
                 </div>
               ))}
             </div>
@@ -962,18 +929,18 @@ export default function ForecastTab({ recs }) {
           const allFlat = optResult.flatMap(v => v.items.map(d => ({ ...d, date: v.date })));
           return (
             <div>
-              <div style={{ background: 'var(--glt)', border: '1px solid var(--gmd)', borderRadius: 'var(--rads)', padding: '8px 14px', marginBottom: 12, display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-                <div><div style={{ fontSize: 18, fontWeight: 700, color: 'var(--g)' }}>{optResult.length}</div><div style={{ fontSize: 10, color: 'var(--gy3)' }}>visits</div></div>
-                <div><div style={{ fontSize: 18, fontWeight: 700, color: 'var(--g)' }}>{totalInj}</div><div style={{ fontSize: 10, color: 'var(--gy3)' }}>injections</div></div>
-                {lastDate && <div><div style={{ fontSize: 14, fontWeight: 700, color: 'var(--g)' }}>{lastDate}</div><div style={{ fontSize: 10, color: 'var(--gy3)' }}>series complete</div></div>}
-                <div style={{ marginLeft: 'auto' }}>
+              <div className="fct-opt-stats">
+                <div><div className="fct-opt-stat-num">{optResult.length}</div><div className="fct-opt-stat-label">visits</div></div>
+                <div><div className="fct-opt-stat-num">{totalInj}</div><div className="fct-opt-stat-label">injections</div></div>
+                {lastDate && <div><div className="fct-opt-stat-date">{lastDate}</div><div className="fct-opt-stat-label">series complete</div></div>}
+                <div className="fct-opt-stats-pdf-wrap">
                   <PdfDownloadButton
                     buildDoc={async () => {
                       const { default: SchedulePDF } = await import('./SchedulePDF');
                       return SchedulePDF({ patient: optPatient, mode: optView, visits: optResult });
                     }}
                     fileName={`pedivax-schedule-${optView}-${today}.pdf`}
-                    style={{ padding: '5px 12px', background: 'var(--g)', color: '#fff', fontSize: 11, fontWeight: 600, border: 'none', textDecoration: 'none', borderRadius: 'var(--rads)', display: 'inline-block' }}
+                    className="fct-opt-pdf-btn"
                   >
                     {({ loading }) => loading ? 'Preparing PDF…' : 'Download PDF'}
                   </PdfDownloadButton>
@@ -982,7 +949,7 @@ export default function ForecastTab({ recs }) {
               {optResult.map((visit, i) => (
                 <OptVisitCard key={visit.date || visit.label || i} visit={visit} idx={i} openKey={whyOpenKey} setOpenKey={setWhyOpenKey} allFlatDoses={allFlat} />
               ))}
-              <div style={{ marginTop: 8, fontSize: 10, color: 'var(--gy4)', fontStyle: 'italic' }}>
+              <div className="fct-opt-footnote">
                 Each dose lands on its earliest legal date. Click Why? to see the spacing or age rule.
               </div>
             </div>
@@ -996,10 +963,10 @@ export default function ForecastTab({ recs }) {
       <>
       {/* Hidden-column chip — above the table */}
       {hiddenVks.length > 0 && (
-        <div style={{ marginBottom: 6 }}>
+        <div className="fct-hidden-toggle-wrap">
           <button
             onClick={() => setShowExpired(v => !v)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, color: 'var(--gy3)', textDecoration: 'underline', textDecorationStyle: 'dotted', padding: 0 }}
+            className="fct-hidden-toggle-btn"
           >
             {showExpired ? (
               `▴ Hide ${hiddenVks.length} hidden vaccine${hiddenVks.length !== 1 ? 's' : ''}`
@@ -1018,12 +985,12 @@ export default function ForecastTab({ recs }) {
           </button>
         </div>
       )}
-      <div style={{ fontSize: 10, color: 'var(--gy4)', marginBottom: 6 }}>
-        <span style={{ color: 'var(--g)', fontWeight: 600 }}>■</span> done&ensp;
-        <span style={{ color: 'var(--a)', fontWeight: 600 }}>■</span> catch-up&ensp;
-        <span style={{ color: 'var(--gy4)', fontWeight: 600, textDecoration: 'line-through' }}>■</span> past window&ensp;
-        <span style={{ color: 'var(--gy4)', fontWeight: 600, fontStyle: 'italic' }}>■</span> not yet eligible&ensp;
-        <span style={{ color: '#5b3a9e', fontWeight: 600 }}>■</span> projected.&ensp;
+      <div className="fct-legend">
+        <span className="fct-legend-done">■</span> done&ensp;
+        <span className="fct-legend-cu">■</span> catch-up&ensp;
+        <span className="fct-legend-exp">■</span> past window&ensp;
+        <span className="fct-legend-notyet">■</span> not yet eligible&ensp;
+        <span className="fct-legend-proj">■</span> projected.&ensp;
         Click a cell for clinical notes.
       </div>
       <div className="fc-wrap">
@@ -1174,7 +1141,7 @@ export default function ForecastTab({ recs }) {
                                   type: "FC_BRAND_CHANGE",
                                   payload: { visitM: info.visitM, vk, brandName: e.target.value, fcKey: visit.earlyFcKey },
                                 })}
-                                style={{ fontSize: 10, maxWidth: 130, padding: "1px 3px", border: "1px solid #ddd", borderRadius: 1 }}
+                                className="fct-brand-sel-sm"
                               />
                             )}
                           </div>
@@ -1255,7 +1222,7 @@ export default function ForecastTab({ recs }) {
                                 bOpts={bOpts3}
                                 value={disp3}
                                 onChange={e => dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey } })}
-                                style={{ fontSize: 10, maxWidth: 130, padding: "1px 3px", border: "1px solid #ddd", borderRadius: 1 }}
+                                className="fct-brand-sel-sm"
                               />
                             )}
                             <button
@@ -1504,7 +1471,7 @@ export default function ForecastTab({ recs }) {
                                   siblingFcKeys: visit.isCatchup ? visit.catchupDoseKeys : undefined,
                                 },
                               })}
-                              style={{ fontSize: 10, maxWidth: 130, padding: "1px 3px", border: "1px solid #ddd", borderRadius: 1 }}
+                              className="fct-brand-sel-sm"
                             />
                           )}
                           {comboSelected && (
@@ -1526,14 +1493,10 @@ export default function ForecastTab({ recs }) {
         </table>
       </div>
       {/* ── Progressive disclosure toggle ─────────────────────── */}
-      <div style={{ textAlign: 'center', marginTop: 6 }}>
+      <div className="fct-show-full-btn-wrap">
         <button
           onClick={() => setShowFull(v => !v)}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 11, color: '#888', padding: '4px 8px',
-            textDecoration: 'underline', textDecorationStyle: 'dotted',
-          }}
+          className="fct-show-full-btn"
         >
           {showFull ? '← Show less' : 'Show full forecast →'}
         </button>
