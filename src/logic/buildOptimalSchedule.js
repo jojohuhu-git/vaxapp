@@ -5,6 +5,7 @@ import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { isLiveVaccineContraindicated } from './stateHelpers.js';
+import { todayISO } from './utils.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
 
@@ -310,7 +311,7 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
   // PediVax is for pediatric patients only (birth–18y).
   if (am >= 228) return [];
 
-  const today       = opts.today ?? new Date().toISOString().slice(0, 10);
+  const today       = opts.today ?? todayISO();
   const maxPerVisit = opts.maxInjectionsPerVisit ?? 20;
   // If no DOB provided, synthesize one from am (age in months) so age-based
   // constraints don't crash. Schedule dates will be approximate but valid.

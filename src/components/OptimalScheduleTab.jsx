@@ -12,6 +12,7 @@ import { REFS } from '../data/refs';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import SchedulePDF from './SchedulePDF';
 import { humanDays } from '../logic/ageFormat';
+import { todayISO } from '../logic/utils';
 
 // Find the most recent earlier dose of the same antigen in the planned schedule
 // (used to render "from DTaP D2 given 2026-03-01" in the popover).
@@ -340,7 +341,7 @@ export default function OptimalScheduleTab() {
     hist:  validHist,
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
 
   let result;
   let renderError = null;

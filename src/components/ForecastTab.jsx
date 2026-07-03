@@ -11,7 +11,7 @@ import { orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly } from '
 import { dc } from '../logic/stateHelpers';
 import { computeDosePlan, fmtProjection, fmtEarliestDate, getTotalDoses } from '../logic/dosePlan';
 import { validatedHistory } from '../logic/validation';
-import { addD } from '../logic/utils';
+import { addD, todayISO } from '../logic/utils';
 import { humanDays } from '../logic/ageFormat';
 import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
 import { REFS } from '../data/refs';
@@ -510,7 +510,7 @@ export default function ForecastTab({ recs }) {
   const validHist = validatedHistory(state.hist, state.dob);
 
   // Patient object for optimal schedule engine
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const optPatient = { dob: state.dob || null, am, risks: state.risks ?? [], hist: validHist };
 
   // Compute projected dose plan

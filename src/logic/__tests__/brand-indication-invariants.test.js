@@ -13,12 +13,13 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 import { describe, it, expect } from 'vitest';
-import { comboFitsDose } from '../brandRules.js';
+import { comboFitsDose, firstEligibleStandaloneBrand } from '../brandRules.js';
 import { genRecs } from '../recommendations.js';
 import { buildRegimens } from '../regimens.js';
 import { buildOptimalSchedule } from '../buildOptimalSchedule.js';
 import { orderedBrandsForVisit } from '../forecastLogic.js';
-import { COMBOS } from '../../data/vaccineData.js';
+import { COMBOS, VBR } from '../../data/vaccineData.js';
+import { BRAND_MIN } from '../../data/scheduleRules.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -176,6 +177,59 @@ describe('buildOptimalSchedule fewestInjections — no ineligible combo', () => 
             comboFitsDose(item.comboName, vk, doseNum),
             `buildOptimalSchedule: ${item.comboName} for ${vk} D${doseNum} — fails comboFitsDose`
           ).toBe(true);
+        }
+      }
+    }
+  });
+});
+
+// ── Standalone brand age gate (not just combos) ──────────────────────────
+// Regression: buildRegimens() used to pick VBR[vk].s[0] unconditionally —
+// VBR's listed order is a display order, not an age order (e.g. COVID lists
+// Comirnaty (>=5y) before Spikevax (>=6mo)), so an 8-month-old could be
+// handed an age-inappropriate standalone brand. firstEligibleStandaloneBrand
+// is now the single source of truth for this pick; verify it here across
+// every VBR vk and a representative age grid, and confirm buildRegimens
+// actually uses it end-to-end for the reported COVID/8mo scenario.
+
+function brandMinDaysForTest(brand) {
+  const key = Object.keys(BRAND_MIN).find(k => brand.startsWith(k));
+  if (!key) return 0;
+  const spec = BRAND_MIN[key];
+  return typeof spec === "number" ? spec : (spec?.d ?? 0);
+}
+
+describe('firstEligibleStandaloneBrand — never returns a brand above the patient\'s age', () => {
+  for (const vk of Object.keys(VBR)) {
+    const list = VBR[vk]?.s || [];
+    const easiestMinDays = list.length ? Math.min(...list.map(brandMinDaysForTest)) : 0;
+    for (const age of TEST_AGES) {
+      const ageDays = age * 30.4375;
+      // Below every listed brand's floor, no brand is eligible at all (the
+      // vaccine itself isn't due yet) — the fallback-to-first behavior is
+      // expected there, so only assert once at least one brand qualifies.
+      if (ageDays < easiestMinDays) continue;
+      it(`${vk} at ${age}m: returned brand's BRAND_MIN <= current age`, () => {
+        const brand = firstEligibleStandaloneBrand(vk, age);
+        const minDays = brandMinDaysForTest(brand);
+        expect(
+          ageDays >= minDays,
+          `firstEligibleStandaloneBrand("${vk}", ${age}) returned "${brand}" (min ${minDays}d) but patient is only ${ageDays}d old`
+        ).toBe(true);
+      });
+    }
+  }
+});
+
+describe('buildRegimens — 8-month-old COVID rec never resolves to Comirnaty (>=5y)', () => {
+  it('COVID standalone pick at 8mo is Spikevax, not Comirnaty', () => {
+    const recs = genRecs(8, {}, [], null, { today: '2026-07-02' });
+    const regs = buildRegimens(recs, 8);
+    for (const reg of regs) {
+      for (const shot of reg.p.shots) {
+        if (shot.covers.includes('COVID') && !shot.isCombo) {
+          expect(shot.brand).toContain('Spikevax');
+          expect(shot.brand).not.toContain('Comirnaty');
         }
       }
     }

@@ -3,6 +3,7 @@
 import { createContext, useContext, useReducer } from 'react';
 import { VAX_KEYS, COMBO_COVERS, COMBOS, VBR } from '../data/vaccineData.js';
 import { FORECAST_VISITS } from '../data/forecastData.js';
+import { dobToMonths } from '../logic/utils.js';
 
 // ── Initial state ──────────────────────────────────────────────
 function initHist() {
@@ -388,15 +389,6 @@ function reducer(state, action) {
  *   - Both set and they disagree beyond tolerance: { effectiveAm: -1, conflict: true }
  *   - Neither set: { effectiveAm: -1, conflict: false }
  */
-function dobToMonths(dob) {
-  const today = new Date();
-  const birth = new Date(dob);
-  if (isNaN(birth)) return null;
-  let months = (today.getFullYear() - birth.getFullYear()) * 12
-             + (today.getMonth() - birth.getMonth());
-  if (today.getDate() < birth.getDate()) months--;
-  return Math.max(0, months);
-}
 
 export function getEffectiveAm(state) {
   const manualAm = state.am;

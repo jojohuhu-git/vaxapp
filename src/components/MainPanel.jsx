@@ -1,8 +1,9 @@
 /* eslint-disable react/prop-types */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { genRecs } from '../logic/recommendations';
 import { validatedHistory } from '../logic/validation';
+import { todayISO } from '../logic/utils';
 import { REFS } from '../data/refs';
 import TabBar from './TabBar';
 import RecTab from './RecTab';
@@ -12,6 +13,12 @@ import CatchUpTab from './CatchUpTab';
 import BrandConstraintsPanel from './BrandConstraintsPanel';
 import ComplianceAuditTab from './ComplianceAuditTab';
 function ReferenceModal({ onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
     <div
       style={{
@@ -117,7 +124,7 @@ export default function MainPanel() {
   // series instead of treating an invalid dose as complete.
   const validHist = validatedHistory(state.hist, state.dob);
   const recs = genRecs(effectiveAm, validHist, state.risks, state.dob, {
-    today: new Date().toISOString().slice(0, 10),
+    today: todayISO(),
     cd4: state.cd4,
   });
 

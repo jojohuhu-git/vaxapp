@@ -5,6 +5,7 @@
 
 /* eslint-disable react/prop-types */
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { todayISO } from '../logic/utils';
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica', color: '#222' },
@@ -110,7 +111,7 @@ function VisitItems({ items }) {
 }
 
 export default function SchedulePDF({ patient, mode, visits, generatedAt }) {
-  const today = generatedAt || new Date().toISOString().slice(0, 10);
+  const today = generatedAt || todayISO();
   const totalDoses = visits.reduce((s, v) => s + v.items.reduce((s2, it) => s2 + (it._combo ? it.coveredDoses.length : 1), 0), 0);
   const totalInjections = visits.reduce((s, v) => s + v.items.length, 0);
   const lastVisitDate = visits.at(-1)?.date;

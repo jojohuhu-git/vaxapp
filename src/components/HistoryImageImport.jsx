@@ -20,6 +20,7 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 import { VAX_META, VAX_KEYS, VBR } from '../data/vaccineData';
 import { parseOcrText, parseDate, normalizeAntigen } from '../logic/ocrParser';
+import { todayISO } from '../logic/utils';
 import { combosFittingVks } from '../logic/comboInference';
 import SuggestionCard, { fmtIso } from './SuggestionCard';
 import DateField from './DateField';
@@ -316,7 +317,7 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
   // H6.2: Validate enabled dates before import.
   // Returns an array of warnings for dates that are in the future or before DOB.
   function validateDates() {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = todayISO();
     const warnings = [];
     for (const row of rows) {
       if (!row.enabled) continue;

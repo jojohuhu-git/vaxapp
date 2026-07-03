@@ -1,7 +1,7 @@
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { VAX_META } from '../data/vaccineData';
 import { CONTRA } from '../data/contraindications';
-import { isD, dBetween, fmtD, addD } from '../logic/utils';
+import { isD, dBetween, fmtD, addD, todayISO } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
 import { validatedHistory } from '../logic/validation';
 import { doseDate } from '../logic/stateHelpers';
@@ -53,7 +53,7 @@ export default function RecCard({ rec, index }) {
   let ivMsg = null;
   let ivClass = "iv-msg iv-info";
   if (rec.minInt && rec.prevDate && isD(rec.prevDate)) {
-    const daysSince = dBetween(rec.prevDate, new Date().toISOString().slice(0, 10));
+    const daysSince = dBetween(rec.prevDate, todayISO());
     if (daysSince !== null) {
       if (daysSince >= rec.minInt) {
         ivMsg = `Last dose: ${fmtD(rec.prevDate)} (${daysSince} days ago). Minimum interval (${rec.minInt}d) met. OK to give now.`;

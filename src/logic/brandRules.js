@@ -6,6 +6,8 @@
 // ║  never add duplicate dose-range checks in forecastLogic, regimens,  ║
 // ║  comboAnalyzer, or buildOptimalSchedule.                             ║
 // ╚══════════════════════════════════════════════════════════════════════╝
+import { VBR } from '../data/vaccineData.js';
+import { BRAND_MIN } from '../data/scheduleRules.js';
 
 // ── Combo dose-number gates ───────────────────────────────────────────────
 // For each combo brand, for each component antigen, the inclusive [min, max]
@@ -59,5 +61,34 @@ export function comboFitsDose(comboName, antigen, doseNum) {
   if (!range) return false; // combo doesn't carry this antigen
   const [minDose, maxDose] = range;
   return doseNum >= minDose && (maxDose === null || doseNum <= maxDose);
+}
+
+// ── Standalone brand age gate ────────────────────────────────────────────
+// VBR[vk].s lists standalone brand options in a fixed display order that is
+// NOT age order (e.g. COVID lists Comirnaty (>=5y) before Spikevax (>=6mo)).
+// Any surface picking "the first standalone brand" for a vk must go through
+// here instead of indexing VBR[vk].s[0] directly, or it will hand a young
+// patient a brand they're not eligible for.
+const DAYS_PER_MONTH = 30.4375;
+
+function brandMinDays(brand) {
+  const key = Object.keys(BRAND_MIN).find(k => brand.startsWith(k));
+  if (!key) return 0;
+  const spec = BRAND_MIN[key];
+  return typeof spec === "number" ? spec : (spec?.d ?? 0);
+}
+
+/**
+ * First standalone brand for `vk` that a patient aged `am` months actually
+ * qualifies for (per BRAND_MIN), preserving VBR's listed order. Falls back
+ * to the first listed brand if none qualify (e.g. am unknown/negative).
+ * @param {string} vk - vaccine key
+ * @param {number} am - patient age in months
+ */
+export function firstEligibleStandaloneBrand(vk, am) {
+  const list = VBR[vk]?.s || [vk];
+  if (am == null || am < 0) return list[0];
+  const ageDays = am * DAYS_PER_MONTH;
+  return list.find(b => ageDays >= brandMinDays(b)) || list[0];
 }
 

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import DateField from './DateField';
+import { dobToMonths } from '../logic/utils';
 
 // Build a complete age option list
 const AGE_OPTIONS = (() => {
@@ -203,17 +204,6 @@ function AgeTypeahead({ value, onChange }) {
       )}
     </div>
   );
-}
-
-/** Compute age in whole months from an ISO dob string to today. */
-function dobToMonths(dob) {
-  const today = new Date();
-  const birth = new Date(dob + 'T00:00:00');
-  if (isNaN(birth)) return null;
-  let months = (today.getFullYear() - birth.getFullYear()) * 12
-             + (today.getMonth() - birth.getMonth());
-  if (today.getDate() < birth.getDate()) months--;
-  return Math.max(0, months);
 }
 
 /** Compute an ISO DOB string from an age in months, counting back from today. */
