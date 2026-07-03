@@ -24,8 +24,7 @@ export default function TabBar({ onReference }) {
         </button>
       ))}
       <button
-        className="tab"
-        style={{ marginLeft: 'auto' }}
+        className="tab tab-push-right"
         onClick={onReference}
         title="Catch-up guidance and infant brand schedules"
       >
