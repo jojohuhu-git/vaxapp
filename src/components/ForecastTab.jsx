@@ -137,14 +137,14 @@ function CellPopover({ chipText, rec, anchorRect, onClose }) {
               <a href={rec.refUrl} target="_blank" rel="noreferrer"
                 onClick={e => e.stopPropagation()}
                 className="fct-popover-ref-link">
-                🔗 {rec.refLabel || 'Reference'}
+                {rec.refLabel || 'Reference'} ↗
               </a>
             )}
             {rec.refUrl2 && (
               <a href={rec.refUrl2} target="_blank" rel="noreferrer"
                 onClick={e => e.stopPropagation()}
                 className="fct-popover-ref-link">
-                🔗 {rec.refLabel2 || 'Reference'}
+                {rec.refLabel2 || 'Reference'} ↗
               </a>
             )}
           </div>
@@ -235,7 +235,7 @@ function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fc
         l: visit.l, m: visit.m,
         isCatchup: !!visit.isCatchup,
         isCurr, isPast,
-        date: visitDateLabel(dob, visit.m),
+        date: isCurr ? fmtDateShort(todayISO()) : visitDateLabel(dob, visit.m),
         items,
       };
     });
@@ -788,9 +788,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
             <div className="today-hdr-left">
               <span className="today-title">Today&apos;s Visit</span>
               <span className="today-age">{fmtAm(am)}</span>
-              {state.dob && (
-                <span className="today-visit-date">{visitDateLabel(state.dob, am)}</span>
-              )}
+              <span className="today-visit-date">{fmtDateShort(today)}</span>
             </div>
             <div className="today-actions">
               {recs.length > 0 && (
@@ -920,16 +918,16 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                       {isExpanded && (
                         <div className="today-rationale">
                           {rec.note && <p className="today-note">{rec.note}</p>}
-                          {rec.brandTip && <p className="today-brandtip">💊 {rec.brandTip}</p>}
+                          {rec.brandTip && <p className="today-brandtip">{rec.brandTip}</p>}
                           <div className="today-refs">
                             {rec.refUrl && (
                               <a href={rec.refUrl} target="_blank" rel="noreferrer" className="today-ref-link">
-                                🔗 {rec.refLabel}
+                                {rec.refLabel} ↗
                               </a>
                             )}
                             {rec.refUrl2 && (
                               <a href={rec.refUrl2} target="_blank" rel="noreferrer" className="today-ref-link">
-                                🔗 {rec.refLabel2}
+                                {rec.refLabel2} ↗
                               </a>
                             )}
                           </div>
@@ -1102,8 +1100,10 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               if (visit.m < am && !showPast && !visit.isScheduledEarly && !isOverdue(visit)) return null;
               // Progressive disclosure: in default (collapsed) mode, hide rows
               // that are not today, not overdue, not imminent, and not the
-              // next upcoming routine visit.
-              if (!showFull && !isAlwaysVisible(visit)) return null;
+              // next upcoming routine visit. Past rows the user explicitly
+              // revealed via the past-visits toggle stay visible — without
+              // this exemption the toggle appears to do nothing.
+              if (!showFull && !isAlwaysVisible(visit) && !(showPast && visit.m < am)) return null;
 
               const isCurr = visit.m === am;
               // Scheduled-early rows are user-generated future slots; never treat as past.
@@ -1164,7 +1164,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                       <div className="vlbl-date">
                         {visit.isScheduledEarly
                           ? fmtDateShort(scheduledEarliest.get(visit.earlyFcKey)?.date ?? '')
-                          : visitDateLabel(state.dob, visit.m)}
+                          : isCurr
+                            ? fmtDateShort(today)
+                            : visitDateLabel(state.dob, visit.m)}
                       </div>
                     )}
                   </td>
@@ -1570,7 +1572,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         )}
         {visits.map((visit, vi) => {
           if (visit.m < am && !showPast && !visit.isScheduledEarly && !isOverdue(visit)) return null;
-          if (!showFull && !isAlwaysVisible(visit)) return null;
+          if (!showFull && !isAlwaysVisible(visit) && !(showPast && visit.m < am)) return null;
 
           const isCurr = visit.m === am;
           const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
@@ -1584,7 +1586,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               : `m-rt-${visit.m}`;
           const dateLabel = visit.isScheduledEarly
             ? fmtDateShort(scheduledEarliest.get(visit.earlyFcKey)?.date ?? '')
-            : (state.dob ? visitDateLabel(state.dob, visit.m) : '');
+            : isCurr
+              ? fmtDateShort(today)
+              : (state.dob ? visitDateLabel(state.dob, visit.m) : '');
 
           return (
             <div key={cardKey} className={`fcm-card${isCurr ? ' curr' : isPast ? ' past' : ''}`}>
