@@ -9,8 +9,7 @@ import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
 import { validatedHistory } from '../logic/validation';
 import { VAX_META } from '../data/vaccineData';
 import { REFS } from '../data/refs';
-import { PDFDownloadLink } from '@react-pdf/renderer';
-import SchedulePDF from './SchedulePDF';
+import PdfDownloadButton from './PdfDownloadButton';
 import { humanDays } from '../logic/ageFormat';
 import { todayISO } from '../logic/utils';
 
@@ -482,8 +481,11 @@ export default function OptimalScheduleTab() {
             <span>
               Mode: <strong>{MODES.find(m => m.id === mode)?.label}</strong>
             </span>
-            <PDFDownloadLink
-              document={<SchedulePDF patient={patient} mode={mode} visits={result} />}
+            <PdfDownloadButton
+              buildDoc={async () => {
+                const { default: SchedulePDF } = await import('./SchedulePDF');
+                return SchedulePDF({ patient, mode, visits: result });
+              }}
               fileName={`pedivax-schedule-${mode}-${today}.pdf`}
               style={{
                 padding: '5px 10px',
@@ -491,12 +493,13 @@ export default function OptimalScheduleTab() {
                 color: '#fff',
                 fontSize: 11,
                 fontWeight: 600,
+                border: 'none',
                 textDecoration: 'none',
                 borderRadius: 4,
               }}
             >
               {({ loading }) => (loading ? 'Preparing PDF…' : 'Download PDF')}
-            </PDFDownloadLink>
+            </PdfDownloadButton>
           </div>
         </div>
 

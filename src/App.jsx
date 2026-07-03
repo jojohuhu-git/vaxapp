@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { AppProvider, useApp, getEffectiveAm } from './context/AppContext';
+import { AppProvider, useApp, useRecs } from './context/AppContext';
 import { encState, decState } from './logic/urlState';
 import { RISK_FACTORS } from './data/riskFactors';
 import Header from './components/Header';
@@ -15,19 +15,7 @@ import RiskGrid from './components/RiskGrid';
 import MainPanel from './components/MainPanel';
 import ShareModal from './components/ShareModal';
 import Disclaimer from './components/Disclaimer';
-import { genRecs } from './logic/recommendations';
-import { validatedHistory } from './logic/validation';
-import { todayISO } from './logic/utils';
-
-function fmtAm(am) {
-  if (am < 0) return null;
-  if (am === 0) return 'Birth';
-  if (am < 24) return `${am} month${am !== 1 ? 's' : ''}`;
-  const y = Math.floor(am / 12);
-  const m = am % 12;
-  const yLabel = `${y} year${y !== 1 ? 's' : ''}`;
-  return m ? `${yLabel} ${m} month${m !== 1 ? 's' : ''}` : yLabel;
-}
+import { fmtAm } from './logic/ageFormat';
 
 
 function PatientDrawer({ onClose }) {
@@ -146,7 +134,7 @@ const STATUS_LABELS = { due: 'Due', catchup: 'Catch-up', 'risk-based': 'Risk-bas
 
 function PatientSummaryBar({ onEdit, drawerOpen }) {
   const { state } = useApp();
-  const { effectiveAm, conflict } = getEffectiveAm(state);
+  const { effectiveAm, conflict, recs } = useRecs();
 
   const ageLabel = conflict
     ? 'Age conflict'
@@ -169,13 +157,7 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
 
   // Compute rec status counts for color-coded chips
   const recCounts = { due: 0, catchup: 0, 'risk-based': 0, recommended: 0 };
-  if (effectiveAm >= 0 && !conflict) {
-    const vh = validatedHistory(state.hist, state.dob);
-    const recs = genRecs(effectiveAm, vh, state.risks, state.dob, {
-      today: todayISO(), cd4: state.cd4,
-    });
-    recs.forEach(r => { if (recCounts[r.status] !== undefined) recCounts[r.status]++; });
-  }
+  recs.forEach(r => { if (recCounts[r.status] !== undefined) recCounts[r.status]++; });
   const activeStatuses = Object.entries(recCounts).filter(([, n]) => n > 0);
 
   return (

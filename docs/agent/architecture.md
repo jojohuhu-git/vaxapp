@@ -23,17 +23,17 @@ src/
   context/
     AppContext.jsx      Global state (useReducer), getEffectiveAm(), AppProvider
   components/
-    MainPanel.jsx       Routes tabs, holds recs + validHist computation
-    TabBar.jsx          Tabs: Compliance Audit | Recommendations | Plan | Forecast | Reference ↗
+    MainPanel.jsx       Routes tabs, calls useRecs() (AppContext) for recs + validHist
+    TabBar.jsx          Tabs: Compliance Audit | Recommendations | Compare Regimens | Brand Rules | Immunization Schedule | Catch-up Schedule ↗ (modal)
     ComplianceAuditTab.jsx  Per-dose compliance classifier with popover detail
-    RecTab.jsx          Recommendations list with filter buttons (All/Due/Catch-up/Risk-Based/SCD)
-    RecCard.jsx         Single recommendation card with brand dropdown
-    PlanTab.jsx         Sub-modes: Regimen Optimizer | Brand Constraints
-    RegTab.jsx          Regimen optimizer UI
+    RecTab.jsx          Recommendations list with filter buttons (All/Due/Catch-up/Risk-Based/Shared decision)
+    RecCard.jsx         Single recommendation card with brand dropdown; open/collapsed state is local (useState), not global
+    PlanTab.jsx         Sub-modes: Regimen Optimizer (RegTab) | Brand Constraints
+    RegTab.jsx          Regimen optimizer UI + custom-build antigen picker (custSel is local useState)
     BrandConstraintsPanel.jsx  Combo dose gates + brand age window reference
-    ForecastTab.jsx     Visit table + view toggle (Routine/Earliest Completion/Fewest Injections)
+    ForecastTab.jsx     "Immunization Schedule" tab: visit table + view toggle (Routine/Earliest Completion/Fewest Injections) + embedded Today's Visit / Optimal Schedule panels
     BrandScheduleTab.jsx    Static infant brand strategy reference (Pediarix/Vaxelis/Pentacel)
-    CatchUpTab.jsx      CDC Table 2 catch-up reference (accessed via Reference ↗ modal)
+    CatchUpTab.jsx      CDC Table 2 catch-up reference (accessed via "Catch-up Schedule ↗" modal in MainPanel's ReferenceModal)
     PatientInfo.jsx     Age typeahead + DOB DateField + mismatch hint
     RiskGrid.jsx        Risk factor checkboxes
     VisitEntry.jsx      Visit-based multi-vaccine history entry with combo chips + undo strip
@@ -41,17 +41,23 @@ src/
     DosePill.jsx        Clickable dose pill with detail popover and inline edit
     AuditFooter.jsx     Fixed bottom strip: shows schedule audit errors/warnings; hidden when clean
     AuditPanel.jsx      Detailed audit panel with renumbering cards
-    StatusBar.jsx       Vaccine count chips above tabs (removed from MainPanel — see PatientSummaryBar)
     Header.jsx          Logo + Share/Reset buttons
     DateField.jsx       Masked MM/DD/YYYY input + calendar picker
     ShareModal.jsx      Share URL modal
     Disclaimer.jsx      Clinical disclaimer
+    PdfDownloadButton.jsx  Generic on-click PDF generator — dynamically imports @react-pdf/renderer + the PDF template so neither ships in the main bundle
     SchedulePDF.jsx     PDF template for optimal schedule
     ForecastPDF.jsx     PDF template for full forecast
     ShotListPDF.jsx     PDF template for today's shot list
     HistoryImageImport.jsx  OCR import drop zone + ReviewModal
     SuggestionCard.jsx  Shared combo-suggestion card (OCR modal + drawer panel)
     ComboSuggestionsPanel.jsx  Persistent combo suggestion panel in PatientDrawer
+
+    Orphaned (present in repo, not wired into any route — verify before assuming they run):
+    TodayTab.jsx        Superseded by RecTab's due-filter default; intentionally retained per docs/archive/agent-session-log.md
+    QuickAdd.jsx        Not imported anywhere currently
+    OptimalScheduleTab.jsx  Not imported anywhere; ForecastTab.jsx has its own inline optimal-schedule rendering that appears to supersede it
+    (StatusBar.jsx was deleted 2026-07 — fully superseded by PatientSummaryBar in App.jsx)
   logic/
     recommendations.js  genRecs(am, hist, risks, dob, opts) — central rec engine
     forecastLogic.js    orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly
@@ -59,11 +65,11 @@ src/
     buildOptimalSchedule.js  Earliest-completion optimizer (independent seriesDoses())
     regimens.js         buildRegimens() for Regimen Optimizer tab
     comboAnalyzer.js    Combo brand analysis helpers
-    brandRules.js       COMBO_DOSE_GATES (exported), comboFitsDose, isBrandValidForDose
+    brandRules.js       COMBO_DOSE_GATES (exported), comboFitsDose, firstEligibleStandaloneBrand (single source of truth for standalone-brand age gating — never index VBR[vk].s[0] directly)
     validation.js       validatedHistory, auditAll
-    urlState.js         encState / decState for URL ?s= parameter
+    urlState.js         encState / decState for URL ?s= parameter (round-trips visitId per dose)
     stateHelpers.js     dc() deep-clone helper
-    utils.js            addD() date arithmetic
+    utils.js            addD(), dBetween(), isD(), fmtD(), todayISO() (local-timezone "today" — never use new Date().toISOString() directly), dobToMonths() (single source of truth for DOB→age-in-months)
     pcvDoses.js         PCV_HR_RISKS, isHighRiskPCV, pcvBands, pcvHighRiskChildPlan (single source of truth for at-risk peds PCV)
     ageFormat.js        fmtAgeClinical, fmtIntervalClinical, humanDays (shared clinical unit formatting)
     compliance.js       classifyDose, detectExtraScenario, STATUS_COLOR, RULES_REGISTRY
@@ -76,7 +82,7 @@ src/
     riskFactors.js      RISK_FACTORS array
     refs.js             REFS — all CDC/immunize.org/AAP reference URLs
     brandAgeNotes.js    BRAND_AGE_NOTES — per-brand age window notes (refs: [{url,label}] array)
-    scheduleRules.js    MIN_INT, MIN_AGE — minimum intervals and ages
+    scheduleRules.js    MIN_INT (per-vaccine intervals/min ages), BRAND_MIN/BRAND_MAX (brand-specific age windows), OFF_LABEL_RULES, GRACE
     ageOptions.js       Age selector options
     contraindications.js  Contraindication rules
     annualSchedules.js  FLU_SCHEDULES, COVID_SCHEDULES — versioned annual vaccine rules
@@ -90,21 +96,23 @@ src/
 
 ```js
 {
-  am: number | null,          // age in months (manual entry)
-  dob: string | null,         // ISO date "YYYY-MM-DD"
-  risks: string[],            // array of risk factor IDs
-  hist: { [vk]: { doses: [{date, brand, mode, ageDays}] } },
-  tab: "compliance" | "recs" | "plan" | "forecast",
+  am: number,                  // age in months (manual entry); -1 = not set
+  dob: string,                 // ISO date "YYYY-MM-DD"; "" = not set
+  risks: string[],             // array of risk factor IDs
+  hist: { [vk]: [{ mode, date, ageDays, brand, given, visitId }] },  // array of doses per vaccine key, NOT nested under .doses
+  tab: "compliance" | "recs" | "plan" | "constraints" | "forecast",
   filter: "all" | "due" | "catchup" | "risk-based" | "recommended",
   fcBrands: { [fcKey]: string },  // brand selections keyed by "{visitM}_{vk}" or "cu{age}_{vk}"
-  cd4: number | null,         // CD4 count for HIV patients
+  cd4: number | null,          // CD4 count for HIV patients
 }
 ```
 
-Key computed value: `getEffectiveAm(state)` returns `{ effectiveAm, conflict, dobAm, manualAm }`.
+Ephemeral UI state (rec-card open/collapsed, custom-regimen antigen picker) lives in local `useState` in `RecCard.jsx`/`RegTab.jsx`, not in this reducer — moved out 2026-07 so toggling a card doesn't re-render the whole tree.
+
+Key computed value: `getEffectiveAm(state)` returns `{ effectiveAm, conflict, dobAm, manualAm }`. `useRecs()` (also exported from AppContext.jsx) returns `{ effectiveAm, conflict, validHist, recs }`, memoized — the single shared computation of `validatedHistory()` + `genRecs()` used by both `PatientSummaryBar` (App.jsx) and `MainPanel.jsx`.
 DOB-derived age takes precedence over manual age; conflict = both set but disagree beyond tolerance.
 
-Default tab: `"compliance"` (Compliance Audit tab is first). Default filter: `"due"`.
+Default tab: `"recs"` (Recommendations). Tab bar order is Compliance Audit | Recommendations | Compare Regimens | Brand Rules | Immunization Schedule, plus a "Catch-up Schedule ↗" button that opens `CatchUpTab` in a modal. Default filter: `"due"`.
 
 ## Reducer Actions
 

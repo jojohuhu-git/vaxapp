@@ -91,3 +91,18 @@ export function humanDays(d) {
   if (d % 7 === 0 && d >= 14) { const w = d / 7; return `${w} week${w !== 1 ? 's' : ''}`; }
   return `${d} day${d !== 1 ? 's' : ''}`;
 }
+
+/**
+ * Format a patient age (in months) for the summary bar and drawer.
+ * Below 24 months: "N months". At/above 24 months: "Y years" or "Y years M months".
+ * am < 0 means no age set.
+ */
+export function fmtAm(am) {
+  if (am < 0) return null;
+  if (am === 0) return 'Birth';
+  if (am < 24) return `${am} month${am !== 1 ? 's' : ''}`;
+  const y = Math.floor(am / 12);
+  const m = am % 12;
+  const yLabel = `${y} year${y !== 1 ? 's' : ''}`;
+  return m ? `${yLabel} ${m} month${m !== 1 ? 's' : ''}` : yLabel;
+}

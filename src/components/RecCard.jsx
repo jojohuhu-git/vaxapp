@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { VAX_META } from '../data/vaccineData';
 import { CONTRA } from '../data/contraindications';
@@ -41,11 +42,11 @@ const STATUS_LABEL = {
 };
 
 /* eslint-disable react/prop-types */
-export default function RecCard({ rec, index }) {
-  const { state, dispatch } = useApp();
+export default function RecCard({ rec }) {
+  const { state } = useApp();
   const { effectiveAm } = getEffectiveAm(state);
-  const isOpen = !!state.openR[index];
-  const isContraOpen = !!state.openC[index];
+  const [isOpen, setIsOpen] = useState(false);
+  const [isContraOpen, setIsContraOpen] = useState(false);
   const meta = VAX_META[rec.vk];
   const sc = STATUS_COLORS[rec.status] || STATUS_COLORS.due;
   const contra = CONTRA[rec.vk];
@@ -103,7 +104,7 @@ export default function RecCard({ rec, index }) {
 
   return (
     <div className="rc" style={{ borderLeftColor: sc.border, background: sc.bg }}>
-      <div className="rchead" onClick={() => dispatch({ type: "TOGGLE_REC_OPEN", payload: index })}>
+      <div className="rchead" onClick={() => setIsOpen(v => !v)}>
         <div className="rcinfo">
           <div className="rc-name" style={{ color: meta.c }}>{meta.n}</div>
           <div className="rc-dose">{rec.dose}</div>
@@ -159,7 +160,7 @@ export default function RecCard({ rec, index }) {
             <div>
               <span
                 className="ctog"
-                onClick={() => dispatch({ type: "TOGGLE_CONTRA_OPEN", payload: index })}
+                onClick={() => setIsContraOpen(v => !v)}
               >
                 {isContraOpen ? "▲" : "▼"} Contraindications &amp; Precautions
               </span>

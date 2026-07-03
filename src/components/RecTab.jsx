@@ -114,11 +114,11 @@ function RecBrandDropdown({ rec, am, state, dispatch, allDueVks, doseNumByVk }) 
 }
 
 // Wrapper around RecCard that injects a brand dropdown for due/catchup recs.
-function RecCardWithBrand({ rec, index, am, state, dispatch, allDueVks, doseNumByVk }) {
+function RecCardWithBrand({ rec, am, state, dispatch, allDueVks, doseNumByVk }) {
   const showBrand = rec.status === 'due' || rec.status === 'catchup';
   return (
     <div>
-      <RecCard rec={rec} index={index} />
+      <RecCard rec={rec} />
       {showBrand && (
         <div style={{ padding: '0 12px 10px', marginTop: -4 }}>
           <RecBrandDropdown
@@ -216,7 +216,6 @@ export default function RecTab({ recs }) {
         <RecCardWithBrand
           key={`${rec.vk}-${rec.doseNum}-${i}`}
           rec={rec}
-          index={i}
           am={am}
           state={state}
           dispatch={dispatch}
