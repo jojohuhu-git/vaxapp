@@ -658,6 +658,73 @@ export default function ForecastTab({ recs }) {
     am, dob: state.dob, fcBrands: state.fcBrands, risks: state.risks,
   });
 
+  // ── Mobile card summary (§3 item 4 of the UX review) ──────────
+  // The 18-column matrix doesn't fit a phone screen. On narrow viewports we
+  // show a per-visit card list instead — same underlying facts (genRecs /
+  // dosePlan / getTotalDoses / fmtProjection, the same functions the table
+  // uses), condensed to the states a clinician actually needs on the go:
+  // done, due (incl. catch-up/risk-based/shared-decision), or projected.
+  // Brand editing and the moved-dose ("earliest") workflow stay matrix-only
+  // for now — this is a read summary, not a replacement editor.
+  function buildVisitCardItems(visit) {
+    const items = [];
+    const isCurr = visit.m === am;
+    const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
+    const visitRecs = genRecs(visit.m, validHist, state.risks, state.dob, { fcBrands: state.fcBrands });
+    const visitRecMap = {};
+    visitRecs.forEach(r => { visitRecMap[r.vk] = r; });
+
+    for (const vk of displayVks) {
+      if (visit.isScheduledEarly) {
+        if (vk !== visit.earlyVk) continue;
+        const proj = dosePlan[visit.earlyFcKey];
+        if (!proj) continue;
+        const isAnnual = vk === "Flu" || vk === "COVID";
+        const label = isAnnual ? "Annual" : proj.totalDoses > 1 ? `Dose ${proj.doseNum} of ${proj.totalDoses}` : `Dose ${proj.doseNum}`;
+        items.push({ vk, label, cls: "proj" });
+        continue;
+      }
+
+      const isStd = visit.std.includes(vk);
+      if (visit.isCatchup && !isStd) continue;
+      const fcKey = visit.isCatchup ? (visit.catchupDoseKeys?.[vk] ?? `${visit.m}_${vk}`) : `${visit.m}_${vk}`;
+      const proj = dosePlan[fcKey];
+      const rec = visitRecMap[vk];
+      if (!isStd && !proj && !rec) continue;
+
+      const given = dc(validHist, vk);
+      const isAnnual = vk === "Flu" || vk === "COVID";
+      const totalForVk = (proj && proj.totalDoses)
+        || getTotalDoses(vk, rec || { doseNum: given + 1, dose: "" }, state.fcBrands, am, validHist, state.risks);
+      const fmtDose = (n) => isAnnual ? "Annual" : (!totalForVk || totalForVk <= 1) ? `Dose ${n}` : `Dose ${n} of ${totalForVk}`;
+
+      if (isPast) {
+        if (rec) {
+          items.push({ vk, label: `${fmtDose(rec.doseNum)} (catch-up)`, cls: "cu" });
+        } else if (given > 0) {
+          items.push({ vk, label: `${fmtDose(Math.min(rec?.doseNum ?? given, given))} done`, cls: "done" });
+        }
+        continue; // expired / not-yet-eligible / already-complete: nothing actionable to show
+      }
+
+      if (isCurr) {
+        if (rec) {
+          const cls = rec.status === "catchup" ? "cu"
+            : rec.status === "risk-based" ? "rb"
+              : rec.status === "recommended" ? "ok"
+                : "need";
+          items.push({ vk, label: fmtDose(rec.doseNum), cls });
+        }
+        continue;
+      }
+
+      if (proj) {
+        items.push({ vk, label: fmtDose(proj.doseNum), sub: fmtProjection(proj, state.dob), cls: "proj" });
+      }
+    }
+    return items;
+  }
+
   // ── Today panel data ─────────────────────────────────────────
   // Brand pickers in the today panel need the full co-due context.
   const todayDueVks = recs.map(r => r.vk);
@@ -1492,6 +1559,58 @@ export default function ForecastTab({ recs }) {
           </tbody>
         </table>
       </div>
+
+      {/* ── MOBILE CARD VIEW (desktop hides via CSS; see @media in App.css) ── */}
+      <div className="fcm-cards">
+        {pastCount > 0 && (
+          <button className="past-toggle-btn fcm-past-toggle" onClick={() => setShowPast(v => !v)}>
+            {showPast
+              ? '▴ Hide past visits'
+              : `▸ ${pastCount} past visit${pastCount !== 1 ? 's' : ''} — tap to show`}
+          </button>
+        )}
+        {visits.map((visit, vi) => {
+          if (visit.m < am && !showPast && !visit.isScheduledEarly && !isOverdue(visit)) return null;
+          if (!showFull && !isAlwaysVisible(visit)) return null;
+
+          const isCurr = visit.m === am;
+          const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
+          const items = buildVisitCardItems(visit);
+          if (items.length === 0) return null; // nothing actionable at this visit — omit the card
+
+          const cardKey = visit.isScheduledEarly
+            ? `m-early-${visit.m}-${visit.vk || vi}`
+            : visit.isCatchup
+              ? `m-cu-${visit.m}-${vi}`
+              : `m-rt-${visit.m}`;
+          const dateLabel = visit.isScheduledEarly
+            ? fmtDateShort(scheduledEarliest.get(visit.earlyFcKey)?.date ?? '')
+            : (state.dob ? visitDateLabel(state.dob, visit.m) : '');
+
+          return (
+            <div key={cardKey} className={`fcm-card${isCurr ? ' curr' : isPast ? ' past' : ''}`}>
+              <div className="fcm-card-head">
+                <span className="fcm-card-label">
+                  {visit.l}
+                  {visit.isCatchup && <span className="vlbl-catchup-tag">catch-up</span>}
+                  {visit.isScheduledEarly && <span className="vlbl-early-tag">earliest</span>}
+                </span>
+                {dateLabel && <span className="fcm-card-date">{dateLabel}</span>}
+              </div>
+              <div className="fcm-card-items">
+                {items.map(it => (
+                  <div key={it.vk} className="fcm-item">
+                    <span className="fcm-item-vk" style={{ color: VAX_META[it.vk]?.c }}>{VAX_META[it.vk]?.ab || it.vk}</span>
+                    <span className={`fch fch-${it.cls}`}>{it.label}</span>
+                    {it.sub && <span className="fcm-item-sub">{it.sub}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       {/* ── Progressive disclosure toggle ─────────────────────── */}
       <div className="fct-show-full-btn-wrap">
         <button
