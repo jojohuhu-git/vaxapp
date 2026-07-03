@@ -2411,7 +2411,79 @@ every VBR vaccine × age combination).
    unified, then consolidated into named exports in `ageFormat.js`.
 
 ### Still to do — Phase 2+ of the mobile UX roadmap
-Phase 2 (CSS migration — move inline styles in `App.jsx`/`PatientDrawer`/`VisitEntry`/
-`ForecastTab.jsx` into classes) is the prerequisite for all mobile work and has not been started.
-See `docs/ux-code-review-2026-07-02.md` §3 for the full phased mobile plan (drawer collapse,
-scrollable tab bar, forecast card view, touch targets, tab consolidation, localStorage safety net).
+Phases 2 through 3b are now shipped — see the "Changes shipped (2026-07-02) — UX/code review
+Phases 2–3b" entry below for what landed and what's still open.
+
+---
+
+## Changes shipped (2026-07-02) — UX/code review Phases 2–3b (mobile UX)
+
+Continuation of the Phase 1 work above. Full review + phased plan at
+`docs/ux-code-review-2026-07-02.md` §3/§6. Each phase = one branch/PR, merged to `main` via
+`gh pr merge --squash` (branch protection requires the `test` CI check).
+
+### Phase 2 — CSS migration (PR [#67](https://github.com/jojohuhu-git/vaxapp/pull/67))
+Moved inline `style={{...}}` objects in `App.jsx` (PatientDrawer, PatientSummaryBar, top banner),
+`VisitEntry.jsx`, and `ForecastTab.jsx` into named classes in `App.css`. Purely structural — no
+visual change (verified in browser at desktop width + all 4389 tests + build). Left inline on
+purpose: per-vaccine data-driven colors (`VAX_META[vk]?.c`) and dynamic popover positioning
+(`top`/`left` from `getBoundingClientRect`) — these can't be expressed as static classes. This
+phase existed only to unblock the next two — media queries can't target inline styles.
+
+### Phase 3a — drawer + tab-bar responsive fixes (PR [#68](https://github.com/jojohuhu-git/vaxapp/pull/68))
+At `<=700px`: `TabBar.jsx`'s tab row becomes horizontally scrollable (`overflow-x:auto`,
+`flex-wrap:nowrap`) instead of wrapping to ~4 stacked rows. The patient drawer's
+`grid-template-columns: 340px 1fr` collapses to a single column (was the "Blocker"-severity
+finding in the review — the fixed 340px column alone nearly filled a 375px phone viewport,
+pushing vaccination history off-screen). Along the way, found and fixed a secondary bug the
+drawer change surfaced: CSS grid items default to `min-width: auto`, so the drawer's widest
+child (an empty-state history-table row) forced the new single column to overflow horizontally
+past the viewport. Fixed with `min-width:0` on `.drawer-cols` children and `overflow-x:auto`
+(mobile-only) on `.htbl-wrap`, which is `overflow-x:visible` on desktop by design. Desktop
+(`>700px`) verified unchanged at 1280px.
+
+### Phase 3b — forecast mobile card view (PR [#69](https://github.com/jojohuhu-git/vaxapp/pull/69))
+The 18-column forecast matrix only shows ~1 column on a phone. At `<=700px` it's replaced by a
+per-visit card list (`.fcm-cards` in `ForecastTab.jsx`) — one card per visit, vaccine chips
+showing dose number + status, color-matched to the existing legend (`fch-done`/`fch-cu`/
+`fch-proj`/etc. classes, reused as-is). Cards are built from the same engine calls the matrix
+uses (`genRecs`, `dosePlan`, `getTotalDoses`, `fmtProjection`) via a new `buildVisitCardItems()`
+function, so the two views can't disagree on clinical facts — only the display grouping is
+condensed (not-yet-eligible/expired/already-complete states are omitted from cards as
+non-actionable). Brand-picker editing and the "move dose to earliest date" workflow remain
+matrix/desktop-only — this is a read-summary view, not a full editor. Desktop verified unchanged
+at 1280px (matrix renders exactly as before; cards are `display:none` above `700px`).
+
+### HANDOFF — what's left (as of 2026-07-02, end of this session)
+
+**A. Four follow-up findings from Phase 1, still open** (see "Follow-ups found but NOT fixed"
+above for full detail — summarized here for a fresh conversation):
+1. Latent local/UTC date-math bugs in `VisitEntry.jsx dobPlusDays()` and `buildOptimalSchedule.js`'s
+   local `addD` (same bug class already fixed elsewhere via `utils.js todayISO()`/`addD()`).
+2. `OptimalScheduleTab.jsx` is fully orphaned (not imported anywhere) — needs a human decision:
+   delete it, or wire it up. `ForecastTab.jsx` has its own inline duplicate of the same feature.
+3. `validatedHistory()` still recomputed redundantly in several places beyond what Phase 1 fixed
+   (`RecCard.jsx` per-card, plus `AuditPanel.jsx`, `ComplianceAuditTab.jsx`, `ForecastTab.jsx`,
+   `OptimalScheduleTab.jsx`, `TodayTab.jsx`) — should route through the `useRecs()` hook or take
+   `validHist` as a prop.
+4. Four different copies of "format age in months as text" logic (`ageFormat.js fmtAm`,
+   `ForecastTab.jsx fmtAgeWords`, `ForecastPDF.jsx fmtAm`, `ShotListPDF.jsx fmtAm`) with
+   different month/year thresholds — needs a decision on whether the per-surface conventions are
+   intentional before consolidating.
+
+**B. Remaining mobile UX roadmap items** (`docs/ux-code-review-2026-07-02.md` §3/§6), roughly in
+suggested order:
+5. **UX copy fixes** — lower-risk, can likely start without further user input; see report for
+   specific copy call-outs.
+6. **Touch-target + font-size floor for coarse pointers** — bump interactive elements to >=40px
+   and font floors to 13px via `@media (pointer: coarse)` (report flags dose pills, "Why" links,
+   forecast chips as currently ~11px font / 4px padding, well under the 44px touch guideline).
+7. **Tab consolidation** — **needs a design check-in with the user before starting** (this was
+   explicitly agreed with the user on 2026-07-02; do not just pick a consolidation scheme and
+   implement it).
+8. **localStorage safety net + PWA** (offline support, add-to-home-screen) — larger scope, worth
+   confirming the user still wants this before starting; the app has no backend so it's a natural
+   fit, but not yet scoped in detail.
+
+Also still open from Phase 1: item 6 in the original roadmap (bundle work, §4.1) was addressed by
+Phase 1 PR #65's lazy-loading of `@react-pdf/renderer`; no further bundle work is currently flagged.
