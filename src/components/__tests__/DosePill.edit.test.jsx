@@ -150,11 +150,11 @@ describe('DosePill — inline editing', () => {
     // Click to enter edit mode
     act(() => { fireEvent.click(dateText); });
 
-    // DateField renders a hidden <input type="date"> — fire change on it
-    const hiddenDateInput = getPopover().querySelector('input[type="date"]');
-    expect(hiddenDateInput).not.toBeNull();
+    // DateField is a masked MM/DD/YYYY text input
+    const dateField = getPopover().querySelector('[data-testid="date-field"]');
+    expect(dateField).not.toBeNull();
 
-    act(() => { fireEvent.change(hiddenDateInput, { target: { value: '2024-06-01' } }); });
+    act(() => { fireEvent.change(dateField, { target: { value: '06/01/2024' } }); });
 
     // State updated
     const st = getState();
