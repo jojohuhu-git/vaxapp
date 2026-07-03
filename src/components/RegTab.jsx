@@ -4,6 +4,8 @@ import { useApp, getEffectiveAm } from '../context/AppContext';
 import { buildRegimens } from '../logic/regimens';
 import { analyzeCombo } from '../logic/comboAnalyzer';
 import { VAX_META } from '../data/vaccineData';
+import RegimenFullReference from './RegimenFullReference';
+import { ComboDoseCard, BrandAgeCard, IntervalCard } from './BrandCards';
 
 const SEV_STYLE = {
   err:  { border: 'var(--r)',  bg: 'var(--rlt)', label: 'Contraindicated' },
@@ -11,6 +13,12 @@ const SEV_STYLE = {
   info: { border: 'var(--b)',  bg: 'var(--blt)', label: 'Tip' },
   ok:   { border: 'var(--g)',  bg: 'var(--glt)', label: 'OK' },
 };
+
+function SectionHeader({ children }) {
+  return (
+    <div style={{ fontWeight: 700, marginTop: 10, marginBottom: 6 }}>{children}</div>
+  );
+}
 
 function SevRow({ item }) {
   const s = SEV_STYLE[item.sev] || SEV_STYLE.info;
@@ -138,17 +146,62 @@ export default function RegTab({ recs }) {
 
         {analysis && (
           <div className="aiout">
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Brand Constraints</div>
-            {analysis.constraints.map((c, ci) => (
-              <SevRow key={ci} item={c} />
-            ))}
-            <div style={{ fontWeight: 700, marginTop: 10, marginBottom: 6 }}>Co-Administration Notes</div>
+            {analysis.interchangeRows.length === 0 &&
+              analysis.ageWindowNotes.length === 0 &&
+              analysis.comboCards.length === 0 &&
+              analysis.intervalCards.length === 0 && (
+                <SevRow item={{ sev: "ok", txt: "No brand interchangeability warnings for this combination. Complete each series with any age-appropriate brand.", ref: "", refUrl: "" }} />
+            )}
+
+            {analysis.interchangeRows.length > 0 && (
+              <>
+                <SectionHeader>Interchanging Brands</SectionHeader>
+                {analysis.interchangeRows.map((c, ci) => <SevRow key={ci} item={c} />)}
+              </>
+            )}
+
+            {analysis.ageWindowNotes.length > 0 && (
+              <>
+                <SectionHeader>Brand Age Windows</SectionHeader>
+                {analysis.ageWindowNotes.map((note, i) => <BrandAgeCard key={i} note={note} />)}
+              </>
+            )}
+
+            {analysis.comboCards.length > 0 && (
+              <>
+                <SectionHeader>Doses Approved For</SectionHeader>
+                {analysis.comboCards.map(({ name, gates }) => (
+                  <ComboDoseCard key={name} name={name} gates={gates} />
+                ))}
+              </>
+            )}
+
+            {analysis.intervalCards.length > 0 && (
+              <>
+                <SectionHeader>Minimum Interval</SectionHeader>
+                {analysis.intervalCards.map(({ vk, spec }) => (
+                  <IntervalCard key={vk} vk={vk} spec={spec} />
+                ))}
+              </>
+            )}
+
+            <SectionHeader>Co-Administration Notes</SectionHeader>
             {analysis.coNotes.map((n, ni) => (
               <SevRow key={ni} item={n} />
             ))}
           </div>
         )}
       </div>
+
+      {/* Full reference — combo dose gates, brand age windows, catch-up table */}
+      <details className="cbox2" style={{ marginTop: 12 }}>
+        <summary style={{ fontSize: 11, fontWeight: 700, color: "#555", cursor: "pointer" }}>
+          Full reference
+        </summary>
+        <div style={{ marginTop: 10 }}>
+          <RegimenFullReference recs={recs} />
+        </div>
+      </details>
     </div>
   );
 }

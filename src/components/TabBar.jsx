@@ -5,10 +5,9 @@ const TABS = [
   { id: "compliance",  label: "Compliance Audit" },
   { id: "forecast",    label: "Immunization Schedule" },
   { id: "plan",        label: "Compare Regimens" },
-  { id: "constraints", label: "Brand Rules" },
 ];
 
-export default function TabBar({ onReference }) {
+export default function TabBar() {
   const { state, dispatch } = useApp();
 
   return (
@@ -22,13 +21,6 @@ export default function TabBar({ onReference }) {
           {t.label}
         </button>
       ))}
-      <button
-        className="tab tab-push-right"
-        onClick={onReference}
-        title="Catch-up guidance and infant brand schedules"
-      >
-        Catch-up Schedule ↗
-      </button>
     </div>
   );
 }
