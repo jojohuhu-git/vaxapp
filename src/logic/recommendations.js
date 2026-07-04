@@ -601,7 +601,11 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       "High-risk patients \u22652y (asplenia, HIV, complement deficiency): complete 2-dose primary series \u22658 weeks after dose 1. Then revaccinate every 3\u20135 years.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (am >= 192 && am <= 216 && men === 1) {
+  } else if (am >= 192 && am <= 216 && men === 1 && !menAt16y) {
+    // Booster only when the single prior dose was given BEFORE the 16th birthday.
+    // A MenACWY dose administered at/after 16y is terminal \u2014 no booster is due
+    // (ACIP/immunize.org). menAt16y is false for undated doses, so undated
+    // histories conservatively still receive the booster.
     r("MenACWY", am <= 204 ? "Booster (16 years)" : "Booster catch-up (17\u201318 years)", 2, "due",
       "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y. High-risk: booster every 3\u20135 years.",
       menb < 2 ? [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)", "Penbraya (MenACWY+MenB-FHbp) \u2014 if MenB also due", "Penmenvy (MenACWY+MenB-4C) \u2014 if MenB also due"] : [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
