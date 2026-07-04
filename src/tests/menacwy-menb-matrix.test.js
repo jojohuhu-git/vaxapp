@@ -73,12 +73,10 @@ describe('MenACWY routine schedule', () => {
     // At 120m with no risks — engine has no MenACWY branch for non-risk non-college 10y
     expect(r).toBeNull();
 
-    // Surface 5: optimal schedule — seriesDoses returns null for am<132 non-risk
-    // (MenACWY routine starts at 11y, but buildOptimalSchedule.seriesDoses gates on am>=132)
-    // BUG (minor): the schedule should look ahead and schedule future doses, but it only
-    // schedules vaccines that are already due at the patient's current age. At 10y, 0 doses.
+    // Surface 5: optimal schedule seeds the future routine dose (11-12y) rather
+    // than dropping the series — see docs/agent/five-surface-verification.md.
     const doses = optimalDosesFor('MenACWY', am);
-    expect(doses.length).toBe(0);
+    expect(doses.length).toBe(2);
 
     // Surface 3: forecast brand at 11-12y visit, dose 1
     const brands = forecastBrands('MenACWY', 1, 132, ['MenACWY']);
@@ -549,10 +547,11 @@ describe('MenACWY risk-based', () => {
     // Surface 4: risk-based, not catch-up
     expect(recsFor('MenACWY', am, {}, risks).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5: seriesDoses returns null at am=24 (non-medical-HR, am<132) — known limitation.
-    // The optimal schedule only models routine/medical-HR schedules, not travel-only indications.
+    // Surface 5: the optimizer doesn't model the travel-only indication (it only
+    // schedules routine/medical-HR paths), but it now seeds the future routine
+    // 11-12y series instead of dropping MenACWY entirely.
     const doses = optimalDosesFor('MenACWY', am, {}, risks);
-    expect(doses.length).toBe(0);
+    expect(doses.length).toBe(2);
   });
 
   // Scenario 19 — MenACWY HR booster cadence, age-keyed (ACIP 2020 + immunize.org p2035)
@@ -732,10 +731,10 @@ describe('MenB shared decision (non-risk, 16–23y)', () => {
     // Surface 4: no catch-up
     expect(recsFor('MenB', am).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5: no MenB doses scheduled (min age 192m for non-risk)
-    // Surface 5: non-risk MenB now gated at am>=192; at 180m seriesDoses returns null → 0 doses
+    // Surface 5: optimal schedule seeds the future shared-decision dose (16y)
+    // rather than dropping MenB entirely.
     const doses = optimalDosesFor('MenB', am);
-    expect(doses.length).toBe(0);
+    expect(doses.length).toBe(2);
   });
 
   // Scenario 24: 16y (192m), no history → shared decision, 2-dose 6mo apart
@@ -906,9 +905,10 @@ describe('MenB risk-based', () => {
     // Surface 4: no catch-up
     expect(recsFor('MenB', am, {}, risks).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5: seriesDoses: am<120 → null; no doses scheduled
+    // Surface 5: optimal schedule seeds the future high-risk dose (10y, 3-dose
+    // accelerated series) rather than dropping MenB entirely.
     const doses = optimalDosesFor('MenB', am, {}, risks);
-    expect(doses.length).toBe(0);
+    expect(doses.length).toBe(3);
   });
 
   // Scenario 30: 10y (120m), asplenia, no history → 3-dose series D1
@@ -1134,12 +1134,13 @@ describe('MenABCWY combo (Penbraya / Penmenvy)', () => {
     // Surface 4: no MenB catch-up
     expect(recsFor('MenB', am).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5: MenACWY starts now (2 doses); MenB not yet eligible at 11y (starts at 16y)
-    // The optimal schedule only schedules currently-eligible doses, not future windows.
+    // Surface 5: MenACWY starts now (2 doses); MenB not yet eligible at 11y, but
+    // the optimizer seeds its future shared-decision dose at 16y (2 doses) rather
+    // than dropping it.
     const menacwyDoses = optimalDosesFor('MenACWY', am);
     const menbDoses = optimalDosesFor('MenB', am);
     expect(menacwyDoses.length).toBe(2);
-    expect(menbDoses.length).toBe(0); // non-risk MenB shared decision starts at 16y (192m)
+    expect(menbDoses.length).toBe(2); // seeded at 16y (192m), non-risk shared decision
   });
 
   // Scenario 37: 16y, no history, no risks → both MenACWY D1 and MenB D1 due → combo may be offered
@@ -1264,9 +1265,10 @@ describe('MenABCWY combo (Penbraya / Penmenvy)', () => {
     // Surface 4
     expect(recsFor('MenB', am, {}, risks).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5
+    // Surface 5: MenB not due yet at 9y, but the optimizer seeds the future
+    // high-risk dose (10y, 3-dose accelerated series) rather than dropping it.
     const menbDoses = optimalDosesFor('MenB', am, {}, risks);
-    expect(menbDoses.length).toBe(0);
+    expect(menbDoses.length).toBe(3);
   });
 
   // Scenario 41: 16y, MenB D1 was Bexsero, MenACWY D1 due → combo must be Penmenvy (4C family)

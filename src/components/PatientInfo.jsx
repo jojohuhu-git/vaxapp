@@ -79,6 +79,12 @@ function AgeTypeahead({ value, onChange }) {
     return SELECTABLE_AGES.filter(o => o.label.toLowerCase().includes(q));
   })();
 
+  // Abbreviated input (e.g. "5m", "2y") won't substring-match a long-form
+  // label like "5 months", so `filtered` comes back empty even though
+  // parseAgeText() below will resolve it fine on Enter/blur. Preview that
+  // resolved value here instead of showing a false "No matches" error.
+  const parsedPreview = filtered.length === 0 && query.trim() ? parseAgeText(query) : null;
+
   useEffect(() => {
     if (activeIdx >= filtered.length) setActiveIdx(0);
   }, [filtered.length, activeIdx]);
@@ -193,7 +199,26 @@ function AgeTypeahead({ value, onChange }) {
           ))}
         </ul>
       )}
-      {open && filtered.length === 0 && (
+      {open && filtered.length === 0 && parsedPreview !== null && (
+        <div
+          role="option"
+          aria-selected="false"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            onChange(String(parsedPreview));
+            setQuery(labelForValue(String(parsedPreview)) || `${parsedPreview} months`);
+            setOpen(false);
+          }}
+          style={{
+            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20,
+            background: '#fff', border: '1px solid #cfd6df', borderRadius: 4,
+            padding: '5px 10px', fontSize: 12, color: '#333', cursor: 'pointer',
+          }}
+        >
+          Use: {labelForValue(String(parsedPreview)) || `${parsedPreview} months`}
+        </div>
+      )}
+      {open && filtered.length === 0 && parsedPreview === null && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20,
           background: '#fff', border: '1px solid #cfd6df', borderRadius: 4,
