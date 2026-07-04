@@ -76,8 +76,12 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       const tdapHist = dc(hist, 'Tdap');
       const dtHist = dc(hist, 'DTaP');
       const totalTetanus = tdapHist + dtHist;
-      if (am < 84) return null;
       if (totalTetanus >= 3 && tdapHist >= 1) return null; // series complete
+      if (am < 84) {
+        // Not yet catch-up eligible; DTaP primary series is ongoing. Seed the
+        // future routine adolescent Tdap dose at 11-12y (132m).
+        return { totalDoses: tdapHist + 1, seedAgeMonths: 132 };
+      }
       // 3-dose primary; +1 routine 11-12y if first dose was at 7-9y
       const firstAtAge7to9 = am < 120 && totalTetanus === 0;
       const targetTotal = firstAtAge7to9 ? 4 : 3;
@@ -135,7 +139,7 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
     }
 
     case 'PPSV23': {
-      if (!isHRPCV || am < 24) return null;
+      if (!isHRPCV) return null;
       const pcv20 =
         (hist.PCV || []).some(x => x.given && x.brand?.startsWith('Prevnar 20')) ||
         Object.entries(fcBrands).some(([k, b]) => k.endsWith('_PCV') && b.startsWith('Prevnar 20'));
@@ -150,13 +154,12 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
     case 'Flu':
       return { totalDoses: dc(hist, 'Flu') === 0 && am < 108 ? 2 : 1 };
 
-    case 'MMR':  return (am >= 12 && !isLiveVaccineContraindicated('MMR', risks, cd4)) ? { totalDoses: 2 } : null;
-    case 'VAR':  return (am >= 12 && !isLiveVaccineContraindicated('VAR', risks, cd4)) ? { totalDoses: 2 } : null;
-    case 'HepA': return am >= 12 ? { totalDoses: 2 } : null;
+    case 'MMR':  return !isLiveVaccineContraindicated('MMR', risks, cd4) ? { totalDoses: 2 } : null;
+    case 'VAR':  return !isLiveVaccineContraindicated('VAR', risks, cd4) ? { totalDoses: 2 } : null;
+    case 'HepA': return { totalDoses: 2 };
 
     // 2-dose if first dose given before age 15y (5475d) and not immunocompromised; else 3-dose
     case 'HPV': {
-      if (am < 108) return null;
       const isImmunocomp = risks.some(r => ['hiv', 'immunocomp'].includes(r));
       const firstDoseAge = gDates(hist, 'HPV').length > 0
         ? diff(dob, gDates(hist, 'HPV')[0])
@@ -166,8 +169,8 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
 
     case 'MenACWY': {
       if (isHRMen) return { totalDoses: 2 };
-      if (am < 132) return null;
       const givenMen = dc(hist, 'MenACWY');
+      if (am < 132) return { totalDoses: 2, seedAgeMonths: 132 }; // routine seed at 11-12y
       // Non-risk, beyond 22y (264m) with no doses: no routine indication.
       if (am > 264 && givenMen === 0) return null;
       // Non-risk, >18y with a prior dose: series is complete — no booster needed without date info.
@@ -178,32 +181,33 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
     }
 
     case 'MenB': {
-      if (am < 120) return null;
       const givenMenB = dc(hist, 'MenB');
-      if (!isHRMenB) {
-        // Non-risk shared decision: 16–23y (192–276m) only.
-        if (am < 192) return null;
-        // Don't start a new series after 23y for non-risk patients.
-        if (am > 276 && givenMenB === 0) return null;
-      }
       // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
-      // accelerated series for BOTH antigen families (4C and FHbp). Healthy: 2 doses.
+      // accelerated series for BOTH antigen families (4C and FHbp), starting at 10y.
+      // Healthy: 2-dose shared-decision series, 16–23y (192–276m).
       // SCOPE LIMIT: the optimizer does not model:
       //   (a) non-HR FHbp 3-dose rescue (triggered when healthy D1→D2 < 182d)
       //   (b) HR MenACWY/MenB ongoing revaccination after primary series completion
       // These require interval-based scheduling logic beyond seriesDoses(). The Full
       // Forecast (genRecs) handles both correctly. For complex histories, use Forecast.
-      return { totalDoses: isHRMenB ? 3 : 2 };
+      if (isHRMenB) {
+        if (am < 120) return { totalDoses: 3, seedAgeMonths: 120 };
+        return { totalDoses: 3 };
+      }
+      if (am < 192) return { totalDoses: 2, seedAgeMonths: 192 }; // routine seed at 16y
+      // Don't start a new series after 23y for non-risk patients.
+      if (am > 276 && givenMenB === 0) return null;
+      return { totalDoses: 2 };
     }
 
-    case 'COVID': return am >= 6 ? { totalDoses: 1 } : null;
+    case 'COVID': return { totalDoses: 1 };
     default:      return null;
   }
 }
 
 // ── Per-dose earliest-date computation ───────────────────────────
 // Returns { date, bindingConstraint } | { status:'NEEDS_HUMAN_REVIEW', rule } | { status:'BLOCKED', reason }
-function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, totalDoses, ctx, prevVaxDates) {
+function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, totalDoses, ctx, prevVaxDates, seedFloor) {
   const rule = MIN_INT[vk];
   if (!rule) return { status: 'NEEDS_HUMAN_REVIEW', rule: `MIN_INT.${vk} absent` };
 
@@ -232,6 +236,11 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
 
   // ── Build candidates ──────────────────────────────────────────────
   const cands = [{ date: today, label: 'today' }];
+
+  // Future-gap seed: series not yet at its routine/high-risk start age.
+  // seriesDoses() computes totalDoses as if the series starts at this
+  // projected age; float D1 no earlier than that projected date.
+  if (seedFloor) cands.push({ date: seedFloor, label: 'seriesDoses.seedAgeMonths (projected routine start)' });
 
   // Absolute minimum age
   const minByDose = rule.minByDose?.[doseNum - 1];
@@ -351,7 +360,10 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
         if (allPCV.length) prevVaxDates = { PCV: allPCV.at(-1) };
       }
 
-      const res = doseEarliestDate(vk, dn, prevDate, d1Date, brand, dob, today, totalDoses, ctx, prevVaxDates);
+      const seedFloor = (dn === given + 1 && series.seedAgeMonths != null)
+        ? addD(dob, Math.round(series.seedAgeMonths * 30.4375))
+        : null;
+      const res = doseEarliestDate(vk, dn, prevDate, d1Date, brand, dob, today, totalDoses, ctx, prevVaxDates, seedFloor);
 
       if (res.status === 'NEEDS_HUMAN_REVIEW') { reviews.push({ vk, doseNum: dn, rule: res.rule }); break; }
       if (res.status === 'BLOCKED') return res;
