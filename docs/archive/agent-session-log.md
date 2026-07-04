@@ -3007,8 +3007,9 @@ Schedule view at every viewport width, replacing the always-visible 18-column ma
 
 ### HANDOFF — start here for the next session
 
-1. **PR [#80](https://github.com/jojohuhu-git/vaxapp/pull/80) (`visit-card-phase-b`) is open, not merged.** Get owner review/merge before
-   starting Phase C — don't stack Phase C on top of an unmerged Phase B.
+1. ~~PR [#80](https://github.com/jojohuhu-git/vaxapp/pull/80) (`visit-card-phase-b`) is open, not merged.~~ **Resolved
+   2026-07-03**: reviewed, 2 correctness bugs fixed, merged to `main`, deployed. See the dated
+   entry below for what was found and fixed — read it before starting Phase C.
 2. **Phase C, once #80 is merged**: mobile/responsive polish pass on the new card view (spot-check
    spacing/wrapping at narrow widths beyond what's already been checked at 375px), and revisit the
    roadmap's suggestion (§3) of replacing the old "N past window / N not yet eligible" overflow-chip
@@ -3024,4 +3025,102 @@ Schedule view at every viewport width, replacing the always-visible 18-column ma
 4. **The matrix's own "past visits" toggle has the same latent hide-gate bug** the card view had
    (fixed this session, card-list only). Low priority since the matrix isn't the default view
    anymore, but worth a one-line fix if anyone's in that code again.
+
+---
+
+## PR #80 code review + fixes, merge, deploy (2026-07-03)
+
+Ran a medium-effort multi-angle code review (4 parallel finder passes: line-by-line diff scan,
+removed-behavior audit, cross-file caller/callee trace, reuse/simplification/efficiency/altitude/
+conventions) against PR [#80](https://github.com/jojohuhu-git/vaxapp/pull/80) (`visit-card-phase-b`)
+before merging, since the prior session's handoff explicitly flagged it as open/unreviewed. Verified
+every candidate by reading the actual matrix vs. card-builder code side by side (not just trusting
+agent output) before fixing anything.
+
+**2 correctness bugs found and fixed** (both were real regressions in the card view now that it's
+the *default* Routine layout at every viewport, not the old opt-in mobile-only view):
+
+1. **Current-visit card had no `dosesGivenHere` gate.** `buildVisitCardItems`'s `isCurr` branch
+   (`ForecastTab.jsx`) always showed the rec's "due" chip with a live, editable brand dropdown, even
+   for a dose already recorded in history at today's visit age — the matrix suppresses this via
+   `!(isCurr && dosesGivenHere > 0)`. Fixed by computing `dosesGivenHere` inline in the `isCurr`
+   branch and showing a non-editable "N done" chip when it's `> 0`, matching the matrix.
+2. **Card view never checked `scheduledEarliest.has(fcKey)` before rendering a projected dose.**
+   Once a dose was moved via "earliest," its *original* slot stayed a fully live/editable due card
+   (its own brand dropdown **and** its own second "earliest" button) instead of the matrix's locked
+   "→ moved / revert to slot" state — worse than the documented "known gap" (which said only the
+   *indicator* was omitted; the slot was actually still schedulable a second time). Fixed by porting
+   the matrix's CASE-3 check into `buildVisitCardItems` (same ordering, same CLINICAL SAFETY note
+   about using the moved age for brand validity) and wiring a "revert to slot" button through
+   `DoseRow`'s `right` prop.
+
+**3 lower-severity issues fixed in the same pass** (not blocking on their own, but cheap to fix
+alongside the correctness bugs):
+
+3. `.vcard-body` was defined twice in `App.css` with conflicting padding — the Phase B rule
+   (`display:flex`, `8px 12px`) had no scoping, so it silently overrode the Phase A rule
+   (`6px 10px`) for the *shared* `VisitCardShell`/`DoseRow` components, affecting the unrelated
+   Fewest Injections card view. Fixed by scoping both new Phase B overrides to `.vcards-wrap
+   .vcard-body` / `.vcards-wrap .vcard-dose-row`. Verified live: Fewest Injections cards keep
+   `display:block` (Phase A), the new default card list gets `display:flex` (Phase B) — no
+   cross-contamination.
+4. A moved/merged dose's "✓ {date}" confirmation lost the matrix's green/bold `fc-date-early`
+   styling in card view because `DoseRow` hardcoded `className="fc-date"` with no way to pass the
+   modifier. Added a `dateEarly` boolean prop threaded from `buildVisitCardItems`'s merged-early item
+   push through to `DoseRow`.
+5. `openCell`/`whyOpenKey` popover state is shared between the card list and the matrix, and the
+   matrix is now *always mounted* (collapsed via native `<details>`, not viewport-gated
+   `display:none` like the old mobile-only view) — both surfaces compute the identical `fcKey` for
+   the same dose, so a portal popover opened from one surface could also satisfy the matching
+   condition in the other and double-render. Fixed by namespacing every key with a surface prefix
+   (`card:${fcKey}` / `matrix:${fcKey}`, and `combo:card:${fcKey}` / `combo:matrix:${fcKey}` for
+   `ComboWhyButton`). Confirmed the underlying mechanism was real by querying
+   `document.querySelectorAll('.fc-earliest-btn')` in the live preview — it returned 4 results (2
+   real + 2 hidden duplicates from the collapsed matrix) before the fix, for a page with only 2
+   visible "earliest" buttons.
+
+All 5 fixes verified live in the browser preview (age-4y patient, empty history): moved-dose
+revert flow works end-to-end (move → locked slot with revert button → revert restores the normal
+editable card), a Hib dose added at today's visit date correctly renders as "Dose 1 of 4 done"
+with no dropdown, and the Fewest Injections view's card padding is unaffected. 4442 tests pass, no
+new tests added (existing `ForecastTab.cardRendering.test.jsx` suite from Phase B already exercises
+these code paths' happy path; the bugs were absent-guard bugs, not new-code bugs, so no test
+previously asserted the *lack* of a gate — a good candidate for a regression test if anyone
+revisits this area, see item 2 below).
+
+Merged via `gh pr merge 80 --squash --delete-branch` at `a5d9d4c` after CI (`test` check) passed.
+GitHub Pages deploy workflow ran and completed successfully on the resulting `main` push. Phase B
+(visit-card-first Routine view) is now fully live in production.
+
+### HANDOFF — start here for the next session (Phase C)
+
+**Phase B is merged and deployed. Start Phase C now** — no more blockers.
+
+1. **Phase C scope** (per the roadmap and item 2 in the handoff above): a mobile/responsive polish
+   pass on the new default card view — spot-check spacing/wrapping at narrow widths beyond the
+   375px already checked, and consider the roadmap's suggestion (`docs/ux-review-2026-07-03.md` §3)
+   of replacing the old "N past window / N not yet eligible" overflow-chip text with an inline
+   per-card note (e.g. "RV window closed at 8 mo"). Note this may already be substantially satisfied
+   — expired/not-yet-eligible vaccines don't render as cards at all now, which arguably already
+   satisfies the roadmap's core intent ("columns stop being the hiding unit"); the inline
+   explanatory note itself is a nice-to-have on top of that, not a gap. Confirm with the owner
+   whether this is still wanted before implementing.
+2. **No regression test guards the 2 correctness bugs fixed this session** (`dosesGivenHere` gate,
+   `scheduledEarliest` moved-dose lock in `buildVisitCardItems`). Both were "missing guard" bugs, not
+   new-code bugs — the existing `ForecastTab.cardRendering.test.jsx` suite tests the happy path but
+   nothing asserted the dropdown/earliest-button should be *absent* in these two states. Worth adding
+   two focused tests before touching this function again, so a future edit can't silently reintroduce
+   either bug.
+3. **Do not attempt to unify the matrix's and cards' status logic** into one shared function unless
+   explicitly asked — this remains a deliberate, accepted tradeoff (see Phase B's own entry above).
+   If a clinical logic bug is found in one view, check whether the same bug exists in the other
+   before assuming a single fix covers both. This session's review process (reading both
+   implementations side by side for every candidate finding) is a reasonable model to repeat.
+4. **The matrix's own "past visits" toggle still has the same latent hide-gate bug** the card view
+   had before Phase B fixed it there. Still low priority (matrix isn't the default view), still a
+   one-line fix (`ForecastTab.jsx`, matrix's `visits.map` guard around what is now line ~1136) if
+   anyone's in that code again — not touched this session, deliberately, to keep the review/fix pass
+   scoped to what was actually found.
+5. Roadmap item #5 (OCR accuracy) is still parked — see the note earlier in this file (search
+   "Still parked: item #5"). Do not start without a fresh design conversation first.
 5. Roadmap item #5 (OCR accuracy) is still parked — see the note directly above this entry.
