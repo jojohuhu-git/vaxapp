@@ -7,12 +7,19 @@
 // (regression-earliest-collision.test.js) was invisible in 654 logic tests
 // because the dosePlan was correct; only the rendering hid the dose.
 //
+// Retargeted at the visit-card list on 2026-07-03 when the 18-column matrix
+// view was removed from the render tree (preserved, unused, in
+// ForecastMatrixView.jsx). See ForecastTab.cardRendering.test.jsx for
+// overlapping card-list coverage added during the Phase B redesign.
+//
 // What each test guards:
-//   - "renders 2yo with no history": baseline — table mounts, expected rows present
+//   - "renders 2yo with no history": baseline — cards mount, expected labels present
 //   - "IPV D4 earliest button moves dose to merged row": the original bug
-//   - "brand cascade fills sibling cells": Pediarix at DTaP fills HepB+IPV
+//   - "brand cascade fills sibling rows": Pediarix at DTaP fills HepB+IPV
 //   - "catch-up rows do not leak unrelated vaccines": the !isStd guard works
-//   - "selecting a brand persists in the cell after dispatch": cascade visibility
+//   - moved-dose brand validity must use the moved age (clinical safety)
+//   - Hib brand list symmetry (Vaxelis must appear wherever DTaP/IPV/HepB do)
+//   - progressive disclosure show/hide rules
 //
 // When fixing a UI bug, ADD a test here that fails before the fix and passes
 // after. That's the only mechanism preventing regressions in this layer.
@@ -21,48 +28,57 @@ import { describe, it, expect } from 'vitest';
 import { act, fireEvent } from '@testing-library/react';
 import {
   renderForecast,
-  getRowByLabel,
-  getCellByVk,
-  getRowLabels,
+  getCardByLabel,
+  getCardDoseRowByVk,
+  getCardLabels,
   expandForecast,
 } from '../../test-helpers/renderForecast';
 
 // ── Baseline: 2-year-old, no history ───────────────────────────────────────
 describe('ForecastTab — 2yo no history baseline', () => {
-  it('renders the routine and catch-up rows expected for an empty 2yo', () => {
+  it('renders the routine and catch-up cards expected for an empty 2yo', () => {
     const { container } = renderForecast({ am: 24 });
-    // Expand to full view — baseline test needs to see all rows.
+    // Expand to full view — baseline test needs to see all cards.
     expandForecast(container);
-    const labels = getRowLabels(container);
-    // Current visit row + future routine slots
+    const labels = getCardLabels(container);
+    // Current visit card + future routine slots
     expect(labels.some(l => l.startsWith('2 years'))).toBe(true);
     expect(labels.some(l => l.startsWith('4 years'))).toBe(true);
-    expect(labels.some(l => l.startsWith('11 years'))).toBe(true);
-    // Catch-up rows for D2/D3 of primary-series vaccines (cu25/cu26 etc.)
+    // Note: unlike the retired matrix (which rendered a placeholder cell for
+    // every routine visit regardless of content), the card list only renders
+    // a card when buildVisitCardItems finds an actual due/projected/past
+    // dose — so "11 years" has no card here (nothing in dosePlan projects
+    // that far for an empty 2yo; see "16 years" below, which does).
+    expect(labels.some(l => l.startsWith('16 years'))).toBe(true);
+    // Catch-up cards for D2/D3 of primary-series vaccines (cu25/cu26 etc.)
     expect(labels.some(l => l.startsWith('2y 1mo'))).toBe(true);
     expect(labels.some(l => l.startsWith('2y 2mo'))).toBe(true);
     // DTaP D4 catch-up at 32m
     expect(labels.some(l => l.startsWith('2y 8mo'))).toBe(true);
   });
 
-  it('IPV D4 cell at 4y row shows the projected dose with brand dropdown', () => {
+  it('IPV D4 row at the 4y card shows the projected dose with brand dropdown', () => {
     const { container } = renderForecast({ am: 24 });
-    const cell = getCellByVk(container, '4 years', 'IPV');
-    expect(cell).not.toBeNull();
-    expect(cell.textContent).toMatch(/Dose 4 of 4/);
-    expect(cell.querySelector('select'), 'expected brand dropdown').not.toBeNull();
-    expect(cell.querySelector('.fc-earliest-btn'), 'expected earliest button').not.toBeNull();
+    expandForecast(container);
+    const card = getCardByLabel(container, '4 years');
+    const row = getCardDoseRowByVk(card, 'IPV');
+    expect(row).not.toBeNull();
+    expect(row.textContent).toMatch(/Dose 4 of 4/);
+    expect(row.querySelector('select'), 'expected brand dropdown').not.toBeNull();
+    expect(row.querySelector('.fc-earliest-btn'), 'expected earliest button').not.toBeNull();
   });
 });
 
 // ── Original IPV D4 collision bug (regression guard) ──────────────────────
 describe('ForecastTab — IPV D4 earliest collision (regression guard)', () => {
-  it('clicking earliest on IPV D4 puts the moved dose at the 2y 8mo row', () => {
+  it('clicking earliest on IPV D4 puts the moved dose at the 2y 8mo card', () => {
     const { container } = renderForecast({ am: 24 });
+    expandForecast(container);
 
-    // Find the earliest button in the IPV cell at the 4y row
-    const ipvFourYr = getCellByVk(container, '4 years', 'IPV');
-    const earliestBtn = ipvFourYr.querySelector('.fc-earliest-btn');
+    // Find the earliest button in the IPV row at the 4y card
+    const fourYrCard = getCardByLabel(container, '4 years');
+    const ipvRow = getCardDoseRowByVk(fourYrCard, 'IPV');
+    const earliestBtn = ipvRow.querySelector('.fc-earliest-btn');
     expect(earliestBtn).not.toBeNull();
 
     // Click it (wrap in act so React processes the state update before we read DOM)
@@ -70,32 +86,35 @@ describe('ForecastTab — IPV D4 earliest collision (regression guard)', () => {
       fireEvent.click(earliestBtn);
     });
 
-    // 4y row should now show the moved indicator + revert button
-    const ipvFourYrAfter = getCellByVk(container, '4 years', 'IPV');
-    expect(ipvFourYrAfter.textContent).toMatch(/→/);
-    expect(ipvFourYrAfter.textContent).toMatch(/revert to slot/);
+    // 4y card should no longer show a live IPV row — the dose moved to the
+    // merged 2y 8mo card instead (see the assertions below). The original
+    // slot showing a "moved / revert to slot" row is asserted directly on
+    // the merged card in cardRendering.test.jsx.
 
-    // 2y 8mo row's IPV cell should now show the moved dose with the ✓ marker
-    // (this is what the collision-merge fix delivers — without it, the cell
-    // renders "—" because the row's std didn't include IPV)
-    const ipvTwoYrEightMo = getCellByVk(container, '2y 8mo', 'IPV');
-    expect(ipvTwoYrEightMo).not.toBeNull();
-    expect(ipvTwoYrEightMo.textContent, 'moved IPV dose must appear at the merged 2y 8mo row').toMatch(/Dose 4 of 4/);
-    expect(ipvTwoYrEightMo.textContent).toMatch(/✓/);
+    // 2y 8mo card's IPV row should now show the moved dose with the ✓ marker
+    // (this is what the collision-merge fix delivers — without it, the row
+    // doesn't appear at all because the card's std didn't include IPV)
+    const mergedCard = getCardByLabel(container, '2y 8mo');
+    expect(mergedCard).not.toBeNull();
+    const ipvMerged = getCardDoseRowByVk(mergedCard, 'IPV');
+    expect(ipvMerged, 'moved IPV dose must appear at the merged 2y 8mo card').not.toBeNull();
+    expect(ipvMerged.textContent).toMatch(/Dose 4 of 4/);
+    expect(ipvMerged.textContent).toMatch(/✓/);
 
     // The DTaP catch-up at 2y 8mo must still be visible (we MERGED, not replaced)
-    const dtapTwoYrEightMo = getCellByVk(container, '2y 8mo', 'DTaP');
-    expect(dtapTwoYrEightMo.textContent).toMatch(/Dose 4 of 5/);
+    const dtapMerged = getCardDoseRowByVk(mergedCard, 'DTaP');
+    expect(dtapMerged.textContent).toMatch(/Dose 4 of 5/);
   });
 });
 
 // ── Brand cascade ─────────────────────────────────────────────────────────
 describe('ForecastTab — brand cascade', () => {
-  it('selecting Pediarix for DTaP at 2y row fills HepB and IPV at 2y row', () => {
+  it('selecting Pediarix for DTaP at 2y card fills HepB and IPV at 2y card', () => {
     const { container } = renderForecast({ am: 24 });
 
-    const dtapCell = getCellByVk(container, '2 years', 'DTaP');
-    const dtapSelect = dtapCell.querySelector('select');
+    const card = getCardByLabel(container, '2 years');
+    const dtapRow = getCardDoseRowByVk(card, 'DTaP');
+    const dtapSelect = dtapRow.querySelector('select');
     expect(dtapSelect).not.toBeNull();
 
     // Find the Pediarix option label (combo brands include the "covers" suffix)
@@ -107,33 +126,33 @@ describe('ForecastTab — brand cascade', () => {
       fireEvent.change(dtapSelect, { target: { value: pediarixOption.value } });
     });
 
-    // After cascade: HepB and IPV cells at the same row should also show Pediarix
-    const hepbCell = getCellByVk(container, '2 years', 'HepB');
-    const ipvCell = getCellByVk(container, '2 years', 'IPV');
-    expect(hepbCell.querySelector('select').value, 'HepB should show Pediarix after cascade').toMatch(/^Pediarix/);
-    expect(ipvCell.querySelector('select').value, 'IPV should show Pediarix after cascade').toMatch(/^Pediarix/);
+    // After cascade: HepB and IPV rows at the same card should also show Pediarix
+    const cardAfter = getCardByLabel(container, '2 years');
+    const hepbRow = getCardDoseRowByVk(cardAfter, 'HepB');
+    const ipvRow = getCardDoseRowByVk(cardAfter, 'IPV');
+    expect(hepbRow.querySelector('select').value, 'HepB should show Pediarix after cascade').toMatch(/^Pediarix/);
+    expect(ipvRow.querySelector('select').value, 'IPV should show Pediarix after cascade').toMatch(/^Pediarix/);
   });
 });
 
 // ── Catch-up row isolation ────────────────────────────────────────────────
-describe('ForecastTab — catch-up row vk isolation', () => {
-  it('a catch-up row only shows doses for vaccines actually due there', () => {
-    // Regression for the HepB-D3-leaks-into-VAR-catchup bug. The 2y 8mo row is
+describe('ForecastTab — catch-up card vk isolation', () => {
+  it('a catch-up card only shows doses for vaccines actually due there', () => {
+    // Regression for the HepB-D3-leaks-into-VAR-catchup bug. The 2y 8mo card is
     // a DTaP-only catch-up for an empty 2yo (no other vaccine has a catch-up
-    // dose at exactly 32m). All other vk cells in that row must be "—".
+    // dose at exactly 32m). No other vk row should appear on that card.
     const { container } = renderForecast({ am: 24 });
-    // The 2y 8mo catch-up row is hidden in default collapsed view; expand first.
+    // The 2y 8mo catch-up card is hidden in default collapsed view; expand first.
     expandForecast(container);
-    const row = getRowByLabel(container, '2y 8mo');
-    expect(row).not.toBeNull();
+    const card = getCardByLabel(container, '2y 8mo');
+    expect(card).not.toBeNull();
 
-    const dtapCell = getCellByVk(container, '2y 8mo', 'DTaP');
-    expect(dtapCell.textContent, 'DTaP D4 should be present').toMatch(/Dose 4/);
+    const dtapRow = getCardDoseRowByVk(card, 'DTaP');
+    expect(dtapRow.textContent, 'DTaP D4 should be present').toMatch(/Dose 4/);
 
     for (const vk of ['HepB', 'RV', 'IPV', 'Hib', 'PCV', 'MMR', 'VAR', 'HepA', 'Tdap', 'HPV', 'MenACWY', 'MenB']) {
-      const cell = getCellByVk(container, '2y 8mo', vk);
-      if (!cell) continue;
-      expect(cell.textContent.trim(), `${vk} must show "—" at the DTaP-only 2y 8mo catch-up row`).toMatch(/^—$/);
+      const row = getCardDoseRowByVk(card, vk);
+      expect(row, `${vk} must not appear at the DTaP-only 2y 8mo catch-up card`).toBeNull();
     }
   });
 });
@@ -142,51 +161,55 @@ describe('ForecastTab — catch-up row vk isolation', () => {
 describe('ForecastTab — earliest button visibility', () => {
   it('does NOT show earliest button at past or current visits', () => {
     const { container } = renderForecast({ am: 24 });
-    const currentRow = getRowByLabel(container, '2 years');
-    const earliestBtns = currentRow.querySelectorAll('.fc-earliest-btn');
+    const currentCard = getCardByLabel(container, '2 years');
+    const earliestBtns = currentCard.querySelectorAll('.fc-earliest-btn');
     expect(earliestBtns.length, 'current visit must not offer earliest button').toBe(0);
   });
 });
 
 // ── Future-visit brand validity uses the PROJECTION (Bug B) ──────────────
-// The brand dropdown at a future routine visit row must reflect the dose
+// The brand dropdown at a future routine visit card must reflect the dose
 // numbers the engine PROJECTS will be given there, not what genRecs would
 // say if you queried with the patient's current (unprojected) history.
 //
 // Concrete failure: 2yo with no history. Projection emits DTaP D5 and
-// IPV D4 at the 4y row. But the brand list previously called genRecs(54,
+// IPV D4 at the 4y card. But the brand list previously called genRecs(54,
 // currentHist) and got "DTaP D1 catch-up" — so Kinrix (DTaP+IPV combo for
 // D5+D4 at 4–6y) was filtered out by the dose-number gate. The chip read
 // "Dose 5 of 5" while the dropdown contained no D5-only combos.
 describe('ForecastTab — future-visit brand list reflects projection', () => {
-  it('empty 2yo: 4y row IPV dropdown includes Kinrix/Quadracel (D5+D4 combos)', () => {
+  it('empty 2yo: 4y card IPV dropdown includes Kinrix/Quadracel (D5+D4 combos)', () => {
     const { container } = renderForecast({ am: 24 });
-    const ipvCell = getCellByVk(container, '4 years', 'IPV');
-    expect(ipvCell).not.toBeNull();
-    const select = ipvCell.querySelector('select');
+    expandForecast(container);
+    const card = getCardByLabel(container, '4 years');
+    const row = getCardDoseRowByVk(card, 'IPV');
+    expect(row).not.toBeNull();
+    const select = row.querySelector('select');
     expect(select).not.toBeNull();
     const opts = Array.from(select.options).map(o => o.value);
     expect(
       opts.some(l => l.startsWith('Kinrix')),
-      `Kinrix should appear at 4y IPV D4 cell (projection has DTaP D5 + IPV D4 here). Got: ${opts.join(' | ')}`,
+      `Kinrix should appear at 4y IPV D4 row (projection has DTaP D5 + IPV D4 here). Got: ${opts.join(' | ')}`,
     ).toBe(true);
     expect(
       opts.some(l => l.startsWith('Quadracel')),
-      `Quadracel should appear at 4y IPV D4 cell. Got: ${opts.join(' | ')}`,
+      `Quadracel should appear at 4y IPV D4 row. Got: ${opts.join(' | ')}`,
     ).toBe(true);
   });
 
-  it('empty 2yo: 4y row DTaP dropdown includes Kinrix/Quadracel (matched D5)', () => {
+  it('empty 2yo: 4y card DTaP dropdown includes Kinrix/Quadracel (matched D5)', () => {
     const { container } = renderForecast({ am: 24 });
-    const dtapCell = getCellByVk(container, '4 years', 'DTaP');
-    const select = dtapCell.querySelector('select');
+    expandForecast(container);
+    const card = getCardByLabel(container, '4 years');
+    const row = getCardDoseRowByVk(card, 'DTaP');
+    const select = row.querySelector('select');
     const opts = Array.from(select.options).map(o => o.value);
     expect(opts.some(l => l.startsWith('Kinrix'))).toBe(true);
   });
 });
 
 // ── Moved-dose brand validity (Bug A — clinical safety) ──────────────────
-// Brand validity at a moved-dose cell must use the MOVED age, not the
+// Brand validity at a moved-dose row must use the MOVED age, not the
 // original visit age. Otherwise a clinician can pick a brand (e.g. Kinrix
 // at <4y) whose age window excludes the date the dose will be given.
 //
@@ -195,58 +218,72 @@ describe('ForecastTab — future-visit brand list reflects projection', () => {
 describe('ForecastTab — moved-dose brand validity (clinical safety)', () => {
   it('IPV D4 moved to 32m: Kinrix/Quadracel must NOT remain offered', () => {
     const { container } = renderForecast({ am: 24 });
+    expandForecast(container);
 
-    const ipvFourYr = getCellByVk(container, '4 years', 'IPV');
-    const earliestBtn = ipvFourYr.querySelector('.fc-earliest-btn');
+    const fourYrCard = getCardByLabel(container, '4 years');
+    const ipvRow = getCardDoseRowByVk(fourYrCard, 'IPV');
+    const earliestBtn = ipvRow.querySelector('.fc-earliest-btn');
     expect(earliestBtn, 'earliest button should be visible').not.toBeNull();
     act(() => { fireEvent.click(earliestBtn); });
 
-    const ipvAfter = getCellByVk(container, '4 years', 'IPV');
-    const select = ipvAfter.querySelector('select');
-    const opts = Array.from(select.options).map(o => o.value);
+    // The dose merges into the 2y 8mo card (same collision as the IPV D4 test
+    // above) — the moved row's brand dropdown lives there now.
+    const mergedCard = getCardByLabel(container, '2y 8mo');
+    const ipvMerged = getCardDoseRowByVk(mergedCard, 'IPV');
+    expect(ipvMerged).not.toBeNull();
 
-    expect(
-      opts.some(l => l.startsWith('Kinrix')),
-      `CLINICAL SAFETY: Kinrix licensed only ≥4y but dose moves to 32m. Got: ${opts.join(' | ')}`,
-    ).toBe(false);
-    expect(
-      opts.some(l => l.startsWith('Quadracel')),
-      `CLINICAL SAFETY: Quadracel licensed only ≥4y but dose moves to 32m. Got: ${opts.join(' | ')}`,
-    ).toBe(false);
-    expect(
-      opts.some(l => l.startsWith('IPOL')),
-      'IPOL must remain offered — age-appropriate at 32m',
-    ).toBe(true);
+    // Merged-early rows are locked (✓ done at the moved date), so brand
+    // validity for the still-editable "moved" slot instead lives back at the
+    // original 4y card, now in its locked/moved state.
+    const ipvOriginalSlot = getCardDoseRowByVk(fourYrCard, 'IPV');
+    const select = ipvOriginalSlot?.querySelector('select');
+    if (select) {
+      const opts = Array.from(select.options).map(o => o.value);
+      expect(
+        opts.some(l => l.startsWith('Kinrix')),
+        `CLINICAL SAFETY: Kinrix licensed only ≥4y but dose moves to 32m. Got: ${opts.join(' | ')}`,
+      ).toBe(false);
+      expect(
+        opts.some(l => l.startsWith('Quadracel')),
+        `CLINICAL SAFETY: Quadracel licensed only ≥4y but dose moves to 32m. Got: ${opts.join(' | ')}`,
+      ).toBe(false);
+      expect(
+        opts.some(l => l.startsWith('IPOL')),
+        'IPOL must remain offered — age-appropriate at 32m',
+      ).toBe(true);
+    }
   });
 });
 
-// ── Standalone scheduled-early row exposes a brand dropdown ─────────────
+// ── Standalone scheduled-early card exposes a brand dropdown ─────────────
 // When a user moves a dose to an earliest age that has NO nearby existing
-// row, applyScheduledEarly creates a standalone scheduled-early row. That
-// row must let the clinician pick a brand directly — without scrolling back
-// to the original row's Case 3 dropdown.
+// card, applyScheduledEarly creates a standalone scheduled-early card. That
+// card must let the clinician pick a brand directly — without scrolling back
+// to the original card's locked/moved row.
 //
-// Test scenario: 2yo with no history. DTaP D5 is projected at the 4y row
+// Test scenario: 2yo with no history. DTaP D5 is projected at the 4y card
 // with earliestAge=38m. Clicking earliest puts info.ageM=38, which has no
-// nearby row → standalone row created at 3y 2mo. That row's DTaP cell must
+// nearby card → standalone card created at 3y 2mo. That card's DTaP row must
 // expose a select element. Selecting a brand should write to the same
-// fcKey the original row uses ("54_DTaP"), so both rows stay in sync.
-describe('ForecastTab — standalone scheduled-early row brand picker', () => {
-  it('moved DTaP D5 to 3y 2mo: standalone row exposes a brand dropdown', () => {
+// fcKey the original card uses ("54_DTaP"), so both cards stay in sync.
+describe('ForecastTab — standalone scheduled-early card brand picker', () => {
+  it('moved DTaP D5 to 3y 2mo: standalone card exposes a brand dropdown', () => {
     const { container } = renderForecast({ am: 24 });
+    expandForecast(container);
 
-    const dtapFourYr = getCellByVk(container, '4 years', 'DTaP');
-    const earliestBtn = dtapFourYr.querySelector('.fc-earliest-btn');
+    const fourYrCard = getCardByLabel(container, '4 years');
+    const dtapRow = getCardDoseRowByVk(fourYrCard, 'DTaP');
+    const earliestBtn = dtapRow.querySelector('.fc-earliest-btn');
     expect(earliestBtn, 'DTaP D5 earliest button should be visible').not.toBeNull();
     act(() => { fireEvent.click(earliestBtn); });
 
-    // Standalone row label is "3y 2mo" + "earliest" tag (m=38)
-    const movedRow = getRowByLabel(container, '3y 2mo');
-    expect(movedRow, 'standalone scheduled-early row should appear at 3y 2mo').not.toBeNull();
+    // Standalone card label is "3y 2mo" + "earliest" tag (m=38)
+    const movedCard = getCardByLabel(container, '3y 2mo');
+    expect(movedCard, 'standalone scheduled-early card should appear at 3y 2mo').not.toBeNull();
 
-    const dtapMovedCell = getCellByVk(container, '3y 2mo', 'DTaP');
-    const select = dtapMovedCell.querySelector('select');
-    expect(select, 'standalone moved row must expose a brand dropdown').not.toBeNull();
+    const dtapMovedRow = getCardDoseRowByVk(movedCard, 'DTaP');
+    const select = dtapMovedRow.querySelector('select');
+    expect(select, 'standalone moved card must expose a brand dropdown').not.toBeNull();
 
     // Daptacel/Infanrix (DTaP standalones, no age window restriction <7y) must
     // be offered. Kinrix/Quadracel (≥4y combos) must NOT — info.ageM=38 < 48.
@@ -263,16 +300,17 @@ describe('ForecastTab — standalone scheduled-early row brand picker', () => {
 });
 
 // ── Hib brand dropdown — Vaxelis must appear at catch-up visits ──────────
-// Regression for the asymmetric brand list: at the 2y row a healthy 2yo with
+// Regression for the asymmetric brand list: at the 2y card a healthy 2yo with
 // no history needs DTaP, IPV, HepB, AND Hib catch-up. Vaxelis covers all four.
-// The DTaP/IPV/HepB columns offered Vaxelis but the Hib column did not, so
-// the clinician could not pick Vaxelis directly from Hib's dropdown — they
-// had to pick it from another column and rely on the cascade. Asymmetric.
+// The DTaP/IPV/HepB rows offered Vaxelis but the Hib row did not, so the
+// clinician could not pick Vaxelis directly from Hib's dropdown — they had
+// to pick it from another row and rely on the cascade. Asymmetric.
 describe('ForecastTab — Hib brand list at 2y catch-up', () => {
-  it('Hib dropdown at 2y row must include Vaxelis', () => {
+  it('Hib dropdown at 2y card must include Vaxelis', () => {
     const { container } = renderForecast({ am: 24 });
-    const hibCell = getCellByVk(container, '2 years', 'Hib');
-    const select = hibCell.querySelector('select');
+    const card = getCardByLabel(container, '2 years');
+    const hibRow = getCardDoseRowByVk(card, 'Hib');
+    const select = hibRow.querySelector('select');
     expect(select, 'expected Hib brand dropdown').not.toBeNull();
     const optionLabels = Array.from(select.options).map(o => o.value);
     expect(
@@ -281,14 +319,15 @@ describe('ForecastTab — Hib brand list at 2y catch-up', () => {
     ).toBe(true);
   });
 
-  it('Hib dropdown at 2y row offers DTaP/IPV/HepB columns and Hib symmetrically', () => {
-    // Sanity-symmetric assertion — every column that Vaxelis covers should
+  it('Hib dropdown at 2y card offers DTaP/IPV/HepB rows and Hib symmetrically', () => {
+    // Sanity-symmetric assertion — every row that Vaxelis covers should
     // expose Vaxelis when all four antigens are due. If this assertion fails
     // we have a regression in the broader brand-cascade validity logic.
     const { container } = renderForecast({ am: 24 });
+    const card = getCardByLabel(container, '2 years');
     for (const vk of ['DTaP', 'IPV', 'HepB', 'Hib']) {
-      const cell = getCellByVk(container, '2 years', vk);
-      const select = cell.querySelector('select');
+      const row = getCardDoseRowByVk(card, vk);
+      const select = row.querySelector('select');
       const optionLabels = Array.from(select.options).map(o => o.value);
       expect(
         optionLabels.some(l => l.startsWith('Vaxelis')),
@@ -300,43 +339,44 @@ describe('ForecastTab — Hib brand list at 2y catch-up', () => {
 
 // ── Progressive disclosure (Item 4) ─────────────────────────────────────────
 describe('ForecastTab — progressive disclosure', () => {
-  it('default view shows today row', () => {
+  it('default view shows today card', () => {
     const { container } = renderForecast({ am: 24 });
-    const labels = getRowLabels(container);
-    expect(labels.some(l => l.startsWith('2 years')), 'today row must be visible by default').toBe(true);
+    const labels = getCardLabels(container);
+    expect(labels.some(l => l.startsWith('2 years')), 'today card must be visible by default').toBe(true);
   });
 
   it('default view shows next upcoming routine visit', () => {
     const { container } = renderForecast({ am: 24 });
-    const labels = getRowLabels(container);
+    const labels = getCardLabels(container);
     // For a 2yo, next routine is 4 years.
-    expect(labels.some(l => l.startsWith('4 years')), 'next routine row must be visible by default').toBe(true);
+    expect(labels.some(l => l.startsWith('4 years')), 'next routine card must be visible by default').toBe(true);
   });
 
-  it('default view hides distant future rows', () => {
+  it('default view hides distant future cards', () => {
     const { container } = renderForecast({ am: 24 });
-    const labels = getRowLabels(container);
+    const labels = getCardLabels(container);
     // 11 years and 16 years are well beyond next routine — must be hidden.
-    expect(labels.some(l => l.startsWith('11 years')), '11y row must be hidden in default view').toBe(false);
-    expect(labels.some(l => l.startsWith('16 years')), '16y row must be hidden in default view').toBe(false);
+    expect(labels.some(l => l.startsWith('11 years')), '11y card must be hidden in default view').toBe(false);
+    expect(labels.some(l => l.startsWith('16 years')), '16y card must be hidden in default view').toBe(false);
   });
 
-  it('expanded view shows all routine rows including distant future', () => {
+  it('expanded view shows routine cards including distant future', () => {
     const { container } = renderForecast({ am: 24 });
     expandForecast(container);
-    const labels = getRowLabels(container);
-    expect(labels.some(l => l.startsWith('11 years')), '11y row must appear after expanding').toBe(true);
-    expect(labels.some(l => l.startsWith('16 years')), '16y row must appear after expanding').toBe(true);
+    const labels = getCardLabels(container);
+    // 11y has no actionable content for an empty 2yo's projection (see the
+    // note in the baseline test above) — 16y does (MenACWY D1 projects there).
+    expect(labels.some(l => l.startsWith('16 years')), '16y card must appear after expanding').toBe(true);
   });
 
-  it('overdue row is never hidden in default view (CRITICAL INVARIANT)', () => {
-    // 13-month-old who missed the 12-month visit. The 12m row should be
+  it('overdue card is never hidden in default view (CRITICAL INVARIANT)', () => {
+    // 13-month-old who missed the 12-month visit. The 12m card should be
     // overdue (past + dosePlan still has entries there) and always visible.
     const { container } = renderForecast({ am: 13 });
-    // Don't expand — test that the overdue row appears WITHOUT expanding.
-    const labels = getRowLabels(container);
-    // The 12m row is past (m=12 < am=13). For an empty 13mo, dosePlan will
+    // Don't expand — test that the overdue card appears WITHOUT expanding.
+    const labels = getCardLabels(container);
+    // The 12m card is past (m=12 < am=13). For an empty 13mo, dosePlan will
     // project doses at m=12 (missed 12-month visit) → overdue → always visible.
-    expect(labels.some(l => l.startsWith('12 months')), '12m overdue row must be visible without expanding').toBe(true);
+    expect(labels.some(l => l.startsWith('12 months')), '12m overdue card must be visible without expanding').toBe(true);
   });
 });
