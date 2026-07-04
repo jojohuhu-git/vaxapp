@@ -724,7 +724,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
             ? `Dose ${origProj.doseNum} of ${origProj.totalDoses}`
             : `Dose ${origProj.doseNum}`;
         const movedDate = info.date && state.dob ? fmtDateShort(info.date) : `~${fmtAm(info.ageM)}`;
-        items.push({ vk, chipText, chipClass: "fch fch-proj", fcKey: origFcKey, dateLabel: `✓ ${movedDate}` });
+        items.push({ vk, chipText, chipClass: "fch fch-proj", fcKey: origFcKey, dateLabel: `✓ ${movedDate}`, dateEarly: true });
         continue;
       }
 
@@ -733,6 +733,35 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       const fcKey = visit.isCatchup ? (visit.catchupDoseKeys?.[vk] ?? `${visit.m}_${vk}`) : `${visit.m}_${vk}`;
       const proj = dosePlan[fcKey];
       const rec = visitRecMap[vk];
+
+      // Mirrors the matrix's CASE 3: once a dose has been moved to its
+      // earliest eligible date, its original slot must show a locked
+      // "moved" state + revert control instead of staying a live/editable
+      // due card — otherwise the same dose is schedulable from two cards
+      // at once. Checked before the isPast/isCurr/proj branches below,
+      // same ordering as the matrix.
+      if (scheduledEarliest.has(fcKey)) {
+        const info = scheduledEarliest.get(fcKey);
+        const movedDate = info.date && state.dob ? fmtDateShort(info.date) : `~${fmtAm(info.ageM)}`;
+        const dn3 = rec ? rec.doseNum : (dc(validHist, vk) + 1);
+        // Brand validity must use the MOVED age (info.ageM), not the
+        // original visit's age — see the matrix's identical CLINICAL
+        // SAFETY comment above its own CASE 3.
+        const bOpts3 = orderedBrandsForVisit(vk, proj ? proj.doseNum : dn3, info.ageM, dueVksAtVisit, rec?.brands, "", doseNumByVk);
+        const disp3 = resolveDropdownBrand(state.fcBrands[fcKey] || "", bOpts3);
+        items.push({
+          vk, chipText: `→ ${movedDate}`, chipClass: "fch fch-moved", fcKey,
+          brandOpts: bOpts3, displayBrand: disp3, showDropdown: bOpts3.length > 0,
+          onBrandChange: (e) => dispatch({
+            type: "FC_BRAND_CHANGE",
+            payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey },
+          }),
+          isMoved: true,
+          onRevertClick: () => setScheduledEarliest(prev => { const n = new Map(prev); n.delete(fcKey); return n; }),
+        });
+        continue;
+      }
+
       if (!isStd && !proj && !rec) continue;
 
       const given = dc(validHist, vk);
@@ -741,9 +770,15 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         || getTotalDoses(vk, rec || { doseNum: given + 1, dose: "" }, state.fcBrands, am, validHist, state.risks);
       const fmtDose = (n) => isAnnual ? "Annual" : (!totalForVk || totalForVk <= 1) ? `Dose ${n}` : `Dose ${n} of ${totalForVk}`;
       const hasPopover = !!(rec?.note || rec?.refUrl);
+      // Namespaced "card:" prefix so this popover's open/closed state can't
+      // collide with the matrix's identical fcKey — the matrix is now always
+      // mounted (collapsed via <details>, not display:none), so its portal
+      // popover would otherwise also satisfy openCell.key === fcKey and
+      // double-render alongside the card's.
+      const cardCellKey = `card:${fcKey}`;
       const onChipClick = hasPopover ? (e) => {
         const r = e.currentTarget.getBoundingClientRect();
-        setOpenCell(prev => prev?.key === fcKey ? null : { key: fcKey, rect: r });
+        setOpenCell(prev => prev?.key === cardCellKey ? null : { key: cardCellKey, rect: r });
       } : undefined;
 
       if (isPast) {
@@ -772,7 +807,24 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       });
 
       if (isCurr) {
-        if (rec) {
+        // If a countable dose was administered at the current visit's age,
+        // show it as DONE with no editable dropdown — mirrors the matrix's
+        // dosesGivenHere gate (and its showDropdown suppression). Without
+        // this, a dose already recorded in history at today's visit still
+        // renders as "due" with a live brand picker.
+        const dosesGivenHere = (validHist[vk] || []).filter(d => {
+          if (!d.given) return false;
+          let ageM = null;
+          if (d.mode === "date" && d.date && state.dob) {
+            ageM = (new Date(d.date + "T12:00:00") - new Date(state.dob + "T12:00:00")) / 86400000 / 30.4375;
+          } else if (d.mode === "age" && d.ageDays != null) {
+            ageM = Number(d.ageDays) / 30.4375;
+          }
+          return ageM !== null && Math.abs(ageM - visit.m) < 0.75;
+        }).length;
+        if (dosesGivenHere > 0) {
+          items.push({ vk, chipText: `${fmtDose(given)} done`, chipClass: "fch fch-done", fcKey, rec, hasPopover, onChipClick });
+        } else if (rec) {
           const chipClass = rec.status === "catchup" ? "fch fch-cu"
             : rec.status === "risk-based" ? "fch fch-rb"
               : rec.status === "recommended" ? "fch fch-ok"
@@ -1173,6 +1225,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                   chipText={item.chipText}
                   chipClassName={item.chipClass}
                   dateLabel={item.dateLabel}
+                  dateEarly={item.dateEarly}
                   onChipClick={item.onChipClick}
                   right={
                     <>
@@ -1193,15 +1246,23 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                           className="fct-brand-sel-sm"
                         />
                       )}
+                      {item.isMoved && (
+                        <button
+                          className="fc-unschedule-btn"
+                          onClick={item.onRevertClick}
+                        >
+                          revert to slot
+                        </button>
+                      )}
                       {item.comboSelected && (
                         <ComboWhyButton
                           comboName={item.displayBrandKey}
-                          doseKey={`combo:${item.fcKey}`}
+                          doseKey={`combo:card:${item.fcKey}`}
                           openKey={whyOpenKey}
                           setOpenKey={setWhyOpenKey}
                         />
                       )}
-                      {openCell?.key === item.fcKey && item.hasPopover && (
+                      {openCell?.key === `card:${item.fcKey}` && item.hasPopover && (
                         <CellPopover
                           chipText={item.chipText}
                           rec={item.rec}
@@ -1689,7 +1750,12 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                     const showDropdown = !isPast && (rec || proj) && brandOpts.length > 0
                       && !(isCurr && dosesGivenHere > 0);
 
-                    const cellKey = fcKey;
+                    // Namespaced "matrix:" prefix — see the matching "card:"
+                    // prefix in buildVisitCardItems: the matrix is always
+                    // mounted now (collapsed via <details>), so without this
+                    // its popover state would collide with the card view's
+                    // identical fcKey and double-render a portal popover.
+                    const cellKey = `matrix:${fcKey}`;
                     // Brand labels in the dropdown look like "Vaxelis (covers DTaP + IPV + Hib + HepB)";
                     // strip the parenthetical to match COMBO_RATIONALE keys.
                     const displayBrandKey = displayBrand ? displayBrand.split(' (')[0].trim() : '';
@@ -1747,7 +1813,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                           {comboSelected && (
                             <ComboWhyButton
                               comboName={displayBrandKey}
-                              doseKey={`combo:${fcKey}`}
+                              doseKey={`combo:matrix:${fcKey}`}
                               openKey={whyOpenKey}
                               setOpenKey={setWhyOpenKey}
                             />

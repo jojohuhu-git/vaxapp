@@ -27,7 +27,7 @@ export function VisitCardShell({ label, dateLabel, countLabel, isCurr, isPast, i
   );
 }
 
-export function DoseRow({ vk, chipText, chipClassName, brandText, dateLabel, onChipClick, right }) {
+export function DoseRow({ vk, chipText, chipClassName, brandText, dateLabel, dateEarly, onChipClick, right }) {
   return (
     <div className="vcard-dose-row">
       <span className="vcard-dose-vk">{vk}</span>
@@ -39,7 +39,7 @@ export function DoseRow({ vk, chipText, chipClassName, brandText, dateLabel, onC
         {chipText}
         {brandText && <span className="vcard-dose-brand">({brandText})</span>}
       </span>
-      {dateLabel && <span className="fc-date">{dateLabel}</span>}
+      {dateLabel && <span className={dateEarly ? 'fc-date fc-date-early' : 'fc-date'}>{dateLabel}</span>}
       {right}
     </div>
   );

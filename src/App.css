@@ -552,8 +552,8 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
    viewport width — no separate mobile-only rendering path. */
 .vcards-wrap{margin-top:6px;}
 .vcards-past-toggle{width:100%;text-align:left;margin-bottom:8px;}
-.vcard-dose-row{flex-wrap:wrap;}
-.vcard-body{display:flex;flex-direction:column;gap:8px;padding:8px 12px;}
+.vcards-wrap .vcard-dose-row{flex-wrap:wrap;}
+.vcards-wrap .vcard-body{display:flex;flex-direction:column;gap:8px;padding:8px 12px;}
 
 /* FORECAST — collapsed "Full antigen grid" (the 18-column matrix), for the
    column-per-antigen audit view. Content is unchanged from the prior
