@@ -909,6 +909,16 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       if (it.chipClass) usedChipClasses.add(it.chipClass.replace('fch ', '').trim());
     });
   };
+  // The Today's Visit panel below (today-badge-*) renders unconditionally in
+  // both views, using its own class names rather than fch-*. In Routine
+  // Schedule this is masked because the "Now" card mirrors the same recs
+  // with fch-* chips — but Fewest Injections' own forward-looking rows never
+  // use fch-* at all, so without this the legend goes empty (and disappears)
+  // whenever past visits are collapsed, even though Today's Visit still has
+  // colored pills on screen. Map rec.status the same way the Today panel's
+  // own statusBadgeClass does.
+  const REC_STATUS_TO_CHIP_CLASS = { due: 'fch-need', catchup: 'fch-cu', 'risk-based': 'fch-rb', recommended: 'fch-ok' };
+  recs.forEach(rec => usedChipClasses.add(REC_STATUS_TO_CHIP_CLASS[rec.status] || 'fch-need'));
   if (optView === null) {
     visits.forEach(visit => {
       if (visit.m < am && !showPast && !visit.isScheduledEarly) return;
