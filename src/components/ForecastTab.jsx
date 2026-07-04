@@ -172,7 +172,7 @@ function fmtDateShort(iso) {
 // Returns a flat array of visit rows (isScheduledEarly excluded) with
 // items[] = [{vk, chip, date}] for vaccines due at that row.
 
-function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fcBrands, risks }) {
+function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fcBrands, risks, firstFutureVisitForVk = {} }) {
   const isAnnual = vk => vk === 'Flu' || vk === 'COVID';
   const currentRecMap = {};
   recs.forEach(r => { currentRecMap[r.vk] = r; });
@@ -183,6 +183,15 @@ function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fc
       const isCurr = visit.m === am;
       const isPast  = visit.m < am && !isCurr;
       const items = [];
+
+      // Future first doses of not-yet-started series (Tdap/HPV/MenACWY/MenB,
+      // annuals for infants) have no dosePlan entry — the seed-scan only
+      // writes D2+. Fall back to genRecs at the visit age, same as the card
+      // list, so the printed schedule matches the on-screen one.
+      const futureRecMap = {};
+      if (!isCurr && !isPast) {
+        for (const r of genRecs(visit.m, validHist, risks, dob)) futureRecMap[r.vk] = r;
+      }
 
       for (const vk of allVks) {
         if (visit.isCatchup && !visit.std.includes(vk)) continue;
@@ -203,6 +212,15 @@ function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fc
             : `D${rec.doseNum}${qualifier}`;
           const currBrand = fcKey ? (fcBrands[fcKey] || '') : '';
           items.push({ vk, chip, date: '', brand: currBrand });
+        } else if (!isPast && !proj && futureRecMap[vk]
+            && firstFutureVisitForVk[vk] === visit.m && !currentRecMap[vk]) {
+          const rec = futureRecMap[vk];
+          const total = getTotalDoses(vk, rec, fcBrands, am, validHist, risks);
+          const chip = isAnnual(vk) ? 'Annual'
+            : total > 1 ? `D${rec.doseNum}/${total}`
+            : `D${rec.doseNum}`;
+          const brand = fcKey ? (fcBrands[fcKey] || '') : '';
+          items.push({ vk, chip, date: '', brand });
         } else if (proj) {
           const chip = isAnnual(vk) ? 'Annual'
             : proj.totalDoses > 1 ? `D${proj.doseNum}/${proj.totalDoses}`
@@ -603,6 +621,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
   const pdfRows = computePDFRows({
     visits, allVks, dosePlan, recs, validHist,
     am, dob: state.dob, fcBrands: state.fcBrands, risks: state.risks,
+    firstFutureVisitForVk,
   });
 
   // ── Visit card items (roadmap item #6) ─────────────────────────
@@ -799,6 +818,24 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
             n.set(fcKey, { ageM: proj.earliestAge, date: proj.earliestDate, vk, visitM: visit.m });
             return n;
           }) : undefined,
+        });
+      } else if (rec && firstFutureVisitForVk[vk] === visit.m && !currentRecMap[vk]) {
+        // Future visit with a genRecs rec but no dosePlan entry. The
+        // projection engine's seed-scan never writes the seeded D1 itself
+        // into the plan (only D2+), so first doses of not-yet-started
+        // series — Tdap/HPV/MenACWY at 11y, MenB at 16y, annuals at 6m —
+        // are invisible to the plan lookup above. Mirror the matrix's
+        // genRecs fallback: render at the first eligible future visit only
+        // (firstFutureVisitForVk dedupe), and skip vaccines already due
+        // today (the Now row owns those; dosePlan owns their D2+).
+        const chipClass = rec.status === "catchup" ? "fch fch-cu"
+          : rec.status === "risk-based" ? "fch fch-rb"
+            : rec.status === "recommended" ? "fch fch-ok"
+              : "fch fch-need";
+        items.push({
+          vk, chipText: fmtDose(rec.doseNum), chipClass, fcKey, rec, hasPopover, onChipClick,
+          brandOpts, displayBrand, showDropdown: brandOpts.length > 0, onBrandChange,
+          comboSelected, displayBrandKey,
         });
       }
     }

@@ -44,11 +44,11 @@ describe('ForecastTab — 2yo no history baseline', () => {
     // Current visit card + future routine slots
     expect(labels.some(l => l.startsWith('2 years'))).toBe(true);
     expect(labels.some(l => l.startsWith('4 years'))).toBe(true);
-    // Note: unlike the retired matrix (which rendered a placeholder cell for
-    // every routine visit regardless of content), the card list only renders
-    // a card when buildVisitCardItems finds an actual due/projected/past
-    // dose — so "11 years" has no card here (nothing in dosePlan projects
-    // that far for an empty 2yo; see "16 years" below, which does).
+    // "11 years" renders via the genRecs future-first-dose fallback (Tdap/
+    // HPV/MenACWY D1 — dosePlan's seed-scan never writes seeded D1s), and
+    // "16 years" via dosePlan projections (MenACWY D2 booster). See the
+    // "future first-dose fallback" describe block below.
+    expect(labels.some(l => l.startsWith('11 years'))).toBe(true);
     expect(labels.some(l => l.startsWith('16 years'))).toBe(true);
     // Catch-up cards for D2/D3 of primary-series vaccines (cu25/cu26 etc.)
     expect(labels.some(l => l.startsWith('2y 1mo'))).toBe(true);
@@ -364,8 +364,7 @@ describe('ForecastTab — progressive disclosure', () => {
     const { container } = renderForecast({ am: 24 });
     expandForecast(container);
     const labels = getCardLabels(container);
-    // 11y has no actionable content for an empty 2yo's projection (see the
-    // note in the baseline test above) — 16y does (MenACWY D1 projects there).
+    expect(labels.some(l => l.startsWith('11 years')), '11y card must appear after expanding').toBe(true);
     expect(labels.some(l => l.startsWith('16 years')), '16y card must appear after expanding').toBe(true);
   });
 
@@ -378,5 +377,62 @@ describe('ForecastTab — progressive disclosure', () => {
     // The 12m card is past (m=12 < am=13). For an empty 13mo, dosePlan will
     // project doses at m=12 (missed 12-month visit) → overdue → always visible.
     expect(labels.some(l => l.startsWith('12 months')), '12m overdue card must be visible without expanding').toBe(true);
+  });
+});
+
+// ── Future first-dose fallback (regression guard, 2026-07-03) ─────────────
+// computeDosePlan's seed-scan projects only D2+ for series that haven't
+// started — the seeded D1 is never written into the plan, and getTotalDoses
+// collapses Tdap to a single dose for <7y patients. Without a genRecs
+// fallback for future visits (which the retired matrix had), an empty 2yo's
+// forecast showed NO Tdap anywhere and MenACWY only at 16y (the D2 booster).
+// Logic-layer pins live in regression-future-first-dose-visibility.test.js.
+describe('ForecastTab — future first-dose fallback', () => {
+  it('empty 2yo: 11-years card shows Tdap, MenACWY, and HPV first doses', () => {
+    const { container } = renderForecast({ am: 24 });
+    expandForecast(container);
+    const card = getCardByLabel(container, '11 years');
+    expect(card, '11 years card must render').not.toBeNull();
+
+    const tdap = getCardDoseRowByVk(card, 'Tdap');
+    expect(tdap, 'Tdap D1 row must appear at 11y').not.toBeNull();
+    expect(tdap.textContent).toMatch(/Dose 1/);
+
+    const men = getCardDoseRowByVk(card, 'MenACWY');
+    expect(men, 'MenACWY D1 row must appear at 11y').not.toBeNull();
+    expect(men.textContent).toMatch(/Dose 1 of 2/);
+
+    const hpv = getCardDoseRowByVk(card, 'HPV');
+    expect(hpv, 'HPV D1 row must appear at 11y').not.toBeNull();
+    expect(hpv.textContent).toMatch(/Dose 1 of 2/);
+  });
+
+  it('empty 2yo: 16-years card shows MenB D1 + MenACWY D2 booster, no duplicate D1s', () => {
+    const { container } = renderForecast({ am: 24 });
+    expandForecast(container);
+    const card = getCardByLabel(container, '16 years');
+    expect(card).not.toBeNull();
+
+    const menB = getCardDoseRowByVk(card, 'MenB');
+    expect(menB, 'MenB D1 row must appear at 16y').not.toBeNull();
+    expect(menB.textContent).toMatch(/Dose 1 of 2/);
+
+    const men = getCardDoseRowByVk(card, 'MenACWY');
+    expect(men, 'MenACWY booster row must appear at 16y').not.toBeNull();
+    expect(men.textContent).toMatch(/Dose 2 of 2/);
+
+    // firstFutureVisitForVk dedupe: these D1s belong to the 11y card only.
+    expect(getCardDoseRowByVk(card, 'Tdap'), 'no duplicate Tdap D1 at 16y').toBeNull();
+    expect(getCardDoseRowByVk(card, 'HPV'), 'no duplicate HPV D1 at 16y').toBeNull();
+  });
+
+  it('vaccines already due today are not re-emitted as D1 at future cards', () => {
+    // Empty 2yo: MMR D1 is due NOW (the current-visit card owns it) and D2
+    // is a catch-up projection at 2y 1mo — the 4y card must not resurrect a
+    // fallback D1 (currentRecMap suppression).
+    const { container } = renderForecast({ am: 24 });
+    expandForecast(container);
+    const card = getCardByLabel(container, '4 years');
+    expect(getCardDoseRowByVk(card, 'MMR'), 'no fallback MMR D1 at 4y').toBeNull();
   });
 });

@@ -3124,3 +3124,12 @@ GitHub Pages deploy workflow ran and completed successfully on the resulting `ma
 5. Roadmap item #5 (OCR accuracy) is still parked — see the note earlier in this file (search
    "Still parked: item #5"). Do not start without a fresh design conversation first.
 5. Roadmap item #5 (OCR accuracy) is still parked — see the note directly above this entry.
+
+## Changes shipped (2026-07-03) — future first-dose visibility fix
+
+Fixed future first-dose visibility in Forecast cards + PDF (Tdap missing entirely, MenACWY/HPV/MenB
+D1 hidden until later visits, for patients who haven't started those series). Root cause:
+`computeDosePlan`'s seed-scan writes only D2+ into the plan; the card view (PR #69/#80) lacked the
+retired matrix's `genRecs` fallback for future visits. Display-layer fix in `ForecastTab.jsx`
+(`buildVisitCardItems` + `computePDFRows`); regression tests added in
+`regression-future-first-dose-visibility.test.js` and `ForecastTab.rendering.test.jsx`.
