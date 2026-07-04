@@ -2,6 +2,7 @@
 /* eslint-disable react/prop-types */
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { fmtAm } from '../logic/ageFormat';
+import { ShotListPage } from './ShotListPDF';
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica', color: '#222' },
@@ -50,7 +51,7 @@ function fmtRiskList(risks) {
   return risks.join(', ');
 }
 
-export default function ForecastPDF({ am, dob, risks, rows, generatedAt }) {
+export default function ForecastPDF({ am, dob, risks, rows, recs, fcBrands, generatedAt }) {
   const today = generatedAt || new Date().toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
@@ -65,6 +66,9 @@ export default function ForecastPDF({ am, dob, risks, rows, generatedAt }) {
 
   return (
     <Document title={`PediVax Full Forecast — ${today}`} author="PediVax">
+      {/* Today's admin/shot-list page first, then the multi-visit forecast —
+          one download covers both what to give today and what's coming. */}
+      {recs && recs.length > 0 && <ShotListPage am={am} dob={dob} recs={recs} fcBrands={fcBrands} />}
       <Page size="LETTER" style={styles.page}>
         <Text style={styles.h1}>Full Immunization Forecast</Text>
         <Text style={{ fontSize: 9, color: '#888', marginBottom: 8 }}>

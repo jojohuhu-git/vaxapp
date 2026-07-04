@@ -20,6 +20,7 @@
 // content (past doses or a still-due dose) get a card row somewhere?
 
 import { describe, it, expect } from 'vitest';
+import { act, fireEvent } from '@testing-library/react';
 import {
   renderForecast,
   getCardLabels,
@@ -32,6 +33,16 @@ import {
 function vkAppearsAnywhere(container, vk) {
   return Array.from(container.querySelectorAll('.vcard-dose-vk'))
     .some(el => el.textContent.trim() === vk);
+}
+
+// "Show full forecast" only reveals distant FUTURE visits — past visits are
+// a separate, orthogonal toggle ("N past visits — click to show") that must
+// be clicked explicitly to reveal history. See ForecastTab.cardRendering.test.jsx's
+// "clicking N past visits..." regression guard for why these are kept independent.
+function revealPastVisits(container) {
+  const toggleBtn = Array.from(container.querySelectorAll('button'))
+    .find(b => b.textContent.includes('past visit'));
+  if (toggleBtn) act(() => { fireEvent.click(toggleBtn); });
 }
 
 // ── Complete HepB series ───────────────────────────────────────────────────
@@ -55,6 +66,7 @@ describe('ForecastTab — completed series row visibility', () => {
       hist: hepbHist,
     });
     expandForecast(container);
+    revealPastVisits(container);
     expect(vkAppearsAnywhere(container, 'HepB')).toBe(true);
   });
 
@@ -64,6 +76,7 @@ describe('ForecastTab — completed series row visibility', () => {
       hist: hepbHist,
     });
     expandForecast(container);
+    revealPastVisits(container);
     // At least one past card should have a HepB row showing a done dose.
     // Past rows render as "Dose N of M done", "Complete", etc.
     const labels = getCardLabels(container);
