@@ -39,10 +39,10 @@ beforeEach(() => {
 describe('Header — Reset snapshot', () => {
   it('writes a localStorage snapshot before clearing when a patient (age) is loaded', () => {
     window.confirm = () => true;
-    const { getByText, dispatch } = renderHeader();
+    const { getByRole, dispatch } = renderHeader();
     act(() => { dispatch()({ type: 'SET_AGE', payload: 6 }); });
 
-    fireEvent.click(getByText('Reset'));
+    fireEvent.click(getByRole('button', { name: 'Reset', exact: true }));
 
     const raw = localStorage.getItem(RESET_SNAPSHOT_KEY);
     expect(raw).toBeTruthy();
@@ -52,10 +52,10 @@ describe('Header — Reset snapshot', () => {
 
   it('writes a snapshot when a patient is loaded via DOB only (no am set)', () => {
     window.confirm = () => true;
-    const { getByText, dispatch } = renderHeader();
+    const { getByRole, dispatch } = renderHeader();
     act(() => { dispatch()({ type: 'SET_DOB', payload: '2024-01-01' }); });
 
-    fireEvent.click(getByText('Reset'));
+    fireEvent.click(getByRole('button', { name: 'Reset', exact: true }));
 
     const raw = localStorage.getItem(RESET_SNAPSHOT_KEY);
     expect(raw).toBeTruthy();
@@ -64,19 +64,19 @@ describe('Header — Reset snapshot', () => {
 
   it('does not write a snapshot when no patient is loaded', () => {
     window.confirm = () => true;
-    const { getByText } = renderHeader();
+    const { getByRole } = renderHeader();
 
-    fireEvent.click(getByText('Reset'));
+    fireEvent.click(getByRole('button', { name: 'Reset', exact: true }));
 
     expect(localStorage.getItem(RESET_SNAPSHOT_KEY)).toBeNull();
   });
 
   it('does not write a snapshot if the user cancels the confirm dialog', () => {
     window.confirm = () => false;
-    const { getByText, dispatch } = renderHeader();
+    const { getByRole, dispatch } = renderHeader();
     act(() => { dispatch()({ type: 'SET_AGE', payload: 6 }); });
 
-    fireEvent.click(getByText('Reset'));
+    fireEvent.click(getByRole('button', { name: 'Reset', exact: true }));
 
     expect(localStorage.getItem(RESET_SNAPSHOT_KEY)).toBeNull();
   });
