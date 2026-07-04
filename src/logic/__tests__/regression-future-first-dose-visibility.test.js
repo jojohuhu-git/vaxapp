@@ -51,8 +51,11 @@ describe('computeDosePlan for a 2yo with empty history', () => {
     expect(plan['cu138_HPV']?.doseNum).toBe(2);
   });
 
-  it('projects MenB D2 one month after the 16y D1', () => {
-    expect(plan['cu193_MenB']?.doseNum).toBe(2);
+  it('projects MenB D2 six months after the 16y D1 (healthy 2-dose schedule)', () => {
+    // Per 2025 ACIP: healthy shared-decision MenB is 2 doses ≥6 months apart
+    // (not the high-risk accelerated ≥1 month). See dosePlan.js getMinInterval's
+    // iByTotalDoses lookup.
+    expect(plan['cu198_MenB']?.doseNum).toBe(2);
   });
 
   it('by design emits no seeded-D1 entries — the UI genRecs fallback owns them', () => {

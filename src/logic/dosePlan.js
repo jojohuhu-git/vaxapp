@@ -78,6 +78,45 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
   // 6-month-old's MMR/VAR/HepA D2 at 4–6y or 18m).
   const seeds = [...currentRecs];
   const seededVks = new Set(currentRecs.map(r => r.vk));
+
+  // High-risk MenB opens at exactly 10y (MIN_INT.MenB.minD), but FORECAST_VISITS
+  // jumps straight from 4y (54mo) to 11y (132mo) — there is no table row at 10y.
+  // Without this probe, the table scan below would only find MenB due at the
+  // 11y row and seed D1 a full year late. Probe the exact gate age directly so
+  // the projection anchors at 10y, matching the optimizer (buildOptimalSchedule).
+  if (highRiskMenB(risks) && !seededVks.has("MenB")) {
+    const menbSpec = MIN_INT.MenB;
+    const gateAgeM = menbSpec.minD / 30.4;
+    if (gateAgeM > am) {
+      const vr = genRecs(gateAgeM, hist, risks, dob);
+      const r = vr.find(x => x.vk === "MenB" && x.doseNum === 1);
+      if (r) {
+        let seedVisitIdx = -1;
+        for (let i = FORECAST_VISITS.length - 1; i >= 0; i--) {
+          if (FORECAST_VISITS[i].m <= gateAgeM) { seedVisitIdx = i; break; }
+        }
+        seededVks.add("MenB");
+        seeds.push({ ...r, _seedVisitIdx: seedVisitIdx, _seedAgeOverride: gateAgeM });
+
+        // D1 itself is normally left out of `plan` — the UI's genRecs-at-
+        // table-row fallback renders seeded D1s (see buildVisitCardItems in
+        // ForecastTab.jsx). That fallback only checks FORECAST_VISITS rows,
+        // so a gate age with no matching row (like this one) would render
+        // no D1 card at all while D2/D3 still show up on their own ad-hoc
+        // rows below it. Write an explicit ad-hoc row so D1 has a home too.
+        const gateKey = `cu${Math.round(gateAgeM * 10) / 10}_MenB`;
+        const gateDate = dob ? addD(dob, Math.round(gateAgeM * 30.4)) : "";
+        plan[gateKey] = {
+          dueDate: gateDate, dueAge: gateAgeM,
+          earliestDate: gateDate, earliestAge: gateAgeM,
+          doseNum: 1, projected: true,
+          totalDoses: getTotalDoses("MenB", r, fcBrands, am, hist, risks, dob),
+          isCatchup: true,
+        };
+      }
+    }
+  }
+
   for (let vi = (currVisitIdx >= 0 ? currVisitIdx + 1 : 0); vi < FORECAST_VISITS.length; vi++) {
     const v = FORECAST_VISITS[vi];
     if (v.m <= am) continue;
@@ -138,7 +177,9 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
     // projection at the future visit where D1 will first be given.
     if (rec._seedVisitIdx != null) {
       const seedVisit = FORECAST_VISITS[rec._seedVisitIdx];
-      prevAge = seedVisit.m;
+      // _seedAgeOverride (e.g. the high-risk MenB 10y gate) anchors at the exact
+      // ACIP-eligible age instead of the FORECAST_VISITS row used to resume scanning.
+      prevAge = rec._seedAgeOverride ?? seedVisit.m;
       prevDate = dob ? addD(dob, Math.round(prevAge * 30.4)) : "";
       prevVisitIdx = rec._seedVisitIdx;
     } else if (lastGiven && startDose <= givenCountable) {
@@ -188,10 +229,22 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       if (prevVisitIdx < 0) prevVisitIdx = 0;
     }
 
+    // D1 anchor age/date for the d1Cross constraint below. When D1 has already
+    // been given, d1Cross reads its date straight from history. When D1 is itself
+    // still projected (no given doses yet, startDose===0), the anchor computed
+    // above IS the projected D1 — capture it so d1Cross also applies to fully
+    // prospective series (e.g. a not-yet-vaccinated high-risk patient's MenB
+    // D3, which must be ≥6 months after the projected D1, not just ≥4 months
+    // after D2).
+    // startDose===1 here means "D1 due now" (0 doses given) — the anchor
+    // computed above IS the projected D1 age/date, not a historical dose.
+    const d1AnchorAge = (givenHist.length === 0 && startDose === 1) ? prevAge : null;
+    const d1AnchorDate = (givenHist.length === 0 && startDose === 1) ? prevDate : null;
+
     // Project each subsequent dose — each must go to a distinct later visit
     for (let d = startDose + 1; d <= totalDoses; d++) {
       const doseIdx = d - 1; // 0-based
-      const minInt = getMinInterval(vk, doseIdx, spec, prevAge);
+      const minInt = getMinInterval(vk, doseIdx, spec, prevAge, totalDoses);
 
       // Find the next routine visit age for this dose. For high-risk patients,
       // ignore the routine schedule for vaccines whose default ages assume a
@@ -211,21 +264,24 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
       // long before D2 (or D2 was given early in an accelerated schedule).
       if (spec.d1Cross?.[d] != null) {
         const d1CrossDays = spec.d1Cross[d];
-        // Find D1 age from history (first given dose with a known date/age)
+        // Find D1 age from history (first given dose with a known date/age),
+        // falling back to the projected-D1 anchor when D1 hasn't been given yet.
         const d1GivenHist = (hist[vk] || []).filter(x => x && x.given && (x.date || x.ageDays != null));
+        let d1AgeM = null;
         if (d1GivenHist.length > 0) {
           const d1Dose = d1GivenHist[0];
-          let d1AgeM = null;
           if (d1Dose.date && dob) {
             const ageDays = (new Date(d1Dose.date) - new Date(dob)) / 86400000;
             d1AgeM = ageDays / 30.4;
           } else if (d1Dose.ageDays != null) {
             d1AgeM = Number(d1Dose.ageDays) / 30.4;
           }
-          if (d1AgeM != null) {
-            const d1CrossAgeM = d1AgeM + Math.ceil(d1CrossDays / 30.4);
-            if (d1CrossAgeM > earliestAge) earliestAge = d1CrossAgeM;
-          }
+        } else if (d1AnchorAge != null) {
+          d1AgeM = d1AnchorAge;
+        }
+        if (d1AgeM != null) {
+          const d1CrossAgeM = d1AgeM + Math.ceil(d1CrossDays / 30.4);
+          if (d1CrossAgeM > earliestAge) earliestAge = d1CrossAgeM;
         }
       }
 
@@ -284,6 +340,9 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
           if (d1DoseWithDate) {
             const d1Date = d1DoseWithDate.date || addD(dob, Number(d1DoseWithDate.ageDays));
             d1CrossDate = addD(d1Date, spec.d1Cross[d]);
+          } else if (d1AnchorDate) {
+            // D1 hasn't been given yet — use the projected-D1 anchor date.
+            d1CrossDate = addD(d1AnchorDate, spec.d1Cross[d]);
           }
         }
         const bindingMinDate = d1CrossDate && d1CrossDate > minDate ? d1CrossDate : minDate;
@@ -464,9 +523,12 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
 }
 
 /** Get minimum interval in days for dose at doseIdx (0-based) */
-function getMinInterval(vk, doseIdx, spec, ageMonths) {
+function getMinInterval(vk, doseIdx, spec, ageMonths, totalDoses) {
   if (!spec?.i) return 28;
-  let interval = spec.i[doseIdx];
+  // iByTotalDoses overrides the default i[] array when present for this path
+  // length (e.g. MenB healthy 2-dose ≥182d vs accelerated 3-dose ≥28d/≥112d).
+  // Mirrors buildOptimalSchedule.js's doseEarliestDate() interval selection.
+  let interval = spec.iByTotalDoses?.[totalDoses]?.[doseIdx] ?? spec.i[doseIdx];
   // Age-dependent overrides
   if (vk === "VAR" && doseIdx === 1 && ageMonths >= 156) interval = 28;
   if (vk === "HPV" && doseIdx === 1 && ageMonths >= 180) interval = 28;
