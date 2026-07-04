@@ -6,6 +6,7 @@
 /* eslint-disable react/prop-types */
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { todayISO } from '../logic/utils';
+import { ShotListPage } from './ShotListPDF';
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica', color: '#222' },
@@ -110,7 +111,7 @@ function VisitItems({ items }) {
   );
 }
 
-export default function SchedulePDF({ patient, mode, visits, generatedAt }) {
+export default function SchedulePDF({ patient, mode, visits, recs, fcBrands, generatedAt }) {
   const today = generatedAt || todayISO();
   const totalDoses = visits.reduce((s, v) => s + v.items.reduce((s2, it) => s2 + (it._combo ? it.coveredDoses.length : 1), 0), 0);
   const totalInjections = visits.reduce((s, v) => s + v.items.length, 0);
@@ -121,6 +122,9 @@ export default function SchedulePDF({ patient, mode, visits, generatedAt }) {
       title={`PediVax Schedule — ${patient.name || 'Patient'} (${today})`}
       author="PediVax"
     >
+      {/* Today's admin/shot-list page first, then the optimized visit-by-visit
+          plan — one download covers both what to give today and the plan. */}
+      {recs && recs.length > 0 && <ShotListPage am={patient.am} dob={patient.dob} recs={recs} fcBrands={fcBrands} />}
       <Page size="LETTER" style={styles.page}>
         <Text style={styles.h1}>Optimal Vaccine Schedule</Text>
         <Text style={{ fontSize: 9, color: '#888', marginBottom: 8 }}>

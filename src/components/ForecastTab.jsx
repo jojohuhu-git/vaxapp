@@ -9,12 +9,13 @@ import { orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly } from '
 import { dc } from '../logic/stateHelpers';
 import { computeDosePlan, fmtProjection, fmtEarliestDate, getTotalDoses } from '../logic/dosePlan';
 import { validatedHistory, auditAll } from '../logic/validation';
+import { classifyDose } from '../logic/compliance';
 import { addD, todayISO } from '../logic/utils';
 import { humanDays, fmtAm } from '../logic/ageFormat';
 import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
 import { REFS } from '../data/refs';
 import PdfDownloadButton from './PdfDownloadButton';
-import { VisitCardShell, DoseRow, ComboDoseRow } from './VisitCard';
+import { VisitCardShell, DoseRow, ComboDoseRow, PillLegend } from './VisitCard';
 
 // Primary CDC reference for each combo brand — surfaces in the Forecast "Why?" popover.
 const COMBO_PRIMARY_REF = {
@@ -193,6 +194,30 @@ function countCardInjections(items) {
   return groups.size;
 }
 
+// "Done" chip color reflects the compliance validity of the most recently
+// given dose for this vaccine — reuses classifyDose/STATUS_COLOR's taxonomy
+// (ON_TIME/VALID/VALID_EXTRA/INVALID/UNKNOWN, src/logic/compliance.js) so a
+// dose's color means the same thing here as it does on the Compliance Audit
+// tab, rather than every completed dose rendering the same flat green.
+const DONE_STATUS_CHIP_CLASS = {
+  ON_TIME: 'fch-done-on-time',
+  VALID: 'fch-done-valid',
+  VALID_EXTRA: 'fch-done-extra',
+  INVALID: 'fch-done-invalid',
+  UNKNOWN: 'fch-done-extra',
+};
+
+function doneChipClass(vk, validHist, dob, risks) {
+  const doses = (validHist[vk] || []).filter(d => d.given);
+  if (doses.length === 0) return 'fch fch-done-on-time';
+  const i = doses.length - 1;
+  const classification = classifyDose(
+    vk, i, doses[i], doses.length, dob,
+    i > 0 ? doses[i - 1] : null, doses[0]?.date, validHist, risks || [],
+  );
+  return `fch ${DONE_STATUS_CHIP_CLASS[classification.status] || 'fch-done-on-time'}`;
+}
+
 function fmtDateShort(iso) {
   if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
   return new Date(iso + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -274,42 +299,6 @@ function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fc
         items,
       };
     });
-}
-
-// ── Print visit summary ─────────────────────────────────────────
-function printVisitSummary({ am, dob, recs, fcBrands }) {
-  const fmtAge = (m) => m < 12
-    ? `${m} month${m !== 1 ? 's' : ''}`
-    : `${Math.floor(m / 12)} year${Math.floor(m / 12) !== 1 ? 's' : ''}${m % 12 ? ` ${m % 12} month${m % 12 !== 1 ? 's' : ''}` : ''}`;
-  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const dobLabel = dob ? new Date(dob + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null;
-  const rows = recs.map(rec => {
-    const brand = fcBrands[`${am}_${rec.vk}`] || '';
-    const vaxName = VAX_META[rec.vk]?.n || rec.vk;
-    const isAnnual = rec.vk === 'Flu' || rec.vk === 'COVID';
-    const doseLabel = isAnnual ? 'Annual' : `Dose ${rec.doseNum}`;
-    return `<tr><td>${vaxName}</td><td>${doseLabel}</td><td>${brand || '—'}</td></tr>`;
-  }).join('');
-  const w = window.open('', '_blank', 'width=600,height=700');
-  if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>Visit Summary</title><style>
-    body{font-family:Arial,sans-serif;padding:32px;color:#222;max-width:540px;margin:0 auto}
-    h1{font-size:18px;margin:0 0 4px}p.meta{font-size:13px;color:#555;margin:0 0 24px}
-    table{width:100%;border-collapse:collapse;margin:12px 0}
-    th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#888;padding:4px 12px;background:#f5f5f5;border-bottom:2px solid #e0e0e0}
-    td{padding:7px 12px;border-bottom:1px solid #eee;font-size:13px}
-    .footer{margin-top:32px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:12px}
-    @media print{body{padding:16px}}
-  </style></head><body>
-    <h1>Visit Summary</h1>
-    <p class="meta">${today}${dobLabel ? ` &middot; DOB ${dobLabel}` : ''} &middot; Age ${fmtAge(am)}</p>
-    <strong style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:#555">Vaccines Administered Today</strong>
-    <table><thead><tr><th>Vaccine</th><th>Dose</th><th>Brand</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="footer">PediVax Clinical Vaccine Planner &mdash; ${today}. For clinical use only.</div>
-  </body></html>`);
-  w.document.close();
-  w.focus();
-  setTimeout(() => { w.print(); }, 300);
 }
 
 // ── Optimal Schedule helpers ────────────────────────────────────
@@ -525,6 +514,21 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
   const today = todayISO();
   const optPatient = { dob: state.dob || null, am, risks: state.risks ?? [], hist: validHist };
 
+  // Hoisted so the Today's Visit panel action row (rendered above the
+  // optView-specific branches) can offer "Download Schedule" backed by the
+  // optimizer's own plan (SchedulePDF) when a Fewest-* view is active,
+  // instead of the standard routine timeline (ForecastPDF) — same label,
+  // same button slot, different PDF underneath.
+  let optResult = null;
+  let optError = null;
+  if (optView !== null) {
+    try {
+      optResult = buildOptimalSchedule(optPatient, state.fcBrands ?? {}, { today, mode: optView });
+    } catch (e) {
+      optError = e.message;
+    }
+  }
+
   const errCount = auditAll(state.hist, state.dob, state.risks, state.am)
     .filter(e => e.severity === "err").length;
 
@@ -576,31 +580,10 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
   const pastCount = visits.filter(v => v.m < am && !v.isScheduledEarly).length;
 
   // ── Progressive disclosure helpers ────────────────────────────
-  // Overdue: the most recent past routine visit slot where at least one
-  // vaccine is still actively due as catch-up. We only flag the MOST RECENT
-  // past slot because that's the one a clinician would realistically have
-  // missed — flagging all past slots would clutter the view. We identify it
-  // as the highest-m past routine (non-catchup, non-early) visit.
-  const mostRecentPastRoutineM = (() => {
-    let max = -1;
-    for (const v of visits) {
-      if (v.m < am && !v.isCatchup && !v.isScheduledEarly) {
-        if (v.m > max) max = v.m;
-      }
-    }
-    return max;
-  })();
-
-  const isOverdue = (visit) => {
-    if (visit.m >= am) return false;
-    if (visit.isScheduledEarly || visit.isCatchup) return false;
-    // Only flag the most recent past routine visit if vaccines are still outstanding.
-    if (visit.m !== mostRecentPastRoutineM) return false;
-    return visit.std.some(vk => {
-      const rec = currentRecMap[vk];
-      return rec && (rec.status === 'catchup' || rec.status === 'due');
-    });
-  };
+  // Note: overdue catch-up vaccines are NOT a reason to force a past visit
+  // card visible — they're already surfaced on the current/"Now" card via
+  // currentRecMap (status 'catchup'/'due'), so forcing the original past
+  // slot visible too would just duplicate the same doses on two cards.
 
   // Imminent: a future visit within ~1 month of today.
   const isImminent = (visit) => visit.m > am && visit.m <= am + 1;
@@ -618,7 +601,6 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
     if (visit.m === am) return true;           // today
     if (visit.isScheduledEarly) return true;   // user-moved doses (standalone row)
     if (visit._earlyDoses && Object.keys(visit._earlyDoses).length > 0) return true; // merged move
-    if (isOverdue(visit)) return true;          // missed past doses — NEVER hide
     if (isImminent(visit)) return true;        // within ~1 month
     if (visit.m === nextRoutineVisitM) return true; // next upcoming routine
     return false;
@@ -791,7 +773,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         if (rec) {
           items.push({ vk, chipText: `${fmtDose(rec.doseNum)} (catch-up)`, chipClass: "fch fch-cu", fcKey, rec, hasPopover, onChipClick });
         } else if (given > 0) {
-          items.push({ vk, chipText: `${fmtDose(Math.min(rec?.doseNum ?? given, given))} done`, chipClass: "fch fch-done", fcKey, rec, hasPopover, onChipClick });
+          items.push({ vk, chipText: `${fmtDose(Math.min(rec?.doseNum ?? given, given))} done`, chipClass: doneChipClass(vk, validHist, state.dob, state.risks), fcKey, rec, hasPopover, onChipClick });
         }
         continue; // expired / not-yet-eligible / already-complete: nothing actionable to show
       }
@@ -829,7 +811,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           return ageM !== null && Math.abs(ageM - visit.m) < 0.75;
         }).length;
         if (dosesGivenHere > 0) {
-          items.push({ vk, chipText: `${fmtDose(given)} done`, chipClass: "fch fch-done", fcKey, rec, hasPopover, onChipClick });
+          items.push({ vk, chipText: `${fmtDose(given)} done`, chipClass: doneChipClass(vk, validHist, state.dob, state.risks), fcKey, rec, hasPopover, onChipClick });
         } else if (rec) {
           const chipClass = rec.status === "catchup" ? "fch fch-cu"
             : rec.status === "risk-based" ? "fch fch-rb"
@@ -916,6 +898,30 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
     return null;
   })();
 
+  // Which dose-chip colors are actually visible right now, across whichever
+  // cards are currently shown (collapsed vs "Show full forecast", past
+  // hidden vs revealed) — computed once here so the legend can render above
+  // the Today's Visit panel, before the card list itself exists in the tree.
+  // Mirrors the exact visibility gates the render loops below use.
+  const usedChipClasses = new Set();
+  const collectChipClasses = (visit) => {
+    buildVisitCardItems(visit).forEach(it => {
+      if (it.chipClass) usedChipClasses.add(it.chipClass.replace('fch ', '').trim());
+    });
+  };
+  if (optView === null) {
+    visits.forEach(visit => {
+      if (visit.m < am && !showPast && !visit.isScheduledEarly) return;
+      const isCurr = visit.m === am;
+      const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
+      const isRevealedPast = isPast && showPast;
+      if (!showFull && !isAlwaysVisible(visit) && !isRevealedPast) return;
+      collectChipClasses(visit);
+    });
+  } else if (showPast) {
+    visits.filter(v => v.m < am && !v.isScheduledEarly).forEach(collectChipClasses);
+  }
+
   return (
     <div>
       {errCount > 0 && (
@@ -946,6 +952,8 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         ))}
       </div>
 
+      <PillLegend usedChipClasses={usedChipClasses} />
+
       {/* ── TODAY'S VISIT PANEL ──────────────────────────────────── */}
       {am >= 0 && (
         <div className="today-panel">
@@ -958,26 +966,37 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               )}
             </div>
             <div className="today-actions">
-              {recs.length > 0 && (
-                <>
-                  <button
-                    onClick={() => printVisitSummary({ am, dob: state.dob, recs, fcBrands: state.fcBrands })}
-                    className="fct-print-btn"
-                  >
-                    Print Visit Summary
-                  </button>
-                  <PdfDownloadButton
-                    buildDoc={async () => {
-                      const { default: ShotListPDF } = await import('./ShotListPDF');
-                      return ShotListPDF({ am, dob: state.dob, recs, fcBrands: state.fcBrands });
-                    }}
-                    fileName="pedivax-shot-list.pdf"
-                    className="fct-shotlist-btn"
-                  >
-                    {({ loading }) => loading ? "Preparing…" : "Shot List PDF"}
-                  </PdfDownloadButton>
-                </>
-              )}
+              {/* Combined PDF: today's shot-list-style admin page (lot#/route/
+                  signature) followed by the full schedule — one download per
+                  view instead of a separate "Shot List PDF" + "Print Visit
+                  Summary" + schedule button. Which schedule depends on which
+                  view is active: Routine gets the standard ACIP timeline
+                  (ForecastPDF); Fewest Injections gets the optimizer's own
+                  combo-bundled plan (SchedulePDF) in this SAME slot, so only
+                  one "download everything" button is ever visible at once. */}
+              {optView === null ? (
+                <PdfDownloadButton
+                  buildDoc={async () => {
+                    const { default: ForecastPDF } = await import('./ForecastPDF');
+                    return ForecastPDF({ am, dob: state.dob, risks: state.risks, rows: pdfRows, recs, fcBrands: state.fcBrands });
+                  }}
+                  fileName="pedivax-forecast.pdf"
+                  className="fct-download-btn"
+                >
+                  {({ loading }) => loading ? "Preparing…" : "Download Schedule"}
+                </PdfDownloadButton>
+              ) : Array.isArray(optResult) ? (
+                <PdfDownloadButton
+                  buildDoc={async () => {
+                    const { default: SchedulePDF } = await import('./SchedulePDF');
+                    return SchedulePDF({ patient: optPatient, mode: optView, visits: optResult, recs, fcBrands: state.fcBrands });
+                  }}
+                  fileName={`pedivax-schedule-${optView}-${today}.pdf`}
+                  className="fct-download-btn"
+                >
+                  {({ loading }) => loading ? "Preparing…" : "Download Schedule"}
+                </PdfDownloadButton>
+              ) : null}
               <button
                 onClick={() => dispatch({ type: "RESET_FORECAST" })}
                 className="fct-reset-btn"
@@ -985,16 +1004,6 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               >
                 Reset Brand Selections
               </button>
-              <PdfDownloadButton
-                buildDoc={async () => {
-                  const { default: ForecastPDF } = await import('./ForecastPDF');
-                  return ForecastPDF({ am, dob: state.dob, risks: state.risks, rows: pdfRows });
-                }}
-                fileName="pedivax-forecast.pdf"
-                className="fct-download-btn"
-              >
-                {({ loading }) => loading ? "Preparing…" : "Download Schedule"}
-              </PdfDownloadButton>
             </div>
           </div>
 
@@ -1118,13 +1127,6 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
       {/* ── OPTIMAL VIEW (Fewest Injections) ─────────────────────── */}
       {optView !== null && (() => {
-        let optResult = null;
-        let optError = null;
-        try {
-          optResult = buildOptimalSchedule(optPatient, state.fcBrands ?? {}, { today, mode: optView });
-        } catch (e) {
-          optError = e.message;
-        }
         if (optError) return (
           <div className="fct-opt-error">
             {optError}
@@ -1174,19 +1176,63 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                 <div><div className="fct-opt-stat-num">{optResult.length}</div><div className="fct-opt-stat-label">visits</div></div>
                 <div><div className="fct-opt-stat-num">{totalInj}</div><div className="fct-opt-stat-label">injections</div></div>
                 {lastDate && <div><div className="fct-opt-stat-date">{lastDate}</div><div className="fct-opt-stat-label">series complete</div></div>}
-                <div className="fct-opt-stats-pdf-wrap">
-                  <PdfDownloadButton
-                    buildDoc={async () => {
-                      const { default: SchedulePDF } = await import('./SchedulePDF');
-                      return SchedulePDF({ patient: optPatient, mode: optView, visits: optResult });
-                    }}
-                    fileName={`pedivax-schedule-${optView}-${today}.pdf`}
-                    className="fct-opt-pdf-btn"
-                  >
-                    {({ loading }) => loading ? 'Preparing PDF…' : 'Download PDF'}
-                  </PdfDownloadButton>
-                </div>
               </div>
+              {/* "Download Schedule" for this optimized plan lives in the
+                  Today's Visit action row above (same slot/label Routine
+                  Schedule uses, though the underlying PDF is the optimizer's
+                  own plan) — not duplicated here, so there's only one
+                  full-schedule download button visible per view. */}
+              {/* buildOptimalSchedule only projects forward from today (every
+                  dose's earliest date is clamped to >= today — see the
+                  `cands = [{ date: today, ... }]` seed in doseEarliestDate),
+                  so optResult itself never contains a past visit to hide.
+                  Past history is shown via the SAME past-visit cards Routine
+                  Schedule uses (buildVisitCardItems + the shared showPast
+                  toggle) so both views hide/reveal the same catch-up doses
+                  the same way. */}
+              {pastCount > 0 && (
+                <div className="vcards-wrap fct-opt-past-wrap">
+                  <button className="past-toggle-btn vcards-past-toggle" onClick={() => setShowPast(v => !v)}>
+                    {showPast
+                      ? '▴ Hide past visits'
+                      : `▸ ${pastCount} past visit${pastCount !== 1 ? 's' : ''} — click to show`}
+                  </button>
+                  {showPast && visits.filter(v => v.m < am && !v.isScheduledEarly).map((visit, vi) => {
+                    const items = buildVisitCardItems(visit);
+                    if (items.length === 0) return null;
+                    const dateLabel = state.dob ? visitDateISO(state.dob, visit.m) : '';
+                    const injCount = countCardInjections(items);
+                    return (
+                      <VisitCardShell
+                        key={`opt-past-${visit.m}-${vi}`}
+                        label={visit.l}
+                        dateLabel={dateLabel}
+                        countLabel={`${injCount} injection${injCount !== 1 ? 's' : ''}`}
+                        isPast
+                        isCatchup={visit.isCatchup}
+                      >
+                        {items.map(item => (
+                          <DoseRow
+                            key={item.fcKey || item.vk}
+                            vk={VAX_META[item.vk]?.ab || item.vk}
+                            chipText={item.chipText}
+                            chipClassName={item.chipClass}
+                            onChipClick={item.onChipClick}
+                            right={openCell?.key === `card:${item.fcKey}` && item.hasPopover && (
+                              <CellPopover
+                                chipText={item.chipText}
+                                rec={item.rec}
+                                anchorRect={openCell.rect}
+                                onClose={() => setOpenCell(null)}
+                              />
+                            )}
+                          />
+                        ))}
+                      </VisitCardShell>
+                    );
+                  })}
+                </div>
+              )}
               {optResult.map((visit, i) => (
                 <OptVisitCard key={visit.date || visit.label || i} visit={visit} idx={i} openKey={whyOpenKey} setOpenKey={setWhyOpenKey} allFlatDoses={allFlat} dob={optDob} />
               ))}
@@ -1221,11 +1267,11 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           </button>
         )}
         {visits.map((visit, vi) => {
-          if (visit.m < am && !showPast && !visit.isScheduledEarly && !isOverdue(visit)) return null;
+          if (visit.m < am && !showPast && !visit.isScheduledEarly) return null;
           const isCurr = visit.m === am;
           const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
           // "N past visits — click to show" must reveal ALL past visits, not
-          // just the ones isAlwaysVisible() already shows (overdue/imminent/
+          // just the ones isAlwaysVisible() already shows (imminent/
           // next-routine). Without this, showPast flips true but this second
           // gate still hides most past rows unless "Show full forecast" is
           // ALSO on — the toggle looked broken/blank.

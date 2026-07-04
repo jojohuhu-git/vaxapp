@@ -82,14 +82,19 @@ const ROUTE = {
 };
 
 /**
+ * Today's-visit administration record — patient demographics grid, per-vaccine
+ * checkbox/lot#/route/initials table, and a provider signature block. Reused
+ * as the first page of both ForecastPDF and SchedulePDF (see those files) so
+ * a single "Download" button produces one combined document, rather than a
+ * separate standalone "Shot List PDF" download.
+ *
  * @param {object} props
  * @param {number} props.am - patient age in months
  * @param {string} [props.dob] - ISO date
  * @param {object[]} props.recs - genRecs output for current visit
  * @param {object} props.fcBrands - selected brands { "visitM_vk": brand }
- * @param {string[]} props.risks
  */
-export default function ShotListPDF({ am, dob, recs, fcBrands }) {
+export function ShotListPage({ am, dob, recs, fcBrands }) {
   const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const dobFmt = dob
     ? new Date(dob + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -98,7 +103,6 @@ export default function ShotListPDF({ am, dob, recs, fcBrands }) {
   const catchupNotes = recs.filter(r => r.status !== 'due' && r.note);
 
   return (
-    <Document title={`PediVax Shot List — ${today}`} author="PediVax">
       <Page size="LETTER" style={s.page}>
         <Text style={s.logo}>PediVax — Clinical Immunization Planner</Text>
         <Text style={s.h1}>{"Today's Immunization Record"}</Text>
@@ -246,6 +250,13 @@ export default function ShotListPDF({ am, dob, recs, fcBrands }) {
           PediVax · immunize.org / cdc.gov · {today}
         </Text>
       </Page>
+  );
+}
+
+export default function ShotListPDF(props) {
+  return (
+    <Document title="PediVax Shot List" author="PediVax">
+      <ShotListPage {...props} />
     </Document>
   );
 }

@@ -368,15 +368,20 @@ describe('ForecastTab — progressive disclosure', () => {
     expect(labels.some(l => l.startsWith('16 years')), '16y card must appear after expanding').toBe(true);
   });
 
-  it('overdue card is never hidden in default view (CRITICAL INVARIANT)', () => {
-    // 13-month-old who missed the 12-month visit. The 12m card should be
-    // overdue (past + dosePlan still has entries there) and always visible.
+  it('overdue vaccines from a missed visit are never hidden in default view (CRITICAL INVARIANT)', () => {
+    // 13-month-old who missed the 12-month visit. The overdue vaccines (e.g.
+    // MMR) must still be visible without expanding — but via the current
+    // ("Now") card, not a duplicate always-shown 12m card. The original past
+    // 12m slot is folded under "past visits" like any other past visit,
+    // since showing it separately would just repeat the same catch-up doses
+    // already listed on Now.
     const { container } = renderForecast({ am: 13 });
-    // Don't expand — test that the overdue card appears WITHOUT expanding.
+    // Don't expand — test that the overdue dose appears WITHOUT expanding.
     const labels = getCardLabels(container);
-    // The 12m card is past (m=12 < am=13). For an empty 13mo, dosePlan will
-    // project doses at m=12 (missed 12-month visit) → overdue → always visible.
-    expect(labels.some(l => l.startsWith('12 months')), '12m overdue card must be visible without expanding').toBe(true);
+    expect(labels.some(l => l.startsWith('12 months')), '12m card must be hidden by default (duplicates Now)').toBe(false);
+    const nowCard = getCardByLabel(container, 'Now');
+    expect(nowCard, 'current visit ("Now") card must render without expanding').toBeTruthy();
+    expect(getCardDoseRowByVk(nowCard, 'MMR'), 'MMR catch-up dose from the missed 12m visit must appear on the Now card').toBeTruthy();
   });
 });
 

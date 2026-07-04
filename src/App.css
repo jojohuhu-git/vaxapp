@@ -190,28 +190,43 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .fc-tbl tr.curr td.vlbl .vlbl-age{color:var(--g);}
 .fc-tbl tr.catchup td{background:#FFF6E8;}
 .fc-tbl tr.catchup td.vlbl{background:#FFF6E8;border-left:4px solid var(--a2);padding-left:4px;}
-.vlbl-catchup-tag{display:inline-block;font-size:10px;font-weight:700;background:var(--a2);color:#fff;padding:2px 8px;border-radius:var(--radp);letter-spacing:.4px;text-transform:uppercase;}
-.vlbl-early-tag{display:inline-block;font-size:10px;font-weight:700;background:#9B7EBD;color:#fff;padding:2px 8px;border-radius:var(--radp);letter-spacing:.4px;text-transform:uppercase;}
+.vlbl-catchup-tag{display:inline-block;font-size:10px;font-weight:700;background:var(--alt);color:var(--a);padding:2px 8px;border-radius:var(--radp);letter-spacing:.4px;text-transform:uppercase;}
+.vlbl-early-tag{display:inline-block;font-size:10px;font-weight:700;background:var(--plt);color:var(--p);padding:2px 8px;border-radius:var(--radp);letter-spacing:.4px;text-transform:uppercase;}
 .fc-tbl tr.scheduled-early td{background:#F6F1FB;}
 .fc-tbl tr.scheduled-early td.vlbl{background:#F6F1FB;border-left:4px solid #9B7EBD;padding-left:4px;}
-.fch-moved{background:#F6F1FB;color:#9B7EBD;border:1px solid #D6BCE3;font-style:italic;}
+.fch-moved{background:var(--plt);color:var(--p);border:1px solid var(--pmd);font-style:italic;}
 .fc-cell{display:flex;flex-direction:column;align-items:center;gap:3px;min-height:28px;}
 .fch{font-size:11px;padding:2px 7px;border-radius:var(--radp);font-weight:700;text-align:center;white-space:nowrap;line-height:1.45;}
+/* "Done" chips are recolored per-dose by compliance validity (ON_TIME/VALID/
+   VALID_EXTRA/INVALID) — see fch-done-* below, reusing the same bg/text
+   pairs as compliance.js's STATUS_COLOR / ComplianceAuditTab's STATUS_PILL_STYLE
+   so a given dose's color means the same thing on both tabs. fch-done alone
+   (no suffix) is the ON_TIME fallback for callers that haven't computed a
+   validity yet. */
 .fch-done{background:var(--glt);color:var(--g);text-decoration:none;}
 .fch-done-s{background:var(--glt);color:var(--g);}
-.fch-ok{background:#FFF6DF;color:#B85C00;border:1px solid #FFE08C;}
+.fch-done-on-time{background:var(--glt);color:var(--g);border:1px solid var(--gmd);}
+.fch-done-valid{background:var(--alt);color:var(--a);border:1px solid var(--amd);}
+.fch-done-extra{background:var(--gy6);color:var(--gy2);border:1px solid var(--gy5);}
+.fch-done-invalid{background:var(--rlt);color:var(--r);border:1px solid var(--rmd);}
+/* "Recommended" = shared clinical decision-making (e.g. COVID annual, MenB
+   16-23y, HPV shared-decision ages) — blue, matching today-badge-rec. */
+.fch-ok{background:var(--blt);color:var(--b);border:1px solid var(--bmd);}
 .fch-need{background:var(--glt);color:var(--g);border:1px solid var(--gmd);}
 .fch-cu{background:var(--alt);color:var(--a);border:1px solid var(--amd);}
 .fch-rb{background:var(--plt);color:var(--p);border:1px solid var(--pmd);}
 .fch-inv{background:var(--rlt);color:var(--r);border:1px solid var(--rmd);text-decoration:line-through;}
-.fch-exp{background:#F2F2F4;color:#9A9AA0;border:1px solid var(--gy5);text-decoration:line-through;font-style:italic;}
-.fch-notyet{background:#F2F2F4;color:#9A9AA0;border:1px solid var(--gy5);font-style:italic;}
-.fch-proj{background:#F3EEFB;color:#6E4BAE;border:1px solid #D6BCE3;font-weight:600;}
+.fch-exp{background:var(--gy6);color:var(--gy3);border:1px solid var(--gy5);text-decoration:line-through;font-style:italic;}
+.fch-notyet{background:var(--gy6);color:var(--gy3);border:1px solid var(--gy5);font-style:italic;}
+/* "Projected" (a future dose not yet due) is intentionally neutral/white —
+   it isn't an action item yet, so it shouldn't compete visually with the
+   colored due/catch-up/risk-based/recommended chips. */
+.fch-proj{background:var(--wh);color:var(--gy2);border:1px solid var(--gy4);font-weight:600;}
 .fch-na{color:var(--gy4);}
 /* Clickable chip with popover */
 .fch-info{cursor:pointer;}
 .fch-info:hover{filter:brightness(.95);}
-.fc-date{display:block;font-size:11px;color:#6E4BAE;font-weight:600;margin-top:2px;text-align:center;line-height:1.3;}
+.fc-date{display:block;font-size:11px;color:var(--gy2);font-weight:600;margin-top:2px;text-align:center;line-height:1.3;}
 .fc-brand{font-size:11px;color:var(--gy3);margin-top:2px;text-align:center;line-height:1.35;max-width:114px;}
 .fc-covers{font-size:11px;color:var(--b);margin-top:1px;font-weight:600;}
 .fc-earliest{display:block;font-size:11px;color:#888;margin-top:1px;text-align:center;line-height:1.3;font-style:italic;}
@@ -229,23 +244,37 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .today-panel{background:var(--wh);border-radius:var(--rad);border:1px solid var(--gy5);border-left:5px solid var(--g);margin-bottom:12px;box-shadow:var(--sh);overflow:hidden;}
 .today-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:var(--glt);border-bottom:1px solid var(--gy5);gap:10px;flex-wrap:wrap;}
 .today-hdr-left{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+/* Two-tier scale: title + date are both secondary metadata (same size),
+   age is the one hero number — previously 11/16/12px read as three
+   arbitrary sizes rather than a deliberate hierarchy. */
 .today-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--g);}
-.today-age{font-size:var(--fs-lg);font-weight:700;color:#222;}
-.today-visit-date{font-size:12px;color:var(--gy3);}
+.today-age{font-size:var(--fs-lg);font-weight:700;color:var(--gy);}
+.today-visit-date{font-size:11px;color:var(--gy3);}
 .today-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
 .today-recs{}
 .today-rec{padding:10px 18px;border-bottom:1px solid var(--gy6);transition:background .1s;}
 .today-rec:last-child{border-bottom:none;}
 .today-rec:hover{background:#FAFAF8;}
 .today-rec-main{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.today-badge{font-size:10px;padding:3px 10px;border-radius:var(--radp);font-weight:700;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0;}
+/* Everything in a today-rec row shares one font-size (11px) — badge,
+   vaccine name, dose text, and the brand <select> — so the row doesn't mix
+   arbitrary sizes. Hierarchy comes from font-weight (badge and name are
+   bold, dose text isn't), not size. The "Why" link stays its own smaller
+   size (11px already, incidentally) since it's a secondary action, not
+   part of the row's due-vaccine data.
+   Note: the badge can still look visually "bigger" than 11px plain text
+   even at the same font-size, because uppercase + letter-spacing + bold +
+   padding all stack on top of it — that's a deliberate pill treatment, not
+   a font-size mismatch. Trim padding/letter-spacing here if it should read
+   lighter. */
+.today-badge{font-size:11px;padding:3px 10px;border-radius:var(--radp);font-weight:700;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0;}
 .today-badge-due{background:var(--glt);color:var(--g);}
 .today-badge-cu{background:var(--alt);color:var(--a);}
 .today-badge-rb{background:var(--plt);color:var(--p);}
 .today-badge-rec{background:var(--blt);color:var(--b);}
-.today-vax{font-size:var(--fs-md);font-weight:700;}
-.today-dose{font-size:var(--fs-sm);color:var(--gy2);}
-.today-brand-sel{font-size:var(--fs-sm);padding:4px 8px;border:1px solid var(--gy5);border-radius:var(--rads);max-width:264px;color:var(--gy);background:var(--wh);}
+.today-vax{font-size:11px;font-weight:700;}
+.today-dose{font-size:11px;color:var(--gy2);}
+.today-brand-sel{font-size:11px;padding:4px 8px;border:1px solid var(--gy5);border-radius:var(--rads);max-width:264px;color:var(--gy);background:var(--wh);}
 .today-brand-sel:focus{border-color:var(--g3);outline:none;box-shadow:0 0 0 3px rgba(79,177,140,.16);}
 .today-covers{font-size:11px;color:var(--b);font-weight:600;}
 .today-why{background:none;border:none;font-size:11px;color:var(--b2);font-weight:600;cursor:pointer;padding:0 3px;font-family:inherit;text-decoration:underline dotted;}
@@ -260,7 +289,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .today-combo-strip{padding:10px 18px;background:#F0F8F3;border-bottom:1px solid var(--gmd);display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;}
 .today-combo-label{font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;margin-top:5px;flex-shrink:0;}
 .today-combo-btns{display:flex;gap:7px;flex-wrap:wrap;}
-.today-combo-btn{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:var(--radp);border:1.5px solid var(--g3);background:var(--wh);color:var(--g);font-size:var(--fs-sm);font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;}
+.today-combo-btn{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:var(--radp);border:1.5px solid var(--g3);background:var(--wh);color:var(--g);font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;}
 .today-combo-btn:hover{background:var(--glt);border-color:var(--g);}
 .today-combo-btn-active{background:var(--g);color:#fff;border-color:var(--g);}
 .today-combo-btn-active:hover{background:var(--g2);}
@@ -469,7 +498,11 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .vcard.curr{border-left:4px solid var(--g);}
 .vcard.past{background:#F5F4F0;}
 .vcard-head{background:var(--gy6);padding:5px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--gy5);}
-.vcard-label{font-size:11px;font-weight:700;color:var(--g);display:inline-flex;align-items:center;gap:7px;}
+/* Neutral, not green — a row already carries a colored status chip
+   (fch-*); the visit label and antigen name share one neutral color so
+   only the chip signals status, instead of three different colors
+   (label + name + chip) stacked in the same row. */
+.vcard-label{font-size:11px;font-weight:700;color:var(--gy);display:inline-flex;align-items:center;gap:7px;}
 .vcard-date{font-size:10px;color:var(--gy3);}
 .vcard-count{font-size:10px;color:var(--gy3);}
 .vcard-body{padding:6px 10px;}
@@ -480,6 +513,14 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .vcard-combo-row{display:flex;align-items:center;gap:4px;padding:3px 0 3px 6px;background:var(--alt);border-radius:var(--rads);margin-bottom:2px;}
 .vcard-combo-name{font-size:11px;font-weight:700;color:var(--a);}
 .vcard-combo-doses{font-size:10px;color:var(--gy3);}
+
+.pill-legend{margin-bottom:10px;border:1px solid var(--gy5);border-radius:var(--rads);background:var(--wh);overflow:hidden;}
+.pill-legend-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;padding:7px 11px;background:none;border:none;cursor:pointer;font-size:11.5px;color:var(--gy2);font-family:inherit;text-align:left;}
+.pill-legend-caret{font-size:10px;color:var(--gy4);}
+.pill-legend-content{border-top:1px solid var(--gy5);padding:9px 11px;display:flex;flex-direction:column;gap:8px;}
+.pill-legend-row{display:flex;align-items:center;gap:10px;font-size:11px;}
+.pill-legend-chip{flex-shrink:0;min-width:96px;text-align:center;}
+.pill-legend-def{color:var(--gy2);}
 .fct-opt-error{padding:12px;background:var(--rlt);border:1px solid var(--rmd);border-radius:var(--rads);font-size:12px;color:var(--r);}
 .fct-opt-blocked{background:var(--alt);border:1px solid var(--amd);border-radius:var(--rads);padding:12px;font-size:12px;}
 .fct-opt-blocked-title{color:var(--a);}
@@ -496,8 +537,6 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .fct-opt-stat-num{font-size:18px;font-weight:700;color:var(--g);}
 .fct-opt-stat-date{font-size:14px;font-weight:700;color:var(--g);}
 .fct-opt-stat-label{font-size:10px;color:var(--gy3);}
-.fct-opt-stats-pdf-wrap{margin-left:auto;}
-.fct-opt-pdf-btn{padding:5px 12px;background:var(--g);color:#fff;font-size:11px;font-weight:600;border:none;text-decoration:none;border-radius:var(--rads);display:inline-block;}
 .fct-opt-footnote{margin-top:8px;font-size:10px;color:var(--gy4);font-style:italic;}
 
 /* VIEW TOGGLE + LEGEND + TABLE CONTROLS */
@@ -507,8 +546,6 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .fct-view-btn-label{font-size:12px;font-weight:700;color:var(--gy2);}
 .fct-view-btn-label.on{color:var(--g);}
 .fct-view-btn-sub{font-size:10px;color:var(--gy3);margin-top:1px;font-weight:400;}
-.fct-print-btn{font-size:11px;padding:4px 10px;background:var(--wh);color:var(--gy2);border:1px solid var(--gy5);border-radius:2px;cursor:pointer;white-space:nowrap;}
-.fct-shotlist-btn{font-size:11px;padding:4px 10px;background:#1a3a6b;color:#fff;border-radius:2px;cursor:pointer;white-space:nowrap;border:none;text-decoration:none;display:inline-block;}
 .fct-reset-btn{font-size:11px;padding:4px 10px;background:#fff;color:#8b1a1a;border:1px solid #d4b0b0;border-radius:2px;cursor:pointer;white-space:nowrap;}
 .fct-download-btn{font-size:11px;padding:4px 10px;background:#2e7d32;color:#fff;border-radius:2px;cursor:pointer;white-space:nowrap;border:none;text-decoration:none;display:inline-block;}
 .fct-hidden-toggle-wrap{margin-bottom:6px;}
@@ -519,7 +556,8 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .fct-legend-exp{color:var(--gy4);font-weight:600;text-decoration:line-through;}
 .fct-legend-notyet{color:var(--gy4);font-weight:600;font-style:italic;}
 .fct-legend-proj{color:#5b3a9e;font-weight:600;}
-.fct-brand-sel-sm{font-size:10px;max-width:130px;padding:1px 3px;border:1px solid #ddd;border-radius:1px;}
+/* Matches vcard-dose-vk/.fch's 11px — same row, same size. */
+.fct-brand-sel-sm{font-size:11px;max-width:130px;padding:1px 3px;border:1px solid #ddd;border-radius:1px;}
 .fct-show-full-btn-wrap{text-align:center;margin-top:6px;}
 .fct-show-full-btn{background:none;border:none;cursor:pointer;font-size:11px;color:#888;padding:4px 8px;text-decoration:underline;text-decoration-style:dotted;}
 
