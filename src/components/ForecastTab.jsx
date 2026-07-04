@@ -124,14 +124,14 @@ function CellPopover({ chipText, rec, anchorRect, onClose }) {
               <a href={rec.refUrl} target="_blank" rel="noreferrer"
                 onClick={e => e.stopPropagation()}
                 className="fct-popover-ref-link">
-                🔗 {rec.refLabel || 'Reference'}
+                {rec.refLabel || 'Reference'} ↗
               </a>
             )}
             {rec.refUrl2 && (
               <a href={rec.refUrl2} target="_blank" rel="noreferrer"
                 onClick={e => e.stopPropagation()}
                 className="fct-popover-ref-link">
-                🔗 {rec.refLabel2 || 'Reference'}
+                {rec.refLabel2 || 'Reference'} ↗
               </a>
             )}
           </div>
@@ -163,8 +163,38 @@ function visitDateLabel(dob, visitM) {
   return new Date(iso + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+// ISO ("YYYY-MM-DD") visit-card header date — same underlying date as
+// visitDateLabel above, but the card header shows the raw ISO date (matches
+// the Fewest Injections card header format) rather than a human-readable one.
+function visitDateISO(dob, visitM) {
+  if (!dob) return "";
+  return addD(dob, Math.round(visitM * 30.4375)) || "";
+}
+
+// True if `brandStr` (a resolved dropdown display value, e.g. "Vaxelis
+// (covers DTaP + IPV + Hib + HepB)") names a combination vaccine. Used to
+// count physical injections rather than antigen rows on a visit card — a
+// combo brand covering N antigens is still only 1 injection.
+function isComboBrandLabel(brandStr) {
+  if (!brandStr) return false;
+  return !!COMBO_RATIONALE[brandStr.split(' (')[0].trim()];
+}
+
+// Injection count for a Routine Schedule card: groups dose rows that share
+// the same selected combo brand into a single injection (a Vaxelis-covered
+// visit shows 4 antigen rows but is still 1 shot); every other row counts
+// as its own injection.
+function countCardInjections(items) {
+  const groups = new Set();
+  items.forEach(item => {
+    const brand = item.displayBrand || '';
+    groups.add(isComboBrandLabel(brand) ? brand.split(' (')[0].trim() : (item.fcKey || item.vk));
+  });
+  return groups.size;
+}
+
 function fmtDateShort(iso) {
-  if (!iso) return "";
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
   return new Date(iso + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
@@ -315,7 +345,7 @@ function explainOptConstraint(dose, allFlatDoses) {
   }
   if (raw.includes('.d1Cross[')) {
     const d1 = findPrevOptDose(vk, 2, allFlatDoses) || allFlatDoses.find(d => d.vk === vk && d.doseNum === 1);
-    return { summary: `${hd} after Dose 1`, detail: `${vk} D${doseNum} must be at least ${hd} after Dose 1${d1?.date ? ` (planned ${d1.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
+    return { summary: `${hd} after Dose 1`, detail: `${vk} D${doseNum} must be at least ${hd} after Dose 1${d1?.date ? ` (planned ${fmtDateShort(d1.date) || d1.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
   }
   const prevVaxMatch = raw.match(/\.prevVax\[(\w+)\]=(\d+)d/);
   if (prevVaxMatch) {
@@ -327,15 +357,15 @@ function explainOptConstraint(dose, allFlatDoses) {
   }
   if (raw.includes('.iCond[')) {
     const prev = findPrevOptDose(vk, doseNum, allFlatDoses);
-    return { summary: `${hd} after previous dose (age-adjusted)`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}. Interval is age-adjusted.${liveVaxLine}`, refUrl, refLabel };
+    return { summary: `${hd} after previous dose (age-adjusted)`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${fmtDateShort(prev.date) || prev.date})` : ''}. Interval is age-adjusted.${liveVaxLine}`, refUrl, refLabel };
   }
   if (raw.includes('.iByTotalDoses[')) {
     const prev = findPrevOptDose(vk, doseNum, allFlatDoses);
-    return { summary: `${hd} after previous dose (catch-up path)`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
+    return { summary: `${hd} after previous dose (catch-up path)`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${fmtDateShort(prev.date) || prev.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
   }
   if (raw.includes('.i[')) {
     const prev = findPrevOptDose(vk, doseNum, allFlatDoses);
-    return { summary: `${hd} after previous dose`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${prev.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
+    return { summary: `${hd} after previous dose`, detail: `${vk} D${doseNum} must wait ${hd} after the previous dose${prev?.date ? ` (planned ${fmtDateShort(prev.date) || prev.date})` : ''}.${liveVaxLine}`, refUrl, refLabel };
   }
   return { summary: 'Schedule constraint', detail: raw, refUrl, refLabel };
 }
@@ -443,10 +473,19 @@ function OptDoseRow({ dose, doseKey, openKey, setOpenKey, allFlatDoses }) {
   );
 }
 
-function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses }) {
+function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses, dob }) {
+  // Age label matches the Routine Schedule card list's format (age first,
+  // ISO date + injection count on the right) rather than "Visit N" — the two
+  // views should read the same way even though they come from independent
+  // computations (buildOptimalSchedule vs. buildVisitCardItems).
+  const ageM = dob && visit.date
+    ? (new Date(visit.date + 'T12:00:00') - new Date(dob + 'T12:00:00')) / 86400000 / 30.4375
+    : null;
+  const label = ageM != null ? fmtAm(ageM) : `Visit ${idx + 1}`;
   return (
     <VisitCardShell
-      label={`Visit ${idx + 1} — ${visit.date}`}
+      label={label}
+      dateLabel={visit.date}
       countLabel={`${visit.items.length} injection${visit.items.length !== 1 ? 's' : ''}`}
     >
       {visit.items.map((d, i) => (
@@ -1053,16 +1092,16 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                       {isExpanded && (
                         <div className="today-rationale">
                           {rec.note && <p className="today-note">{rec.note}</p>}
-                          {rec.brandTip && <p className="today-brandtip">💊 {rec.brandTip}</p>}
+                          {rec.brandTip && <p className="today-brandtip">{rec.brandTip}</p>}
                           <div className="today-refs">
                             {rec.refUrl && (
                               <a href={rec.refUrl} target="_blank" rel="noreferrer" className="today-ref-link">
-                                🔗 {rec.refLabel}
+                                {rec.refLabel} ↗
                               </a>
                             )}
                             {rec.refUrl2 && (
                               <a href={rec.refUrl2} target="_blank" rel="noreferrer" className="today-ref-link">
-                                🔗 {rec.refLabel2}
+                                {rec.refLabel2} ↗
                               </a>
                             )}
                           </div>
@@ -1126,6 +1165,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           const totalInj = optResult.reduce((s, v) => s + v.items.length, 0);
           const lastDate = optResult.at(-1)?.date;
           const allFlat = optResult.flatMap(v => v.items.map(d => ({ ...d, date: v.date })));
+          // Mirrors buildOptimalSchedule's own dob fallback (src/logic/buildOptimalSchedule.js)
+          // so card age labels use the same effective dob the engine computed doses against.
+          const optDob = optPatient.dob ?? addD(today, -Math.round(am * 30.4375));
           return (
             <div>
               <div className="fct-opt-stats">
@@ -1146,10 +1188,14 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                 </div>
               </div>
               {optResult.map((visit, i) => (
-                <OptVisitCard key={visit.date || visit.label || i} visit={visit} idx={i} openKey={whyOpenKey} setOpenKey={setWhyOpenKey} allFlatDoses={allFlat} />
+                <OptVisitCard key={visit.date || visit.label || i} visit={visit} idx={i} openKey={whyOpenKey} setOpenKey={setWhyOpenKey} allFlatDoses={allFlat} dob={optDob} />
               ))}
               <div className="fct-opt-footnote">
                 Each dose lands on its earliest legal date. Click Why? to see the spacing or age rule.
+                {recs.some(r => r.vk === 'RSV') && (
+                  <> RSV-mAb (nirsevimab) is seasonal passive immunization, not a vaccine series — it is
+                  excluded from this optimization; administer per Today&apos;s Visit above.</>
+                )}
               </div>
             </div>
           );
@@ -1195,14 +1241,19 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               ? `v-cu-${visit.m}-${vi}`
               : `v-rt-${visit.m}`;
           const dateLabel = visit.isScheduledEarly
-            ? fmtDateShort(scheduledEarliest.get(visit.earlyFcKey)?.date ?? '')
-            : (state.dob ? visitDateLabel(state.dob, visit.m) : '');
+            ? (scheduledEarliest.get(visit.earlyFcKey)?.date ?? '')
+            : isCurr
+              ? today
+              : (state.dob ? visitDateISO(state.dob, visit.m) : '');
+          const injCount = countCardInjections(items);
+          const countLabel = `${injCount} injection${injCount !== 1 ? 's' : ''}`;
 
           return (
             <VisitCardShell
               key={cardKey}
               label={visit.l}
               dateLabel={dateLabel}
+              countLabel={countLabel}
               isCurr={isCurr}
               isPast={isPast}
               isCatchup={visit.isCatchup}
