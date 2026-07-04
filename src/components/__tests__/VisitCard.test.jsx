@@ -90,6 +90,26 @@ describe('DoseRow', () => {
     fireEvent.click(getByText('Why?'));
     expect(clicked).toBe(true);
   });
+
+  it('applies a custom chip class name when provided', () => {
+    const { container } = render(<DoseRow vk="DTaP" chipText="D1/5" chipClassName="fch fch-cu" />);
+    expect(container.querySelector('.fch.fch-cu')).toBeTruthy();
+    expect(container.querySelector('.vcard-dose-chip')).toBeNull();
+  });
+
+  it('renders a date label when provided', () => {
+    const { getByText } = render(<DoseRow vk="DTaP" chipText="D1/5" dateLabel="~Aug 2026" />);
+    expect(getByText('~Aug 2026')).toBeTruthy();
+  });
+
+  it('fires onChipClick when the chip is clicked', () => {
+    let clicked = false;
+    const { getByText } = render(
+      <DoseRow vk="DTaP" chipText="D1/5" onChipClick={() => { clicked = true; }} />,
+    );
+    fireEvent.click(getByText('D1/5'));
+    expect(clicked).toBe(true);
+  });
 });
 
 describe('ComboDoseRow', () => {

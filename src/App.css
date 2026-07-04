@@ -469,7 +469,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .vcard.curr{border-left:4px solid var(--g);}
 .vcard.past{background:#F5F4F0;}
 .vcard-head{background:var(--gy6);padding:5px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--gy5);}
-.vcard-label{font-size:11px;font-weight:700;color:var(--g);}
+.vcard-label{font-size:11px;font-weight:700;color:var(--g);display:inline-flex;align-items:center;gap:7px;}
 .vcard-date{font-size:10px;color:var(--gy3);}
 .vcard-count{font-size:10px;color:var(--gy3);}
 .vcard-body{padding:6px 10px;}
@@ -547,26 +547,21 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
   .htbl-wrap{overflow-x:auto;}
 }
 
-/* FORECAST — mobile card view (replaces the 18-column matrix under 700px,
-   which can only show ~1 column on a phone). Same underlying data as the
-   table, condensed to done/due/projected states; brand editing and the
-   moved-dose workflow remain matrix (desktop) only. */
-.fcm-cards{display:none;}
-.fcm-past-toggle{width:100%;text-align:left;margin-bottom:8px;}
-.fcm-card{border:1px solid var(--gy5);border-radius:var(--rads);margin-bottom:8px;overflow:hidden;background:var(--wh);}
-.fcm-card.curr{border-left:4px solid var(--g);}
-.fcm-card.past{background:#F5F4F0;}
-.fcm-card-head{display:flex;justify-content:space-between;align-items:baseline;padding:8px 12px;background:var(--gy6);border-bottom:1px solid var(--gy5);gap:8px;flex-wrap:wrap;}
-.fcm-card-label{font-size:13px;font-weight:700;color:var(--gy);}
-.fcm-card-date{font-size:11px;color:var(--gy3);}
-.fcm-card-items{padding:8px 12px;display:flex;flex-direction:column;gap:8px;}
-.fcm-item{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.fcm-item-vk{font-size:13px;font-weight:700;min-width:64px;}
-.fcm-item-sub{font-size:11px;color:var(--gy3);}
-@media(max-width:700px){
-  .fc-wrap{display:none;}
-  .fcm-cards{display:block;}
-}
+/* FORECAST — primary visit-card list (roadmap item #6). Same underlying
+   data as the (now collapsed) matrix, rendered responsively at every
+   viewport width — no separate mobile-only rendering path. */
+.vcards-wrap{margin-top:6px;}
+.vcards-past-toggle{width:100%;text-align:left;margin-bottom:8px;}
+.vcards-wrap .vcard-dose-row{flex-wrap:wrap;}
+.vcards-wrap .vcard-body{display:flex;flex-direction:column;gap:8px;padding:8px 12px;}
+
+/* FORECAST — collapsed "Full antigen grid" (the 18-column matrix), for the
+   column-per-antigen audit view. Content is unchanged from the prior
+   always-visible table; only the collapse wrapper is new. */
+.fct-full-grid{margin-top:10px;}
+.fct-full-grid-summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--gy2);padding:6px 0;}
+.fct-full-grid-summary:hover{color:var(--g);}
+.fct-full-grid[open] .fct-full-grid-summary{margin-bottom:4px;}
 
 /* TOUCH TARGETS — dose pills, "Why" links, and clickable forecast chips
    default to desktop-dense sizing (11px font, 2-4px padding), well under the
