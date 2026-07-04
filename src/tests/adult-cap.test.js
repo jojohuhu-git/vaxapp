@@ -79,14 +79,35 @@ test('buildOptimalSchedule: immunocomp → no RV in schedule', () => {
   expect(allVks(result)).not.toContain('RV');
 });
 
-test('buildOptimalSchedule: HIV + CD4<200 → no MMR in schedule', () => {
-  const result = buildOptimalSchedule({ am: 12, hist: {}, risks: ['hiv'], cd4: 150 }, {});
+// CD4 semantics mirror genRecs: for <14y (am<168) the value is a CD4 PERCENT
+// (suppressed <15%); for ≥14y it is a CD4 COUNT (suppressed <200).
+
+test('buildOptimalSchedule: HIV child + CD4% <15 → no MMR in schedule', () => {
+  const result = buildOptimalSchedule({ am: 12, hist: {}, risks: ['hiv'], cd4: 10 }, {});
   expect(allVks(result)).not.toContain('MMR');
 });
 
-test('buildOptimalSchedule: HIV + CD4<200 → no VAR in schedule', () => {
-  const result = buildOptimalSchedule({ am: 12, hist: {}, risks: ['hiv'], cd4: 150 }, {});
+test('buildOptimalSchedule: HIV child + CD4% <15 → no VAR in schedule', () => {
+  const result = buildOptimalSchedule({ am: 12, hist: {}, risks: ['hiv'], cd4: 10 }, {});
   expect(allVks(result)).not.toContain('VAR');
+});
+
+test('buildOptimalSchedule: HIV adolescent + CD4 count <200 → no MMR in schedule', () => {
+  const result = buildOptimalSchedule({ am: 180, hist: {}, risks: ['hiv'], cd4: 150 }, {});
+  expect(allVks(result)).not.toContain('MMR');
+});
+
+// Regression: a HIV child with a HEALTHY CD4% (e.g. 30%) is NOT suppressed —
+// MMR/VAR must appear, matching genRecs. Previously the optimizer treated any
+// cd4<200 as suppressed and silently dropped these live vaccines (five-surface leak).
+test('buildOptimalSchedule: HIV child + healthy CD4% (30) → MMR & VAR scheduled', () => {
+  const result = buildOptimalSchedule({ am: 24, hist: {}, risks: ['hiv'], cd4: 30 }, {});
+  expect(allVks(result)).toContain('MMR');
+  expect(allVks(result)).toContain('VAR');
+  // Consistency with the Recommendations tab surface:
+  const recs = genRecs(24, {}, ['hiv'], '2024-07-04', { cd4: 30 });
+  expect(recs.some(r => r.vk === 'MMR')).toBe(true);
+  expect(recs.some(r => r.vk === 'VAR')).toBe(true);
 });
 
 test('buildOptimalSchedule: HIV with cd4=null (unknown) → no MMR (conservative)', () => {

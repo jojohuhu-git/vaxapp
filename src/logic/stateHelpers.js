@@ -44,6 +44,23 @@ export const highRiskMenB = (risks) => risks.some(r => ["asplenia", "sickle_cell
 export const isHighRiskMenACWY = (risks) =>
   risks.some(r => ["asplenia", "sickle_cell", "complement", "hiv"].includes(r));
 
+/**
+ * True if a given MenACWY dose was administered at or after the 16th birthday
+ * (192 months). Per ACIP/immunize.org, such a dose is terminal — no adolescent
+ * booster is required. Doses whose age cannot be determined (no date+dob, no
+ * ageDays) return false so undated histories conservatively still get a booster.
+ * Single source of truth shared by genRecs, buildOptimalSchedule, and dosePlan.
+ */
+export function menACWYGivenAtOrAfter16y(hist, dob) {
+  const given = (hist?.MenACWY || []).filter(d => d.given);
+  return given.some(d => {
+    let ageM = null;
+    if (d.ageDays != null) ageM = Number(d.ageDays) / 30.4375;
+    else if (d.date && isD(dob)) ageM = (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
+    return ageM != null && ageM >= 192;
+  });
+}
+
 /** Grace period constant (days). */
 export const GRACE = 4;
 
@@ -53,18 +70,24 @@ export const GRACE = 4;
  *
  * @param {"MMR"|"VAR"|"RV"} vk - vaccine key
  * @param {string[]} risks - risk factor IDs
- * @param {number|null} cd4 - CD4 count (null = unknown)
+ * @param {number|null} cd4 - CD4% (<14y) or CD4 count (≥14y) for HIV patients (null = unknown)
+ * @param {number} [am] - age in months; selects the CD4 threshold. Omit to use the
+ *   conservative count threshold (any CD4 <200 = suppressed).
  * @returns {boolean}
  */
-export function isLiveVaccineContraindicated(vk, risks, cd4) {
+export function isLiveVaccineContraindicated(vk, risks, cd4, am = null) {
   const isImmunocomp = risks.includes('immunocomp');
   const isHIV = risks.includes('hiv');
   const isPregnant = risks.includes('pregnancy');
 
-  // HIV suppression threshold: CD4% <14% for <14y, CD4 count <200 for ≥14y.
-  // buildOptimalSchedule does not have patient age at the time this helper is called,
-  // so we conservatively treat any CD4 <200 as suppressed (covers both thresholds).
-  const hivSuppressed = isHIV && cd4 != null && cd4 < 200;
+  // HIV suppression threshold: for <14y (am < 168) the entered value is CD4% and
+  // the threshold is <15%; for ≥14y it is a CD4 count with threshold <200. This
+  // mirrors genRecs exactly so the optimal schedule (this helper) and the
+  // Recommendations tab agree — a HIV child with a healthy CD4% (e.g. 30%) must
+  // NOT be treated as suppressed just because 30 < 200. When am is unknown, fall
+  // back to the conservative count threshold.
+  const hivSuppressed = isHIV && cd4 != null
+    && (am != null && am < 168 ? cd4 < 15 : cd4 < 200);
 
   if (vk === 'MMR' || vk === 'VAR') {
     // Contraindicated: severe immunodeficiency, HIV-suppressed, or pregnancy.

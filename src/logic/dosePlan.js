@@ -5,7 +5,7 @@ import { MIN_INT } from '../data/scheduleRules.js';
 import { FORECAST_VISITS } from '../data/forecastData.js';
 import { addD } from './utils.js';
 import { genRecs } from './recommendations.js';
-import { highRisk, highRiskMenB } from './stateHelpers.js';
+import { highRisk, highRiskMenB, menACWYGivenAtOrAfter16y } from './stateHelpers.js';
 import { pcvHighRiskChildPlan, isHighRiskPCV, isPCV7 } from './pcvDoses.js';
 
 /**
@@ -421,6 +421,11 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
       const givenMenACWY = (hist?.MenACWY || []).filter(d => d.given).length;
       // First dose given at ≥16y (am≥192, no prior doses): no booster needed per ACIP
       if (am >= 192 && givenMenACWY === 0) return 1;
+      // A recorded dose already administered at ≥16y is terminal — series complete,
+      // project no further doses. Returning the given count makes the projection
+      // loop short-circuit (startDose >= totalDoses). Undated doses are not treated
+      // as ≥16y, so they conservatively keep the 2-dose booster projection.
+      if (givenMenACWY >= 1 && menACWYGivenAtOrAfter16y(hist, dob)) return givenMenACWY;
       return 2;
     }
     case "Flu": {

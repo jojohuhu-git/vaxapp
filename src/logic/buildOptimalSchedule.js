@@ -4,7 +4,7 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
-import { isLiveVaccineContraindicated } from './stateHelpers.js';
+import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
@@ -48,7 +48,7 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
     case 'RSV': return null;
 
     case 'RV': {
-      if (isLiveVaccineContraindicated('RV', risks, cd4)) return null;
+      if (isLiveVaccineContraindicated('RV', risks, cd4, am)) return null;
       const age = diff(dob, today);
       if (age >= 243 || (age > 105 && dc(hist, 'RV') === 0)) return null;
       // ACIP: 3 doses if any RotaTeq OR any brand unknown; 2 only if ALL confirmed Rotarix.
@@ -150,12 +150,15 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
     case 'IPV':
       return { totalDoses: am >= 216 ? 3 : 4 };
 
-    // First-ever flu in <9y (108m) requires 2 doses; otherwise annual single dose
+    // Children <9y (108m) who have not yet received ≥2 lifetime flu doses need 2
+    // doses ≥4 weeks apart; otherwise a single annual dose. Mirrors genRecs'
+    // `flu < 2` rule so a child with exactly 1 prior lifetime dose still gets the
+    // 2nd dose scheduled (was `=== 0`, which dropped it).
     case 'Flu':
-      return { totalDoses: dc(hist, 'Flu') === 0 && am < 108 ? 2 : 1 };
+      return { totalDoses: dc(hist, 'Flu') < 2 && am < 108 ? 2 : 1 };
 
-    case 'MMR':  return !isLiveVaccineContraindicated('MMR', risks, cd4) ? { totalDoses: 2 } : null;
-    case 'VAR':  return !isLiveVaccineContraindicated('VAR', risks, cd4) ? { totalDoses: 2 } : null;
+    case 'MMR':  return !isLiveVaccineContraindicated('MMR', risks, cd4, am) ? { totalDoses: 2 } : null;
+    case 'VAR':  return !isLiveVaccineContraindicated('VAR', risks, cd4, am) ? { totalDoses: 2 } : null;
     case 'HepA': return { totalDoses: 2 };
 
     // 2-dose if first dose given before age 15y (5475d) and not immunocompromised; else 3-dose
@@ -175,6 +178,9 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       if (am > 264 && givenMen === 0) return null;
       // Non-risk, >18y with a prior dose: series is complete — no booster needed without date info.
       if (am > 216 && givenMen >= 1) return null;
+      // A prior dose administered at ≥16y is terminal — no booster (ACIP). Applies
+      // to the 16–18y window; undated doses fall through to the conservative 2-dose path.
+      if (givenMen >= 1 && menACWYGivenAtOrAfter16y(hist, dob)) return null;
       // Non-risk, ≥16y starting fresh: 1 dose is the complete series (no booster required).
       if (am >= 192 && givenMen === 0) return { totalDoses: 1 };
       return { totalDoses: 2 };
