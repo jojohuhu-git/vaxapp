@@ -113,35 +113,6 @@ export function renderForecast(seed = {}) {
 }
 
 // ── Query helpers ──────────────────────────────────────────────
-// Visit table is structured: each <tr> has a .vlbl-age label cell, then one
-// .vcell per vaccine column. Headers (.vcol) carry the vk abbreviation. These
-// helpers find cells by label + vk so tests don't depend on column order.
-
-export function getRowByLabel(container, labelStartsWith) {
-  const rows = Array.from(container.querySelectorAll('tr'));
-  return rows.find(r => {
-    const lbl = r.querySelector('.vlbl-age');
-    return lbl && lbl.textContent.trim().startsWith(labelStartsWith);
-  }) || null;
-}
-
-export function getColumnIndex(container, vk) {
-  const headers = Array.from(container.querySelectorAll('th.vcol'));
-  return headers.findIndex(h => h.textContent.trim() === vk);
-}
-
-export function getCellByVk(container, rowLabelStartsWith, vk) {
-  const row = getRowByLabel(container, rowLabelStartsWith);
-  if (!row) return null;
-  const idx = getColumnIndex(container, vk);
-  if (idx < 0) return null;
-  // +1 because the first <td> is the label column
-  return row.querySelectorAll('td')[idx + 1] || null;
-}
-
-export function getRowLabels(container) {
-  return Array.from(container.querySelectorAll('.vlbl-age')).map(el => el.textContent.trim());
-}
 
 /**
  * Click "Show full forecast →" to expand all future rows.
@@ -173,4 +144,8 @@ export function getCardDoseRowByVk(card, vk) {
     const label = r.querySelector('.vcard-dose-vk');
     return label && label.textContent.trim() === vk;
   }) || null;
+}
+
+export function getCardLabels(container) {
+  return Array.from(container.querySelectorAll('.vcard-label')).map(el => el.textContent.trim());
 }

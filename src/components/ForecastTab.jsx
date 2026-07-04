@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { FORECAST_VISITS } from '../data/forecastData';
 import { VAX_META, COMBO_COVERS, VAX_KEYS } from '../data/vaccineData';
-import { MIN_INT } from '../data/scheduleRules';
 import { genRecs } from '../logic/recommendations';
 import { orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly } from '../logic/forecastLogic';
 import { dc } from '../logic/stateHelpers';
@@ -43,19 +42,6 @@ const COMBO_RATIONALE = {
   Penmenvy:  'Covers MenACWY + MenB-4C (GSK) in one injection. Both antigens must be due at the same visit. MenB component is 4C — interchangeable with Bexsero, NOT Trumenba or Penbraya.',
   Twinrix:   'Covers HepA + HepB in one injection. Adults ≥18y only. 3-dose series (0, 1, 6 months).',
 };
-
-// Human-readable minimum-age label for a vaccine. Reads MIN_INT[vk].minD (days).
-// Used to label columns that the patient is too young for (vs truly expired).
-function minAgeLabelForVk(vk) {
-  const minD = MIN_INT[vk]?.minD;
-  if (minD == null || minD <= 30) return null; // no meaningful "not yet" threshold
-  const minM = minD / 30.4375;
-  if (minM < 12) return `≥${Math.round(minM)} months`;
-  const years = minM / 12;
-  // Whole-year thresholds (2y, 7y, 9y, 10y) display cleanly without decimals.
-  if (Math.abs(years - Math.round(years)) < 0.1) return `≥${Math.round(years)} years`;
-  return `≥${years.toFixed(1)} years`;
-}
 
 // Short display label for a brand option. Keeps the option's `value` as the
 // full label (so fcBrands storage / downstream parsing is unchanged), but the
@@ -469,8 +455,6 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
   // Forecast view mode: null = routine schedule table, 'fewestVisits' | 'fewestInjections' = optimal views
   const [optView, setOptView] = useState(null);
   const [whyOpenKey, setWhyOpenKey] = useState(null);
-  // Expired column visibility
-  const [showExpired, setShowExpired] = useState(false);
 
   // Build current-age rec map to detect which vaccines are still actionable
   const currentRecMap = {};
@@ -607,40 +591,13 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
   FORECAST_VISITS.forEach(v => v.std.forEach(vk => vkSet.add(vk)));
   const allVks = VAX_KEYS.filter(vk => vkSet.has(vk));
 
-  // Partition non-active vks into two buckets:
-  //   - notYetEligibleVks: patient hasn't reached the vaccine's minimum age yet
-  //     (e.g. 5m patient + PPSV23 minD=730 [2y], Tdap minD=2555 [7y], COVID minD=182 [6m]).
-  //   - expiredVks: window has closed for this patient (e.g. RV at 5m with 0 doses —
-  //     D1 max age is 14w6d) and no doses have been given.
-  // Both are pushed to the end and hidden by default, but the legend labels them
-  // separately so clinicians don't think a vaccine is "expired" when the patient
-  // is simply too young.
-  //
-  // IMPORTANT: a vaccine with past valid history is NEVER inactive — clinicians
-  // need to see completed and partial series in past rows. For example, a patient
-  // with a complete 3-dose HepB series has no future dosePlan entries and no
-  // current rec, but the HepB column must remain visible so past dose rows appear.
-  const inactiveVks = allVks.filter(vk => {
-    if (currentRecMap[vk]) return false; // still due today
-    // Keep visible if the patient has any countable past doses for this vaccine.
-    const hasPastValidDoses = (validHist[vk] || []).some(d => d.given);
-    if (hasPastValidDoses) return false;
-    return !Object.keys(dosePlan).some(k => {
-      if (!k.endsWith(`_${vk}`)) return false;
-      const prefix = k.slice(0, -(vk.length + 1));
-      const age = prefix.startsWith('cu') ? parseFloat(prefix.slice(2)) : parseFloat(prefix);
-      return age > am;
-    });
-  });
-  const notYetEligibleVks = inactiveVks.filter(vk => {
-    const minD = MIN_INT[vk]?.minD;
-    if (minD == null || minD <= 30) return false;
-    return am < minD / 30.4375;
-  });
-  const expiredVks = inactiveVks.filter(vk => !notYetEligibleVks.includes(vk));
-  const hiddenVks = [...expiredVks, ...notYetEligibleVks];
-  const activeVks = allVks.filter(vk => !hiddenVks.includes(vk));
-  const displayVks = showExpired ? allVks : activeVks;
+  // The matrix view (retired 2026-07-03, see ForecastMatrixView.jsx) used to
+  // partition non-actionable vks into "expired"/"not yet eligible" buckets to
+  // hide their placeholder columns by default. The card list has no
+  // equivalent placeholder — buildVisitCardItems already omits any vk with
+  // nothing actionable (no current rec, no projected dose, no given
+  // history) — so every vk with real content to show is already active here.
+  const displayVks = allVks;
 
   // Precompute PDF rows from the already-computed visits + dosePlan.
   const pdfRows = computePDFRows({
@@ -649,19 +606,12 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
   });
 
   // ── Visit card items (roadmap item #6) ─────────────────────────
-  // Builds one row per due vaccine at a visit for the VisitCard list that is
-  // now the *default* Immunization Schedule layout (the 18-column matrix
-  // survives, collapsed, as "Full antigen grid" for the column-audit use
-  // case). Same underlying facts as the matrix (genRecs / dosePlan /
-  // getTotalDoses / fmtProjection / orderedBrandsForVisit), computed
-  // independently rather than extracted from the matrix's per-cell render
-  // loop — that loop is deeply closed over dispatch/setState handlers
-  // across 6+ branches, and a faithful pure-function extraction was judged
-  // too high-risk for this pass. Known gap carried forward from the prior
-  // read-only mobile-card version this replaces: a dose moved via "earliest"
-  // shows correctly as a projected dose at its new (possibly synthetic)
-  // visit, but its original slot doesn't yet show the matrix's "→ moved,
-  // revert to slot" indicator — it's simply omitted there instead.
+  // Builds one row per due vaccine at a visit for the VisitCard list, the
+  // sole Immunization Schedule layout as of 2026-07-03 (the 18-column
+  // matrix view was removed from the render tree at the owner's request;
+  // its code is preserved, unused, in ForecastMatrixView.jsx). Uses the
+  // same underlying facts the matrix used (genRecs / dosePlan /
+  // getTotalDoses / fmtProjection / orderedBrandsForVisit).
   function buildVisitCardItems(visit) {
     const items = [];
     const isCurr = visit.m === am;
@@ -770,11 +720,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         || getTotalDoses(vk, rec || { doseNum: given + 1, dose: "" }, state.fcBrands, am, validHist, state.risks);
       const fmtDose = (n) => isAnnual ? "Annual" : (!totalForVk || totalForVk <= 1) ? `Dose ${n}` : `Dose ${n} of ${totalForVk}`;
       const hasPopover = !!(rec?.note || rec?.refUrl);
-      // Namespaced "card:" prefix so this popover's open/closed state can't
-      // collide with the matrix's identical fcKey — the matrix is now always
-      // mounted (collapsed via <details>, not display:none), so its portal
-      // popover would otherwise also satisfy openCell.key === fcKey and
-      // double-render alongside the card's.
+      // "card:" prefix kept even though the matrix view (which shared this
+      // fcKey) is no longer mounted — harmless, and matches the key scheme
+      // still used by ForecastMatrixView.jsx if that's ever re-enabled.
       const cardCellKey = `card:${fcKey}`;
       const onChipClick = hasPopover ? (e) => {
         const r = e.currentTarget.getBoundingClientRect();
@@ -1172,10 +1120,15 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         return null;
       })()}
 
-      {/* ── TABLE LEGEND + TABLE (only in Routine view) ─────────── */}
+      {/* ── PRIMARY: visit card list (roadmap item #6) ───────── */}
       {optView === null && (
       <>
-      {/* ── PRIMARY: visit card list (roadmap item #6) ───────── */}
+      {/* No "hidden vaccines" toggle here: unlike the retired matrix view,
+          buildVisitCardItems already omits any vk with nothing actionable
+          (no current rec, no projected dose, no given history) regardless
+          of displayVks — so a reveal toggle would have nothing to reveal.
+          See ForecastMatrixView.jsx (dormant) if that placeholder-chip
+          behavior is ever wanted back. */}
       <div className="vcards-wrap">
         {pastCount > 0 && (
           <button className="past-toggle-btn vcards-past-toggle" onClick={() => setShowPast(v => !v)}>
@@ -1289,546 +1242,6 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         </button>
       </div>
 
-      {/* ── Full antigen grid: collapsed matrix, column-audit view ── */}
-      <details className="fct-full-grid">
-        <summary className="fct-full-grid-summary">Full antigen grid ▸</summary>
-      {/* Hidden-column chip — above the table */}
-      {hiddenVks.length > 0 && (
-        <div className="fct-hidden-toggle-wrap">
-          <button
-            onClick={() => setShowExpired(v => !v)}
-            className="fct-hidden-toggle-btn"
-          >
-            {showExpired ? (
-              `▴ Hide ${hiddenVks.length} hidden vaccine${hiddenVks.length !== 1 ? 's' : ''}`
-            ) : (
-              <>
-                ▸{' '}
-                {expiredVks.length > 0 && (
-                  <>{expiredVks.length} past window ({expiredVks.map(vk => VAX_META[vk]?.ab || vk).join(', ')})</>
-                )}
-                {expiredVks.length > 0 && notYetEligibleVks.length > 0 && ' · '}
-                {notYetEligibleVks.length > 0 && (
-                  <>{notYetEligibleVks.length} not yet eligible ({notYetEligibleVks.map(vk => `${VAX_META[vk]?.ab || vk} ${minAgeLabelForVk(vk)}`).join(', ')})</>
-                )}
-              </>
-            )}
-          </button>
-        </div>
-      )}
-      <div className="fct-legend">
-        <span className="fct-legend-done">■</span> done&ensp;
-        <span className="fct-legend-cu">■</span> catch-up&ensp;
-        <span className="fct-legend-exp">■</span> past window&ensp;
-        <span className="fct-legend-notyet">■</span> not yet eligible&ensp;
-        <span className="fct-legend-proj">■</span> projected.&ensp;
-        Click a cell for clinical notes.
-      </div>
-      <div className="fc-wrap">
-        <table className="fc-tbl">
-          <thead>
-            <tr>
-              <th className="vlbl-th">Visit</th>
-              {displayVks.map(vk => {
-                const isExp = expiredVks.includes(vk);
-                const isNotYet = notYetEligibleVks.includes(vk);
-                return (
-                  <th
-                    key={vk}
-                    className="vcol"
-                    title={isNotYet ? `Patient not yet eligible (${minAgeLabelForVk(vk)})` : undefined}
-                    style={{
-                      color: (isExp || isNotYet) ? 'var(--gy4)' : 'var(--gy)',
-                      textDecoration: isExp ? 'line-through' : undefined,
-                      fontStyle: isNotYet ? 'italic' : undefined,
-                    }}
-                  >
-                    {VAX_META[vk]?.ab || vk}
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {pastCount > 0 && (
-              <tr className="past-toggle-row">
-                <td colSpan={displayVks.length + 1}>
-                  <button className="past-toggle-btn" onClick={() => setShowPast(v => !v)}>
-                    {showPast
-                      ? '▴ Hide past visits'
-                      : `▸ ${pastCount} past visit${pastCount !== 1 ? 's' : ''} — click to show`}
-                  </button>
-                </td>
-              </tr>
-            )}
-            {visits.map((visit, vi) => {
-              // Hide past rows when collapsed; always show scheduled-early rows
-              // and overdue rows (missed doses must never be hidden).
-              if (visit.m < am && !showPast && !visit.isScheduledEarly && !isOverdue(visit)) return null;
-              // Progressive disclosure: in default (collapsed) mode, hide rows
-              // that are not today, not overdue, not imminent, and not the
-              // next upcoming routine visit.
-              if (!showFull && !isAlwaysVisible(visit)) return null;
-
-              const isCurr = visit.m === am;
-              // Scheduled-early rows are user-generated future slots; never treat as past.
-              const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
-              const rowClass = isCurr ? "curr" : isPast ? "past" : "";
-
-              // Generate recs for this visit's age. Used as a fallback for
-              // dose numbers at the CURRENT and PAST visits (where the engine
-              // hasn't projected ahead). For FUTURE visits we prefer the
-              // dose count the dosePlan projection emits — see below.
-              const visitRecs = genRecs(visit.m, validHist, state.risks, state.dob, { fcBrands: state.fcBrands });
-              const visitRecMap = {};
-              visitRecs.forEach(r => { visitRecMap[r.vk] = r; });
-
-              // dueVksAtVisit + doseNumByVk feed the brand list's combo-validity
-              // checks. They MUST reflect the dose number that will actually be
-              // given at this visit, not what genRecs would say with the
-              // current (un-projected) history.
-              //
-              // Concrete example: at the 4y row for an empty 2yo, the dosePlan
-              // projects DTaP D5 + IPV D4 (after the engine "fills in" D1–D4
-              // catch-up doses). genRecs(54, {}, []) by contrast emits "DTaP D1
-              // catch-up" — so previously the brand list saw DTaP=1 and filtered
-              // out Kinrix/Quadracel (DTaP+IPV combos for D5+D4 at 4–6y). Combo
-              // brands at projected future visits were systematically missing.
-              // Fix: prefer the dosePlan-stored doseNum; fall back to
-              // visitRecMap only when no projection exists (current/past visits).
-              const planFcKey = (v) => visit.isCatchup
-                ? (visit.catchupDoseKeys?.[v] ?? `${visit.m}_${v}`)
-                : `${visit.m}_${v}`;
-              const dueVksAtVisit = visit.std.filter(vk =>
-                !!dosePlan[planFcKey(vk)] || !!visitRecMap[vk]
-              );
-              const doseNumByVk = {};
-              for (const v of dueVksAtVisit) {
-                const projDose = dosePlan[planFcKey(v)];
-                if (projDose?.doseNum != null) {
-                  doseNumByVk[v] = projDose.doseNum;
-                } else if (visitRecMap[v]?.doseNum != null) {
-                  doseNumByVk[v] = visitRecMap[v].doseNum;
-                }
-              }
-
-              const rowKey = visit.isScheduledEarly
-                ? `early-${visit.m}-${visit.vk || vi}`
-                : visit.isCatchup
-                  ? `cu-${visit.m}-${vi}`
-                  : `rt-${visit.m}`;
-              return (
-                <tr key={rowKey} className={rowClass + (visit.isCatchup ? ' catchup' : '') + (visit.isScheduledEarly ? ' scheduled-early' : '')}>
-                  <td className="vlbl">
-                    <div className="vlbl-age">
-                      {visit.l}
-                      {visit.isCatchup && <span className="vlbl-catchup-tag">catch-up</span>}
-                      {visit.isScheduledEarly && <span className="vlbl-early-tag">earliest</span>}
-                    </div>
-                    {state.dob && (
-                      <div className="vlbl-date">
-                        {visit.isScheduledEarly
-                          ? fmtDateShort(scheduledEarliest.get(visit.earlyFcKey)?.date ?? '')
-                          : visitDateLabel(state.dob, visit.m)}
-                      </div>
-                    )}
-                  </td>
-                  {displayVks.map(vk => {
-                    // CASE 1: Scheduled-early row — render the moved dose here.
-                    if (visit.isScheduledEarly && vk === visit.earlyVk) {
-                      const origProj = dosePlan[visit.earlyFcKey];
-                      const info = scheduledEarliest.get(visit.earlyFcKey);
-                      if (!origProj || !info) return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
-                      const scheduledDate = info.date && state.dob ? fmtDateShort(info.date) : `~${fmtAm(info.ageM)}`;
-                      const isAnnual = vk === "Flu" || vk === "COVID";
-                      const dChip = isAnnual ? "Annual" : origProj.totalDoses > 1 ? `Dose ${origProj.doseNum} of ${origProj.totalDoses}` : `Dose ${origProj.doseNum}`;
-                      // Brand picker for the moved dose. Standalone scheduled-early
-                      // rows have only one vk on them by definition (the row was
-                      // created because no nearby existing visit could host the
-                      // moved dose). So dueVks/doseNumByVk for combo validity reduce
-                      // to this single antigen — combos won't appear here (they
-                      // need at least one OTHER co-due antigen). Clinicians who
-                      // want a combo brand can still pick it from CASE 3 at the
-                      // original visit row, where the multi-vaccine context lives.
-                      // visitM is info.ageM (the moved-to age) so age-windowed
-                      // combos are correctly excluded.
-                      const dueVksAtMoved1 = [vk];
-                      const doseNumByVkMoved1 = { [vk]: origProj.doseNum };
-                      const bOpts1 = orderedBrandsForVisit(
-                        vk, origProj.doseNum, info.ageM,
-                        dueVksAtMoved1, undefined, "", doseNumByVkMoved1,
-                      );
-                      const disp1 = resolveDropdownBrand(state.fcBrands[visit.earlyFcKey] || "", bOpts1);
-                      return (
-                        <td key={vk} className="vcell">
-                          <div className="fc-cell">
-                            <span className="fch fch-proj">{dChip}</span>
-                            <span className="fc-date fc-date-early">✓ {scheduledDate}</span>
-                            {bOpts1.length > 0 && (
-                              <BrandSelect
-                                bOpts={bOpts1}
-                                value={disp1}
-                                onChange={e => dispatch({
-                                  type: "FC_BRAND_CHANGE",
-                                  payload: { visitM: info.visitM, vk, brandName: e.target.value, fcKey: visit.earlyFcKey },
-                                })}
-                                className="fct-brand-sel-sm"
-                              />
-                            )}
-                          </div>
-                        </td>
-                      );
-                    }
-                    // CASE 2: Scheduled-early row — all other vaccines show "—".
-                    if (visit.isScheduledEarly) {
-                      return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
-                    }
-
-                    const isStd = visit.std.includes(vk);
-
-                    // CASE 2.5 (merged early): the user moved this vk's dose to the
-                    // earliest eligible date, and that date collided with this row.
-                    // Render the moved-dose indicator inline, BEFORE the catch-up
-                    // !isStd guard would otherwise hide it. The "revert to slot"
-                    // control still lives at the original visit row (CASE 3).
-                    if (visit._earlyDoses?.[vk]) {
-                      const { fcKey: origFcKey, info } = visit._earlyDoses[vk];
-                      const origProj = dosePlan[origFcKey];
-                      if (!origProj) {
-                        return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
-                      }
-                      const movedDate = info.date && state.dob
-                        ? fmtDateShort(info.date)
-                        : `~${fmtAm(info.ageM)}`;
-                      const isAnnualMv = vk === "Flu" || vk === "COVID";
-                      const dChipMv = isAnnualMv
-                        ? "Annual"
-                        : origProj.totalDoses > 1
-                          ? `Dose ${origProj.doseNum} of ${origProj.totalDoses}`
-                          : `Dose ${origProj.doseNum}`;
-                      return (
-                        <td key={vk} className="vcell">
-                          <div className="fc-cell">
-                            <span className="fch fch-proj">{dChipMv}</span>
-                            <span className="fc-date fc-date-early">✓ {movedDate}</span>
-                          </div>
-                        </td>
-                      );
-                    }
-
-                    // Catch-up rows only show vaccines that have actual catch-up doses at
-                    // this age. Without this guard, other vaccines' routine plan entries
-                    // at the same age leak into the catch-up row (e.g. HepB D3 at 15m
-                    // appearing in a VAR-only catch-up row that also happens to be at 15m).
-                    if (visit.isCatchup && !isStd) {
-                      return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
-                    }
-                    // Catch-up rows store dose keys by vk in catchupDoseKeys.
-                    // Routine rows use the standard ${visit.m}_${vk} key.
-                    const fcKey = visit.isCatchup
-                      ? (visit.catchupDoseKeys?.[vk] ?? `${visit.m}_${vk}`)
-                      : `${visit.m}_${vk}`;
-                    const proj = dosePlan[fcKey]; // projected dose from plan
-
-                    // CASE 3: Dose moved to earliest row — show indicator + brand dropdown + revert.
-                    if (scheduledEarliest.has(fcKey)) {
-                      const info = scheduledEarliest.get(fcKey);
-                      const movedDate = info.date && state.dob ? fmtDateShort(info.date) : `~${fmtAm(info.ageM)}`;
-                      const rec3 = visitRecMap[vk];
-                      const dn3 = rec3 ? rec3.doseNum : (dc(validHist, vk) + 1);
-                      // Brand validity must use the MOVED age (info.ageM), not
-                      // the original visit's age, so age-windowed combos like
-                      // Kinrix/Quadracel (≥4y) are correctly excluded when the
-                      // dose moves to <4y. Without this, a clinician could
-                      // pick a brand that isn't licensed at the actual date
-                      // the dose will be administered. CLINICAL SAFETY.
-                      const bOpts3 = orderedBrandsForVisit(vk, proj ? proj.doseNum : dn3, info.ageM, dueVksAtVisit, rec3?.brands, "", doseNumByVk);
-                      const disp3 = resolveDropdownBrand(state.fcBrands[fcKey] || "", bOpts3);
-                      return (
-                        <td key={vk} className="vcell">
-                          <div className="fc-cell">
-                            <span className="fch fch-moved">→ {movedDate}</span>
-                            {bOpts3.length > 0 && (
-                              <BrandSelect
-                                bOpts={bOpts3}
-                                value={disp3}
-                                onChange={e => dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey } })}
-                                className="fct-brand-sel-sm"
-                              />
-                            )}
-                            <button
-                              className="fc-unschedule-btn"
-                              onClick={() => setScheduledEarliest(prev => { const n = new Map(prev); n.delete(fcKey); return n; })}
-                            >
-                              revert to slot
-                            </button>
-                          </div>
-                        </td>
-                      );
-                    }
-
-                    // Skip cell only if vaccine isn't standard at this visit AND has no
-                    // projection AND no rec emitted for this visit age (risk-based recs
-                    // — e.g. MenB D1 for immunocompromised — may fire outside std lists).
-                    if (!isStd && !proj && !visitRecMap[vk]) {
-                      return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
-                    }
-                    // For future visits without a projection, only render the vaccine at
-                    // its earliest-eligible future visit — later visits show "—".
-                    if (!isPast && !isCurr && !proj && firstFutureVisitForVk[vk] != null && firstFutureVisitForVk[vk] !== visit.m) {
-                      return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
-                    }
-                    // For future visits without a projection, if this vaccine is already
-                    // being given at the current visit (currentRecMap[vk]), don't re-emit
-                    // D1 at a later visit — the dosePlan projection owns subsequent doses.
-                    // Example: MenB D1 risk-based at 11y must not also show D1 at 16y.
-                    if (!isPast && !isCurr && !proj && currentRecMap[vk]) {
-                      return <td key={vk} className="vcell"><div className="fc-cell"><span className="fch fch-na">&mdash;</span></div></td>;
-                    }
-
-                    const rec = visitRecMap[vk];
-                    // Count only countable doses — an off-label/invalid dose
-                    // that must be repeated (e.g. Kinrix IPV at 2m) should not
-                    // be shown as a completed series dose.
-                    const given = dc(validHist, vk);
-                    const doseNum = rec ? rec.doseNum : given + 1;
-
-                    // Detect whether any COUNTABLE dose was administered at
-                    // this visit's age (within ±0.75 month). Used to show a
-                    // "Dn done" chip at the visit where the dose was actually
-                    // administered — e.g. Quadracel at 2m counts as DTaP D1,
-                    // so the 2m cell should read "Dose 1 of 5 done" rather
-                    // than "Dose 2 of 5 due".
-                    const dosesAtOrBeforeVisit = (() => {
-                      let n = 0;
-                      for (const d of (validHist[vk] || [])) {
-                        if (!d.given) continue;
-                        let ageM = null;
-                        if (d.mode === "date" && d.date && state.dob) {
-                          ageM = (new Date(d.date + "T12:00:00") - new Date(state.dob + "T12:00:00")) / 86400000 / 30.4375;
-                        } else if (d.mode === "age" && d.ageDays != null) {
-                          ageM = Number(d.ageDays) / 30.4375;
-                        }
-                        if (ageM === null) continue;
-                        if (ageM < visit.m + 0.75) n++;
-                      }
-                      return n;
-                    })();
-                    const dosesGivenHere = (() => {
-                      let n = 0;
-                      for (const d of (validHist[vk] || [])) {
-                        if (!d.given) continue;
-                        let ageM = null;
-                        if (d.mode === "date" && d.date && state.dob) {
-                          ageM = (new Date(d.date + "T12:00:00") - new Date(state.dob + "T12:00:00")) / 86400000 / 30.4375;
-                        } else if (d.mode === "age" && d.ageDays != null) {
-                          ageM = Number(d.ageDays) / 30.4375;
-                        }
-                        if (ageM === null) continue;
-                        if (Math.abs(ageM - visit.m) < 0.75) n++;
-                      }
-                      return n;
-                    })();
-                    const selectedBrand = state.fcBrands[fcKey] || "";
-
-                    // Consistent "Dose N of Total" label. Total comes from the same
-                    // getTotalDoses the projection engine uses (brand/age-aware for
-                    // HPV, RV, Hib). Annual vaccines (Flu/COVID) collapse to "Annual".
-                    // Prefer the series total stamped on the projection (stable
-                    // across age-dependent dose counts, e.g. HPV 2-dose started
-                    // <15y should stay "of 2" even when D2 lands at 16y).
-                    const totalForVk = (proj && proj.totalDoses)
-                      || getTotalDoses(vk, rec || { doseNum, dose: "" }, state.fcBrands, am, validHist, state.risks);
-                    const isAnnual = vk === "Flu" || vk === "COVID";
-                    const fmtDose = (n) => {
-                      if (isAnnual) return "Annual";
-                      if (!totalForVk || totalForVk <= 1) return `Dose ${n}`;
-                      return `Dose ${n} of ${totalForVk}`;
-                    };
-                    // Status-qualified variant: "catch-up", "risk-based", etc.
-                    const qualifier = (status) =>
-                      status === "catchup" ? " (catch-up)"
-                        : status === "risk-based" ? " (risk-based)"
-                          : status === "recommended" ? " (shared clinical decision)"
-                            : "";
-
-                    // Earliest-eligible date — shown as a clickable button only when:
-                    // (a) the gap to the routine slot is ≥ 1 month, AND
-                    // (b) the earliest age is still in the future (> am).
-                    // Suppressed for past and current-visit cells.
-                    const earliestLabel = (proj && !isCurr && !isPast && (proj.earliestAge ?? proj.dueAge) > am)
-                      ? fmtEarliestDate(proj, state.dob)
-                      : "";
-
-                    // Determine cell status
-                    let chipClass = "fch fch-need";
-                    let chipText = fmtDose(doseNum);
-                    let dateLabel = "";
-
-                    // "Not yet eligible" — patient hasn't reached the vaccine's
-                    // minimum age. Distinct from "Expired" (window closed).
-                    const isNotYet = notYetEligibleVks.includes(vk);
-                    if (isPast && rec) {
-                      if (dosesGivenHere > 0) {
-                        // A countable dose was administered at this visit — show it as done
-                        chipClass = "fch fch-done";
-                        chipText = `${fmtDose(dosesAtOrBeforeVisit)} done`;
-                      } else if (currentRecMap[vk]) {
-                        chipClass = "fch fch-cu";
-                        chipText = `${fmtDose(doseNum)} (catch-up)`;
-                      } else if (given > 0) {
-                        chipClass = "fch fch-done";
-                        chipText = `${fmtDose(Math.min(doseNum, given))} done`;
-                      } else if (isNotYet) {
-                        chipClass = "fch fch-notyet";
-                        chipText = `Not yet (${minAgeLabelForVk(vk)})`;
-                      } else {
-                        chipClass = "fch fch-exp";
-                        chipText = `Expired`;
-                      }
-                    } else if (isPast && !rec) {
-                      if (given > 0) {
-                        chipClass = "fch fch-done";
-                        chipText = `${fmtDose(Math.min(doseNum, given))} done`;
-                      } else if (isNotYet) {
-                        chipClass = "fch fch-notyet";
-                        chipText = `Not yet (${minAgeLabelForVk(vk)})`;
-                      } else if (!currentRecMap[vk] && isStd) {
-                        chipClass = "fch fch-exp";
-                        chipText = "Expired";
-                      } else {
-                        chipClass = "fch fch-done-s";
-                        chipText = "—";
-                      }
-                    } else if (proj && !isCurr) {
-                      // Projected future dose from the plan
-                      chipClass = "fch fch-proj";
-                      chipText = fmtDose(proj.doseNum);
-                      dateLabel = fmtProjection(proj, state.dob);
-                    } else if (isCurr && rec) {
-                      // If a countable dose was administered at the current
-                      // visit's age, show that dose as DONE at this cell —
-                      // the rec's "next dose due" will be taken over by the
-                      // projection at the next eligible visit.
-                      if (dosesGivenHere > 0) {
-                        chipClass = "fch fch-done";
-                        chipText = `${fmtDose(dosesAtOrBeforeVisit)} done`;
-                      } else {
-                        chipClass = rec.status === "catchup" ? "fch fch-cu"
-                          : rec.status === "risk-based" ? "fch fch-rb"
-                            : rec.status === "recommended" ? "fch fch-ok"
-                              : "fch fch-need";
-                        chipText = `${fmtDose(rec.doseNum)}${qualifier(rec.status)}`;
-                      }
-                    } else if (!rec) {
-                      chipClass = given > 0 ? "fch fch-done-s" : "fch fch-na";
-                      chipText = given > 0 ? "Complete" : "—";
-                    } else {
-                      chipClass = rec.status === "catchup" ? "fch fch-cu"
-                        : rec.status === "risk-based" ? "fch fch-rb"
-                          : rec.status === "recommended" ? "fch fch-ok"
-                            : "fch fch-need";
-                      chipText = `${fmtDose(doseNum)}${qualifier(rec.status)}`;
-                    }
-
-                    // Earliest fcBrands selection at a prior visit for this vk
-                    // (constrains lock:true series like MenB/RV to same brand family).
-                    let earlierBrand = "";
-                    for (const ev of FORECAST_VISITS) {
-                      if (ev.m >= visit.m) break;
-                      const b = state.fcBrands[`${ev.m}_${vk}`];
-                      if (b) { earlierBrand = b; break; }
-                    }
-
-                    // Brand options for dropdown
-                    const brandOpts = orderedBrandsForVisit(vk, proj ? proj.doseNum : doseNum, visit.m, dueVksAtVisit, rec?.brands, earlierBrand, doseNumByVk);
-                    const displayBrand = resolveDropdownBrand(selectedBrand, brandOpts);
-
-                    // Show dropdown for current/future with a rec OR projected dose.
-                    // Suppress at the current visit when the dose was already
-                    // administered here (history already carries the brand).
-                    const showDropdown = !isPast && (rec || proj) && brandOpts.length > 0
-                      && !(isCurr && dosesGivenHere > 0);
-
-                    // Namespaced "matrix:" prefix — see the matching "card:"
-                    // prefix in buildVisitCardItems: the matrix is always
-                    // mounted now (collapsed via <details>), so without this
-                    // its popover state would collide with the card view's
-                    // identical fcKey and double-render a portal popover.
-                    const cellKey = `matrix:${fcKey}`;
-                    // Brand labels in the dropdown look like "Vaxelis (covers DTaP + IPV + Hib + HepB)";
-                    // strip the parenthetical to match COMBO_RATIONALE keys.
-                    const displayBrandKey = displayBrand ? displayBrand.split(' (')[0].trim() : '';
-                    const comboSelected = !!(displayBrandKey && COMBO_RATIONALE[displayBrandKey]);
-                    const hasPopover = !!(rec?.note || rec?.refUrl);
-                    return (
-                      <td key={vk} className="vcell">
-                        <div className="fc-cell">
-                          <span
-                            className={chipClass + (hasPopover ? ' fch-info' : '')}
-                            style={hasPopover ? { cursor: 'pointer' } : undefined}
-                            onClick={hasPopover ? (e) => {
-                              const r = e.currentTarget.getBoundingClientRect();
-                              setOpenCell(prev => prev?.key === cellKey ? null : { key: cellKey, rect: r });
-                            } : undefined}
-                          >
-                            {chipText}
-                          </span>
-                          {openCell?.key === cellKey && hasPopover && (
-                            <CellPopover
-                              chipText={chipText}
-                              rec={rec}
-                              anchorRect={openCell.rect}
-                              onClose={() => setOpenCell(null)}
-                            />
-                          )}
-                          {dateLabel && <span className="fc-date">{dateLabel}</span>}
-                          {earliestLabel && (
-                            <button
-                              className="fc-earliest-btn"
-                              title="Move this dose to its earliest eligible date"
-                              onClick={() => setScheduledEarliest(prev => {
-                                const n = new Map(prev);
-                                n.set(fcKey, { ageM: proj.earliestAge, date: proj.earliestDate, vk, visitM: visit.m });
-                                return n;
-                              })}
-                            >
-                              earliest: {earliestLabel}
-                            </button>
-                          )}
-                          {showDropdown && (
-                            <BrandSelect
-                              bOpts={brandOpts}
-                              value={displayBrand}
-                              onChange={e => dispatch({
-                                type: "FC_BRAND_CHANGE",
-                                payload: {
-                                  visitM: visit.m, vk, brandName: e.target.value, fcKey,
-                                  siblingFcKeys: visit.isCatchup ? visit.catchupDoseKeys : undefined,
-                                },
-                              })}
-                              className="fct-brand-sel-sm"
-                            />
-                          )}
-                          {comboSelected && (
-                            <ComboWhyButton
-                              comboName={displayBrandKey}
-                              doseKey={`combo:matrix:${fcKey}`}
-                              openKey={whyOpenKey}
-                              setOpenKey={setWhyOpenKey}
-                            />
-                          )}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      </details>
       </>
       )}
     </div>

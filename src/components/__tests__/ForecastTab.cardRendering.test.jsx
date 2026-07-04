@@ -1,16 +1,15 @@
 // @vitest-environment happy-dom
 //
-// Rendering tests for the visit-card list (roadmap item #6), the default
-// Immunization Schedule layout as of Phase B of the visit-card redesign.
-// These mirror ForecastTab.rendering.test.jsx's matrix scenarios, retargeted
-// at cards, since the two views are now built from independent status
-// computations (buildVisitCardItems vs. the matrix's per-cell render loop —
-// see the comment above buildVisitCardItems in ForecastTab.jsx for why they
-// weren't unified into one shared function this pass).
+// Rendering tests for the visit-card list (roadmap item #6), the sole
+// Immunization Schedule layout as of 2026-07-03 (the 18-column matrix view
+// was removed from the render tree that day; its code is preserved, unused,
+// in ForecastMatrixView.jsx). buildVisitCardItems (ForecastTab.jsx) computes
+// card status independently rather than sharing logic with the retired
+// matrix's per-cell render loop — see the comment above buildVisitCardItems
+// for why they weren't unified.
 //
 // What each test guards:
-//   - the default view is cards, not the matrix (matrix is collapsed behind
-//     a <details> "Full antigen grid" toggle)
+//   - the app renders cards, not a matrix table
 //   - a due vaccine renders as a dose row with a brand dropdown
 //   - the "earliest" affordance is present and moves the dose to a new card
 //   - brand cascade (Pediarix) persists in a sibling card's row after dispatch
@@ -27,13 +26,10 @@ import {
 } from '../../test-helpers/renderForecast';
 
 describe('ForecastTab — visit-card list is the default view', () => {
-  it('renders visit cards, and the matrix is collapsed behind "Full antigen grid"', () => {
+  it('renders visit cards (the matrix view was retired 2026-07-03)', () => {
     const { container } = renderForecast({ am: 24 });
     expect(container.querySelectorAll('.vcard').length).toBeGreaterThan(0);
-    const summary = Array.from(container.querySelectorAll('summary'))
-      .find(s => s.textContent.includes('Full antigen grid'));
-    expect(summary).toBeTruthy();
-    expect(summary.closest('details').open).toBe(false);
+    expect(container.querySelector('.fct-full-grid')).toBeNull();
   });
 
   it('a due vaccine at the current visit renders as a dose row with a brand dropdown', () => {
@@ -136,5 +132,52 @@ describe('ForecastTab — visit-card list is the default view', () => {
     expect(getCardByLabel(container, '2 months')).not.toBeNull();
     expect(getCardByLabel(container, '4 months')).not.toBeNull();
     expect(getCardByLabel(container, '6 months')).not.toBeNull();
+  });
+});
+
+// ── Regression guards for the 2 correctness bugs found/fixed in the PR #80
+// review (2026-07-03), before card view became the default Routine layout.
+// Neither had a test before this — both were "missing guard" bugs in
+// buildVisitCardItems, invisible to the happy-path assertions above.
+describe('ForecastTab — card view guards (PR #80 regression tests)', () => {
+  it('a dose already given at the current visit renders as done, with no live brand dropdown', () => {
+    // Without the dosesGivenHere gate, a dose recorded in history at today's
+    // visit age still rendered as an editable "due" row with a live
+    // dropdown — double-counting a dose the clinician already gave.
+    const { container } = renderForecast({
+      am: 6,
+      hist: {
+        IPV: [{ mode: 'age', ageDays: Math.round(6 * 30.4375), brand: 'IPOL', given: true }],
+      },
+    });
+    const card = getCardByLabel(container, '6 months');
+    expect(card).not.toBeNull();
+    const row = getCardDoseRowByVk(card, 'IPV');
+    expect(row, 'expected an IPV row at the 6-month card').not.toBeNull();
+    expect(row.textContent, 'dose given today must show as done').toMatch(/done/);
+    expect(row.querySelector('select'), 'a dose already given today must not expose a live brand dropdown').toBeNull();
+  });
+
+  it('a dose moved via "earliest" locks its original card slot instead of staying live/editable', () => {
+    // Without the scheduledEarliest guard, the original 4y IPV row stayed a
+    // fully live due card (its own dropdown AND its own second "earliest"
+    // button) even after the dose was moved elsewhere — schedulable twice.
+    const { container } = renderForecast({ am: 24 });
+    expandForecast(container);
+    const fourYrCard = getCardByLabel(container, '4 years');
+    const ipvRow = getCardDoseRowByVk(fourYrCard, 'IPV');
+    const earliestBtn = ipvRow.querySelector('.fc-earliest-btn');
+    expect(earliestBtn).not.toBeNull();
+    act(() => { fireEvent.click(earliestBtn); });
+
+    const fourYrCardAfter = getCardByLabel(container, '4 years');
+    const ipvRowAfter = getCardDoseRowByVk(fourYrCardAfter, 'IPV');
+    expect(ipvRowAfter, 'original IPV slot must still be present, in a locked state').not.toBeNull();
+    expect(ipvRowAfter.textContent, 'original slot must show the moved indicator').toMatch(/→/);
+    expect(ipvRowAfter.textContent, 'original slot must expose a revert control').toMatch(/revert to slot/);
+    expect(
+      ipvRowAfter.querySelector('.fc-earliest-btn'),
+      'a locked/moved slot must not offer a second "earliest" button',
+    ).toBeNull();
   });
 });
