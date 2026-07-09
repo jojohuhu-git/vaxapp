@@ -169,14 +169,36 @@ export const AAP_DOSE_BANDS = {
   ],
 };
 
+// ── High-risk MenACWY bands (immunize.org p2018 medical-risk schedule) ──────
+// Medical high-risk (asplenia/sickle cell, complement deficiency/inhibitor, HIV):
+// a 2-dose primary series that can START as early as 2 months (Menveo infant series)
+// or at ≥24 months (first dose ≥24 months → 2 doses ≥8 weeks apart), then boosters
+// every 3–5 years while at risk. Because the whole series is risk-driven, there is no
+// "too early / too late" calendar window the way the routine 11–12y / 16y schedule has —
+// the min age (2 months) and intervals are enforced by validateDose, not by a band.
+// A high-risk dose given at age 2 must NOT be graded against the routine "11–12 yr" band.
+// Source: https://www.immunize.org/wp-content/uploads/catg.d/p2018.pdf
+const MENACWY_HIGH_RISK = [
+  { dose: 1, recMin: 2, recMax: null, catchupMax: null, label: 'High-risk primary dose 1 (≥2 mo; or ≥24 mo, then 2 doses)' },
+  { dose: 2, recMin: 2, recMax: null, catchupMax: null, label: 'High-risk primary dose 2 (≥8 wk after dose 1)' },
+  { dose: 3, recMin: 2, recMax: null, catchupMax: null, label: 'High-risk booster (every 3–5 yr while at risk)' },
+];
+
 /**
  * Get the dose band for a specific vaccine + 1-based dose number.
  * Returns null if no band is defined for that dose.
  * @param {string} vk - vaccine key
  * @param {number} doseNum - 1-based dose number
+ * @param {{ highRisk?: boolean }} [opts] - when highRisk and vk is MenACWY, use the
+ *        high-risk (medical) schedule bands instead of the routine adolescent bands.
+ *        Doses beyond the primary series (3+) map to the booster band.
  * @returns {{ dose, recMin, recMax, catchupMax, label } | null}
  */
-export function getDoseBand(vk, doseNum) {
+export function getDoseBand(vk, doseNum, opts = {}) {
+  if (vk === 'MenACWY' && opts.highRisk) {
+    return MENACWY_HIGH_RISK.find(b => b.dose === doseNum)
+      || MENACWY_HIGH_RISK[MENACWY_HIGH_RISK.length - 1]; // dose 3+ → booster band
+  }
   const bands = AAP_DOSE_BANDS[vk];
   if (!bands) return null;
   return bands.find(b => b.dose === doseNum) || null;

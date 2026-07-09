@@ -19,7 +19,7 @@
  */
 
 import { validateDose } from './validation.js';
-import { doseAgeDays } from './stateHelpers.js';
+import { doseAgeDays, isHighRiskMenACWY } from './stateHelpers.js';
 import { getDoseBand } from '../data/aapDoseBands.js';
 import { fmtAgeClinical } from './ageFormat.js';
 import { REFS } from '../data/refs.js';
@@ -296,8 +296,18 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // from a Pentacel series violates the "D4 min age 4 years" rule — but it's valid
   // because it's an intermediate combo dose, not the standard D4 booster slot).
   // Only named scenarios (not generic_combo) bypass validateDose in this way.
-  // For Hib, use brand-aware standard total (PRP-OMP=3, PRP-T=4).
-  const standardTotal = vk === 'Hib' ? hibStandardTotal(hist) : STANDARD_SERIES_TOTAL[vk];
+  // High-risk (medical) MenACWY grades against the high-risk schedule, NOT the routine
+  // 11–12y/16y bands. This is order-independent: it keys off the CURRENT risk list, so
+  // adding sickle cell / asplenia AFTER the doses were entered re-grades correctly.
+  const menacwyHighRisk = vk === 'MenACWY' && isHighRiskMenACWY(risks || []);
+  const bandOpts = { highRisk: menacwyHighRisk };
+
+  // For Hib, use brand-aware standard total (PRP-OMP=3, PRP-T=4). For high-risk MenACWY
+  // the series is open-ended (2-dose primary + lifelong boosters), so there is no fixed
+  // "standard total" and later doses are boosters, not "extra" — skip the VALID_EXTRA path.
+  const standardTotal = menacwyHighRisk
+    ? null
+    : (vk === 'Hib' ? hibStandardTotal(hist) : STANDARD_SERIES_TOTAL[vk]);
   if (standardTotal != null && totalDoses != null && totalDoses > standardTotal) {
     const extraSet = extraDoseIndices(vk, totalDoses, standardTotal, hist);
     if (extraSet.has(doseIdx)) {
@@ -325,7 +335,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
     // Earlier doses in the extended series (D1, D2, ...) fall through to the normal
     // band lookup below, evaluated against their own dose-number band.
     if (doseIdx === totalDoses - 1) {
-      const bandForFinal = getDoseBand(vk, standardTotal);
+      const bandForFinal = getDoseBand(vk, standardTotal, bandOpts);
       if (!bandForFinal) {
         // No band defined for the final dose → treat as valid, run validateDose below
       } else {
@@ -391,7 +401,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   }
 
   // Look up the AAP recommended band for this dose (1-based)
-  const band = getDoseBand(vk, doseIdx + 1);
+  const band = getDoseBand(vk, doseIdx + 1, bandOpts);
   if (!band) {
     return {
       status: 'ON_TIME',

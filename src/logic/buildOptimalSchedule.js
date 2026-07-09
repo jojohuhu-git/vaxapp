@@ -3,7 +3,7 @@
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
-import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
+import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands } from './pcvDoses.js';
 import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 
@@ -144,6 +144,15 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
         (hist.PCV || []).some(x => x.given && x.brand?.startsWith('Prevnar 20')) ||
         Object.entries(fcBrands).some(([k, b]) => k.endsWith('_PCV') && b.startsWith('Prevnar 20'));
       if (pcv20) return null;
+      const ppsvCount = (hist.PPSV23 || []).filter(d => d.given).length;
+      // PCV received ONLY before age 72 months (before age 6) + PPSV23 already given →
+      // the pediatric high-risk series is complete; no recurring 2nd PPSV23. Matches
+      // genRecs + PneumoVax + CDC PneumoRecs (2026-07-09). Gated on am≥72 so a child still
+      // <6y is not prematurely marked complete.
+      const pb = pcvBands(hist, dob);
+      if (am >= 72 && pb.given >= 1 && pb.ge72 === 0 && ppsvCount >= 1) {
+        return { totalDoses: ppsvCount };
+      }
       return { totalDoses: risks.some(r => ['asplenia', 'sickle_cell', 'immunocomp', 'hiv'].includes(r)) ? 2 : 1 };
     }
 
