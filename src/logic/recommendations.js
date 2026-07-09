@@ -316,8 +316,15 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
           refUrl: REFS.PPSV23.cdcUrl, refLabel: REFS.PPSV23.cdcLabel,
           refUrl2: REFS.PPSV23.url, refLabel2: REFS.PPSV23.label });
     }
+    // "PCV received ONLY before age 72 months (before age 6) + PPSV23 received" → the
+    // pediatric high-risk PCV+PPSV23 series is COMPLETE; no adult/older-child PCV20 catch-up
+    // and no recurring 2nd PPSV23. Confirmed against CDC PneumoRecs VaxAdvisor (2026-07-09)
+    // and mirrors PneumoVax pcvRiskChild(). Gated on the patient being ≥6y (am≥72) so it does
+    // not suppress the legitimate future 2nd-PPSV23 step for a child still <6y.
+    const pcvCompleteOnlyBefore72 =
+      hrChildPlan && am >= 72 && hrChildPlan.given >= 1 && hrChildPlan.ge72 === 0 && ppsv23 >= 1;
     // After PPSV23 dose 1 (immunocompromising subset): Option A PCV20 ≥8w OR Option B 2nd PPSV23 ≥5y.
-    if (ppsv23 === 1 && risks.some(x => ["asplenia", "sickle_cell", "immunocomp", "hiv"].includes(x))) {
+    if (ppsv23 === 1 && !pcvCompleteOnlyBefore72 && risks.some(x => ["asplenia", "sickle_cell", "immunocomp", "hiv"].includes(x))) {
       if (!usedPCV20) {
         r("PCV", "PCV20 \u2014 Option A (immunocompromising, after PPSV23)", pcv + 1, "risk-based",
           "Immunocompromising high-risk patient who already received PPSV23: Option A \u2014 1 dose PCV20 \u22658 weeks after the most recent pneumococcal vaccine. Alternative to a 2nd PPSV23. Choose one.",

@@ -15,7 +15,7 @@ import { REFS } from '../data/refs.js';
 import { validatedHistory, validateDose } from '../logic/validation';
 import { classifyDose, RULES_REGISTRY } from '../logic/compliance';
 import { fmtAgeClinical, fmtIntervalClinical } from '../logic/ageFormat';
-import { doseAgeDays, doseDate } from '../logic/stateHelpers';
+import { doseAgeDays, doseDate, isHighRiskMenACWY } from '../logic/stateHelpers';
 import { getDoseBand } from '../data/aapDoseBands';
 import { fmtDateInput, addD, todayISO } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
@@ -66,7 +66,7 @@ function buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, total
 
   // Min age
   const ageDays = doseAgeDays(dose, dob);
-  const band = getDoseBand(vk, doseIdx + 1);
+  const band = getDoseBand(vk, doseIdx + 1, { highRisk: vk === 'MenACWY' && isHighRiskMenACWY(risks || []) });
   if (ageDays != null && band) {
     const ageMonths = ageDays / 30.4375;
     const inRange = ageMonths >= band.recMin - 0.5 && (band.recMax == null || ageMonths <= band.recMax + 0.5);
@@ -124,7 +124,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
   }, [onClose]);
 
   const ageDays = doseAgeDays(dose, dob);
-  const band = getDoseBand(vk, doseIdx + 1);
+  const band = getDoseBand(vk, doseIdx + 1, { highRisk: vk === 'MenACWY' && isHighRiskMenACWY(risks || []) });
   const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist, risks);
   const { status, label, extraScenario } = classification;
 
