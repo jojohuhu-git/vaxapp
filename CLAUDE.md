@@ -27,6 +27,7 @@ All public asset paths MUST use `import.meta.env.BASE_URL` (Vite sets `base: '/v
 
 | What | Where |
 |---|---|
+| Plain-English folder guide (owner is a non-coder) | [MAP.md](MAP.md) |
 | Architecture, file map, AppContext state | [docs/agent/architecture.md](docs/agent/architecture.md) |
 | Five-surface verification rule | [docs/agent/five-surface-verification.md](docs/agent/five-surface-verification.md) |
 | Brand/combo dose eligibility | [docs/agent/brand-combo-rules.md](docs/agent/brand-combo-rules.md) |
@@ -35,9 +36,15 @@ All public asset paths MUST use `import.meta.env.BASE_URL` (Vite sets `base: '/v
 | UI design tokens and constraints | [docs/agent/ui-design.md](docs/agent/ui-design.md) |
 | OCR import architecture | [docs/agent/ocr-import.md](docs/agent/ocr-import.md) |
 | Compliance audit tab | [docs/agent/compliance-audit.md](docs/agent/compliance-audit.md) |
+| How to update CDSI data (no coding) | [docs/agent/cdsi-update.md](docs/agent/cdsi-update.md) |
+| Manual smoke-test checklist (Optimal Schedule) | [docs/agent/smoke-test-optimal-schedule.md](docs/agent/smoke-test-optimal-schedule.md) |
+| Feature backlog (not yet built) | [docs/backlog.md](docs/backlog.md) |
 | Session history (2026-05 through 2026-06) | [docs/archive/agent-session-log.md](docs/archive/agent-session-log.md) |
 
 ## Non-Negotiable Rules
+
+### Root Directory Hygiene
+Only `CLAUDE.md`, `MAP.md`, and `README.md` live at the repo root. Never create new root-level `.md` files. Route everything per the Documentation Maintenance table below; session notes/handoffs/audits go to `docs/archive/`. Keep `MAP.md` current when folders change.
 
 ### Clinical Authority
 ACIP/CDC/AAP/immunize.org over FDA package inserts. FDA-labeled age ranges may be more restrictive than current ACIP guidance. Never revert to FDA labels without explicit instruction.
@@ -95,7 +102,10 @@ When adding new knowledge, route it here:
 | OCR import pipeline details | `docs/agent/ocr-import.md` |
 | Compliance audit architecture | `docs/agent/compliance-audit.md` |
 | Dated "bugs fixed" / "changes shipped" history | `docs/archive/agent-session-log.md` |
+| Handoffs, finished plans, one-off audit reports | `docs/archive/` |
+| Feature ideas deferred for later | `docs/backlog.md` |
 | One-off audit prompts (reusable) | `.claude/prompts/` |
+| Plain-English folder explanations for the owner | `MAP.md` |
 
 ### Long-Term Editing Rules for This File
 
