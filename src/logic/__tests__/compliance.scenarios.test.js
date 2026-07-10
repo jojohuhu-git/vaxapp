@@ -532,3 +532,28 @@ describe('DTaP standard series — no EXTRA', () => {
     expect(['VALID_EXTRA', 'VALID', 'ON_TIME', 'INVALID']).toContain(result.status);
   });
 });
+
+// ── PPSV23 audit flag — dose given without a qualifying risk factor on file ────
+describe('classifyDose — PPSV23 no-risk-factor audit flag', () => {
+  it('flags a PPSV23 dose given below 65 with no risk factors on file', () => {
+    const dob = '1986-07-09'; // age 40 on the dose date below
+    const hist = { PPSV23: [makeDose('2026-07-09')] };
+    const result = classifyDose('PPSV23', 0, hist.PPSV23[0], 1, dob, null, null, hist, []);
+    expect(result.auditFlag).toBeTruthy();
+    expect(result.auditFlag.key).toBe('ppsv23_no_risk_factor');
+  });
+
+  it('does not flag a PPSV23 dose given at 65+ (routine indication)', () => {
+    const dob = '1960-07-09'; // age 66 on the dose date below
+    const hist = { PPSV23: [makeDose('2026-07-09')] };
+    const result = classifyDose('PPSV23', 0, hist.PPSV23[0], 1, dob, null, null, hist, []);
+    expect(result.auditFlag).toBeNull();
+  });
+
+  it('does not flag a PPSV23 dose when a qualifying risk factor is on file', () => {
+    const dob = '2006-07-09'; // age 20 on the dose date below
+    const hist = { PPSV23: [makeDose('2026-07-09')] };
+    const result = classifyDose('PPSV23', 0, hist.PPSV23[0], 1, dob, null, null, hist, ['sickle_cell']);
+    expect(result.auditFlag).toBeNull();
+  });
+});

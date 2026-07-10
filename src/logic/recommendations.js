@@ -576,7 +576,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   } else if (isHighRiskMen && am >= 12 && am < 24 && men === 0) {
     // 12–23m high-risk, never vaccinated: start 2-dose primary series now (D5 fix: ≥12 weeks).
     r("MenACWY", "Dose 1 of 2 (infant high-risk, unvaccinated 12–23 months)", 1, "risk-based",
-      "High-risk children 12–23 months with no prior MenACWY: give 2-dose primary series ≥12 weeks apart (Menveo or MenQuadfi), then revaccinate every 3–5 years.",
+      "High-risk children 12–23 months with no prior MenACWY: give 2-dose primary series ≥12 weeks apart (Menveo or MenQuadfi), then revaccinate in 3 years (primary series completed before age 7).",
       ["Menveo 2-vial (MenACWY-CRM, ≥2 months)", "MenQuadfi (MenACWY-TT, ≥2 years)"],
       { minInt: 84, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (isHighRiskMen && am >= 12 && am < 24 && men > 0 && men < 4) {
@@ -592,8 +592,8 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     const totalLabel = on3DosePath ? "3" : "4";
     r("MenACWY", `Dose ${men + 1} of ${totalLabel} (infant high-risk, 12\u201323 months booster)`, men + 1, "risk-based",
       on3DosePath
-        ? "D6: Dose 2 was given at \u22657 months \u2014 series completes in 3 doses. This dose is due \u226512 weeks after dose 2 AND not before 12 months of age. Then revaccinate every 3\u20135 years."
-        : "Booster dose at 12\u201323 months for high-risk infants who completed the primary MenACWY series. Min 12 weeks after last primary dose. Then revaccinate every 3\u20135 years.",
+        ? "D6: Dose 2 was given at \u22657 months \u2014 series completes in 3 doses. This dose is due \u226512 weeks after dose 2 AND not before 12 months of age. Then revaccinate in 3 years (primary series completed before age 7)."
+        : "Booster dose at 12\u201323 months for high-risk infants who completed the primary MenACWY series. Min 12 weeks after last primary dose. Then revaccinate in 3 years (primary series completed before age 7).",
       ["Menveo 2-vial (MenACWY-CRM, \u22652 months)", "MenQuadfi (MenACWY-TT, \u22652 years)"],
       { minInt: 84, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 132 && am <= 144 && men === 0) {
@@ -604,8 +604,13 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     // High-risk D2 primary fires before the generic 16–18y booster branch so that
     // asplenia/complement/HIV patients completing their primary series are labeled
     // 'risk-based' rather than the routine 'due' booster.
+    // Dose 2 is being given now, so its age ≈ current age (am) — predict the
+    // first-booster interval from that (mirrors the 84-month threshold used later).
+    const d2RevaxNote = am < 84
+      ? "revaccinate in 3 years (dose 2 given before age 7)"
+      : "revaccinate in 5 years (dose 2 given at age 7 or older)";
     r("MenACWY", "Dose 2 of 2 (high-risk primary series, \u22658 weeks after dose 1)", 2, "risk-based",
-      "High-risk patients \u22652y (asplenia, HIV, complement deficiency): complete 2-dose primary series \u22658 weeks after dose 1. Then revaccinate every 3\u20135 years.",
+      `High-risk patients \u22652y (asplenia, HIV, complement deficiency): complete 2-dose primary series \u22658 weeks after dose 1. Then ${d2RevaxNote}.`,
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 192 && am <= 216 && men === 1 && !menAt16y) {
@@ -624,8 +629,13 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"], { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men === 0 && isHighRiskMen) {
     // High-risk patients \u226524m not caught by infant branches above \u2014 2-dose primary series.
+    // Dose 2 follows \u22658 weeks after dose 1 (today); predict the first-booster interval
+    // from the current age (mirrors the 84-month threshold used later).
+    const d1RevaxNote = am < 84
+      ? "revaccinate in 3 years (primary series completed before age 7)"
+      : "revaccinate in 5 years (primary series completed at age 7 or older)";
     r("MenACWY", "Risk-based \u2014 high-risk", 1, "risk-based",
-      "High-risk (asplenia, HIV, complement deficiency): 2-dose primary series 8 weeks apart; then boost every 3\u20135 years.",
+      `High-risk (asplenia, HIV, complement deficiency): 2-dose primary series 8 weeks apart; then ${d1RevaxNote}.`,
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"], { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men === 0 && risks.includes("military")) {
     // U.S. military recruits: 1 dose MenACWY per DoD/ACIP. No routine booster.

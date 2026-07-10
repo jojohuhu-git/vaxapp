@@ -57,6 +57,7 @@ export const VBR = { // vaccine brands — combo entries include (contents) for 
     "Prevnar 20 (PCV20) — preferred, covers 20 serotypes",
     "Vaxneuvance (PCV15) — if used, add PPSV23 ≥8 weeks later for high-risk",
     "Prevnar 13 (PCV13) — use only if PCV20/PCV15 unavailable or specific indication",
+    "Prevnar 7 (PCV7) — historical/discontinued; doses do not count toward the series",
   ], c:[]},
   PPSV23:  {s:["Pneumovax 23 (PPSV23) — high-risk ≥2y after PCV series; NOT for routine infant schedule"], c:[]},
   IPV:     {s:["IPOL (IPV only)"], c:["Kinrix (DTaP+IPV, 4–6y only)","Pediarix (DTaP+HepB+IPV)","Pentacel (DTaP+IPV+Hib)","Quadracel (DTaP+IPV, 4–6y only)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)"]},
