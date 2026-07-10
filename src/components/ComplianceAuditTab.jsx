@@ -126,7 +126,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
   const ageDays = doseAgeDays(dose, dob);
   const band = getDoseBand(vk, doseIdx + 1, { highRisk: vk === 'MenACWY' && isHighRiskMenACWY(risks || []) });
   const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist, risks);
-  const { status, label, extraScenario } = classification;
+  const { status, label, extraScenario, auditFlag } = classification;
 
   const { vr, rules } = buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks);
 
@@ -249,6 +249,34 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
             {status === 'INVALID' ? 'No' : 'Yes'}
           </span>
         </div>
+
+        {/* Audit flag — indication concern, independent of timing validity */}
+        {auditFlag && (
+          <div
+            data-testid="dose-audit-flag"
+            style={{
+              background: 'var(--alt)', border: '1px solid var(--amd)', borderRadius: 'var(--rads)',
+              padding: '8px 10px', fontSize: 11, color: 'var(--a)',
+              lineHeight: 1.5, marginBottom: 10,
+            }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: 3 }}>⚠ Flagged for review:</div>
+            {auditFlag.text}
+            {auditFlag.citation && (
+              <div style={{ marginTop: 6 }}>
+                <a
+                  href={auditFlag.citation.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ fontSize: 10, color: 'var(--b)', textDecoration: 'underline' }}
+                >
+                  {auditFlag.citation.label} ↗
+                </a>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Why explanation */}
         {whyText && (
@@ -398,7 +426,7 @@ function DoseCard({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses,
   const [anchorRect, setAnchorRect] = useState(null);
 
   const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist, risks);
-  const { status } = classification;
+  const { status, auditFlag } = classification;
 
   const pillStyle = STATUS_PILL_STYLE[status] || STATUS_PILL_STYLE.UNKNOWN;
   const pillLabel = STATUS_PILL_LABEL[status] || status;
@@ -466,6 +494,21 @@ function DoseCard({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses,
         }}>
           {pillLabel}
         </div>
+
+        {/* Audit flag indicator */}
+        {auditFlag && (
+          <div
+            data-testid={`dose-audit-flag-badge-${vk}-${doseIdx}`}
+            style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 6px',
+              background: 'var(--alt)', color: 'var(--a)',
+              border: '1px solid var(--amd)', borderRadius: 'var(--rads)',
+              textAlign: 'center',
+            }}
+          >
+            ⚠ REVIEW
+          </div>
+        )}
       </div>
 
       {anchorRect && (

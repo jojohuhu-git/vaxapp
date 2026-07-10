@@ -23,6 +23,23 @@ import { doseAgeDays, isHighRiskMenACWY } from './stateHelpers.js';
 import { getDoseBand } from '../data/aapDoseBands.js';
 import { fmtAgeClinical } from './ageFormat.js';
 import { REFS } from '../data/refs.js';
+import { PCV_HR_RISKS } from './pcvDoses.js';
+
+// PPSV23 is indicated for high-risk patients of any age, or routinely at 65+.
+// A dose given below 65 with no qualifying risk factor on file is not necessarily
+// wrong (records can be incomplete) but is worth flagging for review rather than
+// silently treated as evidence the patient is high-risk.
+const PPSV23_ROUTINE_AGE_MONTHS = 780; // 65 years
+function ppsv23AuditFlag(vk, ageMonths, risks) {
+  if (vk !== 'PPSV23') return null;
+  if (ageMonths >= PPSV23_ROUTINE_AGE_MONTHS) return null;
+  if ((risks || []).some((r) => PCV_HR_RISKS.includes(r))) return null;
+  return {
+    key: 'ppsv23_no_risk_factor',
+    text: 'PPSV23 is indicated for high-risk patients or adults 65+. No qualifying risk factor is currently on file for this patient — verify this dose was clinically indicated.',
+    citation: REFS.PPSV23,
+  };
+}
 
 // ── EXTRA scenario detection ──────────────────────────────────────────────────
 /**
@@ -274,6 +291,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
       label: 'Timing unknown — age at dose cannot be verified without a date of birth.',
       recommendedRange: null,
       extraScenario: null,
+      auditFlag: null,
     };
   }
 
@@ -285,6 +303,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
       label: 'Age at dose could not be computed.',
       recommendedRange: null,
       extraScenario: null,
+      auditFlag: null,
     };
   }
   const ageMonths = ageDays / 30.4375;
@@ -347,6 +366,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
             label: `On time — given at birth. Recommended at birth.`,
             recommendedRange: fRecommendedRange,
             extraScenario: null,
+            auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
           };
         }
         const fWithinMin = ageMonths >= fRecMin - 0.5;
@@ -361,6 +381,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
             label: firstIssue?.msg || 'Dose is invalid per ACIP schedule rules.',
             recommendedRange: null,
             extraScenario: null,
+            auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
           };
         }
 
@@ -370,6 +391,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
             label: `On time — given at ${ageLabel}. Recommended: ${bandForFinal.label}.`,
             recommendedRange: fRecommendedRange,
             extraScenario: null,
+            auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
           };
         }
         const fIsEarly = !fWithinMin;
@@ -381,6 +403,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
           label: `Valid — ${fReasonText}. Minimum age and interval requirements met.`,
           recommendedRange: fRecommendedRange,
           extraScenario: null,
+          auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
         };
       }
     }
@@ -397,6 +420,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
       label: firstIssue?.msg || 'Dose is invalid per ACIP schedule rules.',
       recommendedRange: null,
       extraScenario: null,
+      auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
     };
   }
 
@@ -408,6 +432,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
       label: `Valid — given at ${ageLabel}. No specific recommended window defined for this dose.`,
       recommendedRange: null,
       extraScenario: null,
+      auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
     };
   }
 
@@ -421,6 +446,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
       label: `On time — given at birth. Recommended at birth.`,
       recommendedRange,
       extraScenario: null,
+      auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
     };
   }
 
@@ -433,6 +459,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
       label: `On time — given at ${ageLabel}. Recommended: ${band.label}.`,
       recommendedRange,
       extraScenario: null,
+      auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
     };
   }
 
@@ -447,6 +474,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
     label: `Valid — ${reasonText}. Minimum age and interval requirements met.`,
     recommendedRange,
     extraScenario: null,
+    auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
   };
 }
 
