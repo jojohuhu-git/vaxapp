@@ -15,19 +15,15 @@ describe('MenACWY — routine schedule', () => {
     expectRec(run(p), 'MenACWY', { doseNum: 1, status: 'due' });
   });
 
-  it('16y (192mo), 1 dose → Booster (dose 2)', () => {
-    const p = makePatient({ ageMonths: 192, dosesGiven: { MenACWY: 1 } });
+  it('16y (192mo), 1 dose (given at 11y, routine) → Booster (dose 2)', () => {
+    const p = makePatient({ ageMonths: 192, dosesGiven: { MenACWY: 1 }, doseAgeMonths: { MenACWY: 132 } });
     expectRec(run(p), 'MenACWY', { doseNum: 2, status: 'due' });
   });
 
-  it('16y (192mo), 1 dose given AT age 16 → no booster needed (handled outside genRecs)', () => {
-    // Age-at-first-dose ≥16y means no booster. genRecs doesn't have access
-    // to dose age in this branch — rec emits anyway. Flagging as a known
-    // soft edge; the forecast/dosePlan layer must suppress the booster.
-    // BUG-CANDIDATE: needs forecast-level check; tracked in cdsi-cases later.
-    const p = makePatient({ ageMonths: 204, dosesGiven: { MenACWY: 1 } });
-    const r = recFor(run(p), 'MenACWY');
-    expect(r.doseNum).toBe(2);
+  it('16y (192mo), 1 dose given AT age 16 → no booster needed', () => {
+    // V1 fix: a dose given on/after the 16th birthday is terminal — no booster.
+    const p = makePatient({ ageMonths: 204, dosesGiven: { MenACWY: 1 }, doseAgeMonths: { MenACWY: 192 } });
+    expectNoRec(run(p), 'MenACWY');
   });
 });
 
@@ -154,14 +150,14 @@ describe('MenACWY routine 11–12y brand list (drop combos when MenB not yet due
 
 describe('MenACWY booster brand list (B-3: drop combos when MenB complete)', () => {
   it('192mo (16y), MenACWY=1, MenB=0 → booster brand list INCLUDES Penbraya/Penmenvy', () => {
-    const p = makePatient({ ageMonths: 192, dosesGiven: { MenACWY: 1 } });
+    const p = makePatient({ ageMonths: 192, dosesGiven: { MenACWY: 1 }, doseAgeMonths: { MenACWY: 132 } });
     const r = recFor(run(p), 'MenACWY');
     expect(r.brands.some(b => b.startsWith('Penbraya'))).toBe(true);
     expect(r.brands.some(b => b.startsWith('Penmenvy'))).toBe(true);
   });
 
   it('192mo (16y), MenACWY=1, MenB=2 (complete) → booster brand list EXCLUDES Penbraya/Penmenvy', () => {
-    const p = makePatient({ ageMonths: 192, dosesGiven: { MenACWY: 1, MenB: 2 } });
+    const p = makePatient({ ageMonths: 192, dosesGiven: { MenACWY: 1, MenB: 2 }, doseAgeMonths: { MenACWY: 132 } });
     const r = recFor(run(p), 'MenACWY');
     expect(r.brands.some(b => b.startsWith('Penbraya'))).toBe(false);
     expect(r.brands.some(b => b.startsWith('Penmenvy'))).toBe(false);

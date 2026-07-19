@@ -61,6 +61,26 @@ export function menACWYGivenAtOrAfter16y(hist, dob) {
   });
 }
 
+/**
+ * V1: count of MenACWY doses that count toward the routine adolescent series —
+ * i.e. given on/after the 10th birthday (120 months). Per ACIP/immunize.org, doses
+ * given before age 10 do not count toward the routine 11–12y series or its 16y
+ * booster. Unknown-age doses are conservatively still counted (mirrors the "don't
+ * assume a dose is pre-10 without evidence" convention used elsewhere in this file).
+ * Only meaningful for the non-high-risk routine/catch-up path — callers must keep
+ * using the raw dose count for high-risk patients (whose primary-series doses may
+ * legitimately be pre-10 and still count).
+ */
+export function menACWYRoutineCount(hist, dob) {
+  const given = (hist?.MenACWY || []).filter(d => d.given);
+  return given.filter(d => {
+    let ageM = null;
+    if (d.ageDays != null) ageM = Number(d.ageDays) / 30.4375;
+    else if (d.date && isD(dob)) ageM = (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
+    return ageM == null || ageM >= 120;
+  }).length;
+}
+
 /** Grace period constant (days). */
 export const GRACE = 4;
 
