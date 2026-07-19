@@ -400,7 +400,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
           : `given at ${ageLabel}, after the ${bandForFinal.label} recommended window`;
         return {
           status: 'VALID',
-          label: `Valid — ${fReasonText}. Minimum age and interval requirements met.`,
+          label: `Valid (${fReasonText}). Minimum age and interval requirements met.`,
           recommendedRange: fRecommendedRange,
           extraScenario: null,
           auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
@@ -429,7 +429,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   if (!band) {
     return {
       status: 'ON_TIME',
-      label: `Valid — given at ${ageLabel}. No specific recommended window defined for this dose.`,
+      label: `Valid (given at ${ageLabel}). No specific recommended window defined for this dose.`,
       recommendedRange: null,
       extraScenario: null,
       auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
@@ -471,7 +471,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
 
   return {
     status: 'VALID',
-    label: `Valid — ${reasonText}. Minimum age and interval requirements met.`,
+    label: `Valid (${reasonText}). Minimum age and interval requirements met.`,
     recommendedRange,
     extraScenario: null,
     auditFlag: ppsv23AuditFlag(vk, ageMonths, risks),
