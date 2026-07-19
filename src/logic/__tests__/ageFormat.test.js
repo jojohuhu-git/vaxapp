@@ -7,7 +7,7 @@
  *   fmtIntervalClinical: <14 → "N days", 14–181 → "N weeks", 182–729 → "N months", ≥730 → "N years"
  */
 import { describe, it, expect } from 'vitest';
-import { fmtAgeClinical, fmtIntervalClinical, humanDays } from '../ageFormat.js';
+import { fmtAgeClinical, fmtIntervalClinical, humanDays, fmtAm } from '../ageFormat.js';
 
 describe('fmtAgeClinical', () => {
   it('returns "Birth" for 0 days', () => {
@@ -107,5 +107,33 @@ describe('humanDays (shared with ForecastTab)', () => {
   it('days for small non-divisible values', () => {
     expect(humanDays(1)).toBe('1 day');
     expect(humanDays(5)).toBe('5 days');
+  });
+});
+
+describe('fmtAm (age-in-months formatter)', () => {
+  it('returns "Birth" for 0 months', () => {
+    expect(fmtAm(0)).toBe('Birth');
+  });
+
+  it('returns months for <24m', () => {
+    expect(fmtAm(1)).toBe('1 month');
+    expect(fmtAm(18)).toBe('18 months');
+    expect(fmtAm(23)).toBe('23 months');
+  });
+
+  it('returns whole years with no trailing text for exact-year values ≥24m', () => {
+    expect(fmtAm(24)).toBe('2 years');
+    expect(fmtAm(60)).toBe('5 years');
+  });
+
+  it('returns years + months for non-whole-year values ≥24m', () => {
+    expect(fmtAm(30)).toBe('2 years 6 months');
+    expect(fmtAm(25)).toBe('2 years 1 month');
+  });
+
+  it('handles null/negative gracefully', () => {
+    expect(fmtAm(null)).toBe('');
+    expect(fmtAm(undefined)).toBe('');
+    expect(fmtAm(-1)).toBe('');
   });
 });
