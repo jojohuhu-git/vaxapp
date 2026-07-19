@@ -7,6 +7,7 @@ export function makePatient({
   ageMonths,
   dob = null,
   dosesGiven = {},
+  doseAgeMonths = {},
   brands = {},
   riskConditions = [],
   today = null,
@@ -20,15 +21,18 @@ export function makePatient({
   const hist = {};
   for (const [vk, count] of Object.entries(dosesGiven)) {
     const brand = brands[vk] ?? null;
+    // Synthesize age-mode doses at age 0 by default. Pass doseAgeMonths[vk]
+    // when a test cares about dose age (e.g. MenACWY's pre-/post-10y rules).
+    // Tests needing per-dose ages within the same series should use
+    // makePatientRaw instead.
+    const ageM = doseAgeMonths[vk];
+    const ageDays = typeof ageM === 'number' ? Math.round(ageM * 30.4375) : 0;
     hist[vk] = [];
     for (let i = 0; i < count; i++) {
-      // Synthesize an age-mode dose at age 0 by default. Tests that need a
-      // specific dose age should pass brands/dates explicitly via `hist`
-      // override (use makePatientRaw if needed).
       hist[vk].push({
         given: true,
         mode: 'age',
-        ageDays: 0,
+        ageDays,
         brand: brand ?? undefined,
       });
     }

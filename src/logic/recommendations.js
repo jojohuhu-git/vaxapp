@@ -549,6 +549,18 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     : (d.mode === "age" && d.ageDays != null ? d.ageDays / 30.4375 : null);
   const menAt16y = menacwyGivenAll.some(d => { const a = menDoseAgeM(d); return a != null && a >= 192; });
   const menAt16yUnknown = !menAt16y && menacwyGivenAll.some(d => menDoseAgeM(d) == null);
+  // V1: routine adolescent series count — excludes only doses with a KNOWN age before the
+  // 10th birthday (120 months). Per ACIP/immunize.org, pre-10y doses do not count toward the
+  // routine 11–12y series or its 16y booster. Unknown-age doses are conservatively still
+  // counted (matches the file's existing default of not assuming a dose is pre-10 without
+  // evidence — mirrors how menAt16yUnknown keeps the booster active rather than dropping it).
+  const menRoutine = menacwyGivenAll.filter(d => { const a = menDoseAgeM(d); return a == null || a >= 120; }).length;
+  // High-risk patients may legitimately have pre-10 doses from their own infant/child
+  // high-risk series (branches above), so the pre-10 exclusion must not steal them from
+  // the high-risk branches below. Only let menRoutine change routing for non-high-risk
+  // patients, or when no doses were actually excluded (men === menRoutine) so high-risk
+  // routing is identical to the pre-fix behavior in every other case.
+  const menRoutineGate = (n) => menRoutine === n && (!isHighRiskMen || men === menRoutine);
   // D7: Menveo formulation depends on age \u2014 2-vial licensed \u22652 months; 1-vial licensed \u226510 years.
   const menveoLbl = am >= 120 ? "Menveo 1-vial (MenACWY-CRM, \u226510y)" : "Menveo 2-vial (MenACWY-CRM, \u22652m)";
   if (isHighRiskMen && am >= 2 && am < 7 && men < 3) {
@@ -596,7 +608,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         : "Booster dose at 12\u201323 months for high-risk infants who completed the primary MenACWY series. Min 12 weeks after last primary dose. Then revaccinate in 3 years (primary series completed before age 7).",
       ["Menveo 2-vial (MenACWY-CRM, \u22652 months)", "MenQuadfi (MenACWY-TT, \u22652 years)"],
       { minInt: 84, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (am >= 132 && am <= 144 && men === 0) {
+  } else if (am >= 132 && am <= 144 && menRoutineGate(0)) {
     r("MenACWY", "Dose 1 (routine, 11\u201312 years)", 1, "due", "Routine at 11\u201312y. Booster at 16y. Use Penbraya if also starting MenB.",
       (menb === 0 && (hr || am >= 192)) ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenB too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenB too (4C family)", menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"] : [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { bt: menb === 0 ? "Penbraya contains Trumenba (Pfizer/FHbp); Penmenvy contains Bexsero (GSK/4C). The MenB series must be completed with the same product or its matching partner \u2014 these two pairs do not interchange." : undefined, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
@@ -613,7 +625,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       `High-risk patients \u22652y (asplenia, HIV, complement deficiency): complete 2-dose primary series \u22658 weeks after dose 1. Then ${d2RevaxNote}.`,
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (am >= 192 && am <= 216 && men === 1 && !menAt16y) {
+  } else if (am >= 192 && am <= 216 && menRoutineGate(1) && !menAt16y) {
     // Booster only when the single prior dose was given BEFORE the 16th birthday.
     // A MenACWY dose administered at/after 16y is terminal \u2014 no booster is due
     // (ACIP/immunize.org). menAt16y is false for undated doses, so undated
@@ -622,7 +634,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y. High-risk: booster every 3\u20135 years.",
       menb < 2 ? [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)", "Penbraya (MenACWY+MenB-FHbp) \u2014 if MenB also due", "Penmenvy (MenACWY+MenB-4C) \u2014 if MenB also due"] : [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (am > 144 && am < 192 && men === 0) {
+  } else if (am > 144 && am < 192 && menRoutineGate(0)) {
     // 13\u201315y catch-up: Dose 1 of 2; booster at 16y because first dose given before 16y.
     r("MenACWY", "Catch-up (13\u201315 years)", 1, "catchup",
       "Give 1 dose if not yet received. Booster at 16y if first dose given before 16y.",

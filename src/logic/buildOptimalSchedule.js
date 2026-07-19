@@ -4,7 +4,7 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands } from './pcvDoses.js';
-import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y } from './stateHelpers.js';
+import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
@@ -181,7 +181,10 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
 
     case 'MenACWY': {
       if (isHRMen) return { totalDoses: 2 };
-      const givenMen = dc(hist, 'MenACWY');
+      // V1: routine series count excludes only doses given before the 10th birthday
+      // (120mo) — see menACWYRoutineCount. isHRMen already returned above, so every
+      // use of givenMen below is on the non-high-risk path.
+      const givenMen = menACWYRoutineCount(hist, dob);
       if (am < 132) return { totalDoses: 2, seedAgeMonths: 132 }; // routine seed at 11-12y
       // Non-risk, beyond 22y (264m) with no doses: no routine indication.
       if (am > 264 && givenMen === 0) return null;
@@ -346,11 +349,19 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
                      'MMR', 'VAR', 'HepA', 'Flu', 'HPV', 'MenACWY', 'MenB', 'COVID'];
   const priority  = Object.fromEntries(VAX_ORDER.map((k, i) => [k, i]));
 
+  // V1: high-risk MenACWY patients keep the raw dose count (their primary-series
+  // doses may legitimately be pre-10 and still count); only the non-high-risk
+  // routine/catch-up path excludes confirmed pre-10 doses. Mirrors the isHRMen
+  // set in seriesDoses() above.
+  const isHRMenMain = (risks ?? []).some(r => ['asplenia', 'sickle_cell', 'complement', 'hiv'].includes(r));
+
   const reviews  = [];
   const allDoses = [];
 
   for (const vk of VAX_ORDER) {
-    const given  = dc(ctx.hist, vk);
+    const given  = (vk === 'MenACWY' && !isHRMenMain)
+      ? menACWYRoutineCount(ctx.hist, ctx.dob)
+      : dc(ctx.hist, vk);
     const series = seriesDoses(vk, ctx, fcBrands);
 
     if (!series) continue;

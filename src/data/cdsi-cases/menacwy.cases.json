@@ -13,7 +13,7 @@
     {
       "id": "MENACWY-002",
       "description": "Routine D2 at 16y (192mo); CDSI minAge 5840d",
-      "patient": { "ageMonths": 192, "dosesGiven": { "MenACWY": 1 } },
+      "patient": { "ageMonths": 192, "dosesGiven": { "MenACWY": 1 }, "doseAgeMonths": { "MenACWY": 132 } },
       "expect": { "rec": { "vk": "MenACWY", "props": { "doseNum": 2, "minInt": 56 } } },
       "rationale": "CDSI 2-dose D2 minAgeDays=5840 (16y); minInterval choices 180d or 56d (the 56d 'from target dose' applies). Code line 430 minInt: 56 — matches."
     },
