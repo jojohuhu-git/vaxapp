@@ -630,8 +630,13 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     // A MenACWY dose administered at/after 16y is terminal \u2014 no booster is due
     // (ACIP/immunize.org). menAt16y is false for undated doses, so undated
     // histories conservatively still receive the booster.
+    // V2: this branch is unreachable for isHighRiskMen patients \u2014 men===1 is always
+    // caught earlier by the isHighRiskMen branch above (line ~615), and men>=2 by the
+    // dedicated high-risk revaccination branch below (line ~700), both of which compute
+    // an exact 3- or 5-year interval. A prior "High-risk: booster every 3\u20135 years"
+    // clause here described a code path that never actually fires \u2014 removed.
     r("MenACWY", am <= 204 ? "Booster (16 years)" : "Booster catch-up (17\u201318 years)", 2, "due",
-      "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y. High-risk: booster every 3\u20135 years.",
+      "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y.",
       menb < 2 ? [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)", "Penbraya (MenACWY+MenB-FHbp) \u2014 if MenB also due", "Penmenvy (MenACWY+MenB-4C) \u2014 if MenB also due"] : [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am > 144 && am < 192 && menRoutineGate(0)) {
