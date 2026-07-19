@@ -28,6 +28,7 @@ All public asset paths MUST use `import.meta.env.BASE_URL` (Vite sets `base: '/v
 | What | Where |
 |---|---|
 | Plain-English folder guide (owner is a non-coder) | [MAP.md](MAP.md) |
+| Where new knowledge goes + CLAUDE.md editing rules | [docs/agent/docs-routing.md](docs/agent/docs-routing.md) |
 | Architecture, file map, AppContext state | [docs/agent/architecture.md](docs/agent/architecture.md) |
 | Five-surface verification rule | [docs/agent/five-surface-verification.md](docs/agent/five-surface-verification.md) |
 | Brand/combo dose eligibility | [docs/agent/brand-combo-rules.md](docs/agent/brand-combo-rules.md) |
@@ -44,7 +45,7 @@ All public asset paths MUST use `import.meta.env.BASE_URL` (Vite sets `base: '/v
 ## Non-Negotiable Rules
 
 ### Root Directory Hygiene
-Only `CLAUDE.md`, `MAP.md`, and `README.md` live at the repo root. Never create new root-level `.md` files. Route everything per the Documentation Maintenance table below; session notes/handoffs/audits go to `docs/archive/`. Keep `MAP.md` current when folders change.
+Only `CLAUDE.md`, `MAP.md`, and `README.md` live at the repo root. Never create new root-level `.md` files. Route everything per [docs/agent/docs-routing.md](docs/agent/docs-routing.md); session notes/handoffs/audits go to `docs/archive/`. Keep `MAP.md` current when folders change.
 
 ### Clinical Authority
 ACIP/CDC/AAP/immunize.org over FDA package inserts. FDA-labeled age ranges may be more restrictive than current ACIP guidance. Never revert to FDA labels without explicit instruction.
@@ -88,32 +89,5 @@ Do not ship single-surface fixes. Surface 5 is the most common leak point.
 
 ## Documentation Maintenance
 
-When adding new knowledge, route it here:
-
-| Content type | Destination |
-|---|---|
-| Current commands, required workflow, short non-negotiable rules | Root `CLAUDE.md` (this file) |
-| Architecture, component map, state shape | `docs/agent/architecture.md` |
-| Five-surface verification protocol | `docs/agent/five-surface-verification.md` |
-| Brand/combo vaccine rules | `docs/agent/brand-combo-rules.md` |
-| Clinical guidance priority and ACIP rules | `docs/agent/clinical-rules.md` |
-| Test conventions and key test files | `docs/agent/testing.md` |
-| Design tokens, popover pattern, UI invariants | `docs/agent/ui-design.md` |
-| OCR import pipeline details | `docs/agent/ocr-import.md` |
-| Compliance audit architecture | `docs/agent/compliance-audit.md` |
-| Dated "bugs fixed" / "changes shipped" history | `docs/archive/agent-session-log.md` |
-| Handoffs, finished plans, one-off audit reports | `docs/archive/` |
-| Feature ideas deferred for later | `docs/backlog.md` |
-| One-off audit prompts (reusable) | `.claude/prompts/` |
-| Plain-English folder explanations for the owner | `MAP.md` |
-
-### Long-Term Editing Rules for This File
-
-1. Add to root `CLAUDE.md` only if it changes how **every** future agent should operate.
-2. Do not add dated "bugs fixed", "changes shipped", or "in this session" sections here.
-3. Do not paste long implementation narratives here — put them in `docs/agent/*`.
-4. Do not duplicate long rule tables — link instead.
-5. Do not include machine-specific absolute paths as standing instructions.
-6. Do not write "current values" without citing where the value is sourced and how to verify it.
-7. When a rule is clinical/safety-sensitive, link it to the code or test that enforces it.
-8. When a rule is historical, put it under `docs/archive/` and label it historical.
+Before writing down new knowledge or editing this file, follow the routing table and
+editing rules in [docs/agent/docs-routing.md](docs/agent/docs-routing.md).
