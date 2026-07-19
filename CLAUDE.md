@@ -9,7 +9,7 @@ Client-side React SPA — no backend, no auth, no database. All vaccine logic ru
 ```bash
 npm install
 npm run dev        # dev server on port 5173 (or 5174 if occupied)
-npm test           # Vitest test suite (~3950+ tests)
+npm test           # Vitest test suite (run `npm test` for current count)
 npm run build      # production build to dist/
 ```
 
