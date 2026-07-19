@@ -1,6 +1,7 @@
 /* eslint-disable react/prop-types */
 import { useApp, getEffectiveAm, useRecs } from '../context/AppContext';
 import { REFS } from '../data/refs';
+import { fmtAm } from '../logic/ageFormat';
 import TabBar from './TabBar';
 import PlanTab from './PlanTab';
 import ForecastTab from './ForecastTab';
@@ -13,12 +14,8 @@ export default function MainPanel() {
   const { effectiveAm, conflict, recs, validHist } = useRecs();
 
   const conflictBanner = conflict && (() => {
-    const dobLabel = dobAm != null
-      ? (dobAm < 24 ? `${dobAm} month${dobAm !== 1 ? 's' : ''}` : `${Math.floor(dobAm / 12)} year${Math.floor(dobAm / 12) !== 1 ? 's' : ''}`)
-      : '?';
-    const ageLabel = manualAm != null
-      ? (manualAm < 24 ? `${manualAm} month${manualAm !== 1 ? 's' : ''}` : `${Math.floor(manualAm / 12)} year${Math.floor(manualAm / 12) !== 1 ? 's' : ''}`)
-      : '?';
+    const dobLabel = dobAm != null ? fmtAm(dobAm) : '?';
+    const ageLabel = manualAm != null ? fmtAm(manualAm) : '?';
     return (
       <div className="note-box" style={{ margin: '12px 12px 0', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span>Age ({ageLabel}) and date of birth ({dobLabel}) don&apos;t match — resolve in the patient drawer, or:</span>

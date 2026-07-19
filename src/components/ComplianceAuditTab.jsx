@@ -14,7 +14,7 @@ import { VAX_KEYS, VAX_META } from '../data/vaccineData';
 import { REFS } from '../data/refs.js';
 import { validatedHistory, validateDose } from '../logic/validation';
 import { classifyDose, RULES_REGISTRY } from '../logic/compliance';
-import { fmtAgeClinical, fmtIntervalClinical } from '../logic/ageFormat';
+import { fmtAgeClinical, fmtIntervalClinical, fmtAm } from '../logic/ageFormat';
 import { doseAgeDays, doseDate, isHighRiskMenACWY } from '../logic/stateHelpers';
 import { getDoseBand } from '../data/aapDoseBands';
 import { fmtDateInput, addD, todayISO } from '../logic/utils';
@@ -691,7 +691,7 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
 // ── Print function ─────────────────────────────────────────────────────────────
 function printComplianceAudit({ dob, am, hist, risks }) {
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  const ageLabel = am >= 24 ? `${Math.floor(am / 12)} years ${am % 12 > 0 ? (am % 12) + ' months' : ''}` : `${am} months`;
+  const ageLabel = fmtAm(am);
 
   const vaccineRows = VAX_KEYS.map(vk => {
     const doses = (hist[vk] || []).filter(d => d.given);
