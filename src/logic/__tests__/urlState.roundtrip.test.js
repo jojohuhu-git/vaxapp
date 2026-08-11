@@ -17,7 +17,7 @@ function roundTrip(state) {
   const enc = encState(state);
   expect(typeof enc).toBe('string');
   expect(enc.length).toBeGreaterThan(0);
-  // Simulate URL encode/decode as ShareModal + App.jsx do
+  // Simulate URL encode/decode as App.jsx's sessionStorage persistence does
   const encoded = encodeURIComponent(enc);
   return decState(encoded);
 }

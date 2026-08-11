@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 //
-// Header's Reset button snapshots the current patient to localStorage before
-// clearing state, so App.jsx can offer a "Restore previous patient" banner
-// even after the tab is closed and reopened. See App.resetSnapshot.test.jsx
-// for the restore-banner half of this feature.
+// Header's Reset button snapshots the current patient to sessionStorage
+// before clearing state, so App.jsx can offer a "Restore previous patient"
+// banner within the same tab session. See App.resetSnapshot.test.jsx for the
+// restore-banner half of this feature.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, fireEvent } from '@testing-library/react';
@@ -25,26 +25,26 @@ function renderHeader() {
   const utils = render(
     <AppProvider>
       <CaptureDispatch onReady={(d) => { dispatch = d; }} />
-      <Header onShare={() => {}} />
+      <Header />
     </AppProvider>
   );
   return { ...utils, dispatch: () => dispatch };
 }
 
 beforeEach(() => {
-  localStorage.clear();
+  sessionStorage.clear();
   vi.restoreAllMocks();
 });
 
 describe('Header — Reset snapshot', () => {
-  it('writes a localStorage snapshot before clearing when a patient (age) is loaded', () => {
+  it('writes a sessionStorage snapshot before clearing when a patient (age) is loaded', () => {
     window.confirm = () => true;
     const { getByRole, dispatch } = renderHeader();
     act(() => { dispatch()({ type: 'SET_AGE', payload: 6 }); });
 
     fireEvent.click(getByRole('button', { name: 'Reset', exact: true }));
 
-    const raw = localStorage.getItem(RESET_SNAPSHOT_KEY);
+    const raw = sessionStorage.getItem(RESET_SNAPSHOT_KEY);
     expect(raw).toBeTruthy();
     const decoded = decState(raw);
     expect(decoded.am).toBe(6);
@@ -57,7 +57,7 @@ describe('Header — Reset snapshot', () => {
 
     fireEvent.click(getByRole('button', { name: 'Reset', exact: true }));
 
-    const raw = localStorage.getItem(RESET_SNAPSHOT_KEY);
+    const raw = sessionStorage.getItem(RESET_SNAPSHOT_KEY);
     expect(raw).toBeTruthy();
     expect(decState(raw).dob).toBe('2024-01-01');
   });
@@ -68,7 +68,7 @@ describe('Header — Reset snapshot', () => {
 
     fireEvent.click(getByRole('button', { name: 'Reset', exact: true }));
 
-    expect(localStorage.getItem(RESET_SNAPSHOT_KEY)).toBeNull();
+    expect(sessionStorage.getItem(RESET_SNAPSHOT_KEY)).toBeNull();
   });
 
   it('does not write a snapshot if the user cancels the confirm dialog', () => {
@@ -78,6 +78,6 @@ describe('Header — Reset snapshot', () => {
 
     fireEvent.click(getByRole('button', { name: 'Reset', exact: true }));
 
-    expect(localStorage.getItem(RESET_SNAPSHOT_KEY)).toBeNull();
+    expect(sessionStorage.getItem(RESET_SNAPSHOT_KEY)).toBeNull();
   });
 });
