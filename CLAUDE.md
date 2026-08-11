@@ -33,6 +33,7 @@ All public asset paths MUST use `import.meta.env.BASE_URL` (Vite sets `base: '/v
 | Five-surface verification rule | [docs/agent/five-surface-verification.md](docs/agent/five-surface-verification.md) |
 | Brand/combo dose eligibility | [docs/agent/brand-combo-rules.md](docs/agent/brand-combo-rules.md) |
 | Clinical guidance rules | [docs/agent/clinical-rules.md](docs/agent/clinical-rules.md) |
+| Meningococcal rules (plain-English; MeningoVax is source of truth) | [docs/agent/meningococcal-rules-summary.md](docs/agent/meningococcal-rules-summary.md) |
 | Test conventions and key files | [docs/agent/testing.md](docs/agent/testing.md) |
 | UI design tokens and constraints | [docs/agent/ui-design.md](docs/agent/ui-design.md) |
 | OCR import architecture | [docs/agent/ocr-import.md](docs/agent/ocr-import.md) |
