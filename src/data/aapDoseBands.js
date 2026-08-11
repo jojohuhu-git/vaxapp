@@ -2,9 +2,15 @@
  * AAP/CDC Recommended Immunization Schedule — per-dose age bands (months).
  *
  * Sources:
- *   AAP Immunization Schedule (2025): https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf
+ *   AAP Immunization Schedule (2026): https://downloads.aap.org/AAP/PDF/AAP-Immunization-Schedule.pdf
  *   CDC Child & Adolescent Schedule: https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent.html
- *   Both use the same ACIP source data.
+ *
+ *   Authority rule (owner decision, 2026-08-10): where ACIP/CDC and AAP agree, cite
+ *   either; where they disagree, AAP governs; never adopt a CDC revision recommending
+ *   fewer doses or narrower eligibility than AAP. AAP and CDC are NOT guaranteed to use
+ *   identical source data — AAP can and does diverge from ACIP/CDC on its own timeline.
+ *   See src/data/aapBaseline.js for the current per-vaccine agree/disagree snapshot and
+ *   its staleness tripwire.
  *
  * Field definitions:
  *   dose       — 1-based dose number

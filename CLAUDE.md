@@ -51,6 +51,8 @@ Only `CLAUDE.md`, `MAP.md`, and `README.md` live at the repo root. Never create 
 ### Clinical Authority
 ACIP/CDC/AAP/immunize.org over FDA package inserts. FDA-labeled age ranges may be more restrictive than current ACIP guidance. Never revert to FDA labels without explicit instruction.
 
+Within that group, AAP is a **tiebreak, not a re-derivation mandate**: where ACIP/CDC and AAP agree, cite either — no decision needed. Where they disagree, AAP governs. Never adopt a CDC revision recommending fewer doses or narrower eligibility than AAP. Where AAP is silent on a mechanic, CDC/MMWR stands. See [src/data/aapBaseline.js](src/data/aapBaseline.js) for the current per-vaccine agree/disagree snapshot (with a 12-month staleness tripwire test).
+
 ACIP over CDSI "preferable" windows. Enforce CDSI absolute min/max only.
 
 ### Five-Surface Verification
