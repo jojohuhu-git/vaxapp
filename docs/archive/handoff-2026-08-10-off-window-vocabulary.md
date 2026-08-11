@@ -1,5 +1,11 @@
 # PediVax (vaxapp) — Handoff after off-window vocabulary fix (2026-08-10)
 
+> **SUPERSEDED** by `docs/archive/handoff-2026-08-11-sessionstorage-migration.md`.
+> That session completed Session 3 (sessionStorage migration, PR #108) and also
+> closed out the stale-leftover-files housekeeping this handoff had deferred.
+> This handoff's account of the off-window vocabulary fix itself is still
+> accurate — only its "what's next" pointer is stale. Read the new handoff first.
+
 Session 2 of `.claude/prompts/plan-2026-08-10-aap-authority-parity-ux.md` (now a
 ten-session plan — this session was added mid-plan, immediately after Session 1,
 and the sessions after it were renumbered 3→10 accordingly).
