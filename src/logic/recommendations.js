@@ -201,15 +201,19 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   const isHighRiskPCV = risks.some(x => ["asplenia", "sickle_cell", "hiv", "immunocomp", "cochlear", "chronic_heart", "chronic_lung", "chronic_kidney", "chronic_kidney_dialysis", "diabetes", "chronic_liver"].includes(x));
   // PCV20 = series complete after 1 dose (no PPSV23 needed). PCV15/PCV13 require PPSV23 follow-up.
   const usedPCV20 = (hist.PCV || []).some(d => d.given && d.brand?.startsWith("Prevnar 20"));
-  // Adults ≥19y (228m) need only 1 PCV dose; children need the full 4-dose primary+booster series.
+  // PCV21 (Capvaxive, adults ≥18y/216mo) has the same completing effect as PCV20 —
+  // no PPSV23 needed afterward (MMWR mm7336a3).
+  const usedPCV21 = (hist.PCV || []).some(d => d.given && d.brand?.startsWith("Capvaxive"));
+  const usedCompletingPCV = usedPCV20 || usedPCV21;
   // High-risk children 24mo–18y: CDC at-risk completeness (pcvDoses.js single source of truth).
+  // (genRecs is pediatric-only — am>=228 returns [] above — so no separate adult branch exists here.)
   const hrChildPlan = (isHighRiskPCV && am >= 24 && am < 228) ? pcvHighRiskChildPlan(am, hist, dob, ppsv23) : null;
   // pcvSeriesComplete: for peds with hrChildPlan, delegate to hrChildPlan.complete even when usedPCV20
   // (M2 fix: a lone PCV20 in an at-risk 24-71mo child is not complete if >=24mo dose requirement unmet).
   // H5: booster completeness requires a dose administered at ≥12 months (not just count ≥4).
   // A 13mo with 4 doses all given before 12m still needs the ≥12m booster.
   const pcvBoosterGiven = (am < 24) ? hasBoosterDose(hist.PCV, dob) : true;
-  const pcvSeriesComplete = hrChildPlan ? hrChildPlan.complete : (usedPCV20 ? pcv >= 1 : (am >= 228 ? pcv >= 1 : (pcv >= 4 && pcvBoosterGiven)));
+  const pcvSeriesComplete = hrChildPlan ? hrChildPlan.complete : (usedCompletingPCV ? pcv >= 1 : (am >= 228 ? pcv >= 1 : (pcv >= 4 && pcvBoosterGiven)));
   const pcvBrands = ["Prevnar 20 (PCV20) \u2014 preferred", "Vaxneuvance (PCV15)", "Prevnar 13 (PCV13) \u2014 only if PCV20/PCV15 unavailable"];
   const pcvNote = `PCV20 preferred \u2014 covers 20 serotypes; no PPSV23 needed afterward. If PCV15 used for high-risk patients: add PPSV23 \u22658 weeks after completing PCV series (minimum age 2 years). PCV13 still used if PCV20/PCV15 unavailable or specific clinical indication.`;
   if (am >= 2 && am <= 6 && pcv < 3) {
@@ -250,11 +254,6 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("PCV", `Catch-up \u2014 PCV final dose (\u226524 months, healthy)`, pcv + 1, "catchup",
       "CDC Table 2: 1 final catch-up dose needed. Min 8 weeks from last dose. No further doses after this.",
       pcvBrands, { minInt: 56, bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
-  } else if (am >= 228 && isHighRiskPCV && !pcvSeriesComplete) {
-    r("PCV", "Risk-based PCV (high-risk adult)", pcv + 1, "risk-based",
-      "High-risk adult: 1 dose PCV20 (preferred). If PCV15 used: add PPSV23 afterward. Avoid PCV13 unless PCV20/PCV15 unavailable.",
-      ["Prevnar 20 (PCV20) \u2014 preferred", "Vaxneuvance (PCV15) \u2014 follow with PPSV23"],
-      { refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
   } else if (am >= 24 && am < 228 && isHighRiskPCV && hrChildPlan && !hrChildPlan.complete) {
     if (hrChildPlan.mode === "catchup") {
       const _dn = hrChildPlan.target - hrChildPlan.remaining + 1;
@@ -266,9 +265,15 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         `High-risk 24\u201371 months with an incomplete series: ${hrChildPlan.target === 1 ? "1 dose" : "2 doses \u22658 weeks apart"} of PCV20 (preferred) or PCV15, given at \u226524 months \u2014 infant doses do not count toward this catch-up. Min 8 weeks from last PCV. If PCV15 is used, add PPSV23 \u22658 weeks after the final PCV.`,
         pcvBrands, { minInt: 56, bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
     } else {
+      // PCV21 (Capvaxive) product minimum age is 18y (216mo) per MMWR mm7336a3 \u2014
+      // only offered as an Option A choice for patients old enough for it.
+      const optionABrands = ["Prevnar 20 (PCV20) \u2014 Option A, preferred"];
+      if (am >= 216) optionABrands.push("Capvaxive (PCV21) \u2014 Option A, lacks serotype 4 (see note)");
+      optionABrands.push("Vaxneuvance (PCV15) \u2014 Option B, follow with PPSV23 \u22658w later");
       r("PCV", "Risk-based \u2014 Option A: 1 dose PCV20 (high-risk)", pcv + 1, "risk-based",
-        "High-risk child who completed the PCV series, or is \u22656 years old (no PCV20 yet): Option A \u2014 1 dose PCV20 \u22658 weeks after the most recent PCV (completes the series, no PPSV23 needed). Option B \u2014 PCV15/PCV13 followed by PPSV23 \u22658 weeks later (see PPSV23 recommendation). Choose one option.",
-        ["Prevnar 20 (PCV20) \u2014 Option A, preferred", "Vaxneuvance (PCV15) \u2014 Option B, follow with PPSV23 \u22658w later"],
+        "High-risk child who completed the PCV series, or is \u22656 years old (no PCV20 yet): Option A \u2014 1 dose PCV20 \u22658 weeks after the most recent PCV (completes the series, no PPSV23 needed). Option B \u2014 PCV15/PCV13 followed by PPSV23 \u22658 weeks later (see PPSV23 recommendation). Choose one option."
+        + (am >= 216 ? " At \u226518 years, PCV21 (Capvaxive) is also a valid Option A choice, but it lacks serotype 4 \u2014 in regions where serotype 4 causes a high share of pneumococcal disease (Alaska, Colorado, Navajo Nation, New Mexico, Oregon), PCV20 may provide broader coverage." : ""),
+        optionABrands,
         { minInt: 56, bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
     }
   }
@@ -289,7 +294,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   if (am >= 24 && isHighRiskPCV) {
     // Option B PPSV23 — completed series, or ≥6y child with a prior PCV (no PCV20):
     // alternative to the Option A PCV20 emitted in the PCV section above.
-    if (!usedPCV20 && hrChildPlan && hrChildPlan.mode === "optionAB" && pcv >= 1 && ppsv23 === 0) {
+    if (!usedCompletingPCV && hrChildPlan && hrChildPlan.mode === "optionAB" && pcv >= 1 && ppsv23 === 0) {
       r("PPSV23", "PPSV23 \u2014 Option B (high-risk, alternative to PCV20)", 1, "risk-based",
         "High-risk child (completed PCV series, or PCV13 at/after age 6): Option B \u2014 1 dose PPSV23 \u22658 weeks after the most recent PCV. Alternative to Option A (PCV20 alone, which also completes the series with no PPSV23). Choose one option, not both.",
         ["Pneumovax 23 (PPSV23)"],
@@ -298,7 +303,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
           refUrl2: REFS.PPSV23.url, refLabel2: REFS.PPSV23.label });
     }
     // Dose 1 after completing a non-PCV20 catch-up/infant series (24–71mo path).
-    else if (!usedPCV20 && pcvSeriesComplete && ppsv23 === 0) {
+    else if (!usedCompletingPCV && pcvSeriesComplete && ppsv23 === 0) {
       r("PPSV23", "PPSV23 \u2014 dose 1 (high-risk, post-PCV series)", 1, "risk-based",
         "High-risk patients \u22652 years who completed PCV15 or PCV13: give 1 dose PPSV23 \u22658 weeks after the final PCV dose. Min age 2 years. Not needed if PCV20 was used (PCV20 already covers PPSV23 serotypes).",
         ["Pneumovax 23 (PPSV23)"],

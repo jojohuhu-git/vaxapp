@@ -66,7 +66,7 @@ High-risk conditions (`PCV_HR_RISKS`): `asplenia`, `sickle_cell`, `hiv`, `immuno
 
 **Adult schedule boundary:** 19th birthday (228m). 18-year-olds stay on child/adolescent schedule.
 
-**PCV21 (Capvaxive):** Product min-age = 18y (216m).
+**PCV21 (Capvaxive):** Product min-age = 18y (216m). Same completing effect as PCV20 — a series that includes ≥1 PCV21 dose is complete, no PPSV23 needed (`pcvBands().hasPCV21` in `pcvDoses.js`, mirrored by `usedPCV21`/`usedCompletingPCV` in `recommendations.js` and the `Capvaxive` brand-string check in `buildOptimalSchedule.js`'s PPSV23 case). Offered as an Option A brand choice only at am≥216 in the high-risk PCV rec. Lacks serotype 4 — an advisory note (not a hard rule) is shown when offered. Source: MMWR mm7336a3.
 
 CDC pneumococcal notes: https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-pneumo
 

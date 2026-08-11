@@ -55,6 +55,7 @@ export const VBR = { // vaccine brands — combo entries include (contents) for 
   Hib:     {s:["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP)"], c:["Pentacel (DTaP+IPV+Hib, Hib=PRP-T)","Vaxelis (DTaP+IPV+Hib+HepB, Hib=PRP-OMP, doses 1–3 only — NOT booster)"]},
   PCV:     {s:[
     "Prevnar 20 (PCV20) — preferred, covers 20 serotypes",
+    "Capvaxive (PCV21) — ≥18y only; no PPSV23 needed; lacks serotype 4",
     "Vaxneuvance (PCV15) — if used, add PPSV23 ≥8 weeks later for high-risk",
     "Prevnar 13 (PCV13) — use only if PCV20/PCV15 unavailable or specific indication",
     "Prevnar 7 (PCV7) — historical/discontinued; doses do not count toward the series",
