@@ -67,18 +67,30 @@ export function menACWYGivenAtOrAfter16y(hist, dob) {
  * given before age 10 do not count toward the routine 11–12y series or its 16y
  * booster. Unknown-age doses are conservatively still counted (mirrors the "don't
  * assume a dose is pre-10 without evidence" convention used elsewhere in this file).
+ *
+ * M6 (2026-08-11): also excludes a 2nd+ dose given before the age-16 booster window
+ * (192 months). Per ACIP 2020 MMWR RR-9 (verified live): the booster is an AGE
+ * window, not just an interval from dose 1 — "Adolescents who receive their first
+ * dose at age 13-15 years should receive a booster dose at age 16-18 years."  A dose
+ * given after dose 1 already counted but before the patient turns 16 is safe but
+ * isn't the booster. Unknown-age 2nd+ doses are conservatively still counted (same
+ * convention as above). Mirrors MeningoVax commit 3172a0a (Change 3).
+ *
  * Only meaningful for the non-high-risk routine/catch-up path — callers must keep
  * using the raw dose count for high-risk patients (whose primary-series doses may
- * legitimately be pre-10 and still count).
+ * legitimately be pre-10 and pre-16, and still count).
  */
 export function menACWYRoutineCount(hist, dob) {
   const given = (hist?.MenACWY || []).filter(d => d.given);
-  return given.filter(d => {
-    let ageM = null;
-    if (d.ageDays != null) ageM = Number(d.ageDays) / 30.4375;
-    else if (d.date && isD(dob)) ageM = (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
-    return ageM == null || ageM >= 120;
-  }).length;
+  const ageOf = (d) => {
+    if (d.ageDays != null) return Number(d.ageDays) / 30.4375;
+    if (d.date && isD(dob)) return (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
+    return null;
+  };
+  return given
+    .filter(d => { const a = ageOf(d); return a == null || a >= 120; })
+    .filter((d, i) => { if (i === 0) return true; const a = ageOf(d); return a == null || a >= 192; })
+    .length;
 }
 
 /** Age of a dose in months, from ageDays or date+dob. Null if undeterminable. */

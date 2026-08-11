@@ -57,7 +57,7 @@ function Injector({ hist, dob, am }) {
   return null;
 }
 
-function renderAudit({ hist, dob, am }) {
+function renderAudit({ hist, dob, am, risks }) {
   let capturedDispatch;
   function Capture() {
     capturedDispatch = useApp().dispatch;
@@ -78,7 +78,7 @@ function renderAudit({ hist, dob, am }) {
       payload: {
         am: am ?? 12,
         dob: dob ?? null,
-        risks: [],
+        risks: risks ?? [],
         hist: hist ?? {},
         tab: 'compliance',
         filter: 'due',
@@ -400,5 +400,51 @@ describe('off-window vocabulary: VALID (counts) is distinct from OFF-WINDOW · R
     expect(content.textContent).toMatch(/VALID · OFF-WINDOW/);
     expect(content.textContent).toMatch(/OFF-WINDOW · REPEAT/);
     expect(content.textContent).toMatch(/does NOT count toward series completion/i);
+  });
+});
+
+// ── M6: early 2nd MenACWY dose (non-high-risk, before 16y) does not count ───────
+describe('M6: early 2nd MenACWY dose before the 16y booster window does not count toward completion', () => {
+  it('16yo healthy patient with dose 1 at 11y and dose 2 at 14y is NOT shown as Complete', () => {
+    const dob = '2010-01-01'; // turns 16 on 2026-01-01
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2021-01-01' }, // ~11y
+        { given: true, mode: 'date', date: '2024-01-01' }, // ~14y
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 192 });
+    const row = container.querySelector('[data-testid="vaccine-row-MenACWY"]');
+    expect(row).toBeTruthy();
+    expect(row.textContent).not.toMatch(/Complete/);
+    expect(row.textContent).toMatch(/In progress/);
+  });
+
+  it('the early 2nd dose card shows the OFF-WINDOW · REPEAT pill, not VALID', () => {
+    const dob = '2010-01-01';
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2021-01-01' },
+        { given: true, mode: 'date', date: '2024-01-01' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 192 });
+    const cards = container.querySelectorAll('[data-testid^="dose-card-MenACWY-"]');
+    expect(cards.length).toBe(2);
+    expect(cards[1].textContent).toMatch(/OFF-WINDOW · REPEAT/);
+  });
+
+  it('high-risk (asplenia) patient with 2 pre-16 primary doses IS shown as Complete', () => {
+    const dob = '2010-01-01';
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2018-01-01' }, // ~8y
+        { given: true, mode: 'date', date: '2018-03-01' }, // ~8y2mo
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 100, risks: ['asplenia'] });
+    const row = container.querySelector('[data-testid="vaccine-row-MenACWY"]');
+    expect(row).toBeTruthy();
+    expect(row.textContent).toMatch(/Complete/);
   });
 });

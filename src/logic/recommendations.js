@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses } from './stateHelpers.js';
+import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses, menACWYRoutineCount } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
@@ -554,7 +554,14 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // routine 11–12y series or its 16y booster. Unknown-age doses are conservatively still
   // counted (matches the file's existing default of not assuming a dose is pre-10 without
   // evidence — mirrors how menAt16yUnknown keeps the booster active rather than dropping it).
-  const menRoutine = menacwyGivenAll.filter(d => { const a = menDoseAgeM(d); return a == null || a >= 120; }).length;
+  // M6 (2026-08-11): non-high-risk patients also exclude a 2nd+ dose given before the
+  // age-16 booster window (delegates to the shared stateHelpers helper, also used by
+  // buildOptimalSchedule.js, rather than re-implementing the exclusion here). High-risk
+  // patients keep the V1-only (pre-10) filter \u2014 their primary series legitimately has
+  // 2+ doses before 16, and their own branches above don't consult menRoutine anyway.
+  const menRoutine = isHighRiskMen
+    ? menacwyGivenAll.filter(d => { const a = menDoseAgeM(d); return a == null || a >= 120; }).length
+    : menACWYRoutineCount(hist, dob);
   // High-risk patients may legitimately have pre-10 doses from their own infant/child
   // high-risk series (branches above), so the pre-10 exclusion must not steal them from
   // the high-risk branches below. Only let menRoutine change routing for non-high-risk
