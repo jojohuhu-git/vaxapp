@@ -17,7 +17,9 @@ export function buildRegimens(recs, am) {
   // "risk-based" and "recommended" (e.g. asplenia MenACWY/MenB at 10y,
   // shared-decision MenB at 16y, annual COVID) must appear in the optimizer
   // so it stays consistent with the vaccine list and full forecast.
-  const ADMIN_STATUSES = new Set(["due", "catchup", "risk-based", "recommended"]);
+  // "exposure" (M3: travel/military/microbiologist MenACWY) is administered the
+  // same way as risk-based — only the status word/grouping differs, not eligibility.
+  const ADMIN_STATUSES = new Set(["due", "catchup", "risk-based", "exposure", "recommended"]);
   // De-dupe by vk — multiple recs for the same vk (e.g. PCV + PPSV23) still
   // collapse to one slot in the regimen; the standalone brand fallback picks
   // the first age-eligible VBR option (see firstEligibleStandaloneBrand).

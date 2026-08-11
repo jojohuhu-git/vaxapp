@@ -51,8 +51,9 @@ export default function RegTab({ recs }) {
 
   // Same inclusion set as the regimen optimizer: every rec that represents a
   // dose to administer at this visit, including risk-based (e.g. asplenia
-  // MenACWY/MenB at 10y) and recommended (shared-decision MenB, annual COVID).
-  const ADMIN_STATUSES = new Set(["due", "catchup", "risk-based", "recommended"]);
+  // MenACWY/MenB at 10y), exposure (M3: travel/military/microbiologist MenACWY),
+  // and recommended (shared-decision MenB, annual COVID).
+  const ADMIN_STATUSES = new Set(["due", "catchup", "risk-based", "exposure", "recommended"]);
   const adminRecs = recs.filter(r => ADMIN_STATUSES.has(r.status));
   const needed = [...new Set(adminRecs.map(r => r.vk))];
   const neededKey = needed.join(',');

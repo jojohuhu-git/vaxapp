@@ -656,29 +656,37 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"], { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men === 0 && risks.includes("military")) {
     // U.S. military recruits: 1 dose MenACWY per DoD/ACIP. No routine booster.
-    r("MenACWY", "Risk-based \u2014 military (1 dose)", 1, "risk-based",
+    // M3: status 'exposure', not 'risk-based' \u2014 that word is reserved for ongoing
+    // MEDICAL risk (asplenia, complement deficiency, HIV \u2014 isHighRiskMen branches
+    // above). A one-off/periodic exposure indication (military/microbiologist/travel,
+    // this branch through the travel branch below) is a different kind of "why," even
+    // though the schedule can look structurally similar. Mirrors MeningoVax commit
+    // b43edc6 (W3, 2026-07-24 owner decision): same chip color as risk-based, only the
+    // status word changed.
+    r("MenACWY", "Risk-based \u2014 military (1 dose)", 1, "exposure",
       "ACIP/DoD: U.S. military recruits receive 1 dose MenACWY. No routine booster unless a high-risk medical indication (asplenia, complement deficiency) is also present.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men === 0 && risks.includes("microbiologist")) {
     // Microbiologist: 1 dose MenACWY + revaccinate every 5 years while still exposed.
     // NOT the 2-dose primary series — that is reserved for medical high-risk (asplenia, complement, HIV).
-    r("MenACWY", "Risk-based \u2014 microbiologist (1 dose)", 1, "risk-based",
+    r("MenACWY", "Risk-based \u2014 microbiologist (1 dose)", 1, "exposure",
       "ACIP: microbiologists with routine exposure to N. meningitidis receive 1 dose MenACWY; revaccinate every 5 years as long as occupational exposure persists.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men > 0 && risks.includes("microbiologist")) {
     // Microbiologist revaccination: every 5 years while occupational exposure persists.
-    r("MenACWY", `Revaccination \u2014 dose ${men + 1} (microbiologist, every 5 years)`, men + 1, "risk-based",
+    r("MenACWY", `Revaccination \u2014 dose ${men + 1} (microbiologist, every 5 years)`, men + 1, "exposure",
       "ACIP: microbiologists should continue MenACWY revaccination every 5 years as long as occupational exposure persists.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { minInt: 1826, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men === 0 && risks.includes("travel")) {
     // Travel-only risk: ACIP specifies 1 dose (not a 2-dose medical primary).
     // Medical HR (asplenia, complement, HIV) is caught by earlier isHighRiskMen branches.
-    // Note: "outbreak" and "exposure" risk IDs were removed — they were undefined; use
-    // isHighRiskMen for outbreak scenarios with medical indication.
-    r("MenACWY", "Risk-based \u2014 international travel (1 dose)", 1, "risk-based",
+    // Note: "outbreak" risk ID was removed — it was undefined; use isHighRiskMen for
+    // outbreak scenarios with medical indication. ("exposure" here is the status
+    // literal added by M3 above, not a risk ID.)
+    r("MenACWY", "Risk-based \u2014 international travel (1 dose)", 1, "exposure",
       "ACIP: travelers to or residents of hyperendemic areas: 1 dose MenACWY. If a medical high-risk indication also applies (asplenia, complement deficiency, HIV), use the 2-dose primary series instead.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });

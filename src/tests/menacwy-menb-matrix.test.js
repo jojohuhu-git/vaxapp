@@ -526,15 +526,17 @@ describe('MenACWY risk-based', () => {
   });
 
   // Scenario 18: 24m (travel exposure only), no history → 1 dose only
-  it('18. 24m (travel/exposure), no history → 1 dose risk-based rec', () => {
+  it('18. 24m (travel/exposure), no history → 1 dose exposure rec', () => {
     const am = 24;
     const risks = ['travel'];
 
-    // Surface 1: travel/exposure branch emits 1 dose (not a 2-dose medical primary)
+    // Surface 1: travel/exposure branch emits 1 dose (not a 2-dose medical primary).
+    // M3: status is 'exposure', not 'risk-based' — that word is reserved for ongoing
+    // medical risk (asplenia, complement deficiency, HIV).
     const r = firstRec('MenACWY', am, {}, risks);
     expect(r).not.toBeNull();
     expect(r.doseNum).toBe(1);
-    expect(r.status).toBe('risk-based');
+    expect(r.status).toBe('exposure');
     expect(r.brands.some(b => b.includes('Menveo') || b.includes('MenQuadfi'))).toBe(true);
 
     // Surface 2: optimizer includes MenACWY
