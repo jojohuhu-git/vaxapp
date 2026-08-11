@@ -1,3 +1,7 @@
+> **SUPERSEDED** — Session 8 (2026-08-11) worked this handoff's queue (items 1
+> and 2) and merged the fixes in PR #119. See
+> `docs/archive/handoff-2026-08-11-session8-pneumo-fixes.md` for current state.
+
 # PediVax (vaxapp) — Handoff after Session 7: pneumococcal spec-vs-code audit (2026-08-11)
 
 Session 7 of `.claude/prompts/plan-2026-08-10-aap-authority-parity-ux.md`
