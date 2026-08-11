@@ -6,6 +6,7 @@ import { FORECAST_VISITS } from '../data/forecastData.js';
 import { dobToMonths, todayISO } from '../logic/utils.js';
 import { genRecs } from '../logic/recommendations.js';
 import { validatedHistory } from '../logic/validation.js';
+import { decState, PATIENT_STATE_KEY } from '../logic/urlState.js';
 
 // ── Initial state ──────────────────────────────────────────────
 function initHist() {
@@ -24,6 +25,49 @@ const INIT = {
   tab: "forecast",
   fcBrands: {},
 };
+
+// Merge a decoded sessionStorage/reset-snapshot payload onto a base state.
+// Shared by the RESTORE_STATE reducer case and the lazy useReducer initializer
+// below — factored out so restoration happens on the FIRST render (lazy init)
+// rather than via a post-mount effect dispatch, which raced with the
+// sessionStorage sync effect and silently clobbered the just-restored data
+// (the sync effect fired in the same initial commit, before the dispatch's
+// re-render had applied, and wrote the stale pre-restore state back over it).
+function mergeRestoredState(base, s) {
+  if (!s) return base;
+  const hist = initHist();
+  if (s.hist) {
+    Object.entries(s.hist).forEach(([k, v]) => {
+      if (VAX_KEYS.includes(k)) hist[k] = v;
+    });
+  }
+  return {
+    ...base,
+    am: s.am != null ? s.am : base.am,
+    dob: s.dob || base.dob,
+    risks: s.risks || base.risks,
+    cd4: s.cd4 ?? null,
+    hist,
+    fcBrands: s.fcBrands && typeof s.fcBrands === 'object' ? s.fcBrands : {},
+  };
+}
+
+// Lazy useReducer initializer: reads sessionStorage synchronously so the
+// FIRST render already reflects a reloaded patient — no restore-after-mount
+// race with the sessionStorage sync effect in App.jsx.
+function initState() {
+  const base = { ...INIT, hist: initHist() };
+  try {
+    const s = sessionStorage.getItem(PATIENT_STATE_KEY);
+    if (s) {
+      const decoded = decState(s);
+      if (decoded) return mergeRestoredState(base, decoded);
+    }
+  } catch {
+    // ignore storage/decode errors — fall back to a fresh patient
+  }
+  return base;
+}
 
 // ── Brand auto-fill helper ─────────────────────────────────────
 function brandAutoFill(hist, vk, idx) {
@@ -332,28 +376,11 @@ function reducer(state, action) {
     case "CLEAR_ALL":
       return { ...INIT, hist: initHist() };
 
-    case "RESTORE_STATE": {
-      const s = action.payload;
-      if (!s) return state;
-      const hist = initHist();
-      if (s.hist) {
-        Object.entries(s.hist).forEach(([k, v]) => {
-          if (VAX_KEYS.includes(k)) hist[k] = v;
-        });
-      }
-      return {
-        ...state,
-        am: s.am != null ? s.am : state.am,
-        dob: s.dob || state.dob,
-        risks: s.risks || state.risks,
-        cd4: s.cd4 ?? null,
-        hist,
-        // B-7 fix (2026-04-30): fcBrands restored from URL share so two
-        // clinicians sharing a URL see identical forecasts. Drives PPSV23
-        // suppression after PCV20 + MenB family selection.
-        fcBrands: s.fcBrands && typeof s.fcBrands === 'object' ? s.fcBrands : {},
-      };
-    }
+    case "RESTORE_STATE":
+      // B-7 fix (2026-04-30): fcBrands restored from URL share so two
+      // clinicians sharing a URL see identical forecasts. Drives PPSV23
+      // suppression after PCV20 + MenB family selection.
+      return mergeRestoredState(state, action.payload);
 
     default:
       return state;
@@ -392,7 +419,7 @@ export function getEffectiveAm(state) {
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, { ...INIT, hist: initHist() });
+  const [state, dispatch] = useReducer(reducer, undefined, initState);
   return (
     <AppContext.Provider value={{ state, dispatch }}>
       {children}

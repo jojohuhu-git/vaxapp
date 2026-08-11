@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AppProvider, useApp, useRecs } from './context/AppContext';
 import { encState, decState, RESET_SNAPSHOT_KEY, PATIENT_STATE_KEY } from './logic/urlState';
@@ -229,7 +229,6 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
 function AppInner() {
   const { state, dispatch } = useApp();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const initialized = useRef(false);
 
   // Banner: dismissed state lives in ?nb=1 URL param (separate from ?s= app state)
   const initialBannerOpen = !new URLSearchParams(window.location.search).get("nb");
@@ -281,24 +280,14 @@ function AppInner() {
     clearResetSnapshot();
   };
 
-  // Restore state from sessionStorage on mount (survives reload, not a closed tab)
+  // Sync state to sessionStorage on every change. State reload/restore now
+  // happens synchronously via AppContext's lazy useReducer initializer
+  // (AppContext.jsx initState()), so the FIRST render already reflects any
+  // reloaded patient — no post-mount restore dispatch here, which previously
+  // raced with this effect and clobbered the just-restored data (the sync
+  // effect fired in the same initial commit using the pre-restore state,
+  // before the restore dispatch's re-render had applied).
   useEffect(() => {
-    try {
-      const s = sessionStorage.getItem(PATIENT_STATE_KEY);
-      if (s) {
-        const decoded = decState(s);
-        if (decoded) dispatch({ type: "RESTORE_STATE", payload: decoded });
-      }
-    } catch {
-      // ignore storage/decode errors
-    }
-    initialized.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Sync state to sessionStorage on changes (skip initial render)
-  useEffect(() => {
-    if (!initialized.current) return;
     try {
       const enc = encState(state);
       if (enc) {
