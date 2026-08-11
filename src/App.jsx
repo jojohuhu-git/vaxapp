@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AppProvider, useApp, useRecs } from './context/AppContext';
-import { encState, decState, RESET_SNAPSHOT_KEY } from './logic/urlState';
+import { encState, decState, RESET_SNAPSHOT_KEY, PATIENT_STATE_KEY } from './logic/urlState';
 import { RISK_FACTORS } from './data/riskFactors';
 import Header from './components/Header';
 import PatientInfo from './components/PatientInfo';
@@ -13,7 +13,6 @@ import ComboSuggestionsPanel from './components/ComboSuggestionsPanel';
 import AuditFooter from './components/AuditFooter';
 import RiskGrid from './components/RiskGrid';
 import MainPanel from './components/MainPanel';
-import ShareModal from './components/ShareModal';
 import Disclaimer from './components/Disclaimer';
 import { fmtAm } from './logic/ageFormat';
 
@@ -229,7 +228,6 @@ function PatientSummaryBar({ onEdit, drawerOpen }) {
 
 function AppInner() {
   const { state, dispatch } = useApp();
-  const [showShare, setShowShare] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const initialized = useRef(false);
 
@@ -246,31 +244,33 @@ function AppInner() {
     } catch { /* ignore */ }
   };
 
-  // Reset safety net: a snapshot is written to localStorage right before Reset
-  // clears the patient (see Header.jsx). Offer a one-shot restore until it's
-  // used or dismissed, and only while no patient is currently loaded — once a
-  // new patient starts (or a share link is opened), the snapshot is stale.
+  // Reset safety net: a snapshot is written to sessionStorage right before
+  // Reset clears the patient (see Header.jsx). Offer a one-shot restore until
+  // it's used or dismissed, and only while no patient is currently loaded —
+  // once a new patient starts, the snapshot is stale. sessionStorage (not
+  // localStorage): this undo only ever matters within one sitting, and patient
+  // data must not survive a closed tab.
   const [resetSnapshot, setResetSnapshot] = useState(() => {
     try {
-      return localStorage.getItem(RESET_SNAPSHOT_KEY);
+      return sessionStorage.getItem(RESET_SNAPSHOT_KEY);
     } catch {
       return null;
     }
   });
 
-  // Re-read localStorage whenever the patient becomes empty — this is what
+  // Re-read sessionStorage whenever the patient becomes empty — this is what
   // happens the instant Reset fires (Header.jsx writes the snapshot, then
   // dispatches CLEAR_ALL), not just on a fresh mount/reopened tab.
   useEffect(() => {
     if (state.am >= 0 || state.dob) return;
     try {
-      setResetSnapshot(localStorage.getItem(RESET_SNAPSHOT_KEY));
+      setResetSnapshot(sessionStorage.getItem(RESET_SNAPSHOT_KEY));
     } catch { /* ignore */ }
   }, [state.am, state.dob]);
 
   const clearResetSnapshot = () => {
     try {
-      localStorage.removeItem(RESET_SNAPSHOT_KEY);
+      sessionStorage.removeItem(RESET_SNAPSHOT_KEY);
     } catch { /* ignore */ }
     setResetSnapshot(null);
   };
@@ -281,41 +281,37 @@ function AppInner() {
     clearResetSnapshot();
   };
 
-  // Restore state from URL on mount
+  // Restore state from sessionStorage on mount (survives reload, not a closed tab)
   useEffect(() => {
     try {
-      const params = new URLSearchParams(window.location.search);
-      const s = params.get("s");
+      const s = sessionStorage.getItem(PATIENT_STATE_KEY);
       if (s) {
         const decoded = decState(s);
         if (decoded) dispatch({ type: "RESTORE_STATE", payload: decoded });
       }
     } catch {
-      // ignore URL parse errors
+      // ignore storage/decode errors
     }
     initialized.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync state to URL on changes (skip initial render)
+  // Sync state to sessionStorage on changes (skip initial render)
   useEffect(() => {
     if (!initialized.current) return;
     try {
       const enc = encState(state);
       if (enc) {
-        // Preserve existing params (e.g. ?nb=1 banner-dismissed flag)
-        const params = new URLSearchParams(window.location.search);
-        params.set("s", enc);
-        window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+        sessionStorage.setItem(PATIENT_STATE_KEY, enc);
       }
     } catch {
-      // ignore encoding errors
+      // ignore encoding/storage errors
     }
   }, [state]);
 
   return (
     <>
-      <Header onShare={() => setShowShare(true)} />
+      <Header />
 
       {bannerOpen && (
         <div className="top-banner">
@@ -353,10 +349,6 @@ function AppInner() {
       </div>
 
       <AuditFooter />
-
-      {showShare && (
-        <ShareModal onClose={() => setShowShare(false)} />
-      )}
     </>
   );
 }

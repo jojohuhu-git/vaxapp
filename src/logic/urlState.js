@@ -3,10 +3,20 @@
 // ╚══════════════════════════════════════════════════════════════╝
 import { VAX_KEYS } from '../data/vaccineData.js';
 
-// localStorage key for the one-shot "Restore previous patient" snapshot taken
-// right before Reset clears the patient. Shares the same encoded shape as
-// the `?s=` share URL (encState/decState) — no separate serialization needed.
+// sessionStorage key for the one-shot "Restore previous patient" snapshot
+// taken right before Reset clears the patient. Shares the same encoded shape
+// as the patient-state persistence below (encState/decState) — no separate
+// serialization needed. sessionStorage (not localStorage): patient data must
+// not survive a closed tab.
 export const RESET_SNAPSHOT_KEY = 'pedivax_reset_snapshot';
+
+// sessionStorage key for the current patient's state, persisted so a reload
+// doesn't lose in-progress work but a closed tab does (owner requirement:
+// "once they close it, I do not need it to be saved"). Previously this lived
+// in the `?s=` URL query param, which is transmitted to the server on every
+// page load — a privacy problem for a GitHub Pages-hosted app carrying DOB,
+// vaccination history, and risk factors (HIV status, pregnancy, etc).
+export const PATIENT_STATE_KEY = 'pedivax_patient_state';
 
 /**
  * Encode application state to a URL-safe string.
