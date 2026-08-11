@@ -315,6 +315,27 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   const ageMonths = ageDays / 30.4375;
   const ageLabel = fmtAgeClinical(ageDays);
 
+  // M6 (2026-08-11): a non-high-risk 2nd+ MenACWY dose given before the age-16
+  // booster window is safely administered but does not satisfy the booster
+  // requirement — the booster is an AGE window, not just an interval from dose 1.
+  // Verified live, CDC MMWR RR-9: "Adolescents who receive their first dose at age
+  // 13-15 years should receive a booster dose at age 16-18 years... Adolescents who
+  // receive a first dose after their 16th birthday do not need a booster dose."
+  // doseIdx===1 (the 2nd administered dose) mirrors MeningoVax's effectiveIdx===1
+  // check; high-risk patients are unaffected (their primary series legitimately has
+  // 2+ doses before 16). Mirrors MeningoVax commit 3172a0a (Change 3) and M1's
+  // OFF_WINDOW+notAdolescentCount pattern just below.
+  if (vk === 'MenACWY' && doseIdx === 1 && ageMonths < 192 && !isHighRiskMenACWY(risks || [])) {
+    return {
+      status: 'OFF_WINDOW',
+      label: `Off-window — booster still owed (given at ${ageLabel}, before the 16-year booster window). Does not count toward the routine 2-dose series — the booster is an age window (16-18 years), not just an interval from dose 1.`,
+      recommendedRange: null,
+      extraScenario: null,
+      auditFlag: null,
+      notAdolescentCount: true,
+    };
+  }
+
   // M1: a MenB dose given before age 16 (192mo) to a non-high-risk patient is
   // validly administered but does NOT count toward the healthy 2-dose series —
   // MenB antibody protection wanes within about a year, so a pre-16 dose is not

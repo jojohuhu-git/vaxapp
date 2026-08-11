@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses } from './stateHelpers.js';
+import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses, menACWYRoutineCount } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
@@ -554,13 +554,30 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // routine 11–12y series or its 16y booster. Unknown-age doses are conservatively still
   // counted (matches the file's existing default of not assuming a dose is pre-10 without
   // evidence — mirrors how menAt16yUnknown keeps the booster active rather than dropping it).
-  const menRoutine = menacwyGivenAll.filter(d => { const a = menDoseAgeM(d); return a == null || a >= 120; }).length;
+  // M6 (2026-08-11): non-high-risk patients also exclude a 2nd+ dose given before the
+  // age-16 booster window (delegates to the shared stateHelpers helper, also used by
+  // buildOptimalSchedule.js, rather than re-implementing the exclusion here). High-risk
+  // patients keep the V1-only (pre-10) filter \u2014 their primary series legitimately has
+  // 2+ doses before 16, and their own branches above don't consult menRoutine anyway.
+  const menRoutine = isHighRiskMen
+    ? menacwyGivenAll.filter(d => { const a = menDoseAgeM(d); return a == null || a >= 120; }).length
+    : menACWYRoutineCount(hist, dob);
   // High-risk patients may legitimately have pre-10 doses from their own infant/child
   // high-risk series (branches above), so the pre-10 exclusion must not steal them from
   // the high-risk branches below. Only let menRoutine change routing for non-high-risk
   // patients, or when no doses were actually excluded (men === menRoutine) so high-risk
   // routing is identical to the pre-fix behavior in every other case.
   const menRoutineGate = (n) => menRoutine === n && (!isHighRiskMen || men === menRoutine);
+  // M5 (2026-08-11): when the single credited routine dose was given at exactly age 10
+  // (120-131mo, the pre-11 floor V1 already credits), the eventual 16y booster note should
+  // cite WHY that age-10 dose satisfied dose 1 (immunize.org Ask the Experts, verified live
+  // 2026-08-11). Mirrors MeningoVax commit 0ec3f22 (Change 2). Only meaningful when exactly
+  // one dose is credited — once a 2nd dose exists the age-10 question no longer applies.
+  const menRoutineDoseAtAge10 = menRoutine === 1 && (() => {
+    const d = menacwyGivenAll.find(d => { const a = menDoseAgeM(d); return a == null || a >= 120; });
+    const a = d ? menDoseAgeM(d) : null;
+    return a != null && a >= 120 && a < 132;
+  })();
   // D7: Menveo formulation depends on age \u2014 2-vial licensed \u22652 months; 1-vial licensed \u226510 years.
   const menveoLbl = am >= 120 ? "Menveo 1-vial (MenACWY-CRM, \u226510y)" : "Menveo 2-vial (MenACWY-CRM, \u22652m)";
   if (isHighRiskMen && am >= 2 && am < 7 && men < 3) {
@@ -636,9 +653,13 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     // an exact 3- or 5-year interval. A prior "High-risk: booster every 3\u20135 years"
     // clause here described a code path that never actually fires \u2014 removed.
     r("MenACWY", am <= 204 ? "Booster (16 years)" : "Booster catch-up (17\u201318 years)", 2, "due",
-      "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y.",
+      menRoutineDoseAtAge10
+        ? "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y. The prior dose was given at age 10, which counts as the first dose of the adolescent series \u2014 no repeat was needed."
+        : "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y.",
       menb < 2 ? [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)", "Penbraya (MenACWY+MenB-FHbp) \u2014 if MenB also due", "Penmenvy (MenACWY+MenB-4C) \u2014 if MenB also due"] : [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+      menRoutineDoseAtAge10
+        ? { minInt: 56, refUrl: REFS.acwyAge10CountsAsDose1.url, refLabel: REFS.acwyAge10CountsAsDose1.label, refUrl2: REFS.MenACWY.cdcUrl, refLabel2: REFS.MenACWY.cdcLabel }
+        : { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am > 144 && am < 192 && menRoutineGate(0)) {
     // 13\u201315y catch-up: Dose 1 of 2; booster at 16y because first dose given before 16y.
     r("MenACWY", "Catch-up (13\u201315 years)", 1, "catchup",
@@ -666,20 +687,20 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("MenACWY", "Risk-based \u2014 military (1 dose)", 1, "exposure",
       "ACIP/DoD: U.S. military recruits receive 1 dose MenACWY. No routine booster unless a high-risk medical indication (asplenia, complement deficiency) is also present.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+      { refUrl: REFS.acip2020Table10.url, refLabel: REFS.acip2020Table10.label, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men === 0 && risks.includes("microbiologist")) {
     // Microbiologist: 1 dose MenACWY + revaccinate every 5 years while still exposed.
     // NOT the 2-dose primary series — that is reserved for medical high-risk (asplenia, complement, HIV).
     r("MenACWY", "Risk-based \u2014 microbiologist (1 dose)", 1, "exposure",
       "ACIP: microbiologists with routine exposure to N. meningitidis receive 1 dose MenACWY; revaccinate every 5 years as long as occupational exposure persists.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+      { refUrl: REFS.acip2020Table7.url, refLabel: REFS.acip2020Table7.label, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men > 0 && risks.includes("microbiologist")) {
     // Microbiologist revaccination: every 5 years while occupational exposure persists.
     r("MenACWY", `Revaccination \u2014 dose ${men + 1} (microbiologist, every 5 years)`, men + 1, "exposure",
       "ACIP: microbiologists should continue MenACWY revaccination every 5 years as long as occupational exposure persists.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { minInt: 1826, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+      { minInt: 1826, refUrl: REFS.acip2020Table7.url, refLabel: REFS.acip2020Table7.label, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men === 0 && risks.includes("travel")) {
     // Travel-only risk: ACIP specifies 1 dose (not a 2-dose medical primary).
     // Medical HR (asplenia, complement, HIV) is caught by earlier isHighRiskMen branches.
@@ -689,7 +710,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("MenACWY", "Risk-based \u2014 international travel (1 dose)", 1, "exposure",
       "ACIP: travelers to or residents of hyperendemic areas: 1 dose MenACWY. If a medical high-risk indication also applies (asplenia, complement deficiency, HIV), use the 2-dose primary series instead.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+      { refUrl: REFS.acip2020Table9.url, refLabel: REFS.acip2020Table9.label, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (risks.includes("college") && men >= 1 && !menAt16y && am > 216) {
     // First-year college resident, >=18y, with prior MenACWY dose(s) but none on/after the 16th
     // birthday. Aligns with MeningoVax + job aid: pre-16y doses do not satisfy the requirement.
@@ -698,7 +719,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         ? "First-year college resident: a prior MenACWY dose is recorded but its age cannot be confirmed. The residence-hall requirement is met only by a dose on/after the 16th birthday \u2014 confirm the date; if it was before age 16 (or unknown), give 1 dose now."
         : "First-year college resident: the prior MenACWY dose was given before age 16. ACIP requires a dose on/after the 16th birthday for residence-hall students \u2014 give 1 dose now.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+      { minInt: 56, refUrl: REFS.acip2020Table10.url, refLabel: REFS.acip2020Table10.label, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 192 && am < 264 && !menAt16y && !isHighRiskMen) {
     // D2: 16\u201321y, unvaccinated, no high-risk \u2014 catch-up Dose 1 of 1 (no booster needed when \u226516y).
     // Covers all patients 16\u201321y who have never received MenACWY, regardless of risk class:
@@ -764,7 +785,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       r("MenB", hrMenB ? "Dose 1 \u2014 risk-based (high-risk)" : "Dose 1 \u2014 shared clinical decision (preferred 16\u201323y)", 1, hrMenB ? "risk-based" : "recommended",
         hrMenB ? "Risk-based for high-risk patients: 3-dose accelerated schedule (0, 1\u20132 months, 6 months) for BOTH antigen families. MenB-4C (Bexsero/Penmenvy) and MenB-FHbp (Trumenba/Penbraya) are NOT interchangeable \u2014 complete within one family." : "Shared clinical decision making, preferred 16\u201318y. MenB-4C (Bexsero/Penmenvy): 2 doses \u22656 months apart. MenB-FHbp (Trumenba/Penbraya): 2 doses \u22656m apart (or accelerated 3-dose). Penbraya/Penmenvy if MenACWY also starting.",
         men === 0 ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenACWY too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenACWY too (4C family)", "Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"] : ["Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"],
-        { bt: "Two antigen families: 4C (Bexsero, Penmenvy) and FHbp (Trumenba, Penbraya). Within a family products are interchangeable; across families they are NOT. Complete the series within one family.", refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
+        { bt: "Two antigen families: 4C (Bexsero, Penmenvy) and FHbp (Trumenba, Penbraya). Within a family products are interchangeable; across families they are NOT. Complete the series within one family.", refUrl: hrMenB ? REFS.MenB.cdcUrl : REFS.mm7349a3.url, refLabel: hrMenB ? REFS.MenB.cdcLabel : REFS.mm7349a3.label, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
     } else if (menbCount === 1 && (hrMenB || am >= 192)) {
       const mb = menbEffective.find(d => d.brand)?.brand || "";
       // Antigen-family awareness: 4C (Bexsero/Penmenvy) vs FHbp (Trumenba/Penbraya).
@@ -784,7 +805,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         is4C ? ["Bexsero (MenB-4C)", "Penmenvy (MenACWY+MenB-4C)"]
           : isFHbp ? ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp)"]
           : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
-        { minInt: fhbpD2Min, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
+        { minInt: fhbpD2Min, refUrl: hrMenB ? REFS.MenB.cdcUrl : REFS.mm7349a3.url, refLabel: hrMenB ? REFS.MenB.cdcLabel : REFS.mm7349a3.label, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
     } else if (menbCount === 2) {
       const mb = menbEffective.find(d => d.brand)?.brand || "";
       const isFHbp2 = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");

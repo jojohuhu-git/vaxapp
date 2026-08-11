@@ -16,7 +16,7 @@ import { REFS } from '../data/refs.js';
 import { validatedHistory, validateDose } from '../logic/validation';
 import { classifyDose, RULES_REGISTRY } from '../logic/compliance';
 import { fmtAgeClinical, fmtIntervalClinical, fmtAm } from '../logic/ageFormat';
-import { doseAgeDays, doseDate, isHighRiskMenACWY, menBEffectiveDoses, highRiskMenB } from '../logic/stateHelpers';
+import { doseAgeDays, doseDate, isHighRiskMenACWY, menBEffectiveDoses, highRiskMenB, menACWYRoutineCount } from '../logic/stateHelpers';
 import { getDoseBand } from '../data/aapDoseBands';
 import { fmtDateInput, addD, todayISO } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
@@ -588,8 +588,17 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
   // 'yes' risk-at-dose answer likewise doesn't count — mirrors MeningoVax's M2
   // (commit 981682c). Without this, "Complete" could show before the prompt
   // in the History tab is even answered.
+  // M6: for non-high-risk MenACWY, a 2nd+ dose given before the age-16 booster
+  // window is valid (passes validateDose's checks above) but does NOT count toward
+  // the routine 2-dose series completion — mirrors stateHelpers.menACWYRoutineCount()
+  // and MeningoVax's Change 3 (commit 3172a0a). Without this, a healthy patient with
+  // a dose at 11 and an early dose at 14 was shown "Complete" with the true 16y
+  // booster still owed. High-risk patients keep the raw count (their primary series
+  // legitimately has 2+ pre-16 doses).
   const effectiveCount = vk === 'MenB'
     ? menBEffectiveDoses({ MenB: validDoses }, dob, am, highRiskMenB(risks || [])).length
+    : vk === 'MenACWY' && !isHighRiskMenACWY(risks || [])
+    ? menACWYRoutineCount({ MenACWY: validDoses }, dob)
     : validCount;
 
   // Count extra doses: doses beyond the standard series total that are VALID_EXTRA
