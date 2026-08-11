@@ -1,5 +1,13 @@
 # PediVax (vaxapp) — Handoff after sessionStorage migration (2026-08-11)
 
+> **SUPERSEDED** by `docs/archive/handoff-2026-08-11-m2-risk-at-dose-prompt.md`.
+> This handoff's "Resuming" section pointed at Session 4; that session is
+> now done. This handoff's account of the sessionStorage migration itself
+> is still accurate, but the migration had a latent Unicode-encoding bug
+> (any dose brand with a non-Latin-1 character, e.g. "≥10y", silently
+> erased the whole session on reload) plus a mount-order race — both found
+> and fixed in the Session 4 handoff. Read that file for current state.
+
 Session 3 of `.claude/prompts/plan-2026-08-10-aap-authority-parity-ux.md`
 (the ten-session plan). Session 3 also absorbed one piece of pre-existing
 housekeeping deferred by the last two sessions (see below).
