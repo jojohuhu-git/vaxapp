@@ -1,7 +1,7 @@
 // Source: ACIP high-risk vaccine indications
 // highRisk() = asplenia, hiv, immunocomp, hsct, complement
 import { describe, it, expect } from 'vitest';
-import { firstRec, recsFor } from './_helpers.js';
+import { firstRec, recsFor, optimalDosesFor } from './_helpers.js';
 
 describe('Asplenia — cross-cutting vaccine triggers (Surface 1)', () => {
 
@@ -120,5 +120,57 @@ describe('Complement deficiency — MenACWY/MenB (Surface 1)', () => {
   it('S1: MenB rec at am=120 (10y) with complement deficiency', () => {
     const r = firstRec('MenB', 120, {}, ['complement']);
     expect(r).not.toBeNull();
+  });
+});
+
+// P1 (audit-2026-08-11-pneumo-spec-vs-code.md item 2): CDC's pneumococcal
+// special-situations notes (live-fetched 2026-08-11) split kidney disease into
+// two groups with different PCV/PPSV23 follow-up rules — general chronic
+// kidney disease has no extra follow-up after a single PPSV23 dose, but
+// "maintenance dialysis" and "nephrotic syndrome" sit in the same
+// immunocompromising group as asplenia/HIV/immunocomp, which requires a 2nd
+// PPSV23 (or PCV20) ≥5 years after the first. vaxapp previously had one
+// conflated "chronic_kidney" risk id that never triggered the follow-up for
+// either group; this splits it into `chronic_kidney` (general CKD) and the
+// new `chronic_kidney_dialysis` (dialysis/nephrotic syndrome).
+describe('Chronic kidney disease vs. dialysis/nephrotic syndrome — PCV follow-up (Surface 1 + 5)', () => {
+  // ageDays (not date) so genRecs — called here without a dob — can still tell
+  // this PCV dose was given after 72 months (6y), not in infancy. A dateless/
+  // age-indeterminate dose is conservatively treated as an infant dose, which
+  // would trip the unrelated "series complete if all PCV was given before 72mo"
+  // shortcut for every risk group and mask this scenario.
+  const hist = {
+    PCV: [{ given: true, brand: 'Vaxneuvance (PCV15)', ageDays: 80 * 30.4375 }],
+    PPSV23: [{ given: true, date: '2026-01-01' }],
+  };
+
+  it('S1: dialysis/nephrotic patient gets the 2-dose IC follow-up (PCV20 Option A + PPSV23 dose 2 Option B), matching asplenia', () => {
+    const asplenia = recsFor('PPSV23', 84, hist, ['asplenia']);
+    const dialysis = recsFor('PPSV23', 84, hist, ['chronic_kidney_dialysis']);
+    expect(dialysis.length).toBe(asplenia.length);
+    expect(dialysis.length).toBeGreaterThan(0);
+    expect(dialysis[0].dose).toMatch(/dose 2 \/ Option B/);
+  });
+
+  it('S1: general (non-dialysis) chronic kidney disease gets no PPSV23 follow-up — not an IC indication', () => {
+    const r = recsFor('PPSV23', 84, hist, ['chronic_kidney']);
+    expect(r.length).toBe(0);
+  });
+
+  // PCV dose given after age 6y (72mo) so the unrelated "series complete if all
+  // PCV doses were given before 72mo" shortcut in buildOptimalSchedule.js
+  // doesn't mask this scenario — that shortcut applies to every risk group and
+  // isn't what item 2 is about.
+  it('S5: buildOptimalSchedule schedules a 2nd PPSV23 dose (≥5y later) for dialysis/nephrotic, matching asplenia', () => {
+    const s5hist = {
+      PCV: [{ given: true, brand: 'Vaxneuvance (PCV15)', date: '2025-01-01' }],
+      PPSV23: [{ given: true, date: '2025-06-01' }],
+    };
+    const asplenia = optimalDosesFor('PPSV23', 96, s5hist, ['asplenia']);
+    const dialysis = optimalDosesFor('PPSV23', 96, s5hist, ['chronic_kidney_dialysis']);
+    const nonDialysisCKD = optimalDosesFor('PPSV23', 96, s5hist, ['chronic_kidney']);
+    expect(asplenia.length).toBe(1);
+    expect(dialysis.length).toBe(asplenia.length);
+    expect(nonDialysisCKD.length).toBe(0);
   });
 });

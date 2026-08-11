@@ -28,7 +28,7 @@ function resolveBrand(vk, fcBrands, hist) {
 // Returns { totalDoses }, { status:'NEEDS_HUMAN_REVIEW', rule }, or null (not indicated).
 function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
   const isHRPCV = risks.some(r => ['asplenia', 'sickle_cell', 'hiv', 'immunocomp', 'cochlear', 'chronic_heart',
-    'chronic_lung', 'chronic_kidney', 'diabetes', 'chronic_liver'].includes(r));
+    'chronic_lung', 'chronic_kidney', 'chronic_kidney_dialysis', 'diabetes', 'chronic_liver'].includes(r));
   const isHRMen = risks.some(r => ['asplenia', 'sickle_cell', 'complement', 'hiv'].includes(r));
   // MenB high-risk set (ACIP 2020): asplenia, complement deficiency/inhibitor,
   // microbiologist, serogroup-B outbreak. HIV/HSCT/immunocomp are NOT MenB indications.
@@ -153,7 +153,9 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       if (am >= 72 && pb.given >= 1 && pb.ge72 === 0 && ppsvCount >= 1) {
         return { totalDoses: ppsvCount };
       }
-      return { totalDoses: risks.some(r => ['asplenia', 'sickle_cell', 'immunocomp', 'hiv'].includes(r)) ? 2 : 1 };
+      // chronic_kidney_dialysis (dialysis/nephrotic syndrome) is CDC's own
+      // IC-subset kidney category; general chronic_kidney is not.
+      return { totalDoses: risks.some(r => ['asplenia', 'sickle_cell', 'immunocomp', 'hiv', 'chronic_kidney_dialysis'].includes(r)) ? 2 : 1 };
     }
 
     case 'IPV':

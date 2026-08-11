@@ -21,7 +21,8 @@ export const RISK_FACTOR_GROUPS = [
     header: "Chronic disease",
     items: [
       { id: "chronic_heart",  l: "Chronic heart disease" },
-      { id: "chronic_kidney", l: "Chronic kidney / dialysis" },
+      { id: "chronic_kidney", l: "Chronic kidney disease (not on dialysis)" },
+      { id: "chronic_kidney_dialysis", l: "Kidney disease — dialysis or nephrotic syndrome" },
       { id: "chronic_liver",  l: "Chronic liver disease" },
       { id: "chronic_lung",   l: "Chronic lung / asthma" },
       { id: "diabetes",       l: "Diabetes mellitus" },

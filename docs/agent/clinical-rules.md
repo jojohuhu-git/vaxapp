@@ -58,7 +58,9 @@ FDA-labeled age ranges may be more restrictive than current ACIP guidance. Never
 
 At-risk PCV plan for 24m–18y with high-risk condition: delegate to `pcvHighRiskChildPlan()` in `src/logic/pcvDoses.js`. Never re-implement the dose-count logic locally.
 
-High-risk conditions (`PCV_HR_RISKS`): `asplenia`, `sickle_cell`, `hiv`, `immunocomp`, `cochlear`, `chronic_heart`, `chronic_lung`, `chronic_kidney`, `diabetes`, `chronic_liver`.
+High-risk conditions (`PCV_HR_RISKS`): `asplenia`, `sickle_cell`, `hiv`, `immunocomp`, `cochlear`, `chronic_heart`, `chronic_lung`, `chronic_kidney`, `chronic_kidney_dialysis`, `diabetes`, `chronic_liver`.
+
+**IC-subset PPSV23 follow-up gate:** after a first PPSV23 dose, `asplenia`/`sickle_cell`/`immunocomp`/`hiv`/`chronic_kidney_dialysis` trigger a 2nd PPSV23 (≥5y later) or PCV20 follow-up (`recommendations.js` + `buildOptimalSchedule.js`, both lists must match). `chronic_kidney` (general CKD, not on dialysis) is deliberately excluded — CDC's own kidney-disease split puts dialysis/nephrotic syndrome in the immunocompromising group and everything else outside it.
 
 **PCV7 never counts:** `isPCV7(d)` in `pcvDoses.js` identifies Prevnar 7 doses (`brand.startsWith('Prevnar 7')`). These are recorded but excluded from the series count in all five surfaces (`pcvBands()`, `hasBoosterDose()`, `recommendations.js`, `dosePlan.js`, `buildOptimalSchedule.js`). Treat PCV7-only patients as PCV-naïve. Source: immunize.org Ask the Experts.
 
