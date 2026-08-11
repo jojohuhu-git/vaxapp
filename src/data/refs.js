@@ -132,6 +132,25 @@ export const REFS = {
     quote:"ACIP considers a dose of MenACWY given to a 10-year-old child to be valid for the first dose in the adolescent series.",
     lastVerified:"2026-08-11"
   },
+  // Citation parity (2026-08-11, mirrors MeningoVax C2): exposure-based MenACWY recs
+  // (military/microbiologist/travel/college) cite their own specific ACIP 2020 MMWR
+  // table instead of the generic child-adolescent-notes schedule page. Verified live
+  // 2026-08-11 — each table title matched on the live-rendered CDC page.
+  acip2020Table7: {
+    label:"ACIP 2020 MMWR: Table 7 — schedule for microbiologists routinely exposed to N. meningitidis",
+    url:"https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=" + encodeURIComponent("TABLE 7. Recommended vaccination schedule and intervals for microbiologists routinely exposed to isolates of Neisseria meningitidis"),
+    lastVerified:"2026-08-11"
+  },
+  acip2020Table9: {
+    label:"ACIP 2020 MMWR: Table 9 — schedule for travelers to hyperendemic/epidemic countries",
+    url:"https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=" + encodeURIComponent("TABLE 9. Recommended vaccination schedule and intervals for persons who travel to or are residents of countries where meningococcal disease is hyperendemic or epidemic"),
+    lastVerified:"2026-08-11"
+  },
+  acip2020Table10: {
+    label:"ACIP 2020 MMWR: Table 10 — schedule for college freshmen in residence halls and military recruits",
+    url:"https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=" + encodeURIComponent("TABLE 10. Recommended vaccination schedule and intervals for college freshmen living in residence halls"),
+    lastVerified:"2026-08-11"
+  },
   MenB:    {
     label:"immunize.org: MenB — Ask the Experts",
     url:"https://www.immunize.org/ask-experts/topic/menb/",
@@ -139,6 +158,18 @@ export const REFS = {
     immLabel:"immunize.org: MenB Vaccine Resources",
     cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening-b",
     cdcLabel:"CDC MenB Schedule Notes"
+  },
+  // Citation parity (2026-08-11, mirrors MeningoVax C1): vaxapp never cited the
+  // Penmenvy product-announcement MMWR MeningoVax had mislabeled as a MenB dosing
+  // source — confirmed by grep, no "Penmenvy"/mm75xx citation exists in this file.
+  // This is a precision upgrade: the healthy MenB 2-dose (0/6mo) recs now cite the
+  // actual ACIP source for that interval directly, instead of only the general CDC
+  // schedule-notes overview page. Verified live 2026-08-11.
+  mm7349a3: {
+    label:"New Dosing Interval and Schedule for the Bexsero MenB-4C Vaccine: ACIP, October 2024 (MMWR 73(49);1124)",
+    url:"https://www.cdc.gov/mmwr/volumes/73/wr/mm7349a3.htm",
+    quote:"ACIP now recommends MenB-4C as a 2-dose series with doses administered at intervals of 0 and 6 months for healthy adolescents and young adults aged 16–23 years based on shared clinical decision-making and as a 3-dose series with doses administered at 0, 1–2, and 6 months for persons aged ≥10 years at increased risk.",
+    lastVerified:"2026-08-11"
   },
   RSV:     {
     label:"immunize.org: RSV (Nirsevimab/Clesrovimab) — Ask the Experts",
