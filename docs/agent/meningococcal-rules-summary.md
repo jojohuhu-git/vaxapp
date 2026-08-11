@@ -5,22 +5,61 @@
 Edit the rules there first, then port the change here — do not edit the
 rule content in this copy independently (it will drift out of sync).
 
-**Copied from MeningoVax:** 2026-07-23 (MeningoVax commit `764f03a`).
+**Copied from MeningoVax:** 2026-08-11 (MeningoVax HEAD `a855025` — its own
+rules-summary.md content is unchanged since commit `764f03a`, 2026-07-23;
+MeningoVax's later W1–W5/Change 2–4/C1–C3 fixes updated its citations and
+UI, not the rules this file describes).
 
 **Authority order:** ACIP > CDC > AAP > immunize.org, over FDA package
 inserts. CDSI "preferable" windows are ignored — only CDSI absolute min/max
 ages are enforced.
 
-> **Status in this repo (vaxapp) — fixed:** the "doses before age 16 don't
-> count toward the healthy MenB series" rule (section 2) is now implemented
-> here (M1, `plan-2026-08-10-aap-authority-parity-ux.md` Session 1). A new
-> `menBEffectiveDoses()` helper in `src/logic/stateHelpers.js` excludes a
-> non-high-risk patient's pre-16 MenB doses from the routine count, and
-> `recommendations.js`, `buildOptimalSchedule.js`, and `compliance.js` all
-> consume it. This mirrors MeningoVax's P0-1 fix (commit `764f03a`,
-> 2026-07-23). Regression coverage:
-> `src/logic/__tests__/regression-p0-1-menb-healthy-age16-gate.test.js` and
-> Case 5 of `src/logic/__tests__/cross-app-meningococcal-agreement.test.js`.
+> **Status in this repo (vaxapp) — meningococcal parity complete as of
+> 2026-08-11** (`plan-2026-08-10-aap-authority-parity-ux.md` Sessions 1, 4,
+> and 5):
+> - **M1** (dose-counting): the "doses before age 16 don't count toward the
+>   healthy MenB series" rule (section 2) is implemented. A
+>   `menBEffectiveDoses()` helper in `src/logic/stateHelpers.js` excludes a
+>   non-high-risk patient's pre-16 MenB doses from the routine count, and
+>   `recommendations.js`, `buildOptimalSchedule.js`, and `compliance.js` all
+>   consume it. Mirrors MeningoVax's P0-1 fix (commit `764f03a`).
+>   Regression: `regression-p0-1-menb-healthy-age16-gate.test.js`, Case 5 of
+>   `cross-app-meningococcal-agreement.test.js`.
+> - **M2** (risk-at-dose ambiguity): a "Needs input" prompt asks whether the
+>   patient was already high-risk on the date of an ambiguous pre-16 MenB
+>   dose, with edit/undo. Answer lives in `sessionStorage` only (never in a
+>   shareable link). Mirrors MeningoVax commit `981682c`.
+> - **M3** (status vocabulary): exposure indications (military,
+>   microbiologist, travel) emit status `'exposure'`, distinct from ongoing
+>   medical risk (`'risk-based'` — asplenia, complement deficiency, HIV).
+>   Same chip color, different word. Mirrors MeningoVax commit `b43edc6`.
+> - **M4** (college-dorm 5-year recency): confirmed not reachable in
+>   vaxapp — the app's pediatric scope hard-caps at 18y11m, and the earliest
+>   a dose can satisfy the ≥16y college requirement is 16y0m, so the gap
+>   between dose and "now" can never reach the 5-year threshold that
+>   triggered MeningoVax's bug (`aa0e4b0`). No code change; reasoning
+>   recorded in `docs/archive/handoff-2026-08-11-m3-m4-menacwy.md`.
+> - **M5** (age-10 footnote): a MenACWY dose given at exactly age 10 already
+>   counted correctly toward dose 1 (V1); it now also carries a citation
+>   explaining why, on the eventual 16y booster note. The "under-11 status
+>   contradiction" MeningoVax fixed (`0ec3f22`) does not reproduce in
+>   vaxapp — confirmed with evidence, not fixed because there was nothing to
+>   fix (vaxapp shows no card at all in that window, not a contradictory
+>   one).
+> - **M6** (early 2nd dose): a healthy 2nd MenACWY dose given before the
+>   age-16 booster window no longer counts as completing the series —
+>   `stateHelpers.menACWYRoutineCount()` excludes it, and every consuming
+>   surface (recommendations, compliance, buildOptimalSchedule, the
+>   Compliance Audit tab header) reflects the true "still owed" state.
+>   Mirrors MeningoVax commit `3172a0a`.
+> - **Citation parity** (C1/C2): MenB healthy-series recs now also cite
+>   `mm7349a3` (the Oct 2024 ACIP source for the 0/6-month interval);
+>   MenACWY exposure recs (military/microbiologist/travel/college) cite
+>   their specific ACIP 2020 MMWR table instead of the generic schedule-notes
+>   page.
+>
+> Remaining plan items (Sessions 7–10) are pneumococcal and AAP-baseline
+> work, unrelated to meningococcal rules.
 
 ---
 
@@ -45,7 +84,18 @@ given too early for the vaccine itself) but does **not** advance the routine
 11-12y/16y series — it's treated as if it hadn't happened for counting
 purposes. This only applies to healthy patients; a high-risk infant series
 (below) is allowed to start before 10 and those doses do count. (Fixed in
-vaxapp 2026-07-23, PR #98 — see commit `245264e`.)
+vaxapp 2026-07-23, PR #98 — see commit `245264e`.) A dose given at exactly
+age 10 counts as dose 1 (verified live, immunize.org Ask the Experts) — the
+16y booster note cites this when it applies (M5, 2026-08-11).
+
+### A healthy 2nd dose given before age 16 doesn't count either
+Mirrors the MenB pre-16 rule below: the booster is an *age window*
+(16–18 years), not just an interval from dose 1. A 2nd MenACWY dose given
+after dose 1 already counted, but before the patient turns 16, is safe but
+does not satisfy the booster — the true 16y booster is still owed. High-risk
+patients are unaffected (their primary series legitimately has 2+ doses
+before 16). (Fixed in vaxapp 2026-08-11, M6 — mirrors MeningoVax commit
+`3172a0a`.)
 
 ### High-risk (asplenia/sickle cell, persistent complement deficiency,
 complement-inhibitor therapy [eculizumab/ravulizumab], HIV)
@@ -78,6 +128,13 @@ complement-inhibitor therapy [eculizumab/ravulizumab], HIV)
   sub-Saharan "meningitis belt"): 1 dose, then re-vaccinate every 5 years
   while the exposure continues.
 
+### Exposure vs. ongoing medical risk are labeled differently
+Military, microbiologist, and travel indications get status `'exposure'` —
+a one-off/periodic reason, distinct from the ongoing medical risk
+(`'risk-based'`) used for asplenia, complement deficiency, and HIV. Same
+chip color; different word, so a clinician can tell them apart. (M3,
+2026-08-11 — mirrors MeningoVax commit `b43edc6`.)
+
 ---
 
 ## 2. MenB (serogroup B)
@@ -96,12 +153,19 @@ MenB vaccines (Bexsero, Trumenba, and the pentavalents Penmenvy/Penbraya) are
   to complete the series.
 
 ### Doses given before age 16 (healthy patients) don't count
-**NOT YET implemented in vaxapp — see the status callout at the top.**
-Intended rule (mirrors the MenACWY pre-age-10 rule above): a MenB dose given
-before 16 to a patient with **no current MenB risk factor** is validly given
-(it met the age-10 product floor) but does **not** count toward the healthy
-2-dose series. Reason: MenB antibody protection wanes within about a year, so
-a dose given at, say, 10 provides no protection by 16.
+Mirrors the MenACWY pre-age-10 rule above: a MenB dose given before 16 to a
+patient with **no current MenB risk factor** is validly given (it met the
+age-10 product floor) but does **not** count toward the healthy 2-dose
+series. Reason: MenB antibody protection wanes within about a year, so a
+dose given at, say, 10 provides no protection by 16. (Shipped in vaxapp
+2026-08-10, M1 — mirrors MeningoVax's P0-1, commit `764f03a`.)
+
+### Ambiguous pre-16 doses for a currently high-risk patient
+If the patient is high-risk *now* but a pre-16 dose's risk status *at the
+time* isn't recorded, the app prompts for it ("Needs input", with edit/undo)
+rather than guessing. Answered "no" or "unsure" is treated conservatively as
+not counting. The answer is never written into a shareable link. (Shipped in
+vaxapp 2026-08-11, M2 — mirrors MeningoVax's M2, commit `981682c`.)
 
 ### High-risk (asplenia/sickle cell, persistent complement deficiency,
 complement-inhibitor therapy, microbiologist, serogroup B outbreak)
@@ -159,10 +223,11 @@ on-the-table today).
   Repeat that dose only; do not restart the whole series.
 - **Given too soon after the previous dose** (violates a minimum interval):
   invalid — does not count. Repeat that dose only.
-- **Given before age 10 (MenACWY) / before age 16 (MenB), no current risk
-  factor:** valid, but doesn't advance the series (see sections above) —
-  different from "invalid," no repeat needed, it's just not counted. (MenACWY
-  side implemented; MenB side is the deferred parity item above.)
+- **Given before age 10 (MenACWY, dose 1) / before age 16 (MenB, or a
+  MenACWY 2nd dose), no current risk factor:** valid, but doesn't advance the
+  series (see sections above) — different from "invalid," no repeat needed,
+  it's just not counted. Implemented for both vaccines as of 2026-08-11
+  (M1/M6 above).
 - Doses are re-evaluated in order against the doses already *kept* so far —
   so if an early dose is dropped, a later dose isn't wrongly flagged as "too
   soon" relative to the dropped one.
@@ -183,12 +248,13 @@ on-the-table today).
 
 Any fix to a rule above must reach **all five surfaces** — see
 [`docs/agent/five-surface-verification.md`](five-surface-verification.md).
+This repo's own standing rule adds a sixth: `compliance.js`, which is listed
+above but tracked separately in `CLAUDE.md`.
 
 ## Keeping this in sync
 
 Do not edit the rule content here directly. When MeningoVax's copy changes,
 re-copy the relevant section here and update the "Copied from MeningoVax"
 date and commit at the top. If vaxapp's actual implementation diverges from
-the rule (like the MenB pre-16 gap above), say so explicitly in a status
-callout rather than silently describing the intended-but-unbuilt behavior as
-current.
+the rule, say so explicitly in a status callout rather than silently
+describing the intended-but-unbuilt behavior as current.
