@@ -1,3 +1,9 @@
+> **SUPERSEDED** by
+> [`handoff-2026-08-11-m5-m6-citations-session6.md`](handoff-2026-08-11-m5-m6-citations-session6.md) —
+> Session 6 (M5, M6, citation parity, docs re-sync) is complete. This
+> handoff's account of M3 and M4 is still accurate; only its "what's next"
+> pointer is stale. Resume from the newer file.
+
 # PediVax (vaxapp) — Handoff after Session 5: M3 + M4 MenACWY (2026-08-11)
 
 Session 5 of `.claude/prompts/plan-2026-08-10-aap-authority-parity-ux.md`
