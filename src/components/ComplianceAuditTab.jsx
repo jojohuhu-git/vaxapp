@@ -50,6 +50,7 @@ const STATUS_PILL_STYLE = {
   VALID_EXTRA:{ bg: 'var(--gy6)', color: 'var(--gy2)', border: 'var(--gy5)' },
   INVALID:    { bg: 'var(--rlt)', color: 'var(--r)',   border: 'var(--rmd)' },
   UNKNOWN:    { bg: 'var(--gy6)', color: 'var(--gy3)', border: 'var(--gy5)' },
+  PENDING:    { bg: 'var(--blt)', color: 'var(--b)',   border: 'var(--bmd)' },
 };
 
 const STATUS_PILL_LABEL = {
@@ -59,6 +60,7 @@ const STATUS_PILL_LABEL = {
   VALID_EXTRA:'VALID · EXTRA',
   INVALID:    'INVALID',
   UNKNOWN:    'UNKNOWN',
+  PENDING:    'NEEDS INPUT',
 };
 
 // ── Validation rule summary for popover ───────────────────────────────────────
@@ -152,7 +154,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
   let whyText = null;
   if (status === 'VALID_EXTRA' && extraScenario) {
     whyText = extraScenario.popoverText;
-  } else if ((status === 'VALID' || status === 'OFF_WINDOW') && label) {
+  } else if ((status === 'VALID' || status === 'OFF_WINDOW' || status === 'PENDING') && label) {
     whyText = label;
   } else if (status === 'INVALID' && vr.results?.[0]?.msg) {
     whyText = vr.results[0].msg;
@@ -248,8 +250,8 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
         {/* Counts toward series */}
         <div style={{ marginBottom: 8, fontSize: 12 }}>
           <span style={{ color: 'var(--gy3)' }}>Counts toward series: </span>
-          <span style={{ fontWeight: 600, color: (status === 'INVALID' || status === 'OFF_WINDOW' || notAdolescentCount) ? 'var(--r)' : 'var(--g)' }}>
-            {status === 'INVALID' || status === 'OFF_WINDOW' || notAdolescentCount ? 'No' : 'Yes'}
+          <span style={{ fontWeight: 600, color: status === 'PENDING' ? 'var(--b)' : (status === 'INVALID' || status === 'OFF_WINDOW' || notAdolescentCount) ? 'var(--r)' : 'var(--g)' }}>
+            {status === 'PENDING' ? 'Pending — answer in History' : (status === 'INVALID' || status === 'OFF_WINDOW' || notAdolescentCount) ? 'No' : 'Yes'}
           </span>
         </div>
 
@@ -292,7 +294,8 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
               {status === 'VALID_EXTRA' ? 'Why VALID (extra dose):' :
                status === 'OFF_WINDOW' ? 'Why off-window — repeat owed:' :
                status === 'VALID' ? 'Why VALID:' :
-               status === 'INVALID' ? 'Reason:' : 'Note:'}
+               status === 'INVALID' ? 'Reason:' :
+               status === 'PENDING' ? 'Needs input:' : 'Note:'}
             </div>
             {whyText}
             {status === 'VALID_EXTRA' && (
@@ -581,8 +584,12 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
   // healthy 2-dose series completion — mirrors stateHelpers.menBEffectiveDoses()
   // and MeningoVax's P0-1 fix (764f03a). Without this, a healthy patient with a
   // dose at 10 and a dose at 16 was shown "Complete" after only 1 real dose.
-  const effectiveCount = (vk === 'MenB' && !highRiskMenB(risks || []))
-    ? menBEffectiveDoses({ MenB: validDoses }, dob, am, false).length
+  // M2: for high-risk-now MenB, an ambiguous pre-16 dose without a confirmed
+  // 'yes' risk-at-dose answer likewise doesn't count — mirrors MeningoVax's M2
+  // (commit 981682c). Without this, "Complete" could show before the prompt
+  // in the History tab is even answered.
+  const effectiveCount = vk === 'MenB'
+    ? menBEffectiveDoses({ MenB: validDoses }, dob, am, highRiskMenB(risks || [])).length
     : validCount;
 
   // Count extra doses: doses beyond the standard series total that are VALID_EXTRA
@@ -779,6 +786,11 @@ const LEGEND_ENTRIES = [
     key: 'INVALID',
     label: 'INVALID',
     def: 'Failed a minimum age or minimum interval rule. Does not count toward series completion.',
+  },
+  {
+    key: 'PENDING',
+    label: 'NEEDS INPUT',
+    def: 'A MenB dose given before age 16 to a patient who is high-risk now — whether it counts toward the high-risk series depends on whether the patient was already high-risk on that date, which isn’t recorded. Answer the prompt on this dose in the History tab to resolve it.',
   },
 ];
 

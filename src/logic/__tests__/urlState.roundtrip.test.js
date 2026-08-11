@@ -108,6 +108,29 @@ describe('urlState — encState / decState round-trip', () => {
     }
   });
 
+  it('preserves a dose brand containing non-Latin-1 characters (e.g. "≥10y" eligibility annotations) — regression', () => {
+    // btoa()/atob() only handle Latin-1 (code points 0-255) and THROW on
+    // anything outside that range. Many VBR combo-brand labels append a
+    // "≥Xy"/"≥Xm" (U+2265) eligibility annotation, e.g.
+    // "Penmenvy (MenACWY+MenB-4C, ≥10y)". Before the Unicode-safe base64
+    // helpers, encState's try/catch silently swallowed the btoa() throw and
+    // returned "" — which meant ANY patient with such a dose recorded lost
+    // their ENTIRE session on the very next sessionStorage sync, despite the
+    // UI still showing the (unpersisted) data correctly until reload.
+    const hist = emptyHist();
+    hist['MenB'] = [{ mode: 'date', date: '2021-08-10', ageDays: null, brand: 'Penmenvy (MenACWY+MenB-4C, ≥10y)', given: true, riskAtDose: 'yes' }];
+    const state = { am: 192, dob: '2010-08-10', risks: ['asplenia'], cd4: null, hist, fcBrands: {} };
+
+    const enc = encState(state);
+    expect(enc.length).toBeGreaterThan(0); // must NOT silently fail to ""
+
+    const out = roundTrip(state);
+    expect(out).not.toBeNull();
+    expect(out.hist['MenB']).toHaveLength(1);
+    expect(out.hist['MenB'][0].brand).toBe('Penmenvy (MenACWY+MenB-4C, ≥10y)');
+    expect(out.hist['MenB'][0].riskAtDose).toBe('yes');
+  });
+
   it('version guard: decState returns null for a future schema version', () => {
     // Craft a payload with v:99 — should be rejected as unknown schema
     const payload = { v: 99, am: 12, dob: null, r: [], c: null, h: {}, f: {} };

@@ -79,8 +79,11 @@ describe('M1: healthy MenB dose before age 16 does not count toward the healthy 
   });
 
   // ── Guards against over-fix ────────────────────────────────────────────────
-  it('guard: high-risk (asplenia) 16yo with a dose at age 10 → still counts (Dose 2)', () => {
-    const hist = { MenB: [doseAtAgeMonths(120, 'Trumenba (MenB-FHbp)')] };
+  it('guard: high-risk (asplenia) 16yo with a dose at age 10, confirmed high-risk at the time → still counts (Dose 2)', () => {
+    // M2: a pre-16 dose for a high-risk-now patient is ambiguous until the
+    // risk-at-dose question is answered. riskAtDose:'yes' preserves this
+    // test's original intent (asplenia already present when the dose was given).
+    const hist = { MenB: [{ ...doseAtAgeMonths(120, 'Trumenba (MenB-FHbp)'), riskAtDose: 'yes' }] };
     const r = menbRec(192, hist, ['asplenia']);
     expect(r).not.toBeNull();
     expect(r.doseNum).toBe(2);

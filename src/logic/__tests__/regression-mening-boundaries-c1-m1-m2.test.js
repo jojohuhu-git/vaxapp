@@ -23,8 +23,9 @@ const first = (vk, am, hist = {}, risks = [], dob = null) => recs(vk, am, hist, 
 // Helper: build N given doses with a specific brand
 const givenBrand = (brand, n) => Array.from({ length: n }, () => ({ given: true, brand }));
 
-// Helper: build a dated dose
-const datedDose = (date, brand = '') => ({ given: true, mode: 'date', date, brand });
+// Helper: build a dated dose. M2: riskAtDose lets high-risk pre-16 fixtures
+// preserve their original "always high-risk" intent (see call sites below).
+const datedDose = (date, brand = '', riskAtDose) => ({ given: true, mode: 'date', date, brand, riskAtDose });
 
 // ─── C1: dosePlan.js d1Cross constraint for MenB D3 ─────────────────────────
 //
@@ -55,7 +56,7 @@ describe('C1 — MenB D3 d1Cross (≥182d from D1) applied in dosePlan projectio
     const dob = '2013-08-01'; // DOB so ~132m = 2024-08-01
     const d1Date = '2024-08-01'; // D1 at 132m
     const hist = {
-      MenB: [datedDose(d1Date, 'Bexsero (MenB-4C)')],
+      MenB: [datedDose(d1Date, 'Bexsero (MenB-4C)', 'yes')],
     };
     const am = 135; // 11y3m — D2 due now (past 28d), D3 projected
     const risks = ['asplenia'];
@@ -91,7 +92,7 @@ describe('C1 — MenB D3 d1Cross (≥182d from D1) applied in dosePlan projectio
     // With d1Cross: D3 dueAge ≥ 137.98m.
     const dob = '2013-11-01'; // ~132m = 2024-11-01
     const d1Date = '2024-11-01';
-    const hist = { MenB: [datedDose(d1Date, 'Bexsero (MenB-4C)')] };
+    const hist = { MenB: [datedDose(d1Date, 'Bexsero (MenB-4C)', 'yes')] };
     const am = 133; // 1m past D1
     const risks = ['asplenia'];
     const currentRecs = genRecs(am, hist, risks, dob, {});

@@ -210,6 +210,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .fch-done-offwindow{background:var(--alt);color:var(--a);border:1px solid var(--amd);}
 .fch-done-extra{background:var(--gy6);color:var(--gy2);border:1px solid var(--gy5);}
 .fch-done-invalid{background:var(--rlt);color:var(--r);border:1px solid var(--rmd);}
+.fch-done-pending{background:var(--blt);color:var(--b);border:1px solid var(--bmd);}
 /* "Recommended" = shared clinical decision-making (e.g. COVID annual, MenB
    16-23y, HPV shared-decision ages) — blue, matching today-badge-rec. */
 .fch-ok{background:var(--blt);color:var(--b);border:1px solid var(--bmd);}

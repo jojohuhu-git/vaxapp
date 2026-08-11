@@ -81,17 +81,57 @@ export function menACWYRoutineCount(hist, dob) {
   }).length;
 }
 
+/** Age of a dose in months, from ageDays or date+dob. Null if undeterminable. */
+export function doseAgeMonths(d, dob) {
+  if (d.ageDays != null) return Number(d.ageDays) / 30.4375;
+  if (d.date && isD(dob)) return (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
+  return null;
+}
+
+/** Age-16 threshold (months) used throughout the MenB healthy/high-risk gates. */
+export const MENB_AGE_16_MONTHS = 192;
+
+/**
+ * M2: true if a given MenB dose is an ambiguous pre-16 dose for a patient who
+ * is high-risk NOW, and the provider hasn't yet answered whether the patient
+ * was ALREADY high-risk on the date it was given. This app's data model only
+ * records CURRENT risk checkboxes — permanence ≠ always-been-present (e.g.
+ * asplenia acquired at 13 doesn't retroactively cover an age-8 dose) — so the
+ * question applies to every high-risk-now patient with a dated pre-16 dose,
+ * not just "temporary" risk types. Undated doses are excluded: there's no
+ * date to ask "at risk on what date?" about. Mirrors MeningoVax's risk-at-dose
+ * prompt (commit 981682c), owner-confirmed design, 2026-07-23 handoff.
+ *
+ * @param {object} dose - a single MenB dose object
+ * @param {string} dob - patient DOB (ISO string) or falsy if unknown
+ * @param {boolean} isHighRisk - highRiskMenB(risks) result for this patient
+ * @returns {boolean}
+ */
+export function menBRiskAtDoseNeedsInput(dose, dob, isHighRisk) {
+  if (!isHighRisk || !dose?.given) return false;
+  if (dose.riskAtDose) return false; // already answered
+  const ageM = doseAgeMonths(dose, dob);
+  return ageM != null && ageM < MENB_AGE_16_MONTHS;
+}
+
 /**
  * M1: MenB doses that count toward a series — i.e. the doses to use for dose
- * numbering, brand lookup, and interval calculation. For high-risk patients
- * (isHighRisk=true) every given dose counts, since their primary series
- * legitimately starts at 10y. For non-high-risk (healthy) patients, the
- * shared-decision series is recommended at 16–23y; a dose given before the
- * 16th birthday (192 months) is validly administered but does NOT count
- * toward the healthy 2-dose series — MenB antibody protection wanes within
- * about a year, so a dose at 10 provides no protection at 16. Mirrors the
- * existing MenACWY pre-age-10 rule (menACWYRoutineCount above) and
- * MeningoVax's P0-1 fix (commit 764f03a).
+ * numbering, brand lookup, and interval calculation.
+ *
+ * For non-high-risk (healthy) patients, the shared-decision series is
+ * recommended at 16–23y; a dose given before the 16th birthday (192 months)
+ * is validly administered but does NOT count toward the healthy 2-dose
+ * series — MenB antibody protection wanes within about a year, so a dose at
+ * 10 provides no protection at 16. Mirrors the existing MenACWY pre-age-10
+ * rule (menACWYRoutineCount above) and MeningoVax's P0-1 fix (commit
+ * 764f03a).
+ *
+ * For high-risk patients, every given dose counts EXCEPT an ambiguous pre-16
+ * dose (see menBRiskAtDoseNeedsInput) whose risk-at-dose question has not
+ * been answered 'yes' — the primary series legitimately starts at 10y only
+ * if the patient was ALREADY high-risk at that dose's date, which this app
+ * doesn't otherwise capture. Unanswered ('pending') and 'no'/'unsure' both
+ * conservatively exclude the dose, same as MeningoVax's M2 (commit 981682c).
  *
  * An undated dose whose age can't be determined is excluded only when the
  * patient's CURRENT age (am) is itself under 16 — an undated dose can't have
@@ -110,13 +150,17 @@ export function menACWYRoutineCount(hist, dob) {
  */
 export function menBEffectiveDoses(hist, dob, am, isHighRisk) {
   const given = (hist?.MenB || []).filter(d => d.given);
-  if (isHighRisk) return given;
+  if (isHighRisk) {
+    return given.filter(d => {
+      const ageM = doseAgeMonths(d, dob);
+      if (ageM != null && ageM < MENB_AGE_16_MONTHS) return d.riskAtDose === 'yes';
+      return true;
+    });
+  }
   return given.filter(d => {
-    let ageM = null;
-    if (d.ageDays != null) ageM = Number(d.ageDays) / 30.4375;
-    else if (d.date && isD(dob)) ageM = (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
-    if (ageM != null) return ageM >= 192;
-    return am == null || am >= 192;
+    const ageM = doseAgeMonths(d, dob);
+    if (ageM != null) return ageM >= MENB_AGE_16_MONTHS;
+    return am == null || am >= MENB_AGE_16_MONTHS;
   });
 }
 

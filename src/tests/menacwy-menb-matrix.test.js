@@ -991,9 +991,11 @@ describe('MenB risk-based', () => {
     // Non-HR 2-dose schedule would be complete; HR 3-dose is NOT complete.
     const am = 168;
     const risks = ['asplenia'];
+    // M2: both doses pre-16 for a high-risk-now patient — riskAtDose:'yes'
+    // preserves this test's original intent (asplenia already present).
     const hist = { MenB: [
-      { given: true, brand: 'Trumenba (MenB-FHbp)', mode: 'age', ageDays: Math.round(161 * 30.4375) }, // D1 ~7mo ago
-      { given: true, brand: 'Trumenba (MenB-FHbp)', mode: 'age', ageDays: Math.round(167 * 30.4375) }, // D2 ~1mo ago
+      { given: true, brand: 'Trumenba (MenB-FHbp)', mode: 'age', ageDays: Math.round(161 * 30.4375), riskAtDose: 'yes' }, // D1 ~7mo ago
+      { given: true, brand: 'Trumenba (MenB-FHbp)', mode: 'age', ageDays: Math.round(167 * 30.4375), riskAtDose: 'yes' }, // D2 ~1mo ago
     ]};
 
     // Surface 1: D3 required (high-risk always 3-dose, regardless of D1→D2 spacing)

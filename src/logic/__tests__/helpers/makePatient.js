@@ -10,6 +10,10 @@ export function makePatient({
   doseAgeMonths = {},
   brands = {},
   riskConditions = [],
+  // M2: risk-at-dose prompt answers, per vk, applied to every synthesized
+  // dose of that vk — e.g. { MenB: 'yes' } for a high-risk-now fixture whose
+  // pre-16 doses should count (patient already high-risk when given).
+  riskAtDose = {},
   today = null,
   cd4 = null,
 } = {}) {
@@ -27,6 +31,7 @@ export function makePatient({
     // makePatientRaw instead.
     const ageM = doseAgeMonths[vk];
     const ageDays = typeof ageM === 'number' ? Math.round(ageM * 30.4375) : 0;
+    const riskAns = riskAtDose[vk];
     hist[vk] = [];
     for (let i = 0; i < count; i++) {
       hist[vk].push({
@@ -34,6 +39,7 @@ export function makePatient({
         mode: 'age',
         ageDays,
         brand: brand ?? undefined,
+        riskAtDose: riskAns ?? undefined,
       });
     }
   }
