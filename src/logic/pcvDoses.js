@@ -69,6 +69,9 @@ export function pcvBands(hist, dob) {
   return {
     given: doses.length,
     hasPCV20: doses.some((d) => d.brand && d.brand.startsWith('Prevnar 20')),
+    // PCV21 (Capvaxive, adults ≥18y/216mo) completes the series just like PCV20 —
+    // no PPSV23 needed afterward. Source: MMWR mm7336a3.
+    hasPCV21: doses.some((d) => d.brand && d.brand.startsWith('Capvaxive')),
     before24, ge24, ge72,
   };
 }
@@ -95,13 +98,14 @@ export function hasBoosterDose(pcvHist, dob) {
 export function pcvHighRiskChildPlan(am, hist, dob, ppsvCount = 0) {
   const b = pcvBands(hist, dob);
 
-  // Series already includes PCV20 → complete IF the child has enough doses for
-  // their age group (M2 fix: a lone PCV20 does NOT complete for a 24–71mo at-risk
-  // child who still needs 2 doses at ≥24mo; it only completes once the ≥24mo
-  // dose count satisfies the Table 4 rule). Children ≥6y need only 1 PCV20 → done.
+  // Series already includes PCV20 or PCV21 → complete IF the child has enough doses
+  // for their age group (M2 fix: a lone PCV20/21 does NOT complete for a 24–71mo
+  // at-risk child who still needs 2 doses at ≥24mo; it only completes once the
+  // ≥24mo dose count satisfies the Table 4 rule). Children ≥6y need only 1 dose → done.
   // Per CDC: "Series includes ≥1 PCV20 — no further PCV or PPSV23 needed" applies
-  // when the series is actually complete (age-appropriate doses met).
-  if (b.hasPCV20) {
+  // when the series is actually complete (age-appropriate doses met); PCV21 has the
+  // same completing effect (MMWR mm7336a3), gated to adults ≥18y/216mo in practice.
+  if (b.hasPCV20 || b.hasPCV21) {
     // For child ≥6y (am ≥ 72): one PCV20 at any age is the single needed dose → complete.
     if (am >= 72) {
       return { ...b, mode: 'pcv20', target: 0, doseNum: 0, remaining: 0, total: b.given, complete: true };

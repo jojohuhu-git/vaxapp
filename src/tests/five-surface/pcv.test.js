@@ -82,3 +82,40 @@ describe('PCV — regimen and optimal (Surface 2/5)', () => {
     expect(doses.length).toBeGreaterThanOrEqual(4);
   });
 });
+
+// PneumoVax spec §I / mmwr7336a3: PCV21 (Capvaxive) is a completing PCV product
+// for adults ≥18y (216mo) — same effect as PCV20 (series complete, no PPSV23
+// needed). vaxapp's own am>=228 boundary already routes 18-year-olds (216-227mo)
+// through the pediatric high-risk pathway, so a PCV21 dose there must be
+// recognized as completing, just like PCV20 already is.
+describe('PCV21 (Capvaxive) — completing-brand parity with PCV20 (Surface 1/5)', () => {
+  const am18y = 216; // 18 years
+  const hist = { PCV: [{ given: true, brand: 'Capvaxive (PCV21)' }] };
+
+  it('S1: PCV21 given at 18y, asplenia → no further PCV rec (series complete)', () => {
+    const r = firstRec('PCV', am18y, hist, ['asplenia']);
+    expect(r).toBeNull();
+  });
+
+  it('S1: PCV21 given at 18y, asplenia → no PPSV23 rec (PCV21 covers it like PCV20)', () => {
+    const r = firstRec('PPSV23', am18y, hist, ['asplenia']);
+    expect(r).toBeNull();
+  });
+
+  it('S5: PCV21 given at 18y, asplenia → no further PCV in optimal schedule', () => {
+    const doses = optimalDosesFor('PCV', am18y, hist, ['asplenia']);
+    expect(doses).toHaveLength(0);
+  });
+
+  it('S5: PCV21 given at 18y, asplenia → no PPSV23 in optimal schedule', () => {
+    const doses = optimalDosesFor('PPSV23', am18y, hist, ['asplenia']);
+    expect(doses).toHaveLength(0);
+  });
+
+  it('S1: PCV21 offered as a brand option in the high-risk PCV rec at 18y (before any dose given)', () => {
+    const r = firstRec('PCV', am18y, {}, ['asplenia']);
+    expect(r).not.toBeNull();
+    const brandText = JSON.stringify(r.brands || r);
+    expect(brandText).toMatch(/Capvaxive|PCV21/);
+  });
+});
