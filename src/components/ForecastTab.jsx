@@ -816,7 +816,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           items.push({ vk, chipText: `${fmtDose(given)} done`, chipClass: doneChipClass(vk, validHist, state.dob, state.risks), fcKey, rec, hasPopover, onChipClick });
         } else if (rec) {
           const chipClass = rec.status === "catchup" ? "fch fch-cu"
-            : rec.status === "risk-based" ? "fch fch-rb"
+            : (rec.status === "risk-based" || rec.status === "exposure") ? "fch fch-rb"
               : rec.status === "recommended" ? "fch fch-ok"
                 : "fch fch-need";
           items.push({
@@ -852,7 +852,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         // (firstFutureVisitForVk dedupe), and skip vaccines already due
         // today (the Now row owns those; dosePlan owns their D2+).
         const chipClass = rec.status === "catchup" ? "fch fch-cu"
-          : rec.status === "risk-based" ? "fch fch-rb"
+          : (rec.status === "risk-based" || rec.status === "exposure") ? "fch fch-rb"
             : rec.status === "recommended" ? "fch fch-ok"
               : "fch fch-need";
         items.push({
@@ -919,7 +919,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
   // whenever past visits are collapsed, even though Today's Visit still has
   // colored pills on screen. Map rec.status the same way the Today panel's
   // own statusBadgeClass does.
-  const REC_STATUS_TO_CHIP_CLASS = { due: 'fch-need', catchup: 'fch-cu', 'risk-based': 'fch-rb', recommended: 'fch-ok' };
+  const REC_STATUS_TO_CHIP_CLASS = { due: 'fch-need', catchup: 'fch-cu', 'risk-based': 'fch-rb', exposure: 'fch-rb', recommended: 'fch-ok' };
   recs.forEach(rec => usedChipClasses.add(REC_STATUS_TO_CHIP_CLASS[rec.status] || 'fch-need'));
   if (optView === null) {
     visits.forEach(visit => {
@@ -1065,12 +1065,13 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                   const doseChip = isAnnual ? "Annual" : `Dose ${rec.doseNum}${totalDoses > 1 ? ` of ${totalDoses}` : ""}`;
                   const statusBadgeClass = rec.status === "due" ? "today-badge-due"
                     : rec.status === "catchup" ? "today-badge-cu"
-                    : rec.status === "risk-based" ? "today-badge-rb"
+                    : (rec.status === "risk-based" || rec.status === "exposure") ? "today-badge-rb"
                     : rec.status === "recommended" ? "today-badge-rec"
                     : "today-badge-due";
                   const statusText = rec.status === "due" ? "Routine"
                     : rec.status === "catchup" ? "Catch-up"
                     : rec.status === "risk-based" ? "Risk-based"
+                    : rec.status === "exposure" ? "Exposure"
                     : rec.status === "recommended" ? "Shared decision"
                     : rec.status;
                   // When this vk is covered by the active combo, label the picker as auto-filled.

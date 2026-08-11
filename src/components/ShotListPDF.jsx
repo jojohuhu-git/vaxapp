@@ -63,6 +63,7 @@ function statusLabel(st) {
   if (st === 'due') return 'Routine';
   if (st === 'catchup') return 'Catch-up';
   if (st === 'risk-based') return 'Risk-based';
+  if (st === 'exposure') return 'Exposure';
   if (st === 'recommended') return 'Shared decision';
   return st;
 }
@@ -71,6 +72,7 @@ function statusColors(st) {
   if (st === 'due') return { bg: '#e6f7ef', fg: '#1a6b46' };
   if (st === 'catchup') return { bg: '#fdf5e6', fg: '#7a4e0d' };
   if (st === 'risk-based') return { bg: '#f5eef8', fg: '#4a235a' };
+  if (st === 'exposure') return { bg: '#f5eef8', fg: '#4a235a' };
   if (st === 'recommended') return { bg: '#eaf3fb', fg: '#1a3a6b' };
   return { bg: '#f5f5f5', fg: '#555' };
 }

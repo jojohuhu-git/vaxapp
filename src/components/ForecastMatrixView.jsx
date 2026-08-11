@@ -504,8 +504,9 @@ export default function ForecastMatrixView(props) {
                     const qualifier = (status) =>
                       status === "catchup" ? " (catch-up)"
                         : status === "risk-based" ? " (risk-based)"
-                          : status === "recommended" ? " (shared clinical decision)"
-                            : "";
+                          : status === "exposure" ? " (exposure)"
+                            : status === "recommended" ? " (shared clinical decision)"
+                              : "";
 
                     const earliestLabel = (proj && !isCurr && !isPast && (proj.earliestAge ?? proj.dueAge) > am)
                       ? fmtEarliestDate(proj, state.dob)
@@ -557,7 +558,7 @@ export default function ForecastMatrixView(props) {
                         chipText = `${fmtDose(dosesAtOrBeforeVisit)} done`;
                       } else {
                         chipClass = rec.status === "catchup" ? "fch fch-cu"
-                          : rec.status === "risk-based" ? "fch fch-rb"
+                          : (rec.status === "risk-based" || rec.status === "exposure") ? "fch fch-rb"
                             : rec.status === "recommended" ? "fch fch-ok"
                               : "fch fch-need";
                         chipText = `${fmtDose(rec.doseNum)}${qualifier(rec.status)}`;
@@ -567,7 +568,7 @@ export default function ForecastMatrixView(props) {
                       chipText = given > 0 ? "Complete" : "—";
                     } else {
                       chipClass = rec.status === "catchup" ? "fch fch-cu"
-                        : rec.status === "risk-based" ? "fch fch-rb"
+                        : (rec.status === "risk-based" || rec.status === "exposure") ? "fch fch-rb"
                           : rec.status === "recommended" ? "fch fch-ok"
                             : "fch fch-need";
                       chipText = `${fmtDose(doseNum)}${qualifier(rec.status)}`;
