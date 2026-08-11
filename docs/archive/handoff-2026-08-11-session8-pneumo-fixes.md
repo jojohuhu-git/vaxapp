@@ -1,5 +1,9 @@
 # PediVax (vaxapp) — Handoff after Session 8: pneumo audit fixes (2026-08-11)
 
+> **SUPERSEDED** by
+> [handoff-2026-08-11-session9-pcv21-cleanup.md](handoff-2026-08-11-session9-pcv21-cleanup.md) —
+> this file's "remaining queue" (items 3-5) is now done. Read the newer file instead.
+
 Session 8 of `.claude/prompts/plan-2026-08-10-aap-authority-parity-ux.md`
 (the ten-session plan). Worked items 1 and 2 (P0/P1) of the Session 7 findings
 queue in `docs/archive/audit-2026-08-11-pneumo-spec-vs-code.md`.
