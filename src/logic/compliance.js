@@ -4,18 +4,20 @@
  * classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist)
  * returns:
  *   {
- *     status: 'ON_TIME' | 'VALID' | 'VALID_EXTRA' | 'INVALID' | 'UNKNOWN',
+ *     status: 'ON_TIME' | 'VALID' | 'OFF_WINDOW' | 'VALID_EXTRA' | 'INVALID' | 'UNKNOWN',
  *     label: string,
  *     recommendedRange: { recMin, recMax, label } | null,
  *     extraScenario: { scenarioKey, popoverText, citation } | null,
- *     notAdolescentCount: true | undefined, // M1: MenB pre-16 dose (non-high-risk) — valid but doesn't count
+ *     notAdolescentCount: true | undefined, // M1: MenB pre-16 dose (non-high-risk) — kept alongside OFF_WINDOW for back-compat
  *   }
  *
  * Status semantics:
  *   INVALID      — validateDose returns err
  *   UNKNOWN      — dose.mode === "unknown" or no DOB
  *   ON_TIME      — valid per validateDose AND age within [recMin, recMax] from AAP_DOSE_BANDS
- *   VALID        — valid per validateDose AND age outside [recMin, recMax]
+ *   VALID        — valid per validateDose AND age outside [recMin, recMax], AND counts toward the series
+ *   OFF_WINDOW   — safely given but does NOT advance the series; a repeat is owed. This is a
+ *                  separate axis from VALID/INVALID, not a flavor of VALID — see M1 (MenB pre-16).
  *   VALID_EXTRA  — valid per validateDose AND dose count exceeds expected series total
  */
 
@@ -317,8 +319,8 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // P0-1 fix (commit 764f03a). High-risk patients keep every dose (checked below).
   if (vk === 'MenB' && ageMonths < 192 && !highRiskMenB(risks || [])) {
     return {
-      status: 'VALID',
-      label: `Valid (given at ${ageLabel}, before the 16-year healthy-series window). Does not count toward the healthy 2-dose MenB series — MenB antibody protection wanes within about a year, so a dose before 16 is not counted for a patient without a high-risk indication.`,
+      status: 'OFF_WINDOW',
+      label: `Off-window — repeat owed (given at ${ageLabel}, before the 16-year healthy-series window). Does not count toward the healthy 2-dose MenB series — MenB antibody protection wanes within about a year, so a dose before 16 is not counted for a patient without a high-risk indication.`,
       recommendedRange: null,
       extraScenario: null,
       auditFlag: null,
@@ -497,7 +499,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
 
 /**
  * CSS token for each compliance status.
- * ON_TIME → green, VALID → amber, VALID_EXTRA → gray, INVALID → red, UNKNOWN → gray
+ * ON_TIME → green, VALID → amber, OFF_WINDOW → amber, VALID_EXTRA → gray, INVALID → red, UNKNOWN → gray
  *
  * Maps to DosePill dot color and ComplianceAuditTab card pill.
  */
@@ -505,6 +507,7 @@ export const STATUS_COLOR = {
   // New taxonomy
   ON_TIME:     'var(--g)',
   VALID:       'var(--a)',
+  OFF_WINDOW:  'var(--a)',
   VALID_EXTRA: 'var(--gy3)',
   INVALID:     'var(--r)',
   UNKNOWN:     'var(--gy3)',

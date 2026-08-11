@@ -357,4 +357,48 @@ describe('M1: healthy MenB dose before age 16 does not count toward series compl
     // this is exactly the cross-surface contradiction M1 is meant to close.
     expect(popover.textContent).toMatch(/Counts toward series:\s*No/i);
   });
+
+  it('the age-10 dose card shows the distinct OFF-WINDOW · REPEAT pill, not the VALID pill', () => {
+    const dob = '2010-01-01';
+    const hist = {
+      MenB: [{ given: true, mode: 'date', date: '2020-01-01', brand: 'Bexsero (MenB-4C)' }],
+    };
+    const { container } = renderAudit({ hist, dob, am: 192 });
+    const card = container.querySelector('[data-testid^="dose-card-MenB-"]');
+    expect(card.textContent).toMatch(/OFF-WINDOW · REPEAT/);
+    expect(card.textContent).not.toMatch(/VALID · OFF-WINDOW/);
+  });
+});
+
+// ── Off-window vocabulary fix: VALID (counts) vs OFF_WINDOW (doesn't count) ─────
+// The M1 fix introduced vaxapp's first "safely given but doesn't count" case. This
+// session gives it its own status so it's never confused with a dose that IS off
+// the recommended window but still counts (e.g. a late catch-up dose).
+describe('off-window vocabulary: VALID (counts) is distinct from OFF-WINDOW · REPEAT (does not count)', () => {
+  it('a late catch-up dose that still counts shows VALID · OFF-WINDOW and "Counts toward series: Yes"', () => {
+    const dob = '2022-01-01';
+    // MMR D1 given at 24mo — outside the 12-15mo window, but valid and counts.
+    const hist = {
+      MMR: [{ given: true, mode: 'date', date: '2024-01-01', brand: '' }],
+    };
+    const { container } = renderAudit({ hist, dob, am: 24 });
+    const card = container.querySelector('[data-testid^="dose-card-MMR-"]');
+    expect(card).toBeTruthy();
+    expect(card.textContent).toMatch(/VALID · OFF-WINDOW/);
+    act(() => { fireEvent.click(card); });
+    const popover = document.querySelector('[data-testid="dose-compliance-popover"]');
+    expect(popover.textContent).toMatch(/Counts toward series:\s*Yes/i);
+  });
+
+  it('status legend explains both VALID · OFF-WINDOW and OFF-WINDOW · REPEAT as separate outcomes', () => {
+    const dob = '2022-01-01';
+    const hist = { HepB: [{ given: true, mode: 'date', date: dob, brand: '' }] };
+    const { container } = renderAudit({ hist, dob, am: 1 });
+    const toggle = container.querySelector('[data-testid="status-legend-toggle"]');
+    act(() => { fireEvent.click(toggle); });
+    const content = container.querySelector('[data-testid="status-legend-content"]');
+    expect(content.textContent).toMatch(/VALID · OFF-WINDOW/);
+    expect(content.textContent).toMatch(/OFF-WINDOW · REPEAT/);
+    expect(content.textContent).toMatch(/does NOT count toward series completion/i);
+  });
 });

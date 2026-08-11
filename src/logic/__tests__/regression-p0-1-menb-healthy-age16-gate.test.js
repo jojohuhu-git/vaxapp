@@ -65,11 +65,16 @@ describe('M1: healthy MenB dose before age 16 does not count toward the healthy 
     expect(menbDoses.length).toBe(2);
   });
 
-  it('S6 compliance.js: the age-10 dose is labeled valid but does not count toward the healthy series', () => {
+  it('S6 compliance.js: the age-10 dose is labeled OFF_WINDOW (safely given, does not count) — not VALID', () => {
+    // OFF_WINDOW replaces the old overloaded VALID status for this case (off-window
+    // vocabulary fix, session immediately after M1): "safely given" and "counts
+    // toward the series" are separate axes, so this can't be labeled the same
+    // VALID status as a dose that DOES count (see docs/agent/meningococcal-rules-summary.md).
     const dose = doseAtAgeMonths(120);
     const dob16 = '2010-07-23'; // patient turns 16 on TODAY; dose (age-mode, ageDays fixed) reads as ~age 10 regardless of dob
     const cls = classifyDose('MenB', 0, dose, 1, dob16, null, null, { MenB: [dose] }, []);
-    expect(cls.status).toBe('VALID');
+    expect(cls.status).toBe('OFF_WINDOW');
+    expect(cls.status).not.toBe('VALID');
     expect(cls.label).toMatch(/does not count toward the healthy/i);
   });
 

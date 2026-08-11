@@ -196,12 +196,13 @@ function countCardInjections(items) {
 
 // "Done" chip color reflects the compliance validity of the most recently
 // given dose for this vaccine — reuses classifyDose/STATUS_COLOR's taxonomy
-// (ON_TIME/VALID/VALID_EXTRA/INVALID/UNKNOWN, src/logic/compliance.js) so a
-// dose's color means the same thing here as it does on the Compliance Audit
-// tab, rather than every completed dose rendering the same flat green.
+// (ON_TIME/VALID/OFF_WINDOW/VALID_EXTRA/INVALID/UNKNOWN, src/logic/compliance.js)
+// so a dose's color means the same thing here as it does on the Compliance
+// Audit tab, rather than every completed dose rendering the same flat green.
 const DONE_STATUS_CHIP_CLASS = {
   ON_TIME: 'fch-done-on-time',
   VALID: 'fch-done-valid',
+  OFF_WINDOW: 'fch-done-offwindow',
   VALID_EXTRA: 'fch-done-extra',
   INVALID: 'fch-done-invalid',
   UNKNOWN: 'fch-done-extra',
