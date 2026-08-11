@@ -1,3 +1,9 @@
+> **SUPERSEDED** by
+> [`handoff-2026-08-11-pneumo-spec-audit-session7.md`](handoff-2026-08-11-pneumo-spec-audit-session7.md) —
+> Session 7 (pneumococcal spec-vs-code audit) is complete. This handoff's
+> account of M5, M6, and citation parity is still accurate; only its
+> "what's next" pointer is stale. Resume from the newer file.
+
 # PediVax (vaxapp) — Handoff after Session 6: M5 + M6 + citation parity (2026-08-11)
 
 Session 6 of `.claude/prompts/plan-2026-08-10-aap-authority-parity-ux.md`
