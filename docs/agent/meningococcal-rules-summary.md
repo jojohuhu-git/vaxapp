@@ -10,8 +10,11 @@ rules-summary.md content is unchanged since commit `764f03a`, 2026-07-23;
 MeningoVax's later W1–W5/Change 2–4/C1–C3 fixes updated its citations and
 UI, not the rules this file describes).
 
-**Authority order:** ACIP > CDC > AAP > immunize.org, over FDA package
-inserts. CDSI "preferable" windows are ignored — only CDSI absolute min/max
+**Authority rule (2026-08-10):** ACIP/CDC/AAP/immunize.org over FDA package
+inserts. Within that group, AAP is a tiebreak, not a ranking: where ACIP/CDC and AAP
+agree, cite either; where they disagree, AAP governs; never adopt a CDC revision
+recommending fewer doses or narrower eligibility than AAP; where AAP is silent,
+CDC/MMWR stands. CDSI "preferable" windows are ignored — only CDSI absolute min/max
 ages are enforced.
 
 > **Status in this repo (vaxapp) — meningococcal parity complete as of
