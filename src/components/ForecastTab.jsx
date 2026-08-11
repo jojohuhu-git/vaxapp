@@ -206,6 +206,7 @@ const DONE_STATUS_CHIP_CLASS = {
   VALID_EXTRA: 'fch-done-extra',
   INVALID: 'fch-done-invalid',
   UNKNOWN: 'fch-done-extra',
+  PENDING: 'fch-done-pending',
 };
 
 function doneChipClass(vk, validHist, dob, risks) {

@@ -201,7 +201,9 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
     case 'MenB': {
       // M1: non-high-risk patients' pre-16 doses don't count toward the healthy
       // 2-dose series (mirrors the isHRMen pre-10 exclusion for MenACWY above).
-      const givenMenB = isHRMenB ? dc(hist, 'MenB') : menBEffectiveDoses(hist, dob, am, false).length;
+      // M2: high-risk patients' ambiguous pre-16 doses don't count either, unless
+      // the provider confirmed the patient was already high-risk on that date.
+      const givenMenB = menBEffectiveDoses(hist, dob, am, isHRMenB).length;
       // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
       // accelerated series for BOTH antigen families (4C and FHbp), starting at 10y.
       // Healthy: 2-dose shared-decision series, 16–23y (192–276m).
@@ -366,8 +368,8 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
   for (const vk of VAX_ORDER) {
     const given  = (vk === 'MenACWY' && !isHRMenMain)
       ? menACWYRoutineCount(ctx.hist, ctx.dob)
-      : (vk === 'MenB' && !isHRMenBMain)
-      ? menBEffectiveDoses(ctx.hist, ctx.dob, ctx.am, false).length
+      : (vk === 'MenB')
+      ? menBEffectiveDoses(ctx.hist, ctx.dob, ctx.am, isHRMenBMain).length
       : dc(ctx.hist, vk);
     const series = seriesDoses(vk, ctx, fcBrands);
 

@@ -26,6 +26,7 @@ const PILL_LEGEND_DEFS = [
   { chipClass: 'fch-done-offwindow', label: 'Done · off-window - repeat', def: 'Safely given, but does not count toward series completion — a repeat dose is owed.' },
   { chipClass: 'fch-done-extra', label: 'Done · extra', def: 'Beyond the standard series count but acceptable per ACIP (e.g. combination-vaccine antigen overlap).' },
   { chipClass: 'fch-done-invalid', label: 'Done · invalid', def: "Failed a minimum age or interval rule — doesn't count toward series completion." },
+  { chipClass: 'fch-done-pending', label: 'Done · needs input', def: 'A high-risk MenB dose given before age 16 — whether it counts depends on an unanswered question in the History tab.' },
 ];
 
 // Renders only the entries actually present among `usedChipClasses` (a

@@ -48,6 +48,8 @@ describe('MenB — 10y asplenia (the bug from SONNET_HANDOFF §3)', () => {
       dosesGiven: { MenB: 1 },
       brands: { MenB: 'Trumenba (MenB-FHbp)' },
       riskConditions: ['asplenia'],
+    
+      riskAtDose: { MenB: 'yes' },
     });
     const r = expectRec(run(p), 'MenB', { doseNum: 2, status: 'risk-based' });
     expect(r.minInt).toBe(28);
@@ -59,6 +61,8 @@ describe('MenB — 10y asplenia (the bug from SONNET_HANDOFF §3)', () => {
       dosesGiven: { MenB: 2 },
       brands: { MenB: 'Trumenba (MenB-FHbp)' },
       riskConditions: ['asplenia'],
+    
+      riskAtDose: { MenB: 'yes' },
     });
     expectRec(run(p), 'MenB', { doseNum: 3, status: 'risk-based' });
   });
@@ -90,6 +94,8 @@ describe('MenB — 10y asplenia (the bug from SONNET_HANDOFF §3)', () => {
       dosesGiven: { MenB: 3 },
       brands: { MenB: 'Trumenba (MenB-FHbp)' },
       riskConditions: ['asplenia'],
+    
+      riskAtDose: { MenB: 'yes' },
     });
     const r = expectRec(run(p), 'MenB', { doseNum: 4, status: 'risk-based' });
     expect(r.minInt).toBe(365);
@@ -101,6 +107,8 @@ describe('MenB — 10y asplenia (the bug from SONNET_HANDOFF §3)', () => {
       dosesGiven: { MenB: 4 },
       brands: { MenB: 'Trumenba (MenB-FHbp)' },
       riskConditions: ['asplenia'],
+    
+      riskAtDose: { MenB: 'yes' },
     });
     const r = expectRec(run(p), 'MenB', { doseNum: 5, status: 'risk-based' });
     expect(r.minInt).toBe(730);
@@ -180,6 +188,8 @@ describe('MenB D3 brand list — both single and combo always offered (2026-05-0
       dosesGiven: { MenB: 2 },
       brands: { MenB: 'Penbraya (MenACWY+MenB-FHbp)' },
       riskConditions: ['asplenia'],
+    
+      riskAtDose: { MenB: 'yes' },
     });
     const r = recFor(run(p), 'MenB');
     expect(r.doseNum).toBe(3);
@@ -193,6 +203,8 @@ describe('MenB D3 brand list — both single and combo always offered (2026-05-0
       dosesGiven: { MenB: 2 },
       brands: { MenB: 'Trumenba (MenB-FHbp)' },
       riskConditions: ['asplenia'],
+    
+      riskAtDose: { MenB: 'yes' },
     });
     const r = recFor(run(p), 'MenB');
     expect(r.brands.some(b => b.startsWith('Trumenba'))).toBe(true);

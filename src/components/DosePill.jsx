@@ -5,6 +5,7 @@ import { VAX_META, VBR, COMBO_COVERS } from '../data/vaccineData';
 import { AGE_OPTS } from '../data/ageOptions';
 import { validateDose } from '../logic/validation';
 import { classifyDose, STATUS_COLOR } from '../logic/compliance';
+import { highRiskMenB, doseAgeMonths, MENB_AGE_16_MONTHS } from '../logic/stateHelpers';
 import { fmtDateInput, addD } from '../logic/utils';
 import DateField from './DateField';
 import { labelForDose } from '../logic/annualLabel';
@@ -51,8 +52,25 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
   // Re-validate whenever localDose changes
   const vr = validateDose(vk, doseIdx, localDose, prevDose, dob);
 
-  // Compliance classification (for dot color + popover label)
-  const compliance = classifyDose(vk, doseIdx, localDose, null, dob, prevDose, null, null);
+  // Compliance classification (for dot color + popover label). risks must be
+  // passed — without it every dose classifies as if the patient had no risk
+  // factors, which silently disagreed with the M2 risk-at-dose prompt below
+  // (flagged but deferred in the 2026-08-10 off-window-vocabulary handoff).
+  const compliance = classifyDose(vk, doseIdx, localDose, null, dob, prevDose, null, null, risks || []);
+
+  // M2: risk-at-dose "Needs input" prompt — a high-risk-NOW MenB patient with a
+  // dose given before age 16 whose risk status at that time isn't recorded.
+  const menbAmbiguous = vk === 'MenB' && highRiskMenB(risks || []) && (() => {
+    const ageM = doseAgeMonths(localDose, dob);
+    return ageM != null && ageM < MENB_AGE_16_MONTHS;
+  })();
+  const needsRiskAtDoseInput = menbAmbiguous && !localDose.riskAtDose;
+
+  function answerRiskAtDose(answer) {
+    const patch = { riskAtDose: answer };
+    setLocalDose(prev => ({ ...prev, ...patch }));
+    dispatch({ type: 'EDIT_DOSE', payload: { vk, index: dispatchIdx, patch } });
+  }
 
   useEffect(() => {
     const onKey = (e) => {
@@ -441,6 +459,64 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
           </div>
         )}
 
+        {/* M2: risk-at-dose "Needs input" prompt — high-risk-now MenB patient,
+            ambiguous pre-16 dose. Yes/No/Not sure, with edit/undo once answered. */}
+        {menbAmbiguous && (
+          <div
+            data-testid="risk-at-dose-prompt"
+            style={{
+              marginTop: 8, background: 'var(--blt)', border: '1px solid var(--bmd)',
+              borderRadius: 'var(--rads)', padding: '6px 8px', fontSize: 11,
+            }}
+          >
+            {needsRiskAtDoseInput ? (
+              <>
+                <div style={{ fontWeight: 700, color: 'var(--b)', marginBottom: 4 }}>Needs input</div>
+                <div style={{ color: 'var(--gy2)', lineHeight: 1.4, marginBottom: 6 }}>
+                  Was the patient already high-risk for meningococcal disease when this dose was given?
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    data-testid="risk-at-dose-yes"
+                    onClick={(e) => { e.stopPropagation(); answerRiskAtDose('yes'); }}
+                    style={{ fontSize: 11, padding: '2px 8px', cursor: 'pointer', background: 'var(--b)', color: '#fff', border: 'none', borderRadius: 'var(--rads)', fontWeight: 700 }}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    data-testid="risk-at-dose-no"
+                    onClick={(e) => { e.stopPropagation(); answerRiskAtDose('no'); }}
+                    style={{ fontSize: 11, padding: '2px 8px', cursor: 'pointer', background: 'none', color: 'var(--gy2)', border: '1px solid var(--gy5)', borderRadius: 'var(--rads)' }}
+                  >
+                    No
+                  </button>
+                  <button
+                    data-testid="risk-at-dose-unsure"
+                    onClick={(e) => { e.stopPropagation(); answerRiskAtDose('unsure'); }}
+                    style={{ fontSize: 11, padding: '2px 8px', cursor: 'pointer', background: 'none', color: 'var(--gy2)', border: '1px solid var(--gy5)', borderRadius: 'var(--rads)' }}
+                  >
+                    Not sure
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                <span style={{ color: 'var(--gy2)' }}>
+                  Already high-risk at this dose:{' '}
+                  <strong>{localDose.riskAtDose === 'yes' ? 'Yes' : localDose.riskAtDose === 'no' ? 'No' : 'Not sure'}</strong>
+                </span>
+                <button
+                  data-testid="risk-at-dose-edit"
+                  onClick={(e) => { e.stopPropagation(); answerRiskAtDose(undefined); }}
+                  style={{ fontSize: 11, color: 'var(--b)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', flexShrink: 0 }}
+                >
+                  Edit
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Add another dose affordance */}
         <div style={{ marginTop: 10, borderTop: '1px solid var(--gy6)', paddingTop: 8 }}>
           {!addingDose ? (
@@ -594,7 +670,8 @@ export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob
 
   // Compliance classification for the colored dot indicator.
   // Pass totalDoses so 4-dose HepB relaxation applies (same path as auditAll).
-  const compliance = classifyDose(vk, index, dose, totalDoses ?? null, dob, prevDose, null, null);
+  // risks must be passed too — see note in DoseDetailPopover above.
+  const compliance = classifyDose(vk, index, dose, totalDoses ?? null, dob, prevDose, null, null, risks || []);
 
   let dateLabel = "";
   if (dose.mode === "date") {

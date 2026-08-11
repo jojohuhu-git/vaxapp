@@ -4,11 +4,12 @@
  * classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist)
  * returns:
  *   {
- *     status: 'ON_TIME' | 'VALID' | 'OFF_WINDOW' | 'VALID_EXTRA' | 'INVALID' | 'UNKNOWN',
+ *     status: 'ON_TIME' | 'VALID' | 'OFF_WINDOW' | 'VALID_EXTRA' | 'INVALID' | 'UNKNOWN' | 'PENDING',
  *     label: string,
  *     recommendedRange: { recMin, recMax, label } | null,
  *     extraScenario: { scenarioKey, popoverText, citation } | null,
  *     notAdolescentCount: true | undefined, // M1: MenB pre-16 dose (non-high-risk) — kept alongside OFF_WINDOW for back-compat
+ *     needsInput: true | undefined, // M2: PENDING dose awaiting a risk-at-dose answer
  *   }
  *
  * Status semantics:
@@ -19,6 +20,8 @@
  *   OFF_WINDOW   — safely given but does NOT advance the series; a repeat is owed. This is a
  *                  separate axis from VALID/INVALID, not a flavor of VALID — see M1 (MenB pre-16).
  *   VALID_EXTRA  — valid per validateDose AND dose count exceeds expected series total
+ *   PENDING      — high-risk-now patient, ambiguous pre-16 MenB dose, provider hasn't yet
+ *                  answered whether the patient was already high-risk on that date — M2.
  */
 
 import { validateDose } from './validation.js';
@@ -316,7 +319,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // validly administered but does NOT count toward the healthy 2-dose series —
   // MenB antibody protection wanes within about a year, so a pre-16 dose is not
   // protective at 16. Mirrors stateHelpers.menBEffectiveDoses() and MeningoVax's
-  // P0-1 fix (commit 764f03a). High-risk patients keep every dose (checked below).
+  // P0-1 fix (commit 764f03a). High-risk-now patients are handled separately below.
   if (vk === 'MenB' && ageMonths < 192 && !highRiskMenB(risks || [])) {
     return {
       status: 'OFF_WINDOW',
@@ -326,6 +329,35 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
       auditFlag: null,
       notAdolescentCount: true,
     };
+  }
+
+  // M2: a MenB dose given before age 16 to a patient who IS high-risk NOW is
+  // ambiguous — it only counts toward the high-risk series if the patient was
+  // ALREADY high-risk on that date, which this app's data model doesn't record.
+  // Mirrors stateHelpers.menBRiskAtDoseNeedsInput()/menBEffectiveDoses() and
+  // MeningoVax's M2 (commit 981682c).
+  if (vk === 'MenB' && ageMonths < 192 && highRiskMenB(risks || [])) {
+    if (!dose.riskAtDose) {
+      return {
+        status: 'PENDING',
+        label: `Given at ${ageLabel}, before age 16. Whether this dose counts toward the high-risk MenB series depends on whether the patient was already high-risk on that date — not recorded.`,
+        recommendedRange: null,
+        extraScenario: null,
+        auditFlag: null,
+        needsInput: true,
+      };
+    }
+    if (dose.riskAtDose === 'no' || dose.riskAtDose === 'unsure') {
+      return {
+        status: 'OFF_WINDOW',
+        label: `Off-window — repeat owed (given at ${ageLabel}, before age 16). Marked as ${dose.riskAtDose === 'unsure' ? 'unsure whether the patient was' : 'not'} high-risk on that date — treated conservatively as not counting toward the high-risk MenB series.`,
+        recommendedRange: null,
+        extraScenario: null,
+        auditFlag: null,
+        notAdolescentCount: true,
+      };
+    }
+    // dose.riskAtDose === 'yes' → falls through to the normal high-risk path below.
   }
 
   // Check if dose is an "extra" intermediate in an extended combo schedule.
@@ -511,6 +543,7 @@ export const STATUS_COLOR = {
   VALID_EXTRA: 'var(--gy3)',
   INVALID:     'var(--r)',
   UNKNOWN:     'var(--gy3)',
+  PENDING:     'var(--b)',
   // Legacy aliases for backward compat (tests referencing old names)
   on_time:     'var(--g)',
   early_valid: 'var(--b)',
