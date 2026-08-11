@@ -1,5 +1,12 @@
 # PediVax (vaxapp) — Handoff after M2 risk-at-dose prompt (2026-08-11)
 
+> **SUPERSEDED** by
+> [`handoff-2026-08-11-m3-m4-menacwy.md`](handoff-2026-08-11-m3-m4-menacwy.md).
+> This handoff's account of M2 and the two sessionStorage bugs it fixed is
+> still accurate — only its "Resuming" pointer (→ Session 5) is stale.
+> Session 5 (M3 + M4) is now also complete; resume from the new file, which
+> points at Session 6.
+
 Session 4 of `.claude/prompts/plan-2026-08-10-aap-authority-parity-ux.md`
 (the ten-session plan).
 
