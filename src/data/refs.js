@@ -124,6 +124,14 @@ export const REFS = {
     cdcUrl:"https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html#note-mening",
     cdcLabel:"CDC MenACWY Schedule Notes"
   },
+  // M5 (2026-08-11): a dose given at exactly age 10 counts as adolescent dose 1 — no
+  // repeat is needed at 11-12. Verified live 2026-08-11. Mirrors MeningoVax commit 0ec3f22.
+  acwyAge10CountsAsDose1: {
+    label:"immunize.org Ask the Experts: a MenACWY dose at age 10 counts as adolescent dose 1",
+    url:"https://www.immunize.org/ask-experts/topic/menacwy/",
+    quote:"ACIP considers a dose of MenACWY given to a 10-year-old child to be valid for the first dose in the adolescent series.",
+    lastVerified:"2026-08-11"
+  },
   MenB:    {
     label:"immunize.org: MenB — Ask the Experts",
     url:"https://www.immunize.org/ask-experts/topic/menb/",

@@ -561,6 +561,16 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // patients, or when no doses were actually excluded (men === menRoutine) so high-risk
   // routing is identical to the pre-fix behavior in every other case.
   const menRoutineGate = (n) => menRoutine === n && (!isHighRiskMen || men === menRoutine);
+  // M5 (2026-08-11): when the single credited routine dose was given at exactly age 10
+  // (120-131mo, the pre-11 floor V1 already credits), the eventual 16y booster note should
+  // cite WHY that age-10 dose satisfied dose 1 (immunize.org Ask the Experts, verified live
+  // 2026-08-11). Mirrors MeningoVax commit 0ec3f22 (Change 2). Only meaningful when exactly
+  // one dose is credited — once a 2nd dose exists the age-10 question no longer applies.
+  const menRoutineDoseAtAge10 = menRoutine === 1 && (() => {
+    const d = menacwyGivenAll.find(d => { const a = menDoseAgeM(d); return a == null || a >= 120; });
+    const a = d ? menDoseAgeM(d) : null;
+    return a != null && a >= 120 && a < 132;
+  })();
   // D7: Menveo formulation depends on age \u2014 2-vial licensed \u22652 months; 1-vial licensed \u226510 years.
   const menveoLbl = am >= 120 ? "Menveo 1-vial (MenACWY-CRM, \u226510y)" : "Menveo 2-vial (MenACWY-CRM, \u22652m)";
   if (isHighRiskMen && am >= 2 && am < 7 && men < 3) {
@@ -636,9 +646,13 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     // an exact 3- or 5-year interval. A prior "High-risk: booster every 3\u20135 years"
     // clause here described a code path that never actually fires \u2014 removed.
     r("MenACWY", am <= 204 ? "Booster (16 years)" : "Booster catch-up (17\u201318 years)", 2, "due",
-      "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y.",
+      menRoutineDoseAtAge10
+        ? "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y. The prior dose was given at age 10, which counts as the first dose of the adolescent series \u2014 no repeat was needed."
+        : "Booster at 16y for ongoing protection through college. If missed at 16y, catch up through 18y.",
       menb < 2 ? [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)", "Penbraya (MenACWY+MenB-FHbp) \u2014 if MenB also due", "Penmenvy (MenACWY+MenB-4C) \u2014 if MenB also due"] : [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
-      { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+      menRoutineDoseAtAge10
+        ? { minInt: 56, refUrl: REFS.acwyAge10CountsAsDose1.url, refLabel: REFS.acwyAge10CountsAsDose1.label, refUrl2: REFS.MenACWY.cdcUrl, refLabel2: REFS.MenACWY.cdcLabel }
+        : { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am > 144 && am < 192 && menRoutineGate(0)) {
     // 13\u201315y catch-up: Dose 1 of 2; booster at 16y because first dose given before 16y.
     r("MenACWY", "Catch-up (13\u201315 years)", 1, "catchup",
