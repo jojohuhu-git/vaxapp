@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY } from './stateHelpers.js';
+import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
@@ -743,14 +743,22 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // MenB high-risk gate: ONLY asplenia/sickle_cell/complement/microbiologist/outbreak_b per ACIP 2020.
   // HIV, immunocomp, HSCT do NOT have a MenB high-risk indication (B1).
   const hrMenB = highRiskMenB(risks);
+  // M1: a MenB dose given before age 16 (192mo) to a non-high-risk patient is
+  // validly given but does NOT count toward the healthy 2-dose series — MenB
+  // antibody protection wanes within about a year, so a pre-16 dose provides no
+  // protection at 16. High-risk patients keep every dose (their primary series
+  // legitimately starts at 10y). Mirrors V1's MenACWY pre-age-10 exclusion
+  // (menRoutine above) and MeningoVax's P0-1 fix (commit 764f03a).
+  const menbEffective = menBEffectiveDoses(hist, dob, am, hrMenB);
+  const menbCount = menbEffective.length;
   if (am >= 120) {
-    if (menb === 0 && (hrMenB || (am >= 192 && am < 288))) {
+    if (menbCount === 0 && (hrMenB || (am >= 192 && am < 288))) {
       r("MenB", hrMenB ? "Dose 1 \u2014 risk-based (high-risk)" : "Dose 1 \u2014 shared clinical decision (preferred 16\u201323y)", 1, hrMenB ? "risk-based" : "recommended",
         hrMenB ? "Risk-based for high-risk patients: 3-dose accelerated schedule (0, 1\u20132 months, 6 months) for BOTH antigen families. MenB-4C (Bexsero/Penmenvy) and MenB-FHbp (Trumenba/Penbraya) are NOT interchangeable \u2014 complete within one family." : "Shared clinical decision making, preferred 16\u201318y. MenB-4C (Bexsero/Penmenvy): 2 doses \u22656 months apart. MenB-FHbp (Trumenba/Penbraya): 2 doses \u22656m apart (or accelerated 3-dose). Penbraya/Penmenvy if MenACWY also starting.",
         men === 0 ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenACWY too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenACWY too (4C family)", "Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"] : ["Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"],
         { bt: "Two antigen families: 4C (Bexsero, Penmenvy) and FHbp (Trumenba, Penbraya). Within a family products are interchangeable; across families they are NOT. Complete the series within one family.", refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
-    } else if (menb === 1 && (hrMenB || am >= 192)) {
-      const mb = anyBrand(hist, "MenB");
+    } else if (menbCount === 1 && (hrMenB || am >= 192)) {
+      const mb = menbEffective.find(d => d.brand)?.brand || "";
       // Antigen-family awareness: 4C (Bexsero/Penmenvy) vs FHbp (Trumenba/Penbraya).
       const is4C = mb.startsWith("Bexsero") || mb.startsWith("Penmenvy");
       const isFHbp = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
@@ -769,8 +777,8 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
           : isFHbp ? ["Trumenba (MenB-FHbp)", "Penbraya (MenACWY+MenB-FHbp)"]
           : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
         { minInt: fhbpD2Min, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
-    } else if (menb === 2) {
-      const mb = anyBrand(hist, "MenB");
+    } else if (menbCount === 2) {
+      const mb = menbEffective.find(d => d.brand)?.brand || "";
       const isFHbp2 = mb.startsWith("Trumenba") || mb.startsWith("Penbraya");
       const is4C2  = mb.startsWith("Bexsero")   || mb.startsWith("Penmenvy");
       // Trumenba/Penbraya: high-risk patients need 3-dose accelerated regardless;
@@ -779,7 +787,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         // High-risk 3-dose primary (BOTH 4C and FHbp): dose 3 \u22656 months after dose 1 AND \u22654 months after dose 2.
         // Enforce both date floors before emitting. When today or a date is unknown,
         // emit unconditionally (matches forecast/dosePlan behavior for undated histories).
-        const menbGivenHR = (hist.MenB || []).filter(d => d.given);
+        const menbGivenHR = menbEffective;
         const menbD1HR = menbGivenHR[0]?.date;
         const menbD2HR = menbGivenHR[1]?.date;
         const d1FloorMet = !today || !menbD1HR || dBetween(menbD1HR, today) >= 182;
@@ -796,7 +804,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       } else if (!hrMenB) {
       // Non-high-risk: 2-dose series is standard. If d1\u2192d2 was < 6 months,
       // a rescue dose 3 is needed \u22654 months after dose 2.
-      const menbGiven = (hist.MenB || []).filter(d => d.given);
+      const menbGiven = menbEffective;
       const menbD1Date = menbGiven[0]?.date;
       const menbD2Date = menbGiven[1]?.date;
       const d1d2Days = (menbD1Date && menbD2Date)
@@ -814,11 +822,11 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       }
       // If d1\u2192d2 \u22656 months (or dates unknown), series is complete \u2014 no rec emitted.
       }
-    } else if (hrMenB && menb >= 3) {
-      const mb = anyBrand(hist, "MenB");
+    } else if (hrMenB && menbCount >= 3) {
+      const mb = menbEffective.find(d => d.brand)?.brand || "";
       // D4 (3-dose primary series just completed, either antigen family) — first revax 1y (365d).
       // D5+ — ongoing revaccination every 2–3y (730d).
-      const revaxMinInt = (menb === 3) ? 365 : 730;
+      const revaxMinInt = (menbCount === 3) ? 365 : 730;
       // Gate emission: only emit when the interval has elapsed.
       // When today or lastDate is unknown, emit unconditionally (forecast projections).
       const revaxLastD = lastDate(hist, "MenB");
@@ -826,7 +834,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         || (new Date(revaxLastD + 'T00:00:00').getTime() + revaxMinInt * 86400000
             <= new Date(today + 'T00:00:00').getTime());
       if (revaxEligible) {
-        r("MenB", `Revaccination \u2014 dose ${menb + 1} (high-risk, ${menb === 3 ? "1 year after primary series" : "every 2\u20133 years"})`, menb + 1, "risk-based",
+        r("MenB", `Revaccination \u2014 dose ${menbCount + 1} (high-risk, ${menbCount === 3 ? "1 year after primary series" : "every 2\u20133 years"})`, menbCount + 1, "risk-based",
           "ACIP: high-risk patients should continue MenB revaccination every 2\u20133 years as long as high-risk status persists.",
           mb ? [mb] : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
           { minInt: revaxMinInt, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });

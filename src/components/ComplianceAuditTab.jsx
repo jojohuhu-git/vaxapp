@@ -15,7 +15,7 @@ import { REFS } from '../data/refs.js';
 import { validatedHistory, validateDose } from '../logic/validation';
 import { classifyDose, RULES_REGISTRY } from '../logic/compliance';
 import { fmtAgeClinical, fmtIntervalClinical, fmtAm } from '../logic/ageFormat';
-import { doseAgeDays, doseDate, isHighRiskMenACWY } from '../logic/stateHelpers';
+import { doseAgeDays, doseDate, isHighRiskMenACWY, menBEffectiveDoses, highRiskMenB } from '../logic/stateHelpers';
 import { getDoseBand } from '../data/aapDoseBands';
 import { fmtDateInput, addD, todayISO } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
@@ -126,7 +126,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
   const ageDays = doseAgeDays(dose, dob);
   const band = getDoseBand(vk, doseIdx + 1, { highRisk: vk === 'MenACWY' && isHighRiskMenACWY(risks || []) });
   const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist, risks);
-  const { status, label, extraScenario, auditFlag } = classification;
+  const { status, label, extraScenario, auditFlag, notAdolescentCount } = classification;
 
   const { vr, rules } = buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks);
 
@@ -245,8 +245,8 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
         {/* Counts toward series */}
         <div style={{ marginBottom: 8, fontSize: 12 }}>
           <span style={{ color: 'var(--gy3)' }}>Counts toward series: </span>
-          <span style={{ fontWeight: 600, color: status === 'INVALID' ? 'var(--r)' : 'var(--g)' }}>
-            {status === 'INVALID' ? 'No' : 'Yes'}
+          <span style={{ fontWeight: 600, color: (status === 'INVALID' || notAdolescentCount) ? 'var(--r)' : 'var(--g)' }}>
+            {status === 'INVALID' || notAdolescentCount ? 'No' : 'Yes'}
           </span>
         </div>
 
@@ -572,6 +572,15 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
     expectedTotal = null;
   }
 
+  // M1: for non-high-risk MenB, a dose given before age 16 is valid (passes
+  // validateDose's interval/age checks above) but does NOT count toward the
+  // healthy 2-dose series completion — mirrors stateHelpers.menBEffectiveDoses()
+  // and MeningoVax's P0-1 fix (764f03a). Without this, a healthy patient with a
+  // dose at 10 and a dose at 16 was shown "Complete" after only 1 real dose.
+  const effectiveCount = (vk === 'MenB' && !highRiskMenB(risks || []))
+    ? menBEffectiveDoses({ MenB: validDoses }, dob, am, false).length
+    : validCount;
+
   // Count extra doses: doses beyond the standard series total that are VALID_EXTRA
   // Use effectivePrevByRawIdx for correct interval computation.
   const extraCount = totalCount - validCount >= 0
@@ -583,19 +592,19 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
       }).length
     : 0;
 
-  const isComplete = expectedTotal != null && validCount >= expectedTotal && invalidCount === 0;
+  const isComplete = expectedTotal != null && effectiveCount >= expectedTotal && invalidCount === 0;
 
   let headerText;
   if (invalidCount > 0) {
     headerText = `In progress · ${validCount} valid · ${invalidCount} invalid`;
-  } else if (expectedTotal != null && validCount >= expectedTotal) {
+  } else if (expectedTotal != null && effectiveCount >= expectedTotal) {
     if (extraCount > 0) {
       headerText = `Complete · ${totalCount} doses given (${extraCount} extra, acceptable)`;
     } else {
-      headerText = `Complete · ${validCount} of ${validCount} doses`;
+      headerText = `Complete · ${effectiveCount} of ${effectiveCount} doses`;
     }
   } else if (expectedTotal != null) {
-    headerText = `In progress · ${validCount} of ${expectedTotal} doses`;
+    headerText = `In progress · ${effectiveCount} of ${expectedTotal} doses`;
   } else {
     headerText = `${validCount} dose${validCount !== 1 ? 's' : ''} recorded`;
   }

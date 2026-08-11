@@ -20,14 +20,14 @@
     {
       "id": "MENB-003",
       "description": "MenB-4C dose 2: minInt 182d (≥6mo) after D1 — per CDC 2025 schedule update",
-      "patient": { "ageMonths": 192, "dosesGiven": { "MenB": 1 }, "brands": { "MenB": "Bexsero (MenB-4C, 2-dose series)" } },
+      "patient": { "ageMonths": 192, "dosesGiven": { "MenB": 1 }, "brands": { "MenB": "Bexsero (MenB-4C, 2-dose series)" }, "doseAgeMonths": { "MenB": 192 } },
       "expect": { "rec": { "vk": "MenB", "props": { "doseNum": 2, "minInt": 182 } } },
       "rationale": "UPDATED 2026-06-03: Per CDC 2025 child/adolescent schedule notes (note-mening-b), healthy MenB-4C dose 2 is ≥6 months after dose 1 — same as FHbp 2-dose schedule. Old CDSI value of 28d is superseded by ACIP 2025 guidance. Code now sets minInt: is4C ? 182 : fhbpD2Min."
     },
     {
       "id": "MENB-004",
       "description": "MenB-FHbp 2-dose low-risk: D2 ≥6mo (180d) after D1",
-      "patient": { "ageMonths": 192, "dosesGiven": { "MenB": 1 }, "brands": { "MenB": "Trumenba (MenB-FHbp)" } },
+      "patient": { "ageMonths": 192, "dosesGiven": { "MenB": 1 }, "brands": { "MenB": "Trumenba (MenB-FHbp)" }, "doseAgeMonths": { "MenB": 192 } },
       "expect": { "rec": { "vk": "MenB", "props": { "doseNum": 2, "minInt": 182 } } },
       "rationale": "CDSI MenB-FHbp 2-dose SCDM D2 prefInt 180d (or 120d). Code line 474 sets fhbpD2Min=182 for low-risk (off by 2d, 26-week rounding)."
     },

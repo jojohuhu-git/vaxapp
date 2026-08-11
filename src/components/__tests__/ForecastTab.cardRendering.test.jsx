@@ -188,9 +188,23 @@ describe('ForecastTab — card view guards (PR #80 regression tests)', () => {
 // cards had no injection count and a human-readable date; Fewest Injections
 // cards were labeled "Visit N — <date>" with no age at all. Both must now
 // show the same "Age · ISO date · N injections" header shape.
+//
+// dob must be computed relative to the REAL current date, not hardcoded: when
+// both am and dob are seeded, AppContext.getEffectiveAm() derives the actual
+// age from dob vs. today's real calendar date (see dobToMonths in utils.js),
+// not from the raw am seed. A fixed dob like '2024-07-04' drifts out of the
+// "2 years" tolerance window as real time passes, silently breaking these
+// tests months after they were written — this happened once already.
+function dobForAgeMonths(months) {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  d.setUTCMonth(d.getUTCMonth() - months);
+  return d.toISOString().slice(0, 10);
+}
+
 describe('ForecastTab — card header format (Routine vs Fewest Injections consistency)', () => {
   it('a Routine Schedule card shows an ISO date and an injection count', () => {
-    const { container } = renderForecast({ am: 24, dob: '2024-07-04' });
+    const { container } = renderForecast({ am: 24, dob: dobForAgeMonths(24) });
     const card = getCardByLabel(container, '2 years');
     expect(card).not.toBeNull();
     const dateEl = card.querySelector('.vcard-date');
@@ -200,20 +214,20 @@ describe('ForecastTab — card header format (Routine vs Fewest Injections consi
   });
 
   it('the current-visit card shows the real today date, not a DOB-derived estimate', () => {
-    const { container } = renderForecast({ am: 24, dob: '2024-07-04' });
+    const { container } = renderForecast({ am: 24, dob: dobForAgeMonths(24) });
     const card = getCardByLabel(container, '2 years');
     const dateEl = card.querySelector('.vcard-date');
     // The DOB-derived estimate for a 24m visit would be exactly 2 years after
-    // 2024-07-04 ("2026-07-04"); the real "today" the test env uses will not
-    // reliably differ in a way we can assert without mocking the clock, so
-    // just assert it's a well-formed ISO date sourced from todayISO(), i.e.
-    // matches the actual current date rather than being empty/malformed.
+    // dob; the real "today" the test env uses will not reliably differ in a
+    // way we can assert without mocking the clock, so just assert it's a
+    // well-formed ISO date sourced from todayISO(), i.e. matches the actual
+    // current date rather than being empty/malformed.
     expect(dateEl).not.toBeNull();
     expect(dateEl.textContent).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it('a combo brand selection collapses the injection count on a Routine card', () => {
-    const { container, dispatch } = renderForecast({ am: 24, dob: '2024-07-04' });
+    const { container, dispatch } = renderForecast({ am: 24, dob: dobForAgeMonths(24) });
     const cardBefore = getCardByLabel(container, '2 years');
     const countBefore = parseInt(cardBefore.querySelector('.vcard-count').textContent, 10);
 

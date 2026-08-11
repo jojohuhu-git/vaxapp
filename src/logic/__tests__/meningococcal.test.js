@@ -77,6 +77,8 @@ describe('MenB — 10y asplenia (the bug from SONNET_HANDOFF §3)', () => {
       ageMonths: 192,
       dosesGiven: { MenB: 1 },
       brands: { MenB: 'Trumenba (MenB-FHbp)' },
+      // M1: dose age must be >=192mo (16y) to count toward the healthy series.
+      doseAgeMonths: { MenB: 192 },
     });
     const r = expectRec(run(p), 'MenB', { doseNum: 2 });
     expect(r.minInt).toBe(182);

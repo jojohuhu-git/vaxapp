@@ -326,3 +326,35 @@ describe('status legend', () => {
     expect(container.querySelector('[data-testid="status-legend-content"]')).toBeFalsy();
   });
 });
+
+// ── M1: healthy MenB dose before age 16 must not show "Complete" ────────────────
+describe('M1: healthy MenB dose before age 16 does not count toward series completion', () => {
+  it('16yo healthy patient with 1 MenB dose given at age 10 is NOT shown as Complete', () => {
+    const dob = '2010-01-01'; // turns 16 on 2026-01-01
+    const hist = {
+      MenB: [{ given: true, mode: 'date', date: '2020-01-01', brand: 'Bexsero (MenB-4C)' }], // ~age 10
+    };
+    const { container } = renderAudit({ hist, dob, am: 192 });
+    const row = container.querySelector('[data-testid="vaccine-row-MenB"]');
+    expect(row).toBeTruthy();
+    expect(row.textContent).not.toMatch(/Complete/);
+    expect(row.textContent).toMatch(/In progress/);
+  });
+
+  it('the age-10 dose card shows a "does not count" explanation, not a false completion', () => {
+    const dob = '2010-01-01';
+    const hist = {
+      MenB: [{ given: true, mode: 'date', date: '2020-01-01', brand: 'Bexsero (MenB-4C)' }],
+    };
+    const { container } = renderAudit({ hist, dob, am: 192 });
+    const card = container.querySelector('[data-testid^="dose-card-MenB-"]');
+    expect(card).toBeTruthy();
+    act(() => { fireEvent.click(card); });
+    const popover = document.querySelector('[data-testid="dose-compliance-popover"]');
+    expect(popover).toBeTruthy();
+    expect(popover.textContent).toMatch(/does not count toward the healthy/i);
+    // The "Counts toward series" summary line must agree with the explanation above it —
+    // this is exactly the cross-surface contradiction M1 is meant to close.
+    expect(popover.textContent).toMatch(/Counts toward series:\s*No/i);
+  });
+});

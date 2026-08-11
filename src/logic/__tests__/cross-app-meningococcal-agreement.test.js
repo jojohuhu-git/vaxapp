@@ -237,3 +237,28 @@ describe('Case 4 — MenB family lock (D1 unknown brand, D2 Bexsero → 4C famil
     expect(brands.some(b => b.startsWith('Trumenba') || b.startsWith('Penbraya'))).toBe(false);
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Case 5 — M1: healthy MenB dose before age 16 does not count toward the series
+// Patient: healthy (no risk factor), 1 MenB dose given at age 10, currently 16y.
+// MeningoVax (P0-1, commit 764f03a): the age-10 dose is valid but does NOT count
+//   toward the healthy 2-dose series — a fresh 2-dose series is needed at 16.
+// vaxapp (M1, mirrors MeningoVax): genRecs now excludes pre-16 doses from the
+//   non-high-risk MenB routine count (menBEffectiveDoses in stateHelpers.js).
+// Agreement: both label this "Dose 1 of 2", not "Dose 2 of 2".
+// ══════════════════════════════════════════════════════════════════════════════
+describe('Case 5 — M1: healthy MenB dose before age 16 does not count (parity with MeningoVax 764f03a)', () => {
+  const am = 192; // 16y
+  const risks = [];
+  const dob = '2010-01-01';
+  const hist = {
+    // Given at ~10y (dob 2010-01-01 + 10y = 2020-01-01), well before the 16y window.
+    MenB: [dateDose('2020-01-01', 'Bexsero (MenB-4C)')],
+  };
+
+  it('healthy 16yo with a dose at age 10 → Dose 1 of 2 (fresh series), not Dose 2', () => {
+    const r = menbRec(am, hist, risks, dob);
+    expect(r).not.toBeNull();
+    expect(r.doseNum).toBe(1);
+  });
+});

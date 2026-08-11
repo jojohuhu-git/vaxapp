@@ -4,7 +4,7 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands } from './pcvDoses.js';
-import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount } from './stateHelpers.js';
+import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
@@ -199,7 +199,9 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
     }
 
     case 'MenB': {
-      const givenMenB = dc(hist, 'MenB');
+      // M1: non-high-risk patients' pre-16 doses don't count toward the healthy
+      // 2-dose series (mirrors the isHRMen pre-10 exclusion for MenACWY above).
+      const givenMenB = isHRMenB ? dc(hist, 'MenB') : menBEffectiveDoses(hist, dob, am, false).length;
       // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
       // accelerated series for BOTH antigen families (4C and FHbp), starting at 10y.
       // Healthy: 2-dose shared-decision series, 16–23y (192–276m).
@@ -354,6 +356,9 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
   // routine/catch-up path excludes confirmed pre-10 doses. Mirrors the isHRMen
   // set in seriesDoses() above.
   const isHRMenMain = (risks ?? []).some(r => ['asplenia', 'sickle_cell', 'complement', 'hiv'].includes(r));
+  // M1: MenB high-risk set (asplenia, sickle cell, complement, microbiologist,
+  // outbreak_b) — mirrors isHRMenB inside seriesDoses() above.
+  const isHRMenBMain = (risks ?? []).some(r => ['asplenia', 'sickle_cell', 'complement', 'microbiologist', 'outbreak_b'].includes(r));
 
   const reviews  = [];
   const allDoses = [];
@@ -361,6 +366,8 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
   for (const vk of VAX_ORDER) {
     const given  = (vk === 'MenACWY' && !isHRMenMain)
       ? menACWYRoutineCount(ctx.hist, ctx.dob)
+      : (vk === 'MenB' && !isHRMenBMain)
+      ? menBEffectiveDoses(ctx.hist, ctx.dob, ctx.am, false).length
       : dc(ctx.hist, vk);
     const series = seriesDoses(vk, ctx, fcBrands);
 
