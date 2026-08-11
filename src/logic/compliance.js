@@ -8,6 +8,7 @@
  *     label: string,
  *     recommendedRange: { recMin, recMax, label } | null,
  *     extraScenario: { scenarioKey, popoverText, citation } | null,
+ *     notAdolescentCount: true | undefined, // M1: MenB pre-16 dose (non-high-risk) — valid but doesn't count
  *   }
  *
  * Status semantics:
@@ -19,7 +20,7 @@
  */
 
 import { validateDose } from './validation.js';
-import { doseAgeDays, isHighRiskMenACWY } from './stateHelpers.js';
+import { doseAgeDays, isHighRiskMenACWY, highRiskMenB } from './stateHelpers.js';
 import { getDoseBand } from '../data/aapDoseBands.js';
 import { fmtAgeClinical } from './ageFormat.js';
 import { REFS } from '../data/refs.js';
@@ -308,6 +309,22 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   }
   const ageMonths = ageDays / 30.4375;
   const ageLabel = fmtAgeClinical(ageDays);
+
+  // M1: a MenB dose given before age 16 (192mo) to a non-high-risk patient is
+  // validly administered but does NOT count toward the healthy 2-dose series —
+  // MenB antibody protection wanes within about a year, so a pre-16 dose is not
+  // protective at 16. Mirrors stateHelpers.menBEffectiveDoses() and MeningoVax's
+  // P0-1 fix (commit 764f03a). High-risk patients keep every dose (checked below).
+  if (vk === 'MenB' && ageMonths < 192 && !highRiskMenB(risks || [])) {
+    return {
+      status: 'VALID',
+      label: `Valid (given at ${ageLabel}, before the 16-year healthy-series window). Does not count toward the healthy 2-dose MenB series — MenB antibody protection wanes within about a year, so a dose before 16 is not counted for a patient without a high-risk indication.`,
+      recommendedRange: null,
+      extraScenario: null,
+      auditFlag: null,
+      notAdolescentCount: true,
+    };
+  }
 
   // Check if dose is an "extra" intermediate in an extended combo schedule.
   // This check runs BEFORE validateDose because intermediate extras in combo schedules

@@ -81,6 +81,45 @@ export function menACWYRoutineCount(hist, dob) {
   }).length;
 }
 
+/**
+ * M1: MenB doses that count toward a series — i.e. the doses to use for dose
+ * numbering, brand lookup, and interval calculation. For high-risk patients
+ * (isHighRisk=true) every given dose counts, since their primary series
+ * legitimately starts at 10y. For non-high-risk (healthy) patients, the
+ * shared-decision series is recommended at 16–23y; a dose given before the
+ * 16th birthday (192 months) is validly administered but does NOT count
+ * toward the healthy 2-dose series — MenB antibody protection wanes within
+ * about a year, so a dose at 10 provides no protection at 16. Mirrors the
+ * existing MenACWY pre-age-10 rule (menACWYRoutineCount above) and
+ * MeningoVax's P0-1 fix (commit 764f03a).
+ *
+ * An undated dose whose age can't be determined is excluded only when the
+ * patient's CURRENT age (am) is itself under 16 — an undated dose can't have
+ * been given in the future, so it must predate 16. If the patient is
+ * currently ≥16, an undated dose's timing is genuinely unknown and is
+ * conservatively still counted (mirrors the file's existing convention of
+ * not assuming a dose is off-window without evidence).
+ *
+ * Source: ACIP 2020 MMWR RR-9, https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm
+ *
+ * @param {object} hist - full patient history {vk: [{dose}]}
+ * @param {string} dob - patient DOB (ISO string) or falsy if unknown
+ * @param {number|null} am - patient's current age in months (null if unknown)
+ * @param {boolean} isHighRisk - highRiskMenB(risks) result for this patient
+ * @returns {object[]} the given MenB dose objects that count toward the series
+ */
+export function menBEffectiveDoses(hist, dob, am, isHighRisk) {
+  const given = (hist?.MenB || []).filter(d => d.given);
+  if (isHighRisk) return given;
+  return given.filter(d => {
+    let ageM = null;
+    if (d.ageDays != null) ageM = Number(d.ageDays) / 30.4375;
+    else if (d.date && isD(dob)) ageM = (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
+    if (ageM != null) return ageM >= 192;
+    return am == null || am >= 192;
+  });
+}
+
 /** Grace period constant (days). */
 export const GRACE = 4;
 
