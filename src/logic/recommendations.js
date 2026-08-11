@@ -283,16 +283,6 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       { refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
   }
 
-  // ── HSCT advisory: post-transplant PCV re-vaccination ──────────────────
-  // Separate from the normal PCV pathway. Fires unconditionally when HSCT is set
-  // (no transplant date — can't distinguish pre/post; clinician coordinates timing).
-  if (risks.includes('hsct') && am < 228) {
-    r("PCV", "Post-HSCT \u2014 PCV re-vaccination (advisory)", 1, "risk-based",
-      "Child post-HSCT: prior pneumococcal history is considered nullified. Re-vaccinate with 4 doses of PCV20 beginning 3\u20136 months after HSCT \u2014 give 3 doses 4 weeks apart, then a 4th dose \u22656 months after dose 3 AND \u226512 months after HSCT. If PCV20 unavailable: 3 doses of PCV15 (4 weeks apart) starting 3\u20136 months post-HSCT, then PPSV23 \u226512 months after HSCT. Coordinate with transplant/ID team \u2014 your center may use its own protocol. (Timing is relative to transplant date; calendar due-dates not shown.)",
-      ["PCV20 (Prevnar 20) \u2014 preferred", "Vaxneuvance (PCV15) \u2014 follow with PPSV23"],
-      { refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
-  }
-
   // ── PPSV23 (polysaccharide, Pneumovax 23) — separate from PCV ─
   // Now tracked under hist["PPSV23"] so dc(hist,"PCV") can no longer mask an
   // incomplete conjugate series.
