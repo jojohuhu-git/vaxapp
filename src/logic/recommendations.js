@@ -198,7 +198,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // only conjugate doses, preventing PPSV23 from masking an incomplete PCV series.
   const pcv = (hist.PCV || []).filter(d => d.given && !isPCV7(d)).length;
   const ppsv23 = dc(hist, "PPSV23");
-  const isHighRiskPCV = risks.some(x => ["asplenia", "sickle_cell", "hiv", "immunocomp", "cochlear", "chronic_heart", "chronic_lung", "chronic_kidney", "diabetes", "chronic_liver"].includes(x));
+  const isHighRiskPCV = risks.some(x => ["asplenia", "sickle_cell", "hiv", "immunocomp", "cochlear", "chronic_heart", "chronic_lung", "chronic_kidney", "chronic_kidney_dialysis", "diabetes", "chronic_liver"].includes(x));
   // PCV20 = series complete after 1 dose (no PPSV23 needed). PCV15/PCV13 require PPSV23 follow-up.
   const usedPCV20 = (hist.PCV || []).some(d => d.given && d.brand?.startsWith("Prevnar 20"));
   // Adults ≥19y (228m) need only 1 PCV dose; children need the full 4-dose primary+booster series.
@@ -283,16 +283,6 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       { refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
   }
 
-  // ── HSCT advisory: post-transplant PCV re-vaccination ──────────────────
-  // Separate from the normal PCV pathway. Fires unconditionally when HSCT is set
-  // (no transplant date — can't distinguish pre/post; clinician coordinates timing).
-  if (risks.includes('hsct') && am < 228) {
-    r("PCV", "Post-HSCT \u2014 PCV re-vaccination (advisory)", 1, "risk-based",
-      "Child post-HSCT: prior pneumococcal history is considered nullified. Re-vaccinate with 4 doses of PCV20 beginning 3\u20136 months after HSCT \u2014 give 3 doses 4 weeks apart, then a 4th dose \u22656 months after dose 3 AND \u226512 months after HSCT. If PCV20 unavailable: 3 doses of PCV15 (4 weeks apart) starting 3\u20136 months post-HSCT, then PPSV23 \u226512 months after HSCT. Coordinate with transplant/ID team \u2014 your center may use its own protocol. (Timing is relative to transplant date; calendar due-dates not shown.)",
-      ["PCV20 (Prevnar 20) \u2014 preferred", "Vaxneuvance (PCV15) \u2014 follow with PPSV23"],
-      { refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
-  }
-
   // ── PPSV23 (polysaccharide, Pneumovax 23) — separate from PCV ─
   // Now tracked under hist["PPSV23"] so dc(hist,"PCV") can no longer mask an
   // incomplete conjugate series.
@@ -324,7 +314,10 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     const pcvCompleteOnlyBefore72 =
       hrChildPlan && am >= 72 && hrChildPlan.given >= 1 && hrChildPlan.ge72 === 0 && ppsv23 >= 1;
     // After PPSV23 dose 1 (immunocompromising subset): Option A PCV20 ≥8w OR Option B 2nd PPSV23 ≥5y.
-    if (ppsv23 === 1 && !pcvCompleteOnlyBefore72 && risks.some(x => ["asplenia", "sickle_cell", "immunocomp", "hiv"].includes(x))) {
+    // chronic_kidney_dialysis (dialysis/nephrotic syndrome) is CDC's own IC-subset
+    // kidney category — general chronic_kidney (excluding dialysis/nephrotic) is
+    // NOT in this list, matching CDC's non-IC kidney-disease group.
+    if (ppsv23 === 1 && !pcvCompleteOnlyBefore72 && risks.some(x => ["asplenia", "sickle_cell", "immunocomp", "hiv", "chronic_kidney_dialysis"].includes(x))) {
       if (!usedPCV20) {
         r("PCV", "PCV20 \u2014 Option A (immunocompromising, after PPSV23)", pcv + 1, "risk-based",
           "Immunocompromising high-risk patient who already received PPSV23: Option A \u2014 1 dose PCV20 \u22658 weeks after the most recent pneumococcal vaccine. Alternative to a 2nd PPSV23. Choose one.",

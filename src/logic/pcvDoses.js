@@ -31,7 +31,8 @@ export const isPCV7 = (d) => !!d.brand?.startsWith('Prevnar 7');
 
 export const PCV_HR_RISKS = [
   'asplenia', 'sickle_cell', 'hiv', 'immunocomp', 'cochlear',
-  'chronic_heart', 'chronic_lung', 'chronic_kidney', 'diabetes', 'chronic_liver',
+  'chronic_heart', 'chronic_lung', 'chronic_kidney', 'chronic_kidney_dialysis',
+  'diabetes', 'chronic_liver',
 ];
 
 export function isHighRiskPCV(risks) {
