@@ -1,3 +1,9 @@
+> **SUPERSEDED** by
+> [`handoff-2026-08-11-aap-baseline-session9.md`](handoff-2026-08-11-aap-baseline-session9.md)
+> — that session completed the AAP baseline phase (plan items 7a–7e) this handoff's
+> "what's NOT done" pointed to next. Read the newer file for current state; M2–M6 and
+> the UX review remain not started per both files.
+
 # PediVax (vaxapp) — Handoff after Session 9: PCV21 brand option + dead-code cleanup (2026-08-11)
 
 Session 9 of `.claude/prompts/plan-2026-08-10-aap-authority-parity-ux.md`
