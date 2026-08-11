@@ -7,6 +7,41 @@
       "runtimeArgs": ["vite"],
       "port": 5174,
       "autoPort": true
+    },
+    {
+      "name": "TidyTable dev server",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/joannehuang/Downloads/TidyTable && npm run dev"],
+      "port": 5175,
+      "autoPort": true
+    },
+    {
+      "name": "TidyTable dev (phase3)",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/joannehuang/Downloads/TidyTable && npm run dev"],
+      "port": 5185,
+      "autoPort": true
+    },
+    {
+      "name": "CrossRxBL dev server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/joannehuang/Documents/GitHub/CrossRxBL", "run", "dev"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "MeningoVax dev server",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/joannehuang/Downloads/MeningoVax-main && npx vite --port 5179"],
+      "port": 5179,
+      "autoPort": true
+    },
+    {
+      "name": "PneumoVax dev server",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/joannehuang/Downloads/PneumoVax && npx vite --port 5182"],
+      "port": 5182,
+      "autoPort": true
     }
   ]
 }
