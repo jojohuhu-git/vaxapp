@@ -1,3 +1,9 @@
+> **SUPERSEDED** by
+> `docs/archive/handoff-2026-08-10-off-window-vocabulary.md` (2026-08-10). The
+> plan was renumbered when the off-window vocabulary fix was inserted as the new
+> Session 2; this file's account of M1 itself is still accurate, but its
+> "Resuming" pointer is stale — use the newer handoff to resume.
+
 # PediVax (vaxapp) — Handoff after M1: MenB pre-16 gate (2026-08-10)
 
 Session 1 of `.claude/prompts/plan-2026-08-10-aap-authority-parity-ux.md` (9-session
