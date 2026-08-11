@@ -4,7 +4,8 @@
  *
  * Shows one row per antigen with dose cards that display:
  * - Date + age in CDC convention (Birth, N months, N years)
- * - Status pill: ON TIME (green), VALID (amber), VALID EXTRA (gray), INVALID (red), UNKNOWN (gray)
+ * - Status pill: ON TIME (green), VALID (amber), OFF-WINDOW · REPEAT (amber, doesn't count),
+ *   VALID EXTRA (gray), INVALID (red), UNKNOWN (gray)
  * - Clickable card opens DoseCompliancePopover with validation detail
  */
 import { useState, useEffect, useMemo } from 'react';
@@ -45,6 +46,7 @@ function doseDateLabel(dose, dob) {
 const STATUS_PILL_STYLE = {
   ON_TIME:    { bg: 'var(--glt)',  color: 'var(--g)',   border: 'var(--gmd)' },
   VALID:      { bg: 'var(--alt)',  color: 'var(--a)',   border: 'var(--amd)' },
+  OFF_WINDOW: { bg: 'var(--alt)',  color: 'var(--a)',   border: 'var(--amd)' },
   VALID_EXTRA:{ bg: 'var(--gy6)', color: 'var(--gy2)', border: 'var(--gy5)' },
   INVALID:    { bg: 'var(--rlt)', color: 'var(--r)',   border: 'var(--rmd)' },
   UNKNOWN:    { bg: 'var(--gy6)', color: 'var(--gy3)', border: 'var(--gy5)' },
@@ -53,6 +55,7 @@ const STATUS_PILL_STYLE = {
 const STATUS_PILL_LABEL = {
   ON_TIME:    'ON TIME',
   VALID:      'VALID · OFF-WINDOW',
+  OFF_WINDOW: 'OFF-WINDOW · REPEAT',
   VALID_EXTRA:'VALID · EXTRA',
   INVALID:    'INVALID',
   UNKNOWN:    'UNKNOWN',
@@ -149,7 +152,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
   let whyText = null;
   if (status === 'VALID_EXTRA' && extraScenario) {
     whyText = extraScenario.popoverText;
-  } else if (status === 'VALID' && label) {
+  } else if ((status === 'VALID' || status === 'OFF_WINDOW') && label) {
     whyText = label;
   } else if (status === 'INVALID' && vr.results?.[0]?.msg) {
     whyText = vr.results[0].msg;
@@ -245,8 +248,8 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
         {/* Counts toward series */}
         <div style={{ marginBottom: 8, fontSize: 12 }}>
           <span style={{ color: 'var(--gy3)' }}>Counts toward series: </span>
-          <span style={{ fontWeight: 600, color: (status === 'INVALID' || notAdolescentCount) ? 'var(--r)' : 'var(--g)' }}>
-            {status === 'INVALID' || notAdolescentCount ? 'No' : 'Yes'}
+          <span style={{ fontWeight: 600, color: (status === 'INVALID' || status === 'OFF_WINDOW' || notAdolescentCount) ? 'var(--r)' : 'var(--g)' }}>
+            {status === 'INVALID' || status === 'OFF_WINDOW' || notAdolescentCount ? 'No' : 'Yes'}
           </span>
         </div>
 
@@ -287,6 +290,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
           }}>
             <div style={{ fontWeight: 600, marginBottom: 3, color: 'var(--gy2)' }}>
               {status === 'VALID_EXTRA' ? 'Why VALID (extra dose):' :
+               status === 'OFF_WINDOW' ? 'Why off-window — repeat owed:' :
                status === 'VALID' ? 'Why VALID:' :
                status === 'INVALID' ? 'Reason:' : 'Note:'}
             </div>
@@ -760,6 +764,11 @@ const LEGEND_ENTRIES = [
     key: 'VALID',
     label: 'VALID · OFF-WINDOW',
     def: 'Outside the routine window, but counts toward series completion. May be early (via combination-vaccine schedule) or late (catch-up).',
+  },
+  {
+    key: 'OFF_WINDOW',
+    label: 'OFF-WINDOW · REPEAT',
+    def: 'Safely given, but does NOT count toward series completion — a repeat dose is owed. This is a separate outcome from VALID · OFF-WINDOW above, not a subtype of it.',
   },
   {
     key: 'VALID_EXTRA',

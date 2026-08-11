@@ -119,6 +119,41 @@ describe('VALID status', () => {
   });
 });
 
+// ── OFF_WINDOW (off-window vocabulary fix: separate axis from VALID) ───────────
+// VALID and OFF_WINDOW must stay distinct: VALID means "outside the recommended
+// band but still counts toward the series"; OFF_WINDOW means "safely given but
+// does NOT count — a repeat is owed." Collapsing them into one VALID status was
+// the bug this fix closes (see docs/agent/meningococcal-rules-summary.md).
+describe('OFF_WINDOW status', () => {
+  it('MenB dose at 10y (120mo) for a healthy 12yo patient → OFF_WINDOW, not VALID', () => {
+    // Given at age 10 (120mo), before the 16y healthy-series window, no MenB risk factor.
+    const dose = { given: true, mode: 'date', date: addDays(DOB, 3653), brand: 'Bexsero (MenB-4C)' }; // ~10y
+    const result = classifyDose('MenB', 0, dose, 1, DOB, null, null, { MenB: [dose] }, []);
+    expect(result.status).toBe('OFF_WINDOW');
+    expect(result.status).not.toBe('VALID');
+    expect(result.notAdolescentCount).toBe(true);
+  });
+
+  it('same MenB dose for a high-risk patient (asplenia) → still counts, NOT OFF_WINDOW', () => {
+    const dose = { given: true, mode: 'date', date: addDays(DOB, 3653), brand: 'Bexsero (MenB-4C)' };
+    const result = classifyDose('MenB', 0, dose, 1, DOB, null, null, { MenB: [dose] }, ['asplenia']);
+    expect(result.status).not.toBe('OFF_WINDOW');
+  });
+
+  it('OFF_WINDOW has amber STATUS_COLOR, same as VALID (color is not the distinguishing signal)', () => {
+    expect(STATUS_COLOR.OFF_WINDOW).toBe('var(--a)');
+    expect(STATUS_COLOR.OFF_WINDOW).toBe(STATUS_COLOR.VALID);
+  });
+
+  it('a dose outside the recommended band but otherwise fine stays VALID (still counts) — the two cases do not collapse', () => {
+    // MMR D1 at 24mo: outside the 12-15mo window but valid and counts — must remain VALID, not OFF_WINDOW.
+    const dose = { given: true, mode: 'date', date: addDays(DOB, 730), brand: '' };
+    const result = classifyDose('MMR', 0, dose, null, DOB);
+    expect(result.status).toBe('VALID');
+    expect(result.notAdolescentCount).toBeUndefined();
+  });
+});
+
 // ── VALID_EXTRA ────────────────────────────────────────────────────────────────
 describe('VALID_EXTRA status', () => {
   // In a 4-dose HepB schedule (birth + Pediarix at 2/4/6mo), D3 (idx=2) is the
@@ -175,9 +210,10 @@ describe('VALID_EXTRA status', () => {
 
 // ── STATUS_COLOR completeness ──────────────────────────────────────────────────
 describe('STATUS_COLOR map', () => {
-  it('has entries for all 5 new statuses', () => {
+  it('has entries for all 6 new statuses', () => {
     expect(STATUS_COLOR.ON_TIME).toBeTruthy();
     expect(STATUS_COLOR.VALID).toBeTruthy();
+    expect(STATUS_COLOR.OFF_WINDOW).toBeTruthy();
     expect(STATUS_COLOR.VALID_EXTRA).toBeTruthy();
     expect(STATUS_COLOR.INVALID).toBeTruthy();
     expect(STATUS_COLOR.UNKNOWN).toBeTruthy();

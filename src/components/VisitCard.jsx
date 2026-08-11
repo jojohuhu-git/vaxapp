@@ -8,9 +8,10 @@
 import { useState } from 'react';
 
 // Definitions for every dose-chip color that can appear on a visit card.
-// "Done" statuses reuse the same ON_TIME/VALID/VALID_EXTRA/INVALID taxonomy
-// as compliance.js's STATUS_COLOR / ComplianceAuditTab's STATUS_PILL_STYLE,
-// so a dose's color means the same thing here as on the Compliance Audit tab.
+// "Done" statuses reuse the same ON_TIME/VALID/OFF_WINDOW/VALID_EXTRA/INVALID
+// taxonomy as compliance.js's STATUS_COLOR / ComplianceAuditTab's
+// STATUS_PILL_STYLE, so a dose's color means the same thing here as on the
+// Compliance Audit tab.
 // fch-moved is intentionally excluded — it's a transient "you rescheduled
 // this" UI state, already self-labeled with a "→ date" tag, not a clinical
 // status worth a legend entry.
@@ -22,6 +23,7 @@ const PILL_LEGEND_DEFS = [
   { chipClass: 'fch-proj', label: 'Projected', def: 'A future dose, not yet due — shown for planning only.' },
   { chipClass: 'fch-done-on-time', label: 'Done · on time', def: 'Given within the routine recommended age window.' },
   { chipClass: 'fch-done-valid', label: 'Done · valid', def: 'Given outside the routine window but still counts toward the series (early via combo, or late catch-up).' },
+  { chipClass: 'fch-done-offwindow', label: 'Done · off-window - repeat', def: 'Safely given, but does not count toward series completion — a repeat dose is owed.' },
   { chipClass: 'fch-done-extra', label: 'Done · extra', def: 'Beyond the standard series count but acceptable per ACIP (e.g. combination-vaccine antigen overlap).' },
   { chipClass: 'fch-done-invalid', label: 'Done · invalid', def: "Failed a minimum age or interval rule — doesn't count toward series completion." },
 ];

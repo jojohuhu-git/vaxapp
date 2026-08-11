@@ -207,6 +207,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .fch-done-s{background:var(--glt);color:var(--g);}
 .fch-done-on-time{background:var(--glt);color:var(--g);border:1px solid var(--gmd);}
 .fch-done-valid{background:var(--alt);color:var(--a);border:1px solid var(--amd);}
+.fch-done-offwindow{background:var(--alt);color:var(--a);border:1px solid var(--amd);}
 .fch-done-extra{background:var(--gy6);color:var(--gy2);border:1px solid var(--gy5);}
 .fch-done-invalid{background:var(--rlt);color:var(--r);border:1px solid var(--rmd);}
 /* "Recommended" = shared clinical decision-making (e.g. COVID annual, MenB
