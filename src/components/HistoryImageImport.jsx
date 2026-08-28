@@ -21,7 +21,7 @@ import { useApp } from '../context/AppContext';
 import { VAX_META, VAX_KEYS, VBR } from '../data/vaccineData';
 import { parseOcrText, parseDate, normalizeAntigen } from '../logic/ocrParser';
 import { todayISO } from '../logic/utils';
-import { combosFittingVks } from '../logic/comboInference';
+import { combosFittingVks, comboAgeWarning } from '../logic/comboInference';
 import SuggestionCard, { fmtIso } from './SuggestionCard';
 import DateField from './DateField';
 
@@ -177,6 +177,14 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editedRawText]);
 
+  // Combo product lines found in the current text. Derived from editedRawText
+  // (not passed in) so it stays in sync with the rows the same text produces
+  // after the user edits the textarea.
+  const comboExpansions = useMemo(
+    () => parseOcrText(editedRawText).comboExpansions.filter(e => e.addedAntigens.length > 0),
+    [editedRawText]
+  );
+
   // { [iso]: { [vk]: brandName } } — brands applied by accepting combo suggestions
   const [comboBrands, setComboBrands] = useState({});
   // Set of date ISOs the user has explicitly skipped — hides their suggestion card
@@ -184,19 +192,31 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
 
   // Recompute combo suggestions whenever rows or dob change.
   const suggestions = useMemo(() => {
-    const byDate = {};
+    const byDate = {};      // iso → Set<vk>
+    const brandByDate = {}; // iso → { [vk]: brand }
     for (const row of rows) {
       if (!row.enabled) continue;
       for (const iso of row.dates) {
         if (!iso) continue;
-        if (!byDate[iso]) byDate[iso] = new Set();
+        if (!byDate[iso]) { byDate[iso] = new Set(); brandByDate[iso] = {}; }
         byDate[iso].add(row.vk);
+        brandByDate[iso][row.vk] = row.brand || '';
       }
     }
     const out = [];
     for (const [iso, vkSet] of Object.entries(byDate)) {
       if (dismissedDates.has(iso)) continue;
-      const fits = combosFittingVks(vkSet, iso, dob);
+      // Mirror suggestCombosForHistory's two skip rules, so a brand the record
+      // already states is never second-guessed:
+      //   - every component already branded as this combo → nothing to suggest
+      //   - any component branded as something else → the record already says
+      //     what was given; don't offer a competing product
+      const fits = combosFittingVks(vkSet, iso, dob).filter(c => {
+        const brands = c.antigens.map(vk => brandByDate[iso][vk] || '');
+        if (brands.every(b => b === c.name)) return false;
+        if (brands.some(b => b !== '' && b !== c.name)) return false;
+        return true;
+      });
       if (fits.length === 0) continue;
       out.push({ date: iso, primary: fits[0], alternates: fits.slice(1) });
     }
@@ -453,6 +473,45 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
         }}>
           Brand is inferred when unambiguous (e.g. &ldquo;Pentavalent&rdquo; &rarr; RotaTeq). Otherwise unknown &mdash; click any dose pill afterward to set brand.
         </div>
+
+        {/* Combo expansion notice — a combo product covers several antigens,
+            so naming one adds doses that were never written out as separate
+            lines. Say so explicitly rather than letting rows appear silently. */}
+        {comboExpansions.length > 0 && (
+          <div style={{
+            fontSize: 11, padding: '6px 12px', marginBottom: 14,
+            background: 'var(--glt)', border: '1px solid var(--gmd)',
+            borderRadius: 'var(--rads)', color: 'var(--gy2)',
+          }}>
+            <div style={{ fontWeight: 700, marginBottom: 3 }}>
+              Combination vaccines expanded
+            </div>
+            {comboExpansions.map((e, i) => {
+              // The image names this product outright, so it is recorded as
+              // given even if the patient was the wrong age for it — the
+              // compliance audit needs erroneous doses captured. Flag it
+              // rather than dropping or silently accepting it.
+              const offAge = e.dates
+                .map(d => comboAgeWarning(e.combo, d, dob))
+                .find(Boolean);
+              return (
+                <div key={`${e.combo}-${e.dates.join(',')}-${i}`} style={{ marginTop: 2 }}>
+                  {e.combo} on {e.dates.map(fmtIso).join(', ')} contains {e.antigens.join(' + ')}
+                  {' — added '}
+                  <strong>{e.addedAntigens.join(', ')}</strong>.
+                  {offAge && (
+                    <div style={{
+                      marginTop: 3, padding: '3px 8px', borderRadius: 'var(--rads)',
+                      background: 'var(--rlt)', border: '1px solid var(--rmd)', color: 'var(--r)',
+                    }}>
+                      {offAge} It has been recorded as given so the compliance audit can flag it.
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Combo suggestions */}
         {visibleSuggestions.length > 0 && (

@@ -9,6 +9,44 @@
 
 import { COMBOS } from '../data/vaccineData';
 import { dBetween } from './utils';
+import { fmtAgeClinical } from './ageFormat';
+
+const DAYS_PER_MONTH = 30.4375;
+
+// Human-readable licensed age window for a combo, e.g. "4 years to 6 years",
+// "6 weeks to 6 years", "18 years and older". maxM 999 means no upper limit.
+function comboAgeWindowText(combo) {
+  const lo = fmtAgeClinical(combo.minM * DAYS_PER_MONTH);
+  if (combo.maxM >= 999) return `${lo} and older`;
+  return `${lo} to ${fmtAgeClinical(combo.maxM * DAYS_PER_MONTH)}`;
+}
+
+/**
+ * Plain-English warning if `comboName` was given outside its approved ages on
+ * `isoDate`, or null when it fits (or when age can't be determined).
+ *
+ * This never blocks anything. A vaccine really can be given at the wrong age,
+ * and the compliance audit can only report such a dose if the app let it be
+ * recorded in the first place — so callers present this as a caution, not a
+ * rejection.
+ *
+ * @param {string} comboName
+ * @param {string|null} isoDate
+ * @param {string|null} dob
+ * @returns {string|null}
+ */
+export function comboAgeWarning(comboName, isoDate, dob) {
+  const combo = COMBOS[comboName];
+  if (!combo || !dob || !isoDate) return null;
+  const ageDays = dBetween(dob, isoDate);
+  if (ageDays == null) return null;
+  const ageM = ageDays / DAYS_PER_MONTH;
+  if (ageM >= combo.minM && ageM <= combo.maxM) return null;
+  // State the facts, then what they mean — no jargon.
+  return `${comboName} is licensed for ${comboAgeWindowText(combo)}, `
+    + `but the patient was ${fmtAgeClinical(ageDays)} at this visit. `
+    + `If ${comboName} really was given, it was given outside its approved ages.`;
+}
 
 /**
  * Find all combos whose component antigens are all present in `vkSet`.
@@ -24,20 +62,18 @@ export function combosFittingVks(vkSet, isoDate, dob) {
   const fits = [];
   for (const [name, combo] of Object.entries(COMBOS)) {
     if (!combo.c.every(v => vkSet.has(v))) continue;
-    let ageWarning = null;
-    if (dob && isoDate) {
-      const ageDays = dBetween(dob, isoDate);
-      if (ageDays != null) {
-        const ageM = ageDays / 30.4375;
-        if (ageM < combo.minM || ageM > combo.maxM) {
-          const ageDisplay = ageM < 24 ? `~${Math.floor(ageM)}m` : `~${Math.floor(ageM / 12)}y`;
-          ageWarning = `Patient was ${ageDisplay} at this visit, outside ${name} age window.`;
-        }
-      }
-    }
-    fits.push({ name, antigens: combo.c, ageWarning });
+    fits.push({ name, antigens: combo.c, ageWarning: comboAgeWarning(name, isoDate, dob) });
   }
-  fits.sort((a, b) => b.antigens.length - a.antigens.length);
+  // Age-appropriate combos always outrank ones the patient was outside the
+  // window for, so an ineligible product is never the headline suggestion.
+  // Out-of-window combos are still returned (as alternates, carrying their
+  // warning) because a record may legitimately show one.
+  fits.sort((a, b) => {
+    const aWarn = a.ageWarning ? 1 : 0;
+    const bWarn = b.ageWarning ? 1 : 0;
+    if (aWarn !== bWarn) return aWarn - bWarn;
+    return b.antigens.length - a.antigens.length;
+  });
   return fits;
 }
 
