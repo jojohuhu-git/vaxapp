@@ -28,6 +28,12 @@ export default function SuggestionCard({ date, primary, alternates, onApply, onS
   const displayActionLabel = actionLabel ?? `Apply ${primary.name}`;
   const displayBody = body ?? `${primary.antigens.join(' + ')} are all on this date.`;
 
+  // An age-impossible combo stays selectable — a dose given in error still has
+  // to be recordable for the audit — but it must not LOOK like the recommended
+  // reading. Per the app's design direction, that difference is carried by
+  // color tinting and a text label, never an icon.
+  const primaryUnlikely = Boolean(primary.ageWarning);
+
   return (
     <div style={{
       background: 'var(--glt)', border: '1px solid var(--gmd)',
@@ -36,6 +42,16 @@ export default function SuggestionCard({ date, primary, alternates, onApply, onS
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ fontSize: 12, color: 'var(--gy2)' }}>
           <span>{displayHeadline}</span>
+          {primaryUnlikely && (
+            <span style={{
+              marginLeft: 6, fontSize: 10, fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: '.4px',
+              padding: '1px 6px', borderRadius: 'var(--rads)',
+              background: 'var(--rlt)', color: 'var(--r)', border: '1px solid var(--rmd)',
+            }}>
+              Unlikely — wrong age
+            </span>
+          )}
           <div style={{ fontSize: 11, color: 'var(--gy3)', marginTop: 2 }}>
             {displayBody}
           </div>
@@ -43,7 +59,15 @@ export default function SuggestionCard({ date, primary, alternates, onApply, onS
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           <button
             onClick={() => onApply(primary)}
-            style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 'var(--rads)', border: 'none', background: 'var(--g)', color: '#fff', cursor: 'pointer' }}
+            style={{
+              fontSize: 11, fontWeight: 700, padding: '4px 10px',
+              borderRadius: 'var(--rads)', cursor: 'pointer',
+              // Age-impossible: outlined, not solid green — it stays clickable
+              // but stops reading as the recommended action.
+              border: primaryUnlikely ? '1px solid var(--gy4)' : 'none',
+              background: primaryUnlikely ? 'var(--wh)' : 'var(--g)',
+              color: primaryUnlikely ? 'var(--gy2)' : '#fff',
+            }}
           >
             {displayActionLabel}
           </button>
@@ -57,11 +81,13 @@ export default function SuggestionCard({ date, primary, alternates, onApply, onS
       </div>
       {primary.ageWarning && (
         <div style={{
-          marginTop: 6, fontSize: 11, color: 'var(--a)',
-          background: 'var(--alt)', border: '1px solid var(--amd)',
+          marginTop: 6, fontSize: 11, color: 'var(--r)',
+          background: 'var(--rlt)', border: '1px solid var(--rmd)',
           padding: '3px 8px', borderRadius: 'var(--rads)',
         }}>
           {primary.ageWarning}
+          {alternates.some(a => !a.ageWarning) && ' Another option below fits this age better.'}
+          {' You can still apply it — a dose given in error should be recorded.'}
         </div>
       )}
       {alternates.length > 0 && (
@@ -78,9 +104,25 @@ export default function SuggestionCard({ date, primary, alternates, onApply, onS
                 <button
                   key={alt.name}
                   onClick={() => onApply(alt)}
-                  style={{ fontSize: 11, padding: '3px 8px', borderRadius: 'var(--rads)', border: '1px solid var(--gy4)', background: '#fff', color: 'var(--gy2)', cursor: 'pointer', textAlign: 'left' }}
+                  title={alt.ageWarning || undefined}
+                  style={{
+                    fontSize: 11, padding: '3px 8px', borderRadius: 'var(--rads)',
+                    background: alt.ageWarning ? 'var(--rlt)' : '#fff',
+                    border: `1px solid ${alt.ageWarning ? 'var(--rmd)' : 'var(--gy4)'}`,
+                    color: alt.ageWarning ? 'var(--r)' : 'var(--gy2)',
+                    cursor: 'pointer', textAlign: 'left',
+                  }}
                 >
                   Apply {alt.name} ({alt.antigens.join(' + ')})
+                  {alt.ageWarning && (
+                    // Age-impossible alternates previously looked identical to
+                    // valid ones — the only place the warning was shown was the
+                    // primary card, so a user opening "Other options" saw no
+                    // signal at all.
+                    <span style={{ display: 'block', marginTop: 1, fontSize: 10 }}>
+                      Wrong age for this patient — {alt.ageWarning}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

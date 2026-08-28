@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { suggestCombosForHistory, combosFittingVks } from '../comboInference';
+import { suggestCombosForHistory, combosFittingVks, comboAgeWarning } from '../comboInference';
 
 // Helper: build a minimal hist object with just the vks needed
 function makeHist(entries) {
@@ -34,7 +34,10 @@ describe('combosFittingVks', () => {
     const fits = combosFittingVks(vkSet, DATE_2M, dob);
     const vaxelis = fits.find(f => f.name === 'Vaxelis');
     expect(vaxelis).toBeDefined();
-    expect(vaxelis.ageWarning).toMatch(/outside Vaxelis age window/);
+    // Wording check is intentionally loose — it must name the product, the
+    // patient's actual age, and that the age is outside what's approved.
+    expect(vaxelis.ageWarning).toMatch(/Vaxelis/);
+    expect(vaxelis.ageWarning).toMatch(/outside its approved ages/);
   });
 });
 
@@ -204,5 +207,73 @@ describe('suggestCombosForHistory', () => {
     const suggestions = suggestCombosForHistory(hist2, null);
     expect(suggestions.length).toBeGreaterThanOrEqual(2);
     expect(suggestions[0].date < suggestions[1].date).toBe(true);
+  });
+});
+
+// ── Age-appropriate combos rank above ineligible ones ────────────────────
+
+describe('combosFittingVks — age ranking', () => {
+  it('never headlines a combo the patient was too young for', () => {
+    // DTaP+IPV at ~6 months: Pentacel/Pediarix fit; Kinrix/Quadracel are 4–6y only.
+    const vkSet = new Set(['DTaP', 'IPV', 'Hib', 'HepB']);
+    const fits = combosFittingVks(vkSet, '2009-05-08', '2008-11-06');
+    expect(fits[0].ageWarning).toBeNull();
+    // Ineligible combos are still offered, but only after the eligible ones
+    const kinrix = fits.find(f => f.name === 'Kinrix');
+    expect(kinrix).toBeDefined();
+    expect(kinrix.ageWarning).toMatch(/Kinrix is licensed for/);
+    expect(kinrix.ageWarning).toMatch(/outside its approved ages/);
+    expect(fits.indexOf(kinrix)).toBeGreaterThan(0);
+  });
+
+  it('still orders by antigen count among equally eligible combos', () => {
+    const vkSet = new Set(['DTaP', 'IPV', 'Hib', 'HepB']);
+    const fits = combosFittingVks(vkSet, '2009-05-08', '2008-11-06');
+    const eligible = fits.filter(f => !f.ageWarning);
+    expect(eligible[0].name).toBe('Vaxelis');
+    for (let i = 1; i < eligible.length; i++) {
+      expect(eligible[i - 1].antigens.length).toBeGreaterThanOrEqual(eligible[i].antigens.length);
+    }
+  });
+
+  it('without a dob, no combo carries a warning and size ordering is unchanged', () => {
+    const fits = combosFittingVks(new Set(['DTaP', 'IPV']), '2009-05-08', null);
+    expect(fits.every(f => f.ageWarning === null)).toBe(true);
+  });
+});
+
+// ── comboAgeWarning — erroneous doses stay recordable ────────────────────
+// Design rule: an explicitly named brand is a statement of fact and is always
+// recorded, even off-age, because the compliance audit has to be able to
+// report the error. This helper only describes the problem; it never blocks.
+
+describe('comboAgeWarning', () => {
+  it('flags a combo named at an impossible age, in plain English', () => {
+    // Kinrix is 4–6y; this patient is 6 months.
+    const w = comboAgeWarning('Kinrix', '2009-05-08', '2008-11-06');
+    expect(w).toBeTruthy();
+    expect(w).toMatch(/Kinrix is licensed for/);
+    expect(w).toMatch(/6 months/);          // the patient's real age
+    expect(w).toMatch(/outside its approved ages/);
+  });
+
+  it('returns null when the combo fits the patient age', () => {
+    expect(comboAgeWarning('Pentacel', '2009-05-08', '2008-11-06')).toBeNull();
+  });
+
+  it('returns null when age cannot be determined', () => {
+    expect(comboAgeWarning('Kinrix', '2009-05-08', null)).toBeNull();
+    expect(comboAgeWarning('Kinrix', null, '2008-11-06')).toBeNull();
+  });
+
+  it('returns null for an unknown product rather than inventing a warning', () => {
+    expect(comboAgeWarning('NotAProduct', '2009-05-08', '2008-11-06')).toBeNull();
+  });
+
+  it('describes an open-ended upper window without a bogus maximum', () => {
+    // Twinrix is >=18y, encoded as maxM 999 — must not read "to 83 years".
+    const w = comboAgeWarning('Twinrix', '2014-08-01', '2008-11-06');
+    expect(w).toMatch(/and older/);
+    expect(w).not.toMatch(/999/);
   });
 });
