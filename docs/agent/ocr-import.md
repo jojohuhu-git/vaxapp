@@ -13,11 +13,35 @@
 ## Parser Pipeline (`parseOcrText`)
 
 1. Split raw text into lines, trim, drop empty.
-2. For each line: `extractDates(line)` via `DATE_RE = /\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/g`. Skip lines with no dates.
-3. `normalizeAntigen(line)`: lowercase, strict prefix match against `ANTIGEN_MAP` (more-specific entries first, e.g. "Meningococcal B" before "Meningococcal"), fallback to `FUZZY_PATTERNS`.
-4. If vk identified: `inferBrand(vk, line)` via `BRAND_PATTERNS` (19 entries, conservative — only unambiguous patterns).
-5. Group by vk: `byVk[vk] = { dates: Set, brand, brandAmbiguous }`. Conflicting brand inferences → `brand = null`.
-6. Output: `{ rows: [{vk, dates, brand}], unrecognized: string[] }`.
+2. For each line: `extractDates(line)` via `DATE_RE = /\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/g`.
+3. `detectCombo(line)` first — a combo product carries more information than a single antigen. If matched, emit a row per antigen in `COMBOS[combo].c`, brand = the bare combo name (matching what `applyCombo` stores).
+4. Otherwise `normalizeAntigen(line)` (see Match Stages below).
+5. If vk identified: `inferBrand(vk, line)` via `BRAND_PATTERNS` (conservative — only unambiguous patterns).
+6. Group by vk: `byVk[vk] = { dates: Set, brand, brandAmbiguous }`. Conflicting brand inferences → `brand = null`.
+7. Output: `{ rows, unrecognized, comboExpansions }`.
+
+A line with **no dates** is skipped unless it names a combo product, in which case it attaches to the previous dated line's dates (`lastDates`) — the "brand printed under the antigen name" layout.
+
+## Match Stages (`normalizeAntigen`)
+
+Tried in order; each is more permissive than the last, so exact always beats fuzzy.
+
+| # | Source | Example |
+|---|---|---|
+| 1 | `ANTIGEN_MAP` exact longest-prefix | "Pneumococcal Conjugate 13-Valent" |
+| 2 | `SYNONYM_MAP` exact abbreviation | "PCV13", "Polio", "Hep B", "IIV4" |
+| 3 | `BRAND_MAP` exact standalone brand | "Prevnar 20", "Varivax" |
+| 4 | `FUZZY_PATTERNS` anchored regex | "PV" → IPV |
+| 5 | `fuzzyMatchAntigen` edit distance | "Prevner", "Menigococcal", "Hepatitus" |
+
+`BRAND_MAP` holds **standalone brands only**. Combo brands are excluded on purpose — mapping one to a single antigen would silently drop the combo's other doses. Combos are handled at the line level (step 3 above), which is why `normalizeAntigen('Pentacel …')` must keep returning `null`.
+
+### Fuzzy thresholds (do not loosen)
+
+- Antigen names: `fuzzyThreshold(len)` — 2 edits at ≥8 chars, 1 at ≥5, **0 below 5** (short tokens are too collision-prone).
+- Combos: **1 edit, always** (`COMBO_MAX_EDITS`). A wrong combo match invents 3–4 doses. At 2 edits, "pediatric" matches "Pediarix" and fabricates DTaP/HepB/IPV on a Hepatitis A line — regression-tested.
+- Both refuse equal-distance ties between different vks/combos rather than guessing.
+- Longest match wins before lowest distance, so "Meningococcal B" beats "Meningococcal" (MenB isn't lost to MenACWY).
 
 ### Fuzzy Patterns
 
@@ -50,6 +74,17 @@ Debounced auto-apply: 400ms after user stops typing in textarea, re-runs `parseO
 ## Confirm Flow
 
 Group enabled rows by date: `byDate[iso] = [{vk, brand}, ...]`. Dispatch one `VISIT_ADD` per date.
+
+## Age-Impossible Combos — Design Rule
+
+Erroneous doses must be recordable; the compliance audit can only report a wrong-age dose if the app let it be entered. So nothing here blocks on age.
+
+- **Brand explicitly named** (in the image or by manual entry) = statement of fact. Recorded as given, whatever the age. The OCR review modal shows `comboAgeWarning()` in a red block explaining it was outside approved ages and that it was recorded so the audit can flag it.
+- **Combo merely inferred** from separate antigens = a proposal. Age-impossible ones are still offered (`ageWarning` is informational and does NOT suppress — pinned by a test), but they sort last (`combosFittingVks`), get an "Unlikely — wrong age" tag, an outlined rather than solid Apply button, and the warning is shown on **alternates as well as the primary**.
+- Manual entry is unrestricted: `brandOptsForVk` in `VisitEntry.jsx` is not age-filtered. Only the combo *chips* (a convenience shortcut) are.
+- The suggestion list skips a combo when any component antigen already carries a different brand — the record already says what was given.
+
+`comboAgeWarning(comboName, isoDate, dob)` in `comboInference.js` is the single source for this copy; it returns `null` when age can't be determined or the product is unknown.
 
 ## Constraints to Preserve
 
