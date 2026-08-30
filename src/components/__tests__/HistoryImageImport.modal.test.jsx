@@ -586,3 +586,53 @@ describe('ReviewModal — H6.2: confirm-time date validation warnings', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 });
+
+// ── Gap 1: the review screen explains an antigen-list expansion ─────────────
+// The parser now expands "MMRV" or "DTaP-IPV/Hib" into one row per antigen.
+// Those extra doses were never written out as separate lines, so the modal
+// has to say where they came from rather than letting rows appear silently.
+describe('ReviewModal — combinations written as an antigen list', () => {
+  afterEach(() => cleanup());
+
+  it('names the added doses when a line lists antigens instead of a brand', () => {
+    render(
+      <AppProvider>
+        <ReviewModal
+          rows={[
+            { vk: 'MMR', dates: ['2020-05-08'], brand: null },
+            { vk: 'VAR', dates: ['2020-05-08'], brand: null },
+          ]}
+          unrecognized={[]}
+          rawText="MMRV 5/8/2020"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />
+      </AppProvider>
+    );
+    const modal = document.querySelector('[data-testid="ocr-review-modal"]');
+    expect(modal.textContent).toContain('Combination vaccines expanded');
+    expect(modal.textContent).toContain('MMR + VAR');
+  });
+
+  it('shows no age warning for an antigen list, which names no product', () => {
+    // A licensed age window belongs to a product. "DTaP-IPV" could be Kinrix
+    // or Quadracel, so there is no window to check and none must be invented.
+    render(
+      <AppProvider>
+        <ReviewModal
+          rows={[
+            { vk: 'DTaP', dates: ['2013-05-08'], brand: null },
+            { vk: 'IPV', dates: ['2013-05-08'], brand: null },
+          ]}
+          unrecognized={[]}
+          rawText="DTaP-IPV 5/8/2013"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />
+      </AppProvider>
+    );
+    const modal = document.querySelector('[data-testid="ocr-review-modal"]');
+    expect(modal.textContent).toContain('DTaP + IPV');
+    expect(modal.textContent).not.toContain('licensed for');
+  });
+});

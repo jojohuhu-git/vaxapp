@@ -817,3 +817,164 @@ describe('parseDate — round-trip calendar verification', () => {
     expect(parseDate('2-28-2024')).toBe('2024-02-28');
   });
 });
+
+// ── Gap 1: combinations written as an antigen list, not a brand name ────────
+// A clinic that writes "DTaP-IPV/Hib" or "MMRV" has named every antigen given.
+// Recording only the first one silently drops real doses, and the app then
+// recommends vaccines the child already had. Brand stays blank on purpose:
+// "DTaP-IPV" could be Kinrix or Quadracel, and guessing would be wrong.
+describe('parseOcrText — combinations written as an antigen list', () => {
+  it('MMRV expands to MMR + Varicella', () => {
+    const { rows } = parseOcrText('MMRV 5/8/2020');
+    expect(rows.map(r => r.vk).sort()).toEqual(['MMR', 'VAR']);
+    expect(rows.find(r => r.vk === 'VAR').dates).toEqual(['2020-05-08']);
+  });
+
+  it('DTaP-IPV-Hib expands to all three antigens', () => {
+    const { rows } = parseOcrText('DTaP-IPV-Hib 5/8/2009');
+    expect(rows.map(r => r.vk).sort()).toEqual(['DTaP', 'Hib', 'IPV']);
+  });
+
+  it('DTaP-IPV/Hib (the printed generic name for Pentacel) expands', () => {
+    const { rows } = parseOcrText('DTaP-IPV/Hib 5/8/2009');
+    expect(rows.map(r => r.vk).sort()).toEqual(['DTaP', 'Hib', 'IPV']);
+  });
+
+  it('DTaP-HepB-IPV expands to all three antigens', () => {
+    const { rows } = parseOcrText('DTaP-HepB-IPV 3/2/2008');
+    expect(rows.map(r => r.vk).sort()).toEqual(['DTaP', 'HepB', 'IPV']);
+  });
+
+  it('DTaP-IPV expands to both antigens', () => {
+    const { rows } = parseOcrText('DTaP-IPV 5/8/2013');
+    expect(rows.map(r => r.vk).sort()).toEqual(['DTaP', 'IPV']);
+  });
+
+  it('HepA-HepB expands instead of being dropped as unrecognized', () => {
+    const { rows, unrecognized } = parseOcrText('HepA-HepB 6/1/2023');
+    expect(rows.map(r => r.vk).sort()).toEqual(['HepA', 'HepB']);
+    expect(unrecognized).toHaveLength(0);
+  });
+
+  it('MenACWY-MenB expands to both antigens', () => {
+    const { rows } = parseOcrText('MenACWY-MenB 5/8/2020');
+    expect(rows.map(r => r.vk).sort()).toEqual(['MenACWY', 'MenB']);
+  });
+
+  it('the antigens spelled out in full expand too', () => {
+    const { rows } = parseOcrText('Measles Mumps Rubella Varicella 5/8/2020');
+    expect(rows.map(r => r.vk).sort()).toEqual(['MMR', 'VAR']);
+  });
+
+  it('commas and "and" in the spelled-out form do not defeat it', () => {
+    const { rows } = parseOcrText('Measles, Mumps, Rubella and Varicella 5/8/2020');
+    expect(rows.map(r => r.vk).sort()).toEqual(['MMR', 'VAR']);
+  });
+
+  it('leaves brand blank — an antigen list does not identify a product', () => {
+    const { rows } = parseOcrText('DTaP-IPV 5/8/2013');
+    expect(rows.every(r => r.brand === null)).toBe(true);
+  });
+
+  it('reports the expansion so the review screen can explain the added doses', () => {
+    const { comboExpansions } = parseOcrText('MMRV 5/8/2020');
+    expect(comboExpansions).toHaveLength(1);
+    expect(comboExpansions[0].antigens.sort()).toEqual(['MMR', 'VAR']);
+    expect(comboExpansions[0].addedAntigens.sort()).toEqual(['MMR', 'VAR']);
+    expect(comboExpansions[0].dates).toEqual(['2020-05-08']);
+  });
+
+  it('a named brand still wins over the antigen list on the same line', () => {
+    // "DTaP-IPV-Hib (Pentacel)" carries more information than the list alone,
+    // so the brand must survive rather than being flattened to unknown.
+    const { rows } = parseOcrText('DTaP-IPV-Hib (Pentacel) 5/8/2009');
+    expect(rows.map(r => r.vk).sort()).toEqual(['DTaP', 'Hib', 'IPV']);
+    expect(rows.every(r => r.brand === 'Pentacel')).toBe(true);
+  });
+});
+
+// ── Gap 1: legacy and pertussis-free tetanus-diphtheria products ────────────
+describe('parseOcrText — DTP and DT', () => {
+  it('legacy whole-cell DTP counts as a DTaP-series dose', () => {
+    // CDC General Best Practice Guidelines, "Persons Vaccinated Outside the
+    // United States" (updated 2024-07-15) counts a record of "3 doses of DTP
+    // or DTaP" as one series, and lists a single "DTaP" row covering both.
+    // Whole-cell DTP is still used in many countries, so it turns up in the
+    // records of children who were vaccinated abroad. Dropping it would make
+    // the app recommend doses the child already had.
+    const { rows, unrecognized } = parseOcrText('DTP 5/8/1995');
+    expect(rows.map(r => r.vk)).toEqual(['DTaP']);
+    expect(unrecognized).toHaveLength(0);
+  });
+
+  it('a whole-cell DTP combination expands like its acellular equivalent', () => {
+    const { rows } = parseOcrText('DTP-IPV-Hib 5/8/1995');
+    expect(rows.map(r => r.vk).sort()).toEqual(['DTaP', 'Hib', 'IPV']);
+  });
+
+  it('DT is left unrecognized rather than guessed at', () => {
+    // DT is diphtheria + tetanus with NO pertussis, given to children under 7
+    // who cannot have the pertussis component. The app has no way to record
+    // "tetanus-diphtheria dose without pertussis": calling it DTaP would
+    // credit pertussis protection the child never got, and calling it Td
+    // would mix up a pediatric product with the adolescent one. Showing the
+    // line as unrecognized lets the clinician decide.
+    const { rows, unrecognized } = parseOcrText('DT 5/8/1995');
+    expect(rows).toHaveLength(0);
+    expect(unrecognized).toEqual(['DT 5/8/1995']);
+  });
+});
+
+// ── Gap 1: the antigen-list splitter must not invent doses ──────────────────
+describe('parseOcrText — antigen-list safety guards', () => {
+  it.each([
+    ['MenACWY-CRM 5/8/2020', ['MenACWY']],
+    ['MenACWY-TT 5/8/2020',  ['MenACWY']],
+    ['MenB-4C 5/8/2020',     ['MenB']],
+    ['MenB-FHbp 5/8/2020',   ['MenB']],
+    ['M-M-R II 5/8/2020',    ['MMR']],
+    ['SARS-CoV-2 5/8/2021',  ['COVID']],
+    ['Hib (PRP-T) 5/8/2009', ['Hib']],
+    ['Hib (PRP-OMP) 5/8/2009', ['Hib']],
+    ['Measles, Mumps, Rubella 5/8/2020', ['MMR']],
+    ['Hepatitis A 5/8/2020', ['HepA']],
+    ['Tdap 5/8/2020',        ['Tdap']],
+  ])('%s still resolves to exactly %s', (line, expected) => {
+    // A hyphen inside a product formulation name (PRP-T, MenB-4C, SARS-CoV-2)
+    // is not an antigen list. Splitting on it would invent doses.
+    expect(parseOcrText(line).rows.map(r => r.vk)).toEqual(expected);
+  });
+
+  it('an unknown part anywhere in the list refuses the expansion', () => {
+    // One unrecognized part means this is not a trustworthy antigen list, so
+    // no expansion happens. The line still falls back to ordinary single-
+    // antigen matching — recording DTaP alone beats recording nothing.
+    const { rows, comboExpansions } = parseOcrText('DTaP-Wombat 5/8/2009');
+    expect(comboExpansions).toHaveLength(0);
+    expect(rows.map(r => r.vk)).toEqual(['DTaP']);
+  });
+
+  it('the full IIS fixture still gains no phantom doses', () => {
+    const text = [
+      'DTaP                                           8/1/2014, 3/16/2010, 5/8/2009',
+      'Hepatitis A vaccine pediatric / adolescent 2 d 7/26/2010, 12/11/2009',
+      'Hib (HbOC)                                     12/11/2009, 5/8/2009',
+      'IPV                                            8/1/2014, 5/8/2009',
+    ].join('\n');
+    const { rows, comboExpansions } = parseOcrText(text);
+    expect(comboExpansions).toHaveLength(0);
+    expect(rows.map(r => r.vk).sort()).toEqual(['DTaP', 'HepA', 'Hib', 'IPV']);
+  });
+});
+
+describe('parseOcrText — antigen-list label shown back to the user', () => {
+  it('echoes the list with the capitalization it was written in', () => {
+    // The review screen prints this label beside brand names like "Pentacel",
+    // so a lowercased "dtap-ipv/hib" would look like a different kind of thing.
+    expect(parseOcrText('DTaP-IPV/Hib 5/8/2009').comboExpansions[0].combo)
+      .toBe('DTaP-IPV/Hib');
+    expect(parseOcrText('MMRV 5/8/2020').comboExpansions[0].combo).toBe('MMRV');
+    expect(parseOcrText('Measles, Mumps, Rubella and Varicella 5/8/2020')
+      .comboExpansions[0].combo).toBe('Measles Mumps Rubella Varicella');
+  });
+});

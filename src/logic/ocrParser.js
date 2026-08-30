@@ -47,10 +47,9 @@ const FUZZY_PATTERNS = [
 // "Prevnar 20" instead of "Pneumococcal Conjugate"). Each entry here is a
 // STANDALONE brand that identifies exactly one antigen — combo brands
 // (Vaxelis, Pentacel, Pediarix, Kinrix, Quadracel, ProQuad, Penbraya,
-// Penmenvy, Twinrix) are deliberately excluded: a combo line would need to
-// emit multiple rows (one per covered antigen), which this line-per-vk
-// parser doesn't support yet, so those lines still fall through to
-// `unrecognized` rather than being guessed at.
+// Penmenvy, Twinrix) are deliberately excluded here: they're recognized
+// separately by detectCombo() below, which expands a combo line into one
+// row per covered antigen.
 const BRAND_MAP = [
   ['Engerix', 'HepB'], ['Recombivax', 'HepB'], ['Heplisav', 'HepB'],
   ['Rotarix', 'RV'], ['RotaTeq', 'RV'],
@@ -76,9 +75,10 @@ const BRAND_MAP = [
 // ── Known abbreviations / lay terms → antigen ──────────────────────────────
 // Exact (non-fuzzy) synonyms that the strict ANTIGEN_MAP prefix match doesn't
 // cover because the wording differs from the CDC/CVX label text, not because
-// of a typo. Deliberately excludes anything that would conflate a COMBO
-// product with a single antigen (e.g. "MMRV" or legacy "DTP" are NOT mapped
-// here — doing so would silently drop a dose from the record).
+// of a typo. Deliberately excludes anything that names more than one antigen
+// (e.g. "MMRV") — mapping those to a single antigen would silently drop a dose
+// from the record. Multi-antigen names are handled by detectGenericCombo()
+// instead, which expands them into one row per antigen.
 const SYNONYM_MAP = [
   ['PCV7', 'PCV'], ['PCV13', 'PCV'], ['PCV15', 'PCV'], ['PCV20', 'PCV'], ['PCV21', 'PCV'],
   ['PPSV23', 'PPSV23'], ['PPV23', 'PPSV23'],
@@ -88,6 +88,15 @@ const SYNONYM_MAP = [
   ['Hep B', 'HepB'], ['Hep A', 'HepA'],
   ['Chickenpox', 'VAR'], ['Chicken Pox', 'VAR'],
   ['Polio', 'IPV'],
+  // Legacy whole-cell DTP is the same series as DTaP, not a separate product:
+  // CDC's General Best Practice Guidelines count a record showing "3 doses of
+  // DTP or DTaP" as one series and list a single "DTaP" row covering both
+  // (Special Situations, "Persons Vaccinated Outside the United States",
+  // updated 2024-07-15). Whole-cell DTP is still given in many countries, so
+  // it appears in the records of children vaccinated abroad; dropping it would
+  // make the app recommend doses the child already had. Note there is
+  // deliberately NO entry for "DT" — see detectGenericCombo() below.
+  ['DTP', 'DTaP'],
 ].sort((a, b) => b[0].length - a[0].length);
 
 // ── Generic typo-tolerant matching ─────────────────────────────────────────
@@ -219,6 +228,114 @@ export function detectCombo(line) {
   return best && !tie ? best.name : null;
 }
 
+// ── Generic (unbranded) combination names ──────────────────────────────────
+// Clinics often write a combination product as its antigen list rather than
+// its brand: "DTaP-IPV/Hib" instead of "Pentacel", "MMRV" instead of
+// "ProQuad". That names every antigen given, so it has to expand exactly the
+// way a brand name does. Keeping only the first antigen silently drops real
+// doses and makes the app recommend vaccines the child already had.
+//
+// Brand stays null for these on purpose: an antigen list does not identify a
+// product ("DTaP-IPV" could be Kinrix or Quadracel), and guessing is worse
+// than recording "unknown".
+
+// Parts that may appear inside a hyphen/slash-separated antigen list.
+// Matched EXACTLY — no fuzzy tolerance, because a wrong split invents doses
+// that were never given. Keys are lowercase with spaces already removed.
+//
+// There is deliberately no "dt" entry. DT is diphtheria + tetanus with NO
+// pertussis, given to children under 7 who cannot have the pertussis
+// component; ACIP's pertussis statement says DT "should be administered for
+// the remaining doses in the vaccination schedule to ensure protection
+// against diphtheria and tetanus" (MMWR RR-67/2). This app has no way to
+// record a tetanus-diphtheria dose without pertussis: calling it DTaP would
+// credit pertussis protection the child never got, and calling it Td would
+// confuse a pediatric product with the adolescent one. A DT line is therefore
+// left unrecognized so the clinician sees it and decides.
+const COMBO_COMPONENTS = {
+  dtap: 'DTaP',
+  dtp:  'DTaP',   // legacy whole-cell — same series, see SYNONYM_MAP note
+  tdap: 'Tdap',
+  ipv:  'IPV',
+  hib:  'Hib',
+  hepb: 'HepB',
+  hepa: 'HepA',
+  mmr:  'MMR',
+  var:  'VAR',
+  varicella: 'VAR',
+  menacwy: 'MenACWY',
+  menb: 'MenB',
+};
+
+// Only these count as "this line is a list of antigens". Plain spaces are NOT
+// a separator: "Hepatitis A vaccine pediatric" would shatter into nonsense.
+const COMBO_LIST_SEPARATORS = /[-/+]/;
+
+// Multi-antigen names that carry no separator to split on, so they need
+// naming outright. Matched as a prefix of the normalized phrase, mirroring
+// ANTIGEN_MAP's longest-prefix rule.
+const SPELLED_COMBOS = [
+  ['measles mumps rubella varicella', ['MMR', 'VAR']],
+  ['mmrv',                            ['MMR', 'VAR']],
+];
+
+// Strip the parts of a line that are not the vaccine's name — dates and
+// parenthetical detail — then flatten the punctuation people vary freely, so
+// "Measles, Mumps, Rubella and Varicella" and "Measles Mumps Rubella
+// Varicella" read the same. Capitalization is left alone: the review screen
+// shows this text back to the user, and "DTaP-IPV/Hib" reads better than
+// "dtap-ipv/hib" beside a brand name.
+function comboListPhrase(line) {
+  return line
+    .replace(/\b\d{1,2}[/-]\d{1,2}[/-]\d{4}\b/g, ' ')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/,/g, ' ')
+    .replace(/\band\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Recognize a combination written as its antigen list rather than a brand.
+ * Returns { label, antigens } or null.
+ *
+ * Two ways in, both exact:
+ *   1. A spelled-out name with no separator ("MMRV").
+ *   2. A separator-joined list where EVERY part is a known antigen
+ *      ("DTaP-IPV/Hib"). One unknown part refuses the whole match, so a
+ *      formulation suffix ("MenB-4C", "PRP-T", "SARS-CoV-2") can never be
+ *      mistaken for an antigen list.
+ *
+ * Deriving the parts from COMBO_COMPONENTS rather than a list of whole
+ * product names means a newly-added antigen is recognized inside every
+ * combination it appears in, without enumerating the combinations.
+ */
+export function detectGenericCombo(line) {
+  const phrase = comboListPhrase(line);
+  if (!phrase) return null;
+  const lower = phrase.toLowerCase();
+
+  for (const [name, antigens] of SPELLED_COMBOS) {
+    // Label keeps the line's own capitalization, so the review screen echoes
+    // back what was written rather than a lowercased version of it.
+    if (lower.startsWith(name)) return { label: phrase.slice(0, name.length), antigens };
+  }
+
+  // The name itself stops at the first word that isn't part of the list, so
+  // trailing words ("DTaP-IPV-Hib vaccine") don't defeat the match.
+  const head = phrase.split(' ')[0];
+  const parts = head.toLowerCase().split(COMBO_LIST_SEPARATORS).map(p => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+
+  const antigens = [];
+  for (const part of parts) {
+    const vk = COMBO_COMPONENTS[part];
+    if (!vk) return null;
+    if (!antigens.includes(vk)) antigens.push(vk);
+  }
+  return antigens.length >= 2 ? { label: head, antigens } : null;
+}
+
 // ── Brand inference patterns ───────────────────────────────────────────────
 // These patterns run against the full line (case-insensitive) to infer a
 // specific brand name from manufacturer/product keywords in IIS descriptions.
@@ -343,15 +460,19 @@ function extractDates(s) {
  *          product keyword (e.g. "Pentavalent" → RotaTeq). null means unknown.
  *   unrecognized: string[]   — lines that had dates but no antigen match
  *   comboExpansions: [{ combo, antigens, dates, addedAntigens, sourceLine }]
- *          — one entry per line that named a combo product. `antigens` is
- *            everything the product covers; `addedAntigens` is the subset
+ *          — one entry per line that named a combination. `combo` is the
+ *            product name when the line named one ("Pentacel"), otherwise the
+ *            antigen list as written ("dtap-ipv/hib"). `antigens` is
+ *            everything the combination covers; `addedAntigens` is the subset
  *            that wasn't already recorded on those dates, so the review UI
  *            can tell the user which doses the expansion introduced.
  *
  * When the same vk appears on multiple lines (common in IIS exports that
  * split by CVX code), rows are merged. Brand wins by "most specific": a
  * non-null brand from any line is kept; if two lines give DIFFERENT non-null
- * brands, both are dropped (ambiguous) and brand is set to null.
+ * brands, both are dropped (ambiguous) and brand is set to null. A
+ * combination written as an antigen list contributes no brand at all, since
+ * the list names no single product.
  */
 export function parseOcrText(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -384,23 +505,37 @@ export function parseOcrText(text) {
   // A combo line means every antigen the product covers was given that day —
   // that's what the product IS, not an inference. Record which antigens were
   // newly introduced so the review UI can show the user where they came from.
-  function expandCombo(combo, dates, sourceLine) {
-    const antigens = COMBOS[combo].c;
+  //
+  // `brand` is the product name when the line named one, and null when the
+  // line only listed antigens ("DTaP-IPV" names no single product).
+  function expandCombo(label, antigens, brand, dates, sourceLine) {
     const addedAntigens = antigens.filter(
       vk => !byVk[vk] || !dates.every(d => byVk[vk].dates.has(d))
     );
-    for (const vk of antigens) addDose(vk, dates, combo);
-    comboExpansions.push({ combo, antigens, dates, addedAntigens, sourceLine });
+    for (const vk of antigens) addDose(vk, dates, brand);
+    comboExpansions.push({ combo: label, antigens, dates, addedAntigens, sourceLine });
+  }
+
+  // Branded first, then the antigen-list form: a line naming both
+  // ("DTaP-IPV-Hib (Pentacel)") carries the brand, and that must survive
+  // rather than being flattened to "unknown".
+  function detectAnyCombo(line) {
+    const brand = detectCombo(line);
+    if (brand) return { label: brand, antigens: COMBOS[brand].c, brand };
+    const generic = detectGenericCombo(line);
+    return generic ? { ...generic, brand: null } : null;
   }
 
   for (const line of lines) {
     const dates = extractDates(line);
 
     if (dates.length === 0) {
-      // Undated line: only meaningful if it names a combo product directly
-      // beneath a dated line (a brand printed under the antigen name).
-      const combo = detectCombo(line);
-      if (combo && lastDates.length > 0) expandCombo(combo, lastDates, line);
+      // Undated line: only meaningful if it names a combo directly beneath a
+      // dated line (a product or antigen list printed under the antigen name).
+      const combo = detectAnyCombo(line);
+      if (combo && lastDates.length > 0) {
+        expandCombo(combo.label, combo.antigens, combo.brand, lastDates, line);
+      }
       continue;
     }
 
@@ -408,9 +543,9 @@ export function parseOcrText(text) {
 
     // Combo takes precedence: it carries strictly more information than the
     // single antigen normalizeAntigen() would pull from the same line.
-    const combo = detectCombo(line);
+    const combo = detectAnyCombo(line);
     if (combo) {
-      expandCombo(combo, dates, line);
+      expandCombo(combo.label, combo.antigens, combo.brand, dates, line);
       continue;
     }
 
