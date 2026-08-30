@@ -11,11 +11,20 @@ import { buildBRAND_MAP } from '../data/brandRegistry.js';
 // "Meningococcal B" before "Meningococcal", etc.
 const ANTIGEN_MAP = [
   ['Measles, Mumps, Rubella',       'MMR'],
+  ['Diphtheria, Tetanus, Pertussis', 'DTaP'],   // fully spelled-out DTaP — names pertussis explicitly, unlike DT
   ['Meningococcal B',               'MenB'],
   ['Meningococcal',                 'MenACWY'],
   ['Pneumococcal Conjugate',        'PCV'],
   ['Pneumococcal Polysaccharide',   'PPSV23'],
+  // Bare "Pneumococcal" with no Conjugate/Polysaccharide qualifier: the two
+  // entries above already win when either word follows, since they're
+  // checked first and are strictly longer prefixes. Left unqualified, PCV is
+  // the near-universal default in pediatric records — PPSV23 is reserved for
+  // high-risk patients and is almost always labeled "Polysaccharide" when used.
+  ['Pneumococcal',                  'PCV'],
   ['Respiratory Syncytial Virus',   'RSV'],
+  ['Human Papillomavirus',          'HPV'],
+  ['Haemophilus influenzae type b', 'Hib'],
   ['Hepatitis A',                   'HepA'],
   ['Hepatitis B',                   'HepB'],
   ['SARS-CoV-2',                    'COVID'],
@@ -76,10 +85,14 @@ export const __BRAND_MAP_FOR_TEST = BRAND_MAP;
 const SYNONYM_MAP = [
   ['PCV7', 'PCV'], ['PCV13', 'PCV'], ['PCV15', 'PCV'], ['PCV20', 'PCV'], ['PCV21', 'PCV'],
   ['PPSV23', 'PPSV23'], ['PPV23', 'PPSV23'],
-  ['MCV4', 'MenACWY'], ['MenACWY-CRM', 'MenACWY'], ['MenACWY-TT', 'MenACWY'],
-  ['MenB-4C', 'MenB'], ['MenB-FHbp', 'MenB'], ['Meningitis B', 'MenB'],
+  ['MCV4', 'MenACWY'], ['MenACWY-CRM', 'MenACWY'], ['MenACWY-TT', 'MenACWY'], ['MenACWY', 'MenACWY'],
+  ['MenB-4C', 'MenB'], ['MenB-FHbp', 'MenB'], ['Meningitis B', 'MenB'], ['MenB', 'MenB'], ['Men B', 'MenB'],
   ['IIV4', 'Flu'], ['IIV3', 'Flu'], ['LAIV4', 'Flu'], ['LAIV', 'Flu'], ['RIV4', 'Flu'], ['ccIIV4', 'Flu'],
-  ['Hep B', 'HepB'], ['Hep A', 'HepA'],
+  ['Hep B', 'HepB'], ['Hep A', 'HepA'], ['HepB', 'HepB'], ['HepA', 'HepA'], ['HBV', 'HepB'], ['HAV', 'HepA'],
+  // Adolescent/adult tetanus-diphtheria booster (no pertussis). Unambiguous —
+  // unlike "DT" (pediatric, also no pertussis), which stays deliberately
+  // unrecognized; see the note above COMBO_COMPONENTS for why.
+  ['Td', 'Td'],
   ['Chickenpox', 'VAR'], ['Chicken Pox', 'VAR'],
   ['Polio', 'IPV'],
   // Legacy whole-cell DTP is the same series as DTaP, not a separate product:
@@ -384,14 +397,30 @@ const BRAND_PATTERNS = [
 //   4. FUZZY_PATTERNS — hand-written anchored patterns for OCR misreads
 //   5. fuzzyMatchAntigen — generic edit-distance typo tolerance
 // Handles truncated labels ending with "..." automatically.
+// Prefix match that also requires a word boundary right after the pattern —
+// the next character (if any) must not be a letter. Without this, a short
+// exact entry like "HepA" or "Td" would also match as a false-positive
+// PREFIX of an unrelated or misspelled longer word ("Hepatitus" — a real
+// OCR typo of "Hepatitis" — starts with "hepa", so a bare startsWith() would
+// wrongly resolve it to HepA/HepB before the typo-tolerant fuzzy stage ever
+// runs). Real IIS lines always separate the vaccine name from what follows
+// with a space, digit, comma, or parenthesis, so this never rejects a
+// genuine match.
+function startsWithWord(s, pattern) {
+  const p = pattern.toLowerCase();
+  if (!s.startsWith(p)) return false;
+  const next = s[p.length];
+  return next === undefined || !/[a-z]/i.test(next);
+}
+
 export function normalizeAntigen(label) {
   const raw = label.trim().replace(/\.\.\.$/, '');
   const s = raw.toLowerCase();
   for (const [pattern, vk] of ANTIGEN_MAP) {
-    if (s.startsWith(pattern.toLowerCase())) return vk;
+    if (startsWithWord(s, pattern)) return vk;
   }
   for (const [pattern, vk] of SYNONYM_MAP) {
-    if (s.startsWith(pattern.toLowerCase())) return vk;
+    if (startsWithWord(s, pattern)) return vk;
   }
   for (const [pattern, vk] of BRAND_MAP) {
     if (s.startsWith(pattern.toLowerCase())) return vk;
