@@ -4,6 +4,7 @@
  * (required for fast-refresh compatibility).
  */
 import { COMBOS } from '../data/vaccineData';
+import { buildBRAND_MAP } from '../data/brandRegistry.js';
 
 // ── Antigen normalization map ──────────────────────────────────────────────
 // Ordered longest-first so longest-prefix match wins:
@@ -43,34 +44,22 @@ const FUZZY_PATTERNS = [
 ];
 
 // ── Standalone brand names → antigen ───────────────────────────────────────
-// Manually-typed screenshots often name the product, not the antigen (e.g.
-// "Prevnar 20" instead of "Pneumococcal Conjugate"). Each entry here is a
-// STANDALONE brand that identifies exactly one antigen — combo brands
-// (Vaxelis, Pentacel, Pediarix, Kinrix, Quadracel, ProQuad, Penbraya,
-// Penmenvy, Twinrix) are deliberately excluded here: they're recognized
-// separately by detectCombo() below, which expands a combo line into one
-// row per covered antigen.
-const BRAND_MAP = [
-  ['Engerix', 'HepB'], ['Recombivax', 'HepB'], ['Heplisav', 'HepB'],
-  ['Rotarix', 'RV'], ['RotaTeq', 'RV'],
-  ['Daptacel', 'DTaP'], ['Infanrix', 'DTaP'],
-  ['ActHIB', 'Hib'], ['Hiberix', 'Hib'], ['PedvaxHIB', 'Hib'],
-  ['Prevnar', 'PCV'], ['Capvaxive', 'PCV'], ['Vaxneuvance', 'PCV'],
-  ['Pneumovax', 'PPSV23'],
-  ['IPOL', 'IPV'],
-  ['Flucelvax', 'Flu'], ['FluMist', 'Flu'], ['Fluzone', 'Flu'],
-  ['Flulaval', 'Flu'], ['Afluria', 'Flu'], ['Fluarix', 'Flu'], ['Flublok', 'Flu'],
-  ['M-M-R', 'MMR'], ['Priorix', 'MMR'],
-  ['Varivax', 'VAR'],
-  ['Havrix', 'HepA'], ['Vaqta', 'HepA'],
-  ['Adacel', 'Tdap'], ['Boostrix', 'Tdap'],
-  ['Tenivac', 'Td'], ['Decavac', 'Td'],
-  ['Gardasil', 'HPV'],
-  ['Menveo', 'MenACWY'], ['MenQuadfi', 'MenACWY'], ['Menactra', 'MenACWY'],
-  ['Bexsero', 'MenB'], ['Trumenba', 'MenB'],
-  ['Beyfortus', 'RSV'], ['Abrysvo', 'RSV'],
-  ['Comirnaty', 'COVID'], ['Spikevax', 'COVID'], ['Nuvaxovid', 'COVID'], ['mNexspike', 'COVID'],
-];
+// DERIVED from the brand registry (src/data/brandRegistry.js), which is the
+// single place each vaccine product is described. Every product there carrying
+// a `match` token appears here automatically, so a brand offered in the
+// prescribing dropdown can never be one the importer silently fails to read.
+//
+// Combination brands (Vaxelis, Pentacel, Pediarix, Kinrix, Quadracel, ProQuad,
+// Penbraya, Penmenvy, Twinrix) are deliberately absent: detectCombo() handles
+// them, expanding one line into a row per antigen covered rather than
+// collapsing it to a single antigen and dropping the rest.
+//
+// Order is not significant. This list is scanned two ways — a startsWith()
+// prefix scan and edit-distance fuzzy matching — and neither can be changed by
+// reordering, because no token is a prefix of another and equally-scoring
+// matches across different antigens are refused rather than guessed. A test
+// asserts the no-prefix-collision property instead of leaving it assumed.
+const BRAND_MAP = buildBRAND_MAP();
 
 // Exposed for the brand-table characterization snapshot, which pins BRAND_MAP's
 // contents and order so the Gap 4C registry refactor can be proven not to have

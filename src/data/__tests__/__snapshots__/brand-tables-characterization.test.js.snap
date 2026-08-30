@@ -3,67 +3,67 @@
 exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > BRAND_MAP (what the photo importer can read back) is unchanged 1`] = `
 [
   [
-    "Engerix",
-    "HepB",
-  ],
-  [
-    "Recombivax",
-    "HepB",
-  ],
-  [
-    "Heplisav",
-    "HepB",
-  ],
-  [
-    "Rotarix",
-    "RV",
-  ],
-  [
-    "RotaTeq",
-    "RV",
-  ],
-  [
-    "Daptacel",
-    "DTaP",
-  ],
-  [
-    "Infanrix",
-    "DTaP",
+    "Abrysvo",
+    "RSV",
   ],
   [
     "ActHIB",
     "Hib",
   ],
   [
-    "Hiberix",
-    "Hib",
+    "Adacel",
+    "Tdap",
   ],
   [
-    "PedvaxHIB",
-    "Hib",
+    "Afluria",
+    "Flu",
   ],
   [
-    "Prevnar",
-    "PCV",
+    "Bexsero",
+    "MenB",
+  ],
+  [
+    "Beyfortus",
+    "RSV",
+  ],
+  [
+    "Boostrix",
+    "Tdap",
   ],
   [
     "Capvaxive",
     "PCV",
   ],
   [
-    "Vaxneuvance",
-    "PCV",
+    "Comirnaty",
+    "COVID",
   ],
   [
-    "Pneumovax",
-    "PPSV23",
+    "Daptacel",
+    "DTaP",
   ],
   [
-    "IPOL",
-    "IPV",
+    "Decavac",
+    "Td",
+  ],
+  [
+    "Engerix",
+    "HepB",
+  ],
+  [
+    "Fluarix",
+    "Flu",
+  ],
+  [
+    "Flublok",
+    "Flu",
   ],
   [
     "Flucelvax",
+    "Flu",
+  ],
+  [
+    "Flulaval",
     "Flu",
   ],
   [
@@ -75,63 +75,35 @@ exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > BR
     "Flu",
   ],
   [
-    "Flulaval",
-    "Flu",
-  ],
-  [
-    "Afluria",
-    "Flu",
-  ],
-  [
-    "Fluarix",
-    "Flu",
-  ],
-  [
-    "Flublok",
-    "Flu",
-  ],
-  [
-    "M-M-R",
-    "MMR",
-  ],
-  [
-    "Priorix",
-    "MMR",
-  ],
-  [
-    "Varivax",
-    "VAR",
+    "Gardasil",
+    "HPV",
   ],
   [
     "Havrix",
     "HepA",
   ],
   [
-    "Vaqta",
-    "HepA",
+    "Heplisav",
+    "HepB",
   ],
   [
-    "Adacel",
-    "Tdap",
+    "Hiberix",
+    "Hib",
   ],
   [
-    "Boostrix",
-    "Tdap",
+    "Infanrix",
+    "DTaP",
   ],
   [
-    "Tenivac",
-    "Td",
+    "IPOL",
+    "IPV",
   ],
   [
-    "Decavac",
-    "Td",
+    "M-M-R",
+    "MMR",
   ],
   [
-    "Gardasil",
-    "HPV",
-  ],
-  [
-    "Menveo",
+    "Menactra",
     "MenACWY",
   ],
   [
@@ -139,31 +111,11 @@ exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > BR
     "MenACWY",
   ],
   [
-    "Menactra",
+    "Menveo",
     "MenACWY",
   ],
   [
-    "Bexsero",
-    "MenB",
-  ],
-  [
-    "Trumenba",
-    "MenB",
-  ],
-  [
-    "Beyfortus",
-    "RSV",
-  ],
-  [
-    "Abrysvo",
-    "RSV",
-  ],
-  [
-    "Comirnaty",
-    "COVID",
-  ],
-  [
-    "Spikevax",
+    "mNexspike",
     "COVID",
   ],
   [
@@ -171,57 +123,57 @@ exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > BR
     "COVID",
   ],
   [
-    "mNexspike",
+    "PedvaxHIB",
+    "Hib",
+  ],
+  [
+    "Pneumovax",
+    "PPSV23",
+  ],
+  [
+    "Prevnar",
+    "PCV",
+  ],
+  [
+    "Priorix",
+    "MMR",
+  ],
+  [
+    "Recombivax",
+    "HepB",
+  ],
+  [
+    "Rotarix",
+    "RV",
+  ],
+  [
+    "RotaTeq",
+    "RV",
+  ],
+  [
+    "Spikevax",
     "COVID",
   ],
-]
-`;
-
-exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > BRAND_MAP order is preserved exactly 1`] = `
-[
-  "Engerix",
-  "Recombivax",
-  "Heplisav",
-  "Rotarix",
-  "RotaTeq",
-  "Daptacel",
-  "Infanrix",
-  "ActHIB",
-  "Hiberix",
-  "PedvaxHIB",
-  "Prevnar",
-  "Capvaxive",
-  "Vaxneuvance",
-  "Pneumovax",
-  "IPOL",
-  "Flucelvax",
-  "FluMist",
-  "Fluzone",
-  "Flulaval",
-  "Afluria",
-  "Fluarix",
-  "Flublok",
-  "M-M-R",
-  "Priorix",
-  "Varivax",
-  "Havrix",
-  "Vaqta",
-  "Adacel",
-  "Boostrix",
-  "Tenivac",
-  "Decavac",
-  "Gardasil",
-  "Menveo",
-  "MenQuadfi",
-  "Menactra",
-  "Bexsero",
-  "Trumenba",
-  "Beyfortus",
-  "Abrysvo",
-  "Comirnaty",
-  "Spikevax",
-  "Nuvaxovid",
-  "mNexspike",
+  [
+    "Tenivac",
+    "Td",
+  ],
+  [
+    "Trumenba",
+    "MenB",
+  ],
+  [
+    "Vaqta",
+    "HepA",
+  ],
+  [
+    "Varivax",
+    "VAR",
+  ],
+  [
+    "Vaxneuvance",
+    "PCV",
+  ],
 ]
 `;
 
