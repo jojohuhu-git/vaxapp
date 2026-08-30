@@ -19,7 +19,7 @@
 
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { act, render, fireEvent, cleanup } from '@testing-library/react';
-import { AppProvider } from '../../context/AppContext';
+import { AppProvider, useApp } from '../../context/AppContext';
 import { ReviewModal } from '../HistoryImageImport';
 
 // Stub tesseract.js (pulled in transitively via HistoryImageImport default export)
@@ -634,5 +634,75 @@ describe('ReviewModal — combinations written as an antigen list', () => {
     const modal = document.querySelector('[data-testid="ocr-review-modal"]');
     expect(modal.textContent).toContain('DTaP + IPV');
     expect(modal.textContent).not.toContain('licensed for');
+  });
+});
+
+// ── P2: brand kept per dose, not per vaccine ────────────────────────────────
+// Before this fix, a same-vaccine row with two different brands on two
+// different dates imported both dates correctly but dropped BOTH brands to
+// blank — the record said "Pentacel" on one date and "Infanrix" on another,
+// and the app remembered neither. The fix carries a brandByDate map on each
+// row through to the actual VISIT_ADD dispatch, so each date keeps its own
+// real brand even though the row-level "brand" summary field stays null
+// (there genuinely isn't one shared brand for the whole row).
+describe('ReviewModal — P2: brand kept per dose, not per vaccine', () => {
+  afterEach(() => cleanup());
+
+  function HistProbe({ vk }) {
+    const { state } = useApp();
+    return <div data-testid={`hist-probe-${vk}`}>{JSON.stringify(state.hist[vk] || [])}</div>;
+  }
+
+  it('doImport gives each date its own brand instead of blanking both', () => {
+    const rows = [
+      {
+        vk: 'DTaP',
+        dates: ['2019-05-08', '2020-06-10'],
+        brand: null, // row-level summary: the two dates disagree, so no single answer
+        brandByDate: { '2019-05-08': 'Pentacel', '2020-06-10': 'Infanrix' },
+      },
+    ];
+    render(
+      <AppProvider>
+        <ReviewModal
+          rows={rows}
+          unrecognized={[]}
+          rawText={'DTaP-IPV-Hib (Pentacel)  5/8/2019\nDTaP-HepB-IPV (Infanrix)  6/10/2020'}
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />
+        <HistProbe vk="DTaP" />
+      </AppProvider>
+    );
+    act(() => {
+      fireEvent.click(document.querySelector('[data-testid="ocr-confirm-btn"]'));
+    });
+    const hist = JSON.parse(document.querySelector('[data-testid="hist-probe-DTaP"]').textContent);
+    const byDate = Object.fromEntries(hist.map(d => [d.date, d.brand]));
+    expect(byDate['2019-05-08']).toBe('Pentacel');
+    expect(byDate['2020-06-10']).toBe('Infanrix');
+  });
+
+  it('a row with no brandByDate (legacy shape) still falls back to the row-level brand', () => {
+    const rows = [
+      { vk: 'RV', dates: ['2021-03-01'], brand: 'RotaTeq' },
+    ];
+    render(
+      <AppProvider>
+        <ReviewModal
+          rows={rows}
+          unrecognized={[]}
+          rawText="Rotavirus Pentavalent 3/1/2021"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />
+        <HistProbe vk="RV" />
+      </AppProvider>
+    );
+    act(() => {
+      fireEvent.click(document.querySelector('[data-testid="ocr-confirm-btn"]'));
+    });
+    const hist = JSON.parse(document.querySelector('[data-testid="hist-probe-RV"]').textContent);
+    expect(hist[0].brand).toBe('RotaTeq');
   });
 });
