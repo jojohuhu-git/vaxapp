@@ -322,6 +322,54 @@ describe('normalizeAntigen — abbreviations and lay terms', () => {
   }
 });
 
+// Gap 2 (docs/archive/handoff-2026-08-30-gap4c-brand-registry.md): common
+// shorthand and lay terms that a clinician or parent would actually type or
+// that appear in IIS records, but the parser had no entry for. "DT" is
+// deliberately excluded — see the no-"dt"-entry note above COMBO_COMPONENTS
+// in ocrParser.js; this app cannot represent a tetanus-diphtheria-without-
+// pertussis dose, so a DT line must stay unrecognized on purpose.
+describe('normalizeAntigen — Gap 2 shorthand and lay terms', () => {
+  const cases = [
+    ['MenACWY  1/6/2020', 'MenACWY'],
+    ['MenB  9/1/2022', 'MenB'],
+    ['Men B  9/1/2022', 'MenB'],
+    ['HepB  8/7/2009', 'HepB'],
+    ['HepA  7/26/2010', 'HepA'],
+    ['HBV  8/7/2009', 'HepB'],
+    ['HAV  7/26/2010', 'HepA'],
+    ['Pneumococcal  7/26/2010', 'PCV'],
+    ['Td  6/1/2024', 'Td'],
+    ['Human Papillomavirus  10/8/2024', 'HPV'],
+    ['Haemophilus influenzae type b  12/11/2009', 'Hib'],
+    ['Diphtheria, Tetanus, Pertussis  8/1/2014', 'DTaP'],
+  ];
+  for (const [line, vk] of cases) {
+    it(`"${line.split('  ')[0]}" → ${vk}`, () => {
+      expect(normalizeAntigen(line)).toBe(vk);
+    });
+  }
+
+  it('bare "Pneumococcal" does not shadow the more specific Conjugate/Polysaccharide forms', () => {
+    expect(normalizeAntigen('Pneumococcal Conjugate 13-Valent  7/26/2010')).toBe('PCV');
+    expect(normalizeAntigen('Pneumococcal Polysaccharide  7/26/2010')).toBe('PPSV23');
+  });
+
+  it('"DT" alone stays unrecognized — cannot represent tetanus-diphtheria without pertussis', () => {
+    expect(normalizeAntigen('DT  8/1/2014')).toBeNull();
+  });
+
+  it('the new short entries do not falsely prefix-match a longer or misspelled word', () => {
+    // "Hepatitus" (typo of "Hepatitis") must still reach the typo-tolerant
+    // fuzzy stage rather than being caught early because it happens to start
+    // with the letters "Hepa".
+    expect(normalizeAntigen('Hepatitus A  7/26/2010')).toBe('HepA');
+    expect(normalizeAntigen('Hepatitus B  8/7/2009')).toBe('HepB');
+    // "Tdap" must still resolve to Tdap, not be short-circuited by the new
+    // bare "Td" entry.
+    expect(normalizeAntigen('Tdap  8/1/2014')).toBe('Tdap');
+  });
+});
+
 describe('normalizeAntigen — typo tolerance (no hand-written rule per typo)', () => {
   const cases = [
     ['Prevner 20  7/26/2010', 'PCV'],
