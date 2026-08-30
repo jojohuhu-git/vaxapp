@@ -1,3 +1,8 @@
+> **SUPERSEDED** by
+> [`handoff-2026-08-30-gap3-paste-text-entry.md`](handoff-2026-08-30-gap3-paste-text-entry.md).
+> Gap 3 (the remaining item this document called out below) is now shipped. Read the newer
+> file instead of resuming from this one.
+
 # PediVax (vaxapp) — Handoff after P2: brand kept per dose (2026-08-30)
 
 Repo: `/Users/joannehuang/Downloads/vaxapp-main` · Live: https://jojohuhu-git.github.io/vaxapp/
