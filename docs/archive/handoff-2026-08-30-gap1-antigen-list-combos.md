@@ -1,3 +1,12 @@
+> **SUPERSEDED — do not resume this queue.**
+> Gap 4 has since shipped, at option **C** (full registry), in
+> PR [#128](https://github.com/jojohuhu-git/vaxapp/pull/128). Open decision 1 below is
+> therefore answered. Go to
+> [`handoff-2026-08-30-gap4c-brand-registry.md`](handoff-2026-08-30-gap4c-brand-registry.md),
+> which restates the still-live remainder (Gaps 2, 3 and the P2) and the two decisions that
+> are still open. The clinical decisions recorded below (legacy `DTP`, and `DT` staying
+> unrecognized) remain settled and accurate.
+
 # PediVax (vaxapp) — Handoff after Gap 1: antigen-list combinations (2026-08-30)
 
 Repo: `/Users/joannehuang/Downloads/vaxapp-main` · Live: https://jojohuhu-git.github.io/vaxapp/
