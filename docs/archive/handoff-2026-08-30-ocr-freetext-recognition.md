@@ -1,5 +1,13 @@
 # PediVax (vaxapp) — Handoff after free-text recognition investigation (2026-08-30)
 
+> **STATUS: SUPERSEDED — do not resume from this file.**
+> The P0 comment fix and **Gap 1** were shipped in PR #126 (merged 2026-08-30, commit
+> `8be2446`), including the DTP/DT clinical decisions this file left open. Gaps 2, 3, 4 and
+> the P2 item are still live but are restated, with corrections, in
+> [`handoff-2026-08-30-gap1-antigen-list-combos.md`](handoff-2026-08-30-gap1-antigen-list-combos.md).
+> **Start there.** The measured evidence about the recognizer below is still accurate and
+> useful as background detail; the queue and the test count (2036) are not.
+
 Repo: `/Users/joannehuang/Downloads/vaxapp-main` · Live: https://jojohuhu-git.github.io/vaxapp/
 
 Branch: `main`, in sync with `origin/main` at commit `0c9986a`. **No code was written this
