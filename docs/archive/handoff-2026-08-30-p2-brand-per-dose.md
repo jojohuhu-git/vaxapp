@@ -67,6 +67,29 @@ green, live site loads clean.
   (end-to-end through the real `AppProvider` reducer, reading `state.hist` afterward via a
   small test-only probe component — no existing pattern for this existed, so one was added).
 
+## Owner decisions made this session — settled, do not re-ask
+
+1. **Unknown products get flagged, but only when dated.** When the importer meets a line
+   it doesn't recognize as a vaccine, the review screen should show it as
+   "unrecognized — is this a vaccine?" and let the clinician confirm or dismiss it — but
+   ONLY when that line also has a date attached. An undated stray word (a clinic name, a
+   page header) stays silent, same as today. `parseOcrText` already returns an
+   `unrecognized: string[]` list of exactly the dated-but-unmatched lines (see the doc
+   comment in [ocrParser.js](../../src/logic/ocrParser.js)) — **check first whether this is
+   already wired into the review screen's UI before building anything new**; the plumbing
+   may already exist and this may just be a display-layer task.
+2. **New vaccine types stay code-only, same file as brands — no in-app upload screen.**
+   The owner considered a real in-app "add a vaccine" screen and explicitly chose against
+   it: the app has no backend or database today, so a true upload UI would mean designing
+   how new entries get saved and shared, which is a much bigger build than she wants. The
+   answer is the same pattern brands already use: one file to edit
+   ([brandRegistry.js](../../src/data/brandRegistry.js)), not six, and not a UI. **This
+   does NOT mean a new antigen is fully "single-source" the way a brand is** — a new
+   antigen also needs clinical logic (dosing schedule, age windows, interactions) across
+   all five output surfaces, and no registry can make that declarative. Treat this as
+   "make the registry cover antigens too, where that's mechanical" — not "eliminate all
+   work needed to add a vaccine."
+
 ## What's NOT done — the remaining queue
 
 ### Gap 3 (P1) — no free-text entry path at all
@@ -78,21 +101,22 @@ it). There is no way to paste or type a history block. Scope: an entry point tha
 review flow with pasted text and no image. → **Sonnet, medium.** Run `design-review` first
 — this is the one item left that adds a new screen, unlike Gap 2/P2 which were pure logic.
 
-## Open decisions — still live, unanswered
+### New — flag unrecognized-with-date lines (owner decision 1, above)
+Wire the review screen to show each entry in `parseOcrText`'s existing `unrecognized`
+list as "unrecognized — is this a vaccine?" with confirm/dismiss. Check whether any of
+this display already exists before building it — the data (`unrecognized: string[]`,
+already date-filtered) has existed since before this session. → **Sonnet, medium if the
+UI needs building from scratch; small if only wiring is missing.**
 
-Two decisions carried since the Gap 4C handoff remain (the owner has NOT yet been asked
-these; ask before defaulting — they may shape Gap 3's scope):
-
-1. **Unknown products:** when the importer sees a product it doesn't recognize, should the
-   review screen surface it as "unrecognized product — is this a vaccine?", keep ignoring
-   it silently (today's behavior), or only flag it when the line also has a date? — *Note:
-   `parseOcrText` already returns an `unrecognized: string[]` list of dated-but-unmatched
-   lines. Check whether that's already wired to the review screen, or whether this
-   decision is about turning existing plumbing into a visible UI element.*
-2. **Scope:** the registry (Gap 4C) covers brands. Should adding a whole new *antigen*
-   also become single-source? (A new antigen also needs clinical logic across five
-   surfaces, which no registry makes declarative — so this is a bigger, partly-
-   unautomatable job.)
+### New — extend the brand registry to cover antigens (owner decision 2, above)
+Scope this as its own session, not a quick add-on: figure out which parts of adding a new
+antigen are genuinely mechanical (belong in
+[brandRegistry.js](../../src/data/brandRegistry.js) alongside brands) versus which parts
+are irreducibly clinical (dosing rules, age windows — five-surface work, per
+[five-surface-verification.md](../agent/five-surface-verification.md)). Recommend starting
+with a short investigation pass (Explore or a plan-mode pass) before writing code, since
+the boundary between "mechanical" and "clinical" isn't obvious yet. → **Sonnet or Opus,
+medium-to-large depending on what that investigation finds.**
 
 ## Why this is a good stopping point
 
@@ -111,8 +135,10 @@ is untouched and not superseded by this document.
 3. Start the dev server via `preview_start` (name `"PediVax dev server"`, port 5174 —
    it will fall back to another port if occupied, which is fine).
 4. Leave `.claude/launch.json` out of every commit — it belongs to a different project.
-5. Ask the owner the two open decisions above before starting Gap 3 — its scope depends on
-   decision 1.
+5. Both open decisions are now settled (see above) — don't re-ask. Suggested order:
+   Gap 3 (paste/type entry point) → the unrecognized-with-date flagging (small, may already
+   be half-built) → the antigen-registry extension (its own session — investigate scope
+   first, don't just start coding).
 6. Per-item workflow: `fix-queue` skill — reproduce → failing test → fix → full suite green
    → live-verify in the running app → commit named by the Gap/item ID. If the actual bug
    turns out bigger than the item's one-line description (as P2 did here), say so and fix
