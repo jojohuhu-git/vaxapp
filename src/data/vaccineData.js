@@ -1,3 +1,4 @@
+import { buildVBR, buildCOMBOS, buildCOMBO_COVERS } from './brandRegistry.js';
 export const VAX_META = {
   HepB:    {n:"Hepatitis B",       ab:"HepB"},
   RV:      {n:"Rotavirus",         ab:"RV"},
@@ -48,60 +49,26 @@ export const VAX_KEYS = [
   "COVID",   // Annual ─┘
 ];
 
-export const VBR = { // vaccine brands — combo entries include (contents) for clarity
-  HepB:    {s:["Engerix-B","Recombivax HB","Heplisav-B (≥18y, 2-dose)"], c:["Pediarix (DTaP+HepB+IPV)","Vaxelis (DTaP+IPV+Hib+HepB)","Twinrix (HepA+HepB, ≥18y)"]},
-  RV:      {s:["Rotarix (RV1 – 2 doses)","RotaTeq (RV5 – 3 doses)"], c:[]},
-  DTaP:    {s:["Daptacel (DTaP only)","Infanrix (DTaP only)"], c:["Kinrix (DTaP+IPV, 4–6y only)","Pediarix (DTaP+HepB+IPV)","Pentacel (DTaP+IPV+Hib)","Quadracel (DTaP+IPV, 4–6y only)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)"]},
-  Hib:     {s:["ActHIB (PRP-T)","Hiberix (PRP-T)","PedvaxHIB (PRP-OMP)"], c:["Pentacel (DTaP+IPV+Hib, Hib=PRP-T)","Vaxelis (DTaP+IPV+Hib+HepB, Hib=PRP-OMP, doses 1–3 only — NOT booster)"]},
-  PCV:     {s:[
-    "Prevnar 20 (PCV20) — preferred, covers 20 serotypes",
-    "Capvaxive (PCV21) — ≥18y only; no PPSV23 needed; lacks serotype 4",
-    "Vaxneuvance (PCV15) — if used, add PPSV23 ≥8 weeks later for high-risk",
-    "Prevnar 13 (PCV13) — use only if PCV20/PCV15 unavailable or specific indication",
-    "Prevnar 7 (PCV7) — historical/discontinued; doses do not count toward the series",
-  ], c:[]},
-  PPSV23:  {s:["Pneumovax 23 (PPSV23) — high-risk ≥2y after PCV series; NOT for routine infant schedule"], c:[]},
-  IPV:     {s:["IPOL (IPV only)"], c:["Kinrix (DTaP+IPV, 4–6y only)","Pediarix (DTaP+HepB+IPV)","Pentacel (DTaP+IPV+Hib)","Quadracel (DTaP+IPV, 4–6y only)","Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)"]},
-  Flu:     {s:["Flucelvax Quadrivalent (ccIIV4, egg-free)","FluMist Quadrivalent (LAIV4, ≥2y healthy)","IIV4 (any age-appropriate inactivated)"], c:[]},
-  MMR:     {s:["M-M-R II (MMR only)","Priorix (MMR only)"], c:["ProQuad (MMR+VAR/MMRV, 12m–12y)"]},
-  VAR:     {s:["Varivax (VAR only)"], c:["ProQuad (MMR+VAR/MMRV, 12m–12y)"]},
-  HepA:    {s:["Havrix (HepA only)","Vaqta (HepA only)"], c:["Twinrix (HepA+HepB, ≥18y)"]},
-  Tdap:    {s:["Adacel (Tdap, ≥7y)","Boostrix (Tdap, ≥10y)"], c:[]},
-  Td:      {s:["Tenivac (Td, ≥7y)","Decavac (Td, ≥7y)","Td (generic, ≥7y)"], c:[]},
-  HPV:     {s:["Gardasil 9 (HPV, 9-valent)"], c:[]},
-  // D7: Menveo 2-vial (≥2m) is the only formulation for infants/children <10y; Menveo 1-vial (≥10y) is available for adolescents/adults.
-  MenACWY: {s:["Menveo 2-vial (MenACWY-CRM, ≥2m)","Menveo 1-vial (≥10y) (MenACWY-CRM)","MenQuadfi (MenACWY-TT, ≥2y)"], c:["Penbraya (MenACWY+MenB-FHbp, ≥10y)","Penmenvy (MenACWY+MenB-4C, ≥10y)"]},
-  MenB:    {s:["Bexsero (MenB-4C)","Trumenba (MenB-FHbp)"], c:["Penbraya (MenACWY+MenB-FHbp, ≥10y)","Penmenvy (MenACWY+MenB-4C, ≥10y)"], lock:true},
-  RSV:     {s:["Beyfortus (nirsevimab, 50mg <5kg / 100mg ≥5kg)", "Abrysvo (RSVpreF, maternal vaccine, 32\u201336w gestation)"], c:[]},
-  COVID:   {s:["Comirnaty (COVID-19, ≥5y)","mNexspike (COVID-19, ≥12y)","Nuvaxovid (COVID-19, ≥12y, protein subunit)","Spikevax (COVID-19, ≥6mo)"], c:[]},
-};
+// The prescribing dropdown, the combination-product table, and the
+// antigen-coverage table are all DERIVED from the brand registry — the single
+// place each vaccine product is described. To add or change a product, edit
+// src/data/brandRegistry.js; these three update themselves.
+//
+// They keep their original names and shapes so the ~20 files that read them
+// need no changes, and a characterization snapshot test proves the derived
+// values are identical to the hand-written tables these replaced.
 
-// Combo vaccines with what they cover
-// maxM = ACIP-recommended max age in months (used for regimen optimizer eligibility).
-// propagateMaxM = last forecast visit age this brand should auto-propagate to.
-// Omit propagateMaxM when the combo is valid for catch-up at any age up to maxM —
-// the dose-number gates in forecastLogic.comboValidForDose enforce per-dose limits.
-export const COMBOS = {
-  Vaxelis:   {c:["DTaP","IPV","Hib","HepB"],  minM:1.5, maxM:83, desc:"DTaP + IPV + Hib (PRP-OMP) + HepB (doses 1–3 only; ages 6 wks–6 years). Valid for catch-up at any age within this window. NOT for Hib booster (PRP-OMP series is complete in 3 doses). Hib component is PRP-OMP — preferred for AI/AN."},
-  Pentacel:  {c:["DTaP","IPV","Hib"],          minM:1.5, maxM:83, desc:"DTaP + IPV (doses 1–4) + Hib/PRP-T (doses 1–4, including booster); ages 6 wks–6 years. Valid for catch-up at any age within this window. NOT for DTaP dose 5 (use Kinrix or Quadracel at the 4–6y booster visit instead)."},
-  Pediarix:  {c:["DTaP","HepB","IPV"],         minM:1.5, maxM:83, desc:"DTaP + HepB + IPV (doses 1–3; ages 6 wks–6 years). Valid for catch-up at any age within this window."},
-  Kinrix:    {c:["DTaP","IPV"],                minM:48,  maxM:83,                    desc:"DTaP + IPV (dose 5 DTaP + dose 4 IPV, age 4–6y ONLY)"},
-  Quadracel: {c:["DTaP","IPV"],                minM:48,  maxM:83,                    desc:"DTaP + IPV (dose 5 DTaP + dose 4 IPV, age 4–6y ONLY)"},
-  ProQuad:   {c:["MMR","VAR"],                 minM:12,  maxM:155,                   desc:"MMR + Varicella (dose 1 or 2; ages 12 months–12 years)"},
-  Penbraya:  {c:["MenACWY","MenB"],            minM:120, maxM:999,                   desc:"MenACWY + MenB-FHbp (Pfizer). FDA-licensed 10–25y; ACIP allows use beyond 25y for indicated adult populations (no hard upper age limit). MenB component is FHbp — interchangeable with Trumenba, NOT Bexsero."},
-  Penmenvy:  {c:["MenACWY","MenB"],            minM:120, maxM:999,                   desc:"MenACWY + MenB-4C (GSK). FDA-licensed 10–25y; ACIP allows use beyond 25y for indicated adult populations (no hard upper age limit). MenB component is 4C — interchangeable with Bexsero, NOT Trumenba."},
-  Twinrix:   {c:["HepA","HepB"],               minM:216, maxM:999,                   desc:"HepA + HepB (≥18 years only)"},
-};
+/** Vaccine brands by antigen: { s: single-antigen, c: combination }. */
+export const VBR = buildVBR();
 
-// Keys must match the START of the brand strings used in VBR above
-export const COMBO_COVERS = {
-  "Pediarix":       ["DTaP","HepB","IPV"],
-  "Pentacel":       ["DTaP","IPV","Hib"],
-  "Vaxelis":        ["DTaP","IPV","Hib","HepB"],
-  "Kinrix":         ["DTaP","IPV"],
-  "Quadracel":      ["DTaP","IPV"],
-  "ProQuad":        ["MMR","VAR"],
-  "Penbraya":       ["MenACWY","MenB"],
-  "Penmenvy":       ["MenACWY","MenB"],
-  "Twinrix":        ["HepA","HepB"],
-};
+/**
+ * Combination vaccines with what they cover.
+ * maxM = ACIP-recommended max age in months (used for regimen optimizer eligibility).
+ * propagateMaxM = last forecast visit age this brand should auto-propagate to.
+ * Omit propagateMaxM when the combo is valid for catch-up at any age up to maxM —
+ * the dose-number gates in forecastLogic.comboValidForDose enforce per-dose limits.
+ */
+export const COMBOS = buildCOMBOS();
+
+/** Which antigens each combination product covers. */
+export const COMBO_COVERS = buildCOMBO_COVERS();

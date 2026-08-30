@@ -1,3 +1,4 @@
+import { buildBRAND_MIN, buildBRAND_MAX } from './brandRegistry.js';
 export const MIN_INT = {
   // minByDose[doseIdx] = per-dose absolute minimum age in days (null = no per-dose floor)
   HepB:    {minD:0,    maxD1:null, i:[null,28,56,null,null], minByDose:[0,28,168,null,null],       d1Cross:{3:112},                                        note:"Birth dose within 24h. D2 min 4 weeks. D3 min 16 weeks from D1 AND ≥8 weeks after D2."},
@@ -20,43 +21,21 @@ export const MIN_INT = {
   COVID:   {minD:182,  maxD1:null, i:[null,28,null,null,null], note:"Min age 6m (Spikevax), 5y (Comirnaty), 12y (mNexspike/Nuvaxovid)."},
 };
 
-// Brand-specific min ages (days)
-// Keys must be prefixes that match the actual brand strings in vaccineData.js via startsWith()
-// Each entry is either a number (days) or {d, refUrl, refLabel, textFrag}.
-// Optional refUrl/refLabel/textFrag override the per-vaccine ref for deep-linking
-// to rule-specific content on the reference page.
-export const BRAND_MIN = {
-  "Kinrix":{d:1461, textFrag:"Kinrix is approved for use in children 4"},
-  "Quadracel":{d:1461, textFrag:"Quadracel is approved for use in children 4"},
-  "ProQuad":{d:365, textFrag:"12 months through 12 years"},
-  "Adacel":{d:2555, textFrag:"Adacel"},
-  "Boostrix":{d:3650, textFrag:"Boostrix"},
-  "Menveo":{d:60, textFrag:"Menveo"},
-  "MenQuadfi":{d:730, textFrag:"MenQuadfi"},
-  "Twinrix":{d:6570, textFrag:"18 years"},
-  "Heplisav-B":{d:6570, textFrag:"Heplisav-B"},
-  "FluMist Quadrivalent":{d:730, textFrag:"LAIV"},
-  "Comirnaty":{d:1825, textFrag:"Comirnaty"},
-  "mNexspike":{d:4380, textFrag:"mNexspike"},
-  "Nuvaxovid":{d:4380, textFrag:"Nuvaxovid"},
-  "Bexsero":{d:3650, textFrag:"Bexsero"},
-  "Trumenba":{d:3650, textFrag:"Trumenba"},
-  "Penbraya":{d:3650, textFrag:"Penbraya"},
-  "Penmenvy":{d:3650, textFrag:"Penmenvy"},
-  "Pneumovax 23":{
-    d:730,
-    refUrl:"https://www.immunize.org/ask-experts/topic/pneumococcal/recommendations-children/",
-    refLabel:"immunize.org: Pneumococcal \u2014 PPSV23 not effective <2 years",
-    textFrag:"PPSV23 is not effective in children less than 24 months of age",
-  },
-};
+// Brand-specific minimum and maximum ages, DERIVED from the brand registry —
+// the single place each vaccine product is described. To change a product's
+// age limits, edit src/data/brandRegistry.js.
+//
+// Both keep their original shape: keys are prefixes matched against the stored
+// brand string with startsWith(), and each value is {d, refUrl?, refLabel?,
+// textFrag?}. Key order is not significant — no key is a prefix of another, so
+// the first-match lookups these feed can only ever find one entry. That is
+// asserted by a test rather than left as an assumption.
 
-// Brand-specific max ages (days). Violation → off-label / not countable.
-export const BRAND_MAX = {
-  "ProQuad":{d:4744, textFrag:"12 months through 12 years"},
-  "Kinrix":{d:2556, textFrag:"4 through 6 years"},
-  "Quadracel":{d:2556, textFrag:"4 through 6 years"},
-};
+/** Brand-specific min ages (days). */
+export const BRAND_MIN = buildBRAND_MIN();
+
+/** Brand-specific max ages (days). Violation → off-label / not countable. */
+export const BRAND_MAX = buildBRAND_MAX();
 
 // Off-label rules: Kinrix/Quadracel given <4y
 // Returns {offLabel, countable, note}

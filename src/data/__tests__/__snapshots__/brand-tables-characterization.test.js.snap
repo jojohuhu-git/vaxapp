@@ -1,0 +1,746 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > BRAND_MAP (what the photo importer can read back) is unchanged 1`] = `
+[
+  [
+    "Abrysvo",
+    "RSV",
+  ],
+  [
+    "ActHIB",
+    "Hib",
+  ],
+  [
+    "Adacel",
+    "Tdap",
+  ],
+  [
+    "Afluria",
+    "Flu",
+  ],
+  [
+    "Bexsero",
+    "MenB",
+  ],
+  [
+    "Beyfortus",
+    "RSV",
+  ],
+  [
+    "Boostrix",
+    "Tdap",
+  ],
+  [
+    "Capvaxive",
+    "PCV",
+  ],
+  [
+    "Comirnaty",
+    "COVID",
+  ],
+  [
+    "Daptacel",
+    "DTaP",
+  ],
+  [
+    "Decavac",
+    "Td",
+  ],
+  [
+    "Engerix",
+    "HepB",
+  ],
+  [
+    "Fluarix",
+    "Flu",
+  ],
+  [
+    "Flublok",
+    "Flu",
+  ],
+  [
+    "Flucelvax",
+    "Flu",
+  ],
+  [
+    "Flulaval",
+    "Flu",
+  ],
+  [
+    "FluMist",
+    "Flu",
+  ],
+  [
+    "Fluzone",
+    "Flu",
+  ],
+  [
+    "Gardasil",
+    "HPV",
+  ],
+  [
+    "Havrix",
+    "HepA",
+  ],
+  [
+    "Heplisav",
+    "HepB",
+  ],
+  [
+    "Hiberix",
+    "Hib",
+  ],
+  [
+    "Infanrix",
+    "DTaP",
+  ],
+  [
+    "IPOL",
+    "IPV",
+  ],
+  [
+    "M-M-R",
+    "MMR",
+  ],
+  [
+    "Menactra",
+    "MenACWY",
+  ],
+  [
+    "MenQuadfi",
+    "MenACWY",
+  ],
+  [
+    "Menveo",
+    "MenACWY",
+  ],
+  [
+    "mNexspike",
+    "COVID",
+  ],
+  [
+    "Nuvaxovid",
+    "COVID",
+  ],
+  [
+    "PedvaxHIB",
+    "Hib",
+  ],
+  [
+    "Pneumovax",
+    "PPSV23",
+  ],
+  [
+    "Prevnar",
+    "PCV",
+  ],
+  [
+    "Priorix",
+    "MMR",
+  ],
+  [
+    "Recombivax",
+    "HepB",
+  ],
+  [
+    "Rotarix",
+    "RV",
+  ],
+  [
+    "RotaTeq",
+    "RV",
+  ],
+  [
+    "Spikevax",
+    "COVID",
+  ],
+  [
+    "Tenivac",
+    "Td",
+  ],
+  [
+    "Trumenba",
+    "MenB",
+  ],
+  [
+    "Vaqta",
+    "HepA",
+  ],
+  [
+    "Varivax",
+    "VAR",
+  ],
+  [
+    "Vaxneuvance",
+    "PCV",
+  ],
+]
+`;
+
+exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > BRAND_MAX (brand-specific maximum ages) is unchanged 1`] = `
+{
+  "Kinrix": {
+    "d": 2556,
+    "textFrag": "4 through 6 years",
+  },
+  "ProQuad": {
+    "d": 4744,
+    "textFrag": "12 months through 12 years",
+  },
+  "Quadracel": {
+    "d": 2556,
+    "textFrag": "4 through 6 years",
+  },
+}
+`;
+
+exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > BRAND_MIN (brand-specific minimum ages) is unchanged 1`] = `
+{
+  "Adacel": {
+    "d": 2555,
+    "textFrag": "Adacel",
+  },
+  "Bexsero": {
+    "d": 3650,
+    "textFrag": "Bexsero",
+  },
+  "Boostrix": {
+    "d": 3650,
+    "textFrag": "Boostrix",
+  },
+  "Comirnaty": {
+    "d": 1825,
+    "textFrag": "Comirnaty",
+  },
+  "FluMist Quadrivalent": {
+    "d": 730,
+    "textFrag": "LAIV",
+  },
+  "Heplisav-B": {
+    "d": 6570,
+    "textFrag": "Heplisav-B",
+  },
+  "Kinrix": {
+    "d": 1461,
+    "textFrag": "Kinrix is approved for use in children 4",
+  },
+  "MenQuadfi": {
+    "d": 730,
+    "textFrag": "MenQuadfi",
+  },
+  "Menveo": {
+    "d": 60,
+    "textFrag": "Menveo",
+  },
+  "Nuvaxovid": {
+    "d": 4380,
+    "textFrag": "Nuvaxovid",
+  },
+  "Penbraya": {
+    "d": 3650,
+    "textFrag": "Penbraya",
+  },
+  "Penmenvy": {
+    "d": 3650,
+    "textFrag": "Penmenvy",
+  },
+  "Pneumovax 23": {
+    "d": 730,
+    "refLabel": "immunize.org: Pneumococcal — PPSV23 not effective <2 years",
+    "refUrl": "https://www.immunize.org/ask-experts/topic/pneumococcal/recommendations-children/",
+    "textFrag": "PPSV23 is not effective in children less than 24 months of age",
+  },
+  "ProQuad": {
+    "d": 365,
+    "textFrag": "12 months through 12 years",
+  },
+  "Quadracel": {
+    "d": 1461,
+    "textFrag": "Quadracel is approved for use in children 4",
+  },
+  "Trumenba": {
+    "d": 3650,
+    "textFrag": "Trumenba",
+  },
+  "Twinrix": {
+    "d": 6570,
+    "textFrag": "18 years",
+  },
+  "mNexspike": {
+    "d": 4380,
+    "textFrag": "mNexspike",
+  },
+}
+`;
+
+exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > COMBO_COVERS (which antigens each combination covers) is unchanged 1`] = `
+{
+  "Kinrix": [
+    "DTaP",
+    "IPV",
+  ],
+  "Pediarix": [
+    "DTaP",
+    "HepB",
+    "IPV",
+  ],
+  "Penbraya": [
+    "MenACWY",
+    "MenB",
+  ],
+  "Penmenvy": [
+    "MenACWY",
+    "MenB",
+  ],
+  "Pentacel": [
+    "DTaP",
+    "IPV",
+    "Hib",
+  ],
+  "ProQuad": [
+    "MMR",
+    "VAR",
+  ],
+  "Quadracel": [
+    "DTaP",
+    "IPV",
+  ],
+  "Twinrix": [
+    "HepA",
+    "HepB",
+  ],
+  "Vaxelis": [
+    "DTaP",
+    "IPV",
+    "Hib",
+    "HepB",
+  ],
+}
+`;
+
+exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > COMBOS (combination products and their age windows) is unchanged 1`] = `
+{
+  "Kinrix": {
+    "c": [
+      "DTaP",
+      "IPV",
+    ],
+    "desc": "DTaP + IPV (dose 5 DTaP + dose 4 IPV, age 4–6y ONLY)",
+    "maxM": 83,
+    "minM": 48,
+  },
+  "Pediarix": {
+    "c": [
+      "DTaP",
+      "HepB",
+      "IPV",
+    ],
+    "desc": "DTaP + HepB + IPV (doses 1–3; ages 6 wks–6 years). Valid for catch-up at any age within this window.",
+    "maxM": 83,
+    "minM": 1.5,
+  },
+  "Penbraya": {
+    "c": [
+      "MenACWY",
+      "MenB",
+    ],
+    "desc": "MenACWY + MenB-FHbp (Pfizer). FDA-licensed 10–25y; ACIP allows use beyond 25y for indicated adult populations (no hard upper age limit). MenB component is FHbp — interchangeable with Trumenba, NOT Bexsero.",
+    "maxM": 999,
+    "minM": 120,
+  },
+  "Penmenvy": {
+    "c": [
+      "MenACWY",
+      "MenB",
+    ],
+    "desc": "MenACWY + MenB-4C (GSK). FDA-licensed 10–25y; ACIP allows use beyond 25y for indicated adult populations (no hard upper age limit). MenB component is 4C — interchangeable with Bexsero, NOT Trumenba.",
+    "maxM": 999,
+    "minM": 120,
+  },
+  "Pentacel": {
+    "c": [
+      "DTaP",
+      "IPV",
+      "Hib",
+    ],
+    "desc": "DTaP + IPV (doses 1–4) + Hib/PRP-T (doses 1–4, including booster); ages 6 wks–6 years. Valid for catch-up at any age within this window. NOT for DTaP dose 5 (use Kinrix or Quadracel at the 4–6y booster visit instead).",
+    "maxM": 83,
+    "minM": 1.5,
+  },
+  "ProQuad": {
+    "c": [
+      "MMR",
+      "VAR",
+    ],
+    "desc": "MMR + Varicella (dose 1 or 2; ages 12 months–12 years)",
+    "maxM": 155,
+    "minM": 12,
+  },
+  "Quadracel": {
+    "c": [
+      "DTaP",
+      "IPV",
+    ],
+    "desc": "DTaP + IPV (dose 5 DTaP + dose 4 IPV, age 4–6y ONLY)",
+    "maxM": 83,
+    "minM": 48,
+  },
+  "Twinrix": {
+    "c": [
+      "HepA",
+      "HepB",
+    ],
+    "desc": "HepA + HepB (≥18 years only)",
+    "maxM": 999,
+    "minM": 216,
+  },
+  "Vaxelis": {
+    "c": [
+      "DTaP",
+      "IPV",
+      "Hib",
+      "HepB",
+    ],
+    "desc": "DTaP + IPV + Hib (PRP-OMP) + HepB (doses 1–3 only; ages 6 wks–6 years). Valid for catch-up at any age within this window. NOT for Hib booster (PRP-OMP series is complete in 3 doses). Hib component is PRP-OMP — preferred for AI/AN.",
+    "maxM": 83,
+    "minM": 1.5,
+  },
+}
+`;
+
+exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > VBR (the prescribing dropdown) is unchanged 1`] = `
+{
+  "COVID": {
+    "c": [],
+    "s": [
+      "Comirnaty (COVID-19, ≥5y)",
+      "mNexspike (COVID-19, ≥12y)",
+      "Nuvaxovid (COVID-19, ≥12y, protein subunit)",
+      "Spikevax (COVID-19, ≥6mo)",
+    ],
+  },
+  "DTaP": {
+    "c": [
+      "Kinrix (DTaP+IPV, 4–6y only)",
+      "Pediarix (DTaP+HepB+IPV)",
+      "Pentacel (DTaP+IPV+Hib)",
+      "Quadracel (DTaP+IPV, 4–6y only)",
+      "Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)",
+    ],
+    "s": [
+      "Daptacel (DTaP only)",
+      "Infanrix (DTaP only)",
+    ],
+  },
+  "Flu": {
+    "c": [],
+    "s": [
+      "Flucelvax Quadrivalent (ccIIV4, egg-free)",
+      "FluMist Quadrivalent (LAIV4, ≥2y healthy)",
+      "IIV4 (any age-appropriate inactivated)",
+    ],
+  },
+  "HPV": {
+    "c": [],
+    "s": [
+      "Gardasil 9 (HPV, 9-valent)",
+    ],
+  },
+  "HepA": {
+    "c": [
+      "Twinrix (HepA+HepB, ≥18y)",
+    ],
+    "s": [
+      "Havrix (HepA only)",
+      "Vaqta (HepA only)",
+    ],
+  },
+  "HepB": {
+    "c": [
+      "Pediarix (DTaP+HepB+IPV)",
+      "Vaxelis (DTaP+IPV+Hib+HepB)",
+      "Twinrix (HepA+HepB, ≥18y)",
+    ],
+    "s": [
+      "Engerix-B",
+      "Recombivax HB",
+      "Heplisav-B (≥18y, 2-dose)",
+    ],
+  },
+  "Hib": {
+    "c": [
+      "Pentacel (DTaP+IPV+Hib, Hib=PRP-T)",
+      "Vaxelis (DTaP+IPV+Hib+HepB, Hib=PRP-OMP, doses 1–3 only — NOT booster)",
+    ],
+    "s": [
+      "ActHIB (PRP-T)",
+      "Hiberix (PRP-T)",
+      "PedvaxHIB (PRP-OMP)",
+    ],
+  },
+  "IPV": {
+    "c": [
+      "Kinrix (DTaP+IPV, 4–6y only)",
+      "Pediarix (DTaP+HepB+IPV)",
+      "Pentacel (DTaP+IPV+Hib)",
+      "Quadracel (DTaP+IPV, 4–6y only)",
+      "Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)",
+    ],
+    "s": [
+      "IPOL (IPV only)",
+    ],
+  },
+  "MMR": {
+    "c": [
+      "ProQuad (MMR+VAR/MMRV, 12m–12y)",
+    ],
+    "s": [
+      "M-M-R II (MMR only)",
+      "Priorix (MMR only)",
+    ],
+  },
+  "MenACWY": {
+    "c": [
+      "Penbraya (MenACWY+MenB-FHbp, ≥10y)",
+      "Penmenvy (MenACWY+MenB-4C, ≥10y)",
+    ],
+    "s": [
+      "Menveo 2-vial (MenACWY-CRM, ≥2m)",
+      "Menveo 1-vial (≥10y) (MenACWY-CRM)",
+      "MenQuadfi (MenACWY-TT, ≥2y)",
+    ],
+  },
+  "MenB": {
+    "c": [
+      "Penbraya (MenACWY+MenB-FHbp, ≥10y)",
+      "Penmenvy (MenACWY+MenB-4C, ≥10y)",
+    ],
+    "lock": true,
+    "s": [
+      "Bexsero (MenB-4C)",
+      "Trumenba (MenB-FHbp)",
+    ],
+  },
+  "PCV": {
+    "c": [],
+    "s": [
+      "Prevnar 20 (PCV20) — preferred, covers 20 serotypes",
+      "Capvaxive (PCV21) — ≥18y only; no PPSV23 needed; lacks serotype 4",
+      "Vaxneuvance (PCV15) — if used, add PPSV23 ≥8 weeks later for high-risk",
+      "Prevnar 13 (PCV13) — use only if PCV20/PCV15 unavailable or specific indication",
+      "Prevnar 7 (PCV7) — historical/discontinued; doses do not count toward the series",
+    ],
+  },
+  "PPSV23": {
+    "c": [],
+    "s": [
+      "Pneumovax 23 (PPSV23) — high-risk ≥2y after PCV series; NOT for routine infant schedule",
+    ],
+  },
+  "RSV": {
+    "c": [],
+    "s": [
+      "Beyfortus (nirsevimab, 50mg <5kg / 100mg ≥5kg)",
+      "Abrysvo (RSVpreF, maternal vaccine, 32–36w gestation)",
+    ],
+  },
+  "RV": {
+    "c": [],
+    "s": [
+      "Rotarix (RV1 – 2 doses)",
+      "RotaTeq (RV5 – 3 doses)",
+    ],
+  },
+  "Td": {
+    "c": [],
+    "s": [
+      "Tenivac (Td, ≥7y)",
+      "Decavac (Td, ≥7y)",
+      "Td (generic, ≥7y)",
+    ],
+  },
+  "Tdap": {
+    "c": [],
+    "s": [
+      "Adacel (Tdap, ≥7y)",
+      "Boostrix (Tdap, ≥10y)",
+    ],
+  },
+  "VAR": {
+    "c": [
+      "ProQuad (MMR+VAR/MMRV, 12m–12y)",
+    ],
+    "s": [
+      "Varivax (VAR only)",
+    ],
+  },
+}
+`;
+
+exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > VBR list order is preserved exactly 1`] = `
+{
+  "COVID": {
+    "c": [],
+    "s": [
+      "Comirnaty (COVID-19, ≥5y)",
+      "mNexspike (COVID-19, ≥12y)",
+      "Nuvaxovid (COVID-19, ≥12y, protein subunit)",
+      "Spikevax (COVID-19, ≥6mo)",
+    ],
+  },
+  "DTaP": {
+    "c": [
+      "Kinrix (DTaP+IPV, 4–6y only)",
+      "Pediarix (DTaP+HepB+IPV)",
+      "Pentacel (DTaP+IPV+Hib)",
+      "Quadracel (DTaP+IPV, 4–6y only)",
+      "Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)",
+    ],
+    "s": [
+      "Daptacel (DTaP only)",
+      "Infanrix (DTaP only)",
+    ],
+  },
+  "Flu": {
+    "c": [],
+    "s": [
+      "Flucelvax Quadrivalent (ccIIV4, egg-free)",
+      "FluMist Quadrivalent (LAIV4, ≥2y healthy)",
+      "IIV4 (any age-appropriate inactivated)",
+    ],
+  },
+  "HPV": {
+    "c": [],
+    "s": [
+      "Gardasil 9 (HPV, 9-valent)",
+    ],
+  },
+  "HepA": {
+    "c": [
+      "Twinrix (HepA+HepB, ≥18y)",
+    ],
+    "s": [
+      "Havrix (HepA only)",
+      "Vaqta (HepA only)",
+    ],
+  },
+  "HepB": {
+    "c": [
+      "Pediarix (DTaP+HepB+IPV)",
+      "Vaxelis (DTaP+IPV+Hib+HepB)",
+      "Twinrix (HepA+HepB, ≥18y)",
+    ],
+    "s": [
+      "Engerix-B",
+      "Recombivax HB",
+      "Heplisav-B (≥18y, 2-dose)",
+    ],
+  },
+  "Hib": {
+    "c": [
+      "Pentacel (DTaP+IPV+Hib, Hib=PRP-T)",
+      "Vaxelis (DTaP+IPV+Hib+HepB, Hib=PRP-OMP, doses 1–3 only — NOT booster)",
+    ],
+    "s": [
+      "ActHIB (PRP-T)",
+      "Hiberix (PRP-T)",
+      "PedvaxHIB (PRP-OMP)",
+    ],
+  },
+  "IPV": {
+    "c": [
+      "Kinrix (DTaP+IPV, 4–6y only)",
+      "Pediarix (DTaP+HepB+IPV)",
+      "Pentacel (DTaP+IPV+Hib)",
+      "Quadracel (DTaP+IPV, 4–6y only)",
+      "Vaxelis (DTaP+IPV+Hib+HepB, doses 1–3 only)",
+    ],
+    "s": [
+      "IPOL (IPV only)",
+    ],
+  },
+  "MMR": {
+    "c": [
+      "ProQuad (MMR+VAR/MMRV, 12m–12y)",
+    ],
+    "s": [
+      "M-M-R II (MMR only)",
+      "Priorix (MMR only)",
+    ],
+  },
+  "MenACWY": {
+    "c": [
+      "Penbraya (MenACWY+MenB-FHbp, ≥10y)",
+      "Penmenvy (MenACWY+MenB-4C, ≥10y)",
+    ],
+    "s": [
+      "Menveo 2-vial (MenACWY-CRM, ≥2m)",
+      "Menveo 1-vial (≥10y) (MenACWY-CRM)",
+      "MenQuadfi (MenACWY-TT, ≥2y)",
+    ],
+  },
+  "MenB": {
+    "c": [
+      "Penbraya (MenACWY+MenB-FHbp, ≥10y)",
+      "Penmenvy (MenACWY+MenB-4C, ≥10y)",
+    ],
+    "s": [
+      "Bexsero (MenB-4C)",
+      "Trumenba (MenB-FHbp)",
+    ],
+  },
+  "PCV": {
+    "c": [],
+    "s": [
+      "Prevnar 20 (PCV20) — preferred, covers 20 serotypes",
+      "Capvaxive (PCV21) — ≥18y only; no PPSV23 needed; lacks serotype 4",
+      "Vaxneuvance (PCV15) — if used, add PPSV23 ≥8 weeks later for high-risk",
+      "Prevnar 13 (PCV13) — use only if PCV20/PCV15 unavailable or specific indication",
+      "Prevnar 7 (PCV7) — historical/discontinued; doses do not count toward the series",
+    ],
+  },
+  "PPSV23": {
+    "c": [],
+    "s": [
+      "Pneumovax 23 (PPSV23) — high-risk ≥2y after PCV series; NOT for routine infant schedule",
+    ],
+  },
+  "RSV": {
+    "c": [],
+    "s": [
+      "Beyfortus (nirsevimab, 50mg <5kg / 100mg ≥5kg)",
+      "Abrysvo (RSVpreF, maternal vaccine, 32–36w gestation)",
+    ],
+  },
+  "RV": {
+    "c": [],
+    "s": [
+      "Rotarix (RV1 – 2 doses)",
+      "RotaTeq (RV5 – 3 doses)",
+    ],
+  },
+  "Td": {
+    "c": [],
+    "s": [
+      "Tenivac (Td, ≥7y)",
+      "Decavac (Td, ≥7y)",
+      "Td (generic, ≥7y)",
+    ],
+  },
+  "Tdap": {
+    "c": [],
+    "s": [
+      "Adacel (Tdap, ≥7y)",
+      "Boostrix (Tdap, ≥10y)",
+    ],
+  },
+  "VAR": {
+    "c": [
+      "ProQuad (MMR+VAR/MMRV, 12m–12y)",
+    ],
+    "s": [
+      "Varivax (VAR only)",
+    ],
+  },
+}
+`;
