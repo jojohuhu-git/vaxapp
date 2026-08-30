@@ -1,5 +1,9 @@
 # PediVax (vaxapp) — Handoff after Gap 2: shorthand vocabulary (2026-08-30)
 
+> **Superseded by [`handoff-2026-08-30-p2-brand-per-dose.md`](handoff-2026-08-30-p2-brand-per-dose.md)**
+> — P2 below is now shipped (PR #132). Gap 3 is still live; read the newer document for
+> the current queue and open decisions.
+
 Repo: `/Users/joannehuang/Downloads/vaxapp-main` · Live: https://jojohuhu-git.github.io/vaxapp/
 
 Branch: `main`, in sync with `origin/main` at commit `e9c56a2`. Baseline was 2089 passing;
