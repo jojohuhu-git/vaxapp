@@ -20,7 +20,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { act, render, fireEvent, cleanup } from '@testing-library/react';
 import { AppProvider, useApp } from '../../context/AppContext';
-import { ReviewModal } from '../HistoryImageImport';
+import HistoryImageImport, { ReviewModal } from '../HistoryImageImport';
 
 // Stub tesseract.js (pulled in transitively via HistoryImageImport default export)
 vi.mock('tesseract.js', () => ({
@@ -704,5 +704,82 @@ describe('ReviewModal — P2: brand kept per dose, not per vaccine', () => {
     });
     const hist = JSON.parse(document.querySelector('[data-testid="hist-probe-RV"]').textContent);
     expect(hist[0].brand).toBe('RotaTeq');
+  });
+});
+
+// ── Gap 3: paste/type entry point (no image required) ──────────────────────
+// A second entry point beside "+ Import from image…" that opens a plain
+// textarea, parses it through the same parseOcrText() the OCR path uses, and
+// feeds the result into the same ReviewModal — no Tesseract/image involved.
+describe('HistoryImageImport — Gap 3: type/paste entry point', () => {
+  afterEach(() => cleanup());
+
+  function HistProbe({ vk }) {
+    const { state } = useApp();
+    return <div data-testid={`hist-probe-${vk}`}>{JSON.stringify(state.hist[vk] || [])}</div>;
+  }
+
+  it('shows both entry buttons collapsed, and expands only the text box on click', () => {
+    render(<AppProvider><HistoryImageImport /></AppProvider>);
+    expect(document.querySelector('[data-testid="ocr-expand-row"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="ocr-text-expand-row"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="ocr-text-input"]')).toBeNull();
+    expect(document.querySelector('[data-testid="ocr-drop-zone"]')).toBeNull();
+
+    fireEvent.click(document.querySelector('[data-testid="ocr-text-expand-row"]'));
+
+    expect(document.querySelector('[data-testid="ocr-text-input"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="ocr-drop-zone"]')).toBeNull();
+  });
+
+  it('Review button stays disabled until text is entered', () => {
+    render(<AppProvider><HistoryImageImport /></AppProvider>);
+    fireEvent.click(document.querySelector('[data-testid="ocr-text-expand-row"]'));
+    const reviewBtn = document.querySelector('[data-testid="ocr-text-parse-btn"]');
+    expect(reviewBtn.disabled).toBe(true);
+
+    fireEvent.change(document.querySelector('[data-testid="ocr-text-input"]'), {
+      target: { value: 'DTaP 5/8/2019' },
+    });
+    expect(reviewBtn.disabled).toBe(false);
+  });
+
+  it('parses typed text through the same pipeline as OCR and imports the resulting doses', () => {
+    render(
+      <AppProvider>
+        <HistoryImageImport />
+        <HistProbe vk="DTaP" />
+        <HistProbe vk="MMR" />
+      </AppProvider>
+    );
+    fireEvent.click(document.querySelector('[data-testid="ocr-text-expand-row"]'));
+    fireEvent.change(document.querySelector('[data-testid="ocr-text-input"]'), {
+      target: { value: 'DTaP 5/8/2019\nMMR 5/8/2019' },
+    });
+    fireEvent.click(document.querySelector('[data-testid="ocr-text-parse-btn"]'));
+
+    // Same review modal as the OCR path, seeded with the typed text as raw text
+    const modal = document.querySelector('[data-testid="ocr-review-modal"]');
+    expect(modal).not.toBeNull();
+    expect(document.querySelector('[data-testid="ocr-raw-textarea"]').value).toContain('5/8/2019');
+
+    fireEvent.click(document.querySelector('[data-testid="ocr-confirm-btn"]'));
+
+    const dtap = JSON.parse(document.querySelector('[data-testid="hist-probe-DTaP"]').textContent);
+    const mmr = JSON.parse(document.querySelector('[data-testid="hist-probe-MMR"]').textContent);
+    expect(dtap.some(d => d.date === '2019-05-08')).toBe(true);
+    expect(mmr.some(d => d.date === '2019-05-08')).toBe(true);
+  });
+
+  it('clears the textarea after a successful import, ready for the next entry', () => {
+    render(<AppProvider><HistoryImageImport /></AppProvider>);
+    fireEvent.click(document.querySelector('[data-testid="ocr-text-expand-row"]'));
+    fireEvent.change(document.querySelector('[data-testid="ocr-text-input"]'), {
+      target: { value: 'DTaP 5/8/2019' },
+    });
+    fireEvent.click(document.querySelector('[data-testid="ocr-text-parse-btn"]'));
+    fireEvent.click(document.querySelector('[data-testid="ocr-confirm-btn"]'));
+
+    expect(document.querySelector('[data-testid="ocr-text-input"]').value).toBe('');
   });
 });

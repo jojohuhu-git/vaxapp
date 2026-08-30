@@ -1,18 +1,22 @@
 /* eslint-disable react-refresh/only-export-components */
 /**
- * HistoryImageImport — drag-drop JPEG/PNG EMR screenshot OCR import.
+ * HistoryImageImport — drag-drop JPEG/PNG EMR screenshot OCR import, or type/paste a
+ * history directly.
  *
- * Supports single or multiple images (drag one or many, or click to select multiple).
- * Extracts (vk, date, brand?) pairs. Brand is inferred from product keywords in IIS
- * descriptions when unambiguous; otherwise left as "" (unknown).
+ * Two entry points, both feeding the same review pipeline:
+ *   - Image: supports single or multiple images (drag one or many, or click to select
+ *     multiple). Extracts (vk, date, brand?) pairs. Brand is inferred from product
+ *     keywords in IIS descriptions when unambiguous; otherwise left as "" (unknown).
+ *   - Text: a textarea for typing or pasting a history block, parsed with the same
+ *     parseOcrText() the OCR path uses — no image or Tesseract involved.
  *
  * Flow:
- *   1. User drops image(s) or clicks to select
- *   2. Tesseract.js runs OCR on each image sequentially, reusing one worker
- *   3. Per-image progress shown: "Processing image 2 of 3…"
- *   4. Parsed suggestion arrays merged + deduped across images
- *   5. Review modal: combined rows, editable raw OCR text (auto-applies on edit)
- *   6. Dispatch one VISIT_ADD per unique date (grouping multiple antigens)
+ *   1. User drops image(s)/clicks to select, or types/pastes text and clicks Review
+ *   2. (Image only) Tesseract.js runs OCR on each image sequentially, reusing one worker;
+ *      per-image progress shown: "Processing image 2 of 3…"
+ *   3. Parsed suggestion arrays merged + deduped across images (image path only)
+ *   4. Review modal: combined rows, editable raw OCR text (auto-applies on edit)
+ *   5. Dispatch one VISIT_ADD per unique date (grouping multiple antigens)
  */
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
@@ -1040,7 +1044,9 @@ export default function HistoryImageImport() {
   const [progress, setProgress] = useState(null);   // null | string | 'done' | 'error'
   const [errorMsg, setErrorMsg] = useState('');
   const [review, setReview] = useState(null);        // { rows, unrecognized, rawText } | null
-  const [expanded, setExpanded] = useState(false);
+  // 'image' | 'text' | null — which entry point (if any) is expanded
+  const [mode, setMode] = useState(null);
+  const [pastedText, setPastedText] = useState('');
   const fileInputRef = useRef(null);
 
   const runOcr = useCallback(async (files) => {
@@ -1139,6 +1145,13 @@ export default function HistoryImageImport() {
   function handleConfirm() {
     setReview(null);
     setProgress(null);
+    setPastedText('');
+  }
+
+  function parsePastedText() {
+    if (!pastedText.trim()) return;
+    const { rows, unrecognized } = parseOcrText(pastedText);
+    setReview({ rows, unrecognized, rawText: pastedText });
   }
 
   const progressText = () => {
@@ -1148,26 +1161,91 @@ export default function HistoryImageImport() {
     return progress;
   };
 
-  const showFull = expanded || progress !== null;
+  const showImage = mode === 'image' || progress !== null;
+  const showText = mode === 'text';
 
   return (
     <div style={{ marginBottom: 10 }}>
-      {!showFull && (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          data-testid="ocr-expand-row"
-          style={{
-            width: '100%', textAlign: 'left', background: 'transparent',
-            border: '1px dashed var(--gy5)', borderRadius: 'var(--rads)',
-            padding: '6px 10px', fontSize: 11, color: 'var(--gy3)', cursor: 'pointer',
-          }}
-        >
-          + Import from image…
-        </button>
+      {mode === null && progress === null && (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => setMode('image')}
+            data-testid="ocr-expand-row"
+            style={{
+              flex: 1, textAlign: 'left', background: 'transparent',
+              border: '1px dashed var(--gy5)', borderRadius: 'var(--rads)',
+              padding: '6px 10px', fontSize: 11, color: 'var(--gy3)', cursor: 'pointer',
+            }}
+          >
+            + Import from image…
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('text')}
+            data-testid="ocr-text-expand-row"
+            style={{
+              flex: 1, textAlign: 'left', background: 'transparent',
+              border: '1px dashed var(--gy5)', borderRadius: 'var(--rads)',
+              padding: '6px 10px', fontSize: 11, color: 'var(--gy3)', cursor: 'pointer',
+            }}
+          >
+            + Type or paste history…
+          </button>
+        </div>
       )}
 
-      {showFull && (
+      {showText && (
+        <>
+          <div style={{ fontSize: 10, color: 'var(--gy3)', marginBottom: 4 }}>
+            Type or paste a vaccine history — one dose per line, e.g. &ldquo;DTaP 5/8/2019&rdquo;. You&rsquo;ll be able to review and edit it on the next screen.
+          </div>
+          <textarea
+            data-testid="ocr-text-input"
+            value={pastedText}
+            onChange={e => setPastedText(e.target.value)}
+            rows={8}
+            placeholder={'DTaP 5/8/2019\nMMR 5/8/2019\nPCV13 5/8/2019'}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              fontFamily: 'monospace', fontSize: 10.5,
+              color: 'var(--gy2)', background: 'var(--gy6)',
+              border: '1px solid var(--gy5)',
+              borderRadius: 'var(--rads)',
+              padding: '8px 10px', resize: 'vertical',
+            }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <button
+              type="button"
+              data-testid="ocr-text-parse-btn"
+              onClick={parsePastedText}
+              disabled={!pastedText.trim()}
+              style={{
+                fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 'var(--rads)',
+                border: 'none',
+                background: pastedText.trim() ? 'var(--g)' : 'var(--gy5)',
+                color: pastedText.trim() ? '#fff' : 'var(--gy3)',
+                cursor: pastedText.trim() ? 'pointer' : 'default',
+              }}
+            >
+              Review
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode(null); setPastedText(''); }}
+              style={{
+                background: 'transparent', border: 'none', color: 'var(--gy3)',
+                fontSize: 10.5, cursor: 'pointer', padding: 0,
+              }}
+            >
+              ▲ Collapse
+            </button>
+          </div>
+        </>
+      )}
+
+      {showImage && (
         <>
           {/* Drop zone */}
           <div
@@ -1230,7 +1308,7 @@ export default function HistoryImageImport() {
           {progress === null && (
             <button
               type="button"
-              onClick={() => setExpanded(false)}
+              onClick={() => setMode(null)}
               style={{
                 background: 'transparent', border: 'none', color: 'var(--gy3)',
                 fontSize: 10.5, cursor: 'pointer', marginTop: 4, padding: 0,
