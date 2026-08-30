@@ -1,5 +1,9 @@
 # PediVax (vaxapp) — Handoff after Gap 4C: the brand registry (2026-08-30)
 
+> **Superseded by [`handoff-2026-08-30-gap2-shorthand-vocab.md`](handoff-2026-08-30-gap2-shorthand-vocab.md)**
+> — Gap 2 below is now shipped (PR #130). Gap 3 and the P2 item are still live; read the
+> newer document for the current queue and open decisions.
+
 Repo: `/Users/joannehuang/Downloads/vaxapp-main` · Live: https://jojohuhu-git.github.io/vaxapp/
 
 Branch: `main`, in sync with `origin/main` at commit `a639714`. Baseline was 2067 passing;
