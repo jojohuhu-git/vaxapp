@@ -200,7 +200,7 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
         if (!iso) continue;
         if (!byDate[iso]) { byDate[iso] = new Set(); brandByDate[iso] = {}; }
         byDate[iso].add(row.vk);
-        brandByDate[iso][row.vk] = row.brand || '';
+        brandByDate[iso][row.vk] = row.brandByDate?.[iso] || row.brand || '';
       }
     }
     const out = [];
@@ -260,8 +260,17 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
     setRows(prev => prev.map((r, i) => {
       if (i !== rowIdx) return r;
       const dates = [...r.dates];
+      const oldIso = dates[dateIdx];
       dates[dateIdx] = val;
-      return { ...r, dates };
+      // Carry the per-date brand along when the date value itself is edited,
+      // so renaming a date doesn't orphan the brand that was recorded for it.
+      let brandByDate = r.brandByDate;
+      if (brandByDate && oldIso !== val && oldIso in brandByDate) {
+        brandByDate = { ...brandByDate };
+        brandByDate[val] = brandByDate[oldIso];
+        delete brandByDate[oldIso];
+      }
+      return { ...r, dates, brandByDate };
     }));
   }
 
@@ -296,11 +305,17 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
           const dateSet = new Set([...r.dates, iso]);
           const sorted = [...dateSet].sort();
           const brand = addVaxBrand || r.brand;
-          return { ...r, dates: sorted, brand: brand || null };
+          const brandByDate = { ...(r.brandByDate || {}) };
+          if (addVaxBrand) brandByDate[iso] = addVaxBrand;
+          return { ...r, dates: sorted, brand: brand || null, brandByDate };
         });
       }
       // New row
-      return [...prev, { vk: addVaxVk, dates: [iso], brand: addVaxBrand || null, enabled: true }];
+      return [...prev, {
+        vk: addVaxVk, dates: [iso], brand: addVaxBrand || null,
+        brandByDate: addVaxBrand ? { [iso]: addVaxBrand } : {},
+        enabled: true,
+      }];
     });
     setShowAddVax(false);
     setAddVaxVk('');
@@ -320,10 +335,18 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
       const fresh = byVk[r.vk];
       if (!fresh) return r; // user-added vaccine not found in re-parse — keep as-is
       const dateSet = new Set([...r.dates, ...fresh.dates]);
+      // Per-date brand: the fresh re-parse wins for any date it has an
+      // opinion on (matches "brand from the latest parse wins" above); dates
+      // only the current row knows about (manually added) keep their brand.
+      const brandByDate = { ...(r.brandByDate || {}) };
+      for (const [iso, b] of Object.entries(fresh.brandByDate || {})) {
+        if (b !== null) brandByDate[iso] = b;
+      }
       return {
         ...r,
         dates: [...dateSet].sort(),
         brand: fresh.brand !== null ? fresh.brand : r.brand,
+        brandByDate,
       };
     });
     for (const fresh of newRows) {
@@ -371,13 +394,22 @@ export function ReviewModal({ rows: initialRows, unrecognized, rawText: initialR
       for (const iso of row.dates) {
         if (!iso) continue;
         if (!byDate[iso]) byDate[iso] = [];
-        byDate[iso].push({ vk: row.vk, brand: row.brand });
+        // P2: brandByDate is the real per-dose answer (e.g. Pentacel on one
+        // date, Infanrix on another) — row.brand is only a whole-row summary
+        // and is null whenever any two dates disagree, so it must never be
+        // used ahead of a known per-date value. Fall back to it only for
+        // dates brandByDate has no opinion on (manually added dates, or rows
+        // built before this field existed).
+        const perDateBrand = row.brandByDate?.[iso];
+        const brand = (perDateBrand !== undefined && perDateBrand !== null) ? perDateBrand : row.brand;
+        byDate[iso].push({ vk: row.vk, brand });
       }
     }
 
     // Dispatch one VISIT_ADD per date. Brand priority:
     //   1. Combo suggestion applied by user (comboBrands[date][vk])
-    //   2. Inferred brand from OCR (row.brand when non-null)
+    //   2. Inferred brand from OCR, specific to this date (row.brandByDate[date]),
+    //      falling back to the row-wide brand when this date has no opinion
     //   3. Empty string (unknown)
     const sortedDates = Object.keys(byDate).sort();
     for (const date of sortedDates) {
@@ -960,9 +992,14 @@ function mergeRows(rowArrays) {
     for (const row of rows) {
       if (!byVk[row.vk]) byVk[row.vk] = { dateMap: new Map(), brandAmbig: new Set() };
       const entry = byVk[row.vk];
-      const rowBrand = row.brand || null;
 
       for (const iso of row.dates) {
+        // P2: use THIS image's own per-date brand, not its whole-row summary
+        // — row.brand is already null whenever that single image's parse saw
+        // two disagreeing dates, which would throw away a real, known brand
+        // for this specific date before it ever reached the cross-image merge.
+        const perDateBrand = row.brandByDate?.[iso];
+        const rowBrand = (perDateBrand !== undefined && perDateBrand !== null) ? perDateBrand : (row.brand || null);
         if (!entry.dateMap.has(iso)) {
           entry.dateMap.set(iso, rowBrand);
         } else {
@@ -989,7 +1026,12 @@ function mergeRows(rowArrays) {
     const nonNull = brands.filter(b => b !== null);
     const uniqueBrands = [...new Set(nonNull)];
     const brand = uniqueBrands.length === 1 ? uniqueBrands[0] : null;
-    return { vk, dates, brand };
+    // P2: carry the real per-date answer forward too, so a later doImport()
+    // still sees each date's own brand instead of only this row-wide summary.
+    const brandByDate = Object.fromEntries(
+      dates.map(d => [d, brandAmbig.has(d) ? null : dateMap.get(d)])
+    );
+    return { vk, dates, brand, brandByDate };
   });
 }
 

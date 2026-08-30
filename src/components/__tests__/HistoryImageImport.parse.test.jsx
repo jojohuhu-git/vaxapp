@@ -234,6 +234,22 @@ describe('parseOcrText — full IIS fixture', () => {
     const flu = rows.find(r => r.vk === 'Flu');
     expect(flu.brand).toBeNull();
   });
+
+  // P2 (docs/archive/handoff-2026-08-30-gap2-shorthand-vocab.md): the row-level
+  // "brand" field above is a same-vaccine-wide summary, and correctly comes
+  // back null here because the three MenACWY lines disagree. But the record
+  // itself is NOT actually ambiguous — each date has its own unambiguous
+  // brand. Losing that per-date truth is exactly the P2 bug: a real dose that
+  // named Menveo, and a real dose that named MenQuadfi, must not both come
+  // back blank just because they're the same antigen.
+  it('MenACWY keeps each date\'s own brand in brandByDate, even though the row-level brand is null', () => {
+    const { rows } = parseOcrText(IIS_FIXTURE);
+    const men = rows.find(r => r.vk === 'MenACWY');
+    expect(men.brandByDate['2024-10-08']).toBe('Menveo');
+    expect(men.brandByDate['2025-07-21']).toBe('MenQuadfi');
+    // "Unspecified Formulation" carries no brand keyword — correctly null.
+    expect(men.brandByDate['2020-01-06'] ?? null).toBeNull();
+  });
 });
 
 // ── normalizeAntigen — OCR misread fallbacks ──────────────────────────────

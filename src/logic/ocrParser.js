@@ -477,10 +477,12 @@ function extractDates(s) {
 // ── OCR text parser ────────────────────────────────────────────────────────
 /**
  * Parse raw OCR text into:
- *   rows: [{ vk, dates: string[], brand: string|null }]
+ *   rows: [{ vk, dates: string[], brand: string|null, brandByDate: {[iso]: string|null} }]
  *          — deduplicated, sorted chronologically.
- *          brand is non-null only when the IIS line contains an unambiguous
- *          product keyword (e.g. "Pentavalent" → RotaTeq). null means unknown.
+ *          brand is non-null only when every date agrees on one unambiguous
+ *          product keyword (e.g. "Pentavalent" → RotaTeq) — a same-vaccine-wide
+ *          summary. brandByDate carries the real per-date answer (see the
+ *          P2 note below); use it, not brand, when importing individual doses.
  *   unrecognized: string[]   — lines that had dates but no antigen match
  *   comboExpansions: [{ combo, antigens, dates, addedAntigens, sourceLine }]
  *          — one entry per line that named a combination. `combo` is the
@@ -496,10 +498,17 @@ function extractDates(s) {
  * brands, both are dropped (ambiguous) and brand is set to null. A
  * combination written as an antigen list contributes no brand at all, since
  * the list names no single product.
+ *
+ * `brand` is a same-vaccine-wide SUMMARY only — it is null whenever any two
+ * lines disagree, even if that "disagreement" is really two different dates
+ * each correctly naming their own product (P2: e.g. "DTaP ... Pentacel" on
+ * one date and "DTaP ... Infanrix" on another are not ambiguous, they're two
+ * different true facts). `brandByDate` carries the real per-date answer and
+ * is what callers that actually import individual doses must use.
  */
 export function parseOcrText(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const byVk = {};          // vk → { dates: Set<ISO>, brand: string|null, brandAmbiguous: bool }
+  const byVk = {};          // vk → { dates: Set<ISO>, brand: string|null, brandAmbiguous: bool, brandByDate: Map<ISO, string|null> }
   const unrecognized = [];
   const comboExpansions = [];  // { combo, antigens, dates, addedAntigens, sourceLine }
 
@@ -510,17 +519,31 @@ export function parseOcrText(text) {
 
   function addDose(vk, dates, brand) {
     if (!byVk[vk]) {
-      byVk[vk] = { dates: new Set(), brand: null, brandAmbiguous: false };
+      byVk[vk] = { dates: new Set(), brand: null, brandAmbiguous: false, brandByDate: new Map() };
     }
     const entry = byVk[vk];
     for (const d of dates) entry.dates.add(d);
-    // Brand merge: null stays null; same brand stays; different brands → ambiguous
+    // Brand merge: null stays null; same brand stays; different brands → ambiguous.
+    // Two separate maps track two separate questions: entry.brand answers "is
+    // there ONE brand for the whole vaccine" (a summary, kept for callers that
+    // only want a quick display value); entry.brandByDate answers "what brand
+    // was THIS date given" (the ground truth doImport must use).
     if (brand !== null && brand !== undefined) {
       if (entry.brand === null && !entry.brandAmbiguous) {
         entry.brand = brand;
       } else if (entry.brand !== brand) {
         entry.brand = null;
         entry.brandAmbiguous = true;
+      }
+      for (const d of dates) {
+        const existing = entry.brandByDate.get(d);
+        if (existing === undefined) {
+          entry.brandByDate.set(d, brand);
+        } else if (existing !== null && existing !== brand) {
+          // Two DIFFERENT brands claimed for the same date — that's a real
+          // conflict, unlike two different brands on two different dates.
+          entry.brandByDate.set(d, null);
+        }
       }
     }
   }
@@ -582,10 +605,11 @@ export function parseOcrText(text) {
   }
 
   // Build final rows: sorted + deduped
-  const rows = Object.entries(byVk).map(([vk, { dates, brand }]) => ({
+  const rows = Object.entries(byVk).map(([vk, { dates, brand, brandByDate }]) => ({
     vk,
     dates: [...dates].sort(),
     brand: brand || null,
+    brandByDate: Object.fromEntries(brandByDate),
   }));
 
   return { rows, unrecognized, comboExpansions };
