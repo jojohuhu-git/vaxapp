@@ -72,6 +72,11 @@ const BRAND_MAP = [
   ['Comirnaty', 'COVID'], ['Spikevax', 'COVID'], ['Nuvaxovid', 'COVID'], ['mNexspike', 'COVID'],
 ];
 
+// Exposed for the brand-table characterization snapshot, which pins BRAND_MAP's
+// contents and order so the Gap 4C registry refactor can be proven not to have
+// changed what the importer recognizes. Not used by application code.
+export const __BRAND_MAP_FOR_TEST = BRAND_MAP;
+
 // ── Known abbreviations / lay terms → antigen ──────────────────────────────
 // Exact (non-fuzzy) synonyms that the strict ANTIGEN_MAP prefix match doesn't
 // cover because the wording differs from the CDC/CVX label text, not because
