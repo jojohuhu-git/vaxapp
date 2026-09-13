@@ -496,6 +496,7 @@ function substituteCombos(visit, dob, hist) {
     changed = false;
     let bestCombo = null;
     let bestCoverage = 0;
+    let bestIsUserPick = false;
     for (const [comboName, def] of Object.entries(COMBOS)) {
       // Age window
       if (ageMonthsAt < def.minM || ageMonthsAt > def.maxM) continue;
@@ -507,16 +508,29 @@ function substituteCombos(visit, dob, hist) {
       // Coverage subset check + collect items
       const coveredItems = [];
       let allPresent = true;
+      let conflictsWithUserPick = false;
       for (const ant of def.c) {
         const item = visit.items.find(it => it.vk === ant && !it._combo);
         if (!item) { allPresent = false; break; }
         if (!comboFitsDose(comboName, ant, item.doseNum)) { allPresent = false; break; }
+        // D16: the timeline follows the brand the user actually picked. If
+        // this antigen already carries a brand (routine or catch-up) that
+        // isn't this combo, this combo can't claim it — whether that brand
+        // is a rival combo or a standalone product.
+        if (item.brand && !item.brand.startsWith(comboName)) conflictsWithUserPick = true;
         coveredItems.push(item);
       }
-      if (!allPresent) continue;
-      if (coveredItems.length > bestCoverage) {
+      if (!allPresent || conflictsWithUserPick) continue;
+      const isUserPick = coveredItems.some(it => it.brand && it.brand.startsWith(comboName));
+      // A combo the user picked always outranks a merely higher-coverage
+      // one they didn't (D16); ties within the same tier go to coverage.
+      const better = isUserPick && !bestIsUserPick
+        ? true
+        : (isUserPick === bestIsUserPick && coveredItems.length > bestCoverage);
+      if (better) {
         bestCoverage = coveredItems.length;
         bestCombo = { name: comboName, def, coveredItems };
+        bestIsUserPick = isUserPick;
       }
     }
     if (bestCombo && bestCoverage >= 2) {
