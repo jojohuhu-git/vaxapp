@@ -41,3 +41,26 @@ describe('buildOptimalSchedule fewestInjections — honors the user\'s brand pic
     expect(dtapItem._combo).toBeFalsy();
   });
 });
+
+describe('summarizeComboUsage — S1f Fewest-shots header data', () => {
+  it('groups combo usage by name, with ages and injections saved', async () => {
+    const { summarizeComboUsage } = await import('../buildOptimalSchedule.js');
+    const dob = '2026-07-01';
+    const visits = [
+      { date: '2026-09-01', items: [{ _combo: true, comboName: 'Vaxelis', coveredDoses: [{}, {}, {}, {}] }] }, // 2m, 4 doses -> saved 3
+      { date: '2026-10-01', items: [{ _combo: true, comboName: 'Vaxelis', coveredDoses: [{}, {}, {}, {}] }] }, // 3m
+      { date: '2026-11-01', items: [{ _combo: true, comboName: 'Pentacel', coveredDoses: [{}, {}, {}] }] },    // 4m, 3 doses -> saved 2
+    ];
+    const groups = summarizeComboUsage(visits, dob);
+    expect(groups).toEqual([
+      { comboName: 'Vaxelis', ageMonths: [2, 3], savedInjections: 6 },
+      { comboName: 'Pentacel', ageMonths: [4], savedInjections: 2 },
+    ]);
+  });
+
+  it('returns an empty list when nothing was substituted', async () => {
+    const { summarizeComboUsage } = await import('../buildOptimalSchedule.js');
+    const groups = summarizeComboUsage([{ date: '2026-09-01', items: [{ vk: 'HepB' }] }], '2026-07-01');
+    expect(groups).toEqual([]);
+  });
+});

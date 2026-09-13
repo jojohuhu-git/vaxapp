@@ -12,7 +12,7 @@ import { validatedHistory, auditAll } from '../logic/validation';
 import { classifyDose } from '../logic/compliance';
 import { addD, todayISO } from '../logic/utils';
 import { humanDays, fmtAm } from '../logic/ageFormat';
-import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
+import { buildOptimalSchedule, summarizeComboUsage } from '../logic/buildOptimalSchedule';
 import { REFS } from '../data/refs';
 import PdfDownloadButton from './PdfDownloadButton';
 import { VisitCardShell, DoseRow, ComboDoseRow, PillLegend } from './VisitCard';
@@ -541,6 +541,23 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       optResult = buildOptimalSchedule(optPatient, state.fcBrands ?? {}, { today, mode: optView });
     } catch (e) {
       optError = e.message;
+    }
+  }
+
+  // S1f — Fewest-shots header suggestion (D16). Computed WITHOUT the owner's
+  // brand picks (fcBrands: {}), so it always names the combos that would
+  // minimize injections — independent of, and allowed to disagree with, the
+  // chosen-brand timeline in optResult above.
+  let comboUsage = [];
+  if (optView === 'fewestInjections') {
+    try {
+      const advisory = buildOptimalSchedule(optPatient, {}, { today, mode: 'fewestInjections' });
+      if (Array.isArray(advisory)) {
+        const optDob = optPatient.dob ?? addD(today, -Math.round(am * 30.4375));
+        comboUsage = summarizeComboUsage(advisory, optDob);
+      }
+    } catch {
+      comboUsage = [];
     }
   }
 
@@ -1273,6 +1290,22 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                 <div><div className="fct-opt-stat-num">{totalInj}</div><div className="fct-opt-stat-label">injections</div></div>
                 {lastDate && <div><div className="fct-opt-stat-date">{lastDate}</div><div className="fct-opt-stat-label">series complete</div></div>}
               </div>
+              {comboUsage.length > 0 && (
+                <div className="fct-opt-combo-suggestion">
+                  <span className="fct-opt-combo-suggestion-label">Suggestion — fewest shots overall:</span>{' '}
+                  {comboUsage.map((g, i) => (
+                    <span key={g.comboName}>
+                      {i > 0 && ' · '}
+                      {g.comboName} ({g.ageMonths.map(m => fmtAm(m)).join(', ')})
+                    </span>
+                  ))}
+                  {' — '}
+                  {comboUsage.length} combination product{comboUsage.length !== 1 ? 's' : ''}, saving{' '}
+                  {comboUsage.reduce((s, g) => s + g.savedInjections, 0)} injection
+                  {comboUsage.reduce((s, g) => s + g.savedInjections, 0) !== 1 ? 's' : ''} total.
+                  {' '}Your timeline below may differ if you picked other brands.
+                </div>
+              )}
               {/* "Download Schedule" for this optimized plan lives in the
                   Today's Visit action row above (same slot/label Routine
                   Schedule uses, though the underlying PDF is the optimizer's

@@ -554,5 +554,29 @@ function ageInMonths(dob, date) {
   return (_d(date) - _d(dob)) / (1000 * 60 * 60 * 24 * 30.4375);
 }
 
+// S1f — the Fewest-shots header summary. Walks a finished fewestInjections
+// schedule and lists which combo brands it actually used, at what ages, and
+// how many separate injections each one folded together. This is advisory
+// information ONLY (D16): it describes what the engine picked, independent
+// of the per-row brand dropdowns the owner sees in the timeline below.
+export function summarizeComboUsage(visits, dob) {
+  const groups = [];
+  const byName = new Map();
+  for (const visit of visits) {
+    for (const item of visit.items) {
+      if (!item._combo) continue;
+      let g = byName.get(item.comboName);
+      if (!g) {
+        g = { comboName: item.comboName, ageMonths: [], savedInjections: 0 };
+        byName.set(item.comboName, g);
+        groups.push(g);
+      }
+      g.ageMonths.push(Math.round(ageInMonths(dob, visit.date)));
+      g.savedInjections += item.coveredDoses.length - 1;
+    }
+  }
+  return groups;
+}
+
 // comboFitsDose is imported from brandRules.js — single source of truth.
 // Do NOT inline dose-range logic here; edit brandRules.COMBO_DOSE_GATES instead.
