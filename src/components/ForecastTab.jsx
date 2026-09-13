@@ -531,6 +531,21 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
     }
   }
 
+  // Total-injection counts for the view-toggle sub-labels (D2): computed for
+  // BOTH modes regardless of which is active, so each button can show its own
+  // count ("5 injections" / "8 injections"). Separate from optResult above —
+  // this never drives rendering of the schedule itself, only the toggle copy.
+  const toggleInjectionCount = (mode) => {
+    try {
+      const result = buildOptimalSchedule(optPatient, state.fcBrands ?? {}, { today, mode });
+      return Array.isArray(result) ? result.reduce((s, v) => s + v.items.length, 0) : null;
+    } catch {
+      return null;
+    }
+  };
+  const separateShotsCount = toggleInjectionCount('fewestVisits');
+  const fewestShotsCount = toggleInjectionCount('fewestInjections');
+
   const errCount = auditAll(state.hist, state.dob, state.risks, state.am)
     .filter(e => e.severity === "err").length;
 
@@ -943,11 +958,11 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         </div>
       )}
 
-      {/* ── VIEW TOGGLE ──────────────────────────────────────────── */}
+      {/* ── VIEW TOGGLE (D2) ─────────────────────────────────────── */}
       <div className="fct-view-toggle">
         {[
-          { id: null,               label: 'Routine Schedule',    subtitle: 'Standard CDC/ACIP well-child visit timeline' },
-          { id: 'fewestInjections', label: 'Fewest Injections',   subtitle: 'Substitutes combo brands to minimize total injections' },
+          { id: null,               label: 'Separate shots', count: separateShotsCount },
+          { id: 'fewestInjections', label: 'Fewest shots',   count: fewestShotsCount },
         ].map(v => (
           <button
             key={String(v.id)}
@@ -958,7 +973,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               {v.label}
             </span>
             <span className="fct-view-btn-sub">
-              {v.subtitle}
+              {v.count == null ? '' : `${v.count} injection${v.count === 1 ? '' : 's'}`}
             </span>
           </button>
         ))}
