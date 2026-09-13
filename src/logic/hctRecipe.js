@@ -130,14 +130,27 @@ export const HCT_RECIPE_GROUPS = [
       {
         vax: 'MenACWY',
         label: 'MenACWY',
-        plan: '2 doses.',
-        refs: ['hctVaccineSchedules2024'],
+        plan: 'Only if the patient is 11 through 18 years old, or any age from 2 months with '
+          + 'a high-risk condition (asplenia, persistent complement deficiency, or '
+          + 'eculizumab/ravulizumab): 2 doses, 2 months apart, given 6 to 12 months after '
+          + 'transplant. The transplant alone creates no booster schedule — a booster is due '
+          + 'only if the patient has an additional risk factor already covered by this app\'s '
+          + 'standing MenACWY guidance. Outside this group, transplant centers often '
+          + 'vaccinate more broadly and may choose to.',
+        refs: ['alteredImmunocompetence', 'ascoAdultCancer2024'],
       },
       {
         vax: 'MenB',
         label: 'MenB',
-        plan: '2 doses.',
-        refs: ['hctVaccineSchedules2024'],
+        plan: 'Only if the patient is 16 through 23 years old, or any age from 10 years with '
+          + 'a high-risk condition (asplenia, persistent complement deficiency, or '
+          + 'eculizumab/ravulizumab). No post-transplant timing is sourced beyond eligibility '
+          + '— use this app\'s standard age-based MenB dosing once transplant recovery '
+          + 'allows. The transplant alone creates no booster schedule — a booster is due '
+          + 'only if the patient has an additional risk factor already covered by this app\'s '
+          + 'standing MenB guidance. Outside this group, transplant centers often vaccinate '
+          + 'more broadly and may choose to.',
+        refs: ['alteredImmunocompetence', 'ascoAdultCancer2024'],
       },
       {
         vax: 'HPV',

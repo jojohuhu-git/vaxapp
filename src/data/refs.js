@@ -284,6 +284,11 @@ export const REFS = {
     label:"Vaccine schedule recommendations for patients post-HCT or CAR T-cell therapy (2024), summarizing IDSA 2013, ECIL-7 and national guidance",
     short:"Post-HCT vaccine schedules review (2024)"
   },
+  ascoAdultCancer2024: {
+    url:"https://ascopubs.org/doi/10.1200/JCO.24.00032",
+    label:"ASCO Guideline: Vaccination of Adults With Cancer (J Clin Oncol 2024)",
+    short:"ASCO Vaccination of Adults With Cancer (2024)"
+  },
   hctVaccineProtocol2024: {
     url:"https://pmc.ncbi.nlm.nih.gov/articles/PMC11680230/",
     label:"Vaccination After Haematopoietic Stem Cell Transplant: A Review of the Literature and Proposed Vaccination Protocol, Vaccines (Basel) 2024",

@@ -113,6 +113,53 @@ describe('owner scope decisions (2026-09-13) — must not regress', () => {
   });
 });
 
+describe('post-HSCT meningococcal rule (settled 2026-09-13 — CDC + ASCO)', () => {
+  const find = vax => allItems.find(i => i.vax === vax);
+  const highRiskWording = /asplenia.*complement deficiency.*eculizumab|ravulizumab/is;
+
+  it('MenACWY: states the 11-18 age band and the any-age high-risk limb', () => {
+    const item = find('MenACWY');
+    expect(item.plan).toMatch(/11.{0,3}(through|-|to).{0,3}18/);
+    expect(item.plan).toMatch(highRiskWording);
+  });
+
+  it('MenACWY: gives ASCO timing — 2 doses, 2 months apart, 6-12 months post-transplant', () => {
+    const item = find('MenACWY');
+    expect(item.plan).toMatch(/2 doses/);
+    expect(item.plan).toMatch(/2 months apart/);
+    expect(item.plan).toMatch(/6.{0,3}(to|-)?.{0,3}12 months after transplant/);
+  });
+
+  it('MenB: states the 16-23 age band and the any-age-from-10 high-risk limb', () => {
+    const item = find('MenB');
+    expect(item.plan).toMatch(/16.{0,3}(through|-|to).{0,3}23/);
+    expect(item.plan).toMatch(/10/);
+    expect(item.plan).toMatch(highRiskWording);
+  });
+
+  it('neither row invents a booster schedule from transplant alone', () => {
+    for (const vax of ['MenACWY', 'MenB']) {
+      const item = find(vax);
+      expect(item.plan).toMatch(/no booster|does not (create|generate)|transplant alone/i);
+    }
+  });
+
+  it('both rows nudge patients outside both limbs instead of a bare no', () => {
+    for (const vax of ['MenACWY', 'MenB']) {
+      const item = find(vax);
+      expect(item.plan).toMatch(/vaccinate more broadly/i);
+    }
+  });
+
+  it('drops the hctVaccineSchedules2024 citation (its IDSA-2013 MenB claim predates MenB licensure) and cites ASCO instead', () => {
+    for (const vax of ['MenACWY', 'MenB']) {
+      const item = find(vax);
+      expect(item.refs).not.toContain('hctVaccineSchedules2024');
+      expect(item.refs).toContain('ascoAdultCancer2024');
+    }
+  });
+});
+
 describe('pneumococcal parity with PneumoVax (immunize.org p3086 Table 5)', () => {
   it('quotes the same PCV20 schedule PneumoVax hsctAdvisory() encodes', () => {
     const pcv = allItems.find(i => i.vax === 'PCV');

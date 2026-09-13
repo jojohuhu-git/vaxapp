@@ -34,16 +34,18 @@ export default function HctRecipe() {
                   {item.plan}
                   {item.refs.length > 0 && (
                     <span className="hct-recipe-refs">
-                      {item.refs.map(id => (
-                        <a
-                          key={id}
-                          href={REFS[id].url}
-                          target="_blank"
-                          rel="noreferrer"
-                          title={REFS[id].label}
-                        >
-                          {REFS[id].short || REFS[id].label}
-                        </a>
+                      {item.refs.map((id, i) => (
+                        <span key={id}>
+                          {i > 0 && ' · '}
+                          <a
+                            href={REFS[id].url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={REFS[id].label}
+                          >
+                            {REFS[id].short || REFS[id].label}
+                          </a>
+                        </span>
                       ))}
                     </span>
                   )}
