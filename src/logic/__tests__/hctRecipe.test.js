@@ -123,6 +123,16 @@ describe('post-HSCT meningococcal rule (settled 2026-09-13 — CDC + ASCO)', () 
     expect(item.plan).toMatch(highRiskWording);
   });
 
+  it('MenACWY/MenB: minimum age is the real gate — no "Only if" framing that implies an upper-age exclusion from getting the vaccine at all', () => {
+    for (const vax of ['MenACWY', 'MenB']) {
+      const item = find(vax);
+      expect(item.plan).not.toMatch(/^Only if/);
+      expect(item.plan).toMatch(/Give from age/);
+    }
+    expect(find('MenACWY').plan).toMatch(/no upper age limit on administration/);
+    expect(find('MenB').plan).toMatch(/minimum licensed age/);
+  });
+
   it('MenACWY: gives ASCO timing — 2 doses, 2 months apart, 6-12 months post-transplant', () => {
     const item = find('MenACWY');
     expect(item.plan).toMatch(/2 doses/);

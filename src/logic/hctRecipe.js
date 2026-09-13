@@ -130,30 +130,36 @@ export const HCT_RECIPE_GROUPS = [
       {
         vax: 'MenACWY',
         label: 'MenACWY',
-        plan: 'Only if the patient is 11 through 18 years old, or any age from 2 months with '
-          + 'a high-risk condition (asplenia, persistent complement deficiency, or '
-          + 'eculizumab/ravulizumab): 2 doses, 2 months apart, given 6 to 12 months after '
-          + 'transplant. The transplant alone creates no booster schedule — a booster is due '
-          + 'only if the patient has an additional risk factor already covered by this app\'s '
-          + 'standing MenACWY guidance. Outside this group, transplant centers often '
-          + 'vaccinate more broadly and may choose to.',
+        plan: 'Give from age 2 months — MenACWY has no upper age limit on administration; '
+          + 'age and risk affect timing and boosters, not whether the vaccine can be given. '
+          + 'CDC and ASCO specifically source this post-transplant schedule for ages 11 '
+          + 'through 18, or any age with a high-risk condition (asplenia, persistent '
+          + 'complement deficiency, or eculizumab/ravulizumab): 2 doses, 2 months apart, '
+          + 'given 6 to 12 months after transplant. The transplant alone creates no booster '
+          + 'schedule — a booster is due only if the patient has an additional risk factor '
+          + 'already covered by this app\'s standing MenACWY guidance. Outside that sourced '
+          + 'population (roughly, adults without a high-risk condition), no source states a '
+          + 'transplant-specific timing, but the vaccine can still be given — transplant '
+          + 'centers often vaccinate more broadly and may choose to use the same schedule.',
         refs: ['alteredImmunocompetence', 'ascoAdultCancer2024'],
       },
       {
         vax: 'MenB',
         label: 'MenB',
-        plan: 'Only if the patient is 16 through 23 years old, or any age from 10 years with '
-          + 'a high-risk condition (asplenia, persistent complement deficiency, or '
-          + 'eculizumab/ravulizumab). No post-transplant timing is sourced beyond eligibility '
-          + '— use this app\'s standard age-based MenB dosing once transplant recovery '
-          + 'allows: 2 doses if the transplant is the only reason MenB applies; 3 doses '
-          + '(accelerated high-risk schedule) only if an additional MenB risk factor — '
-          + 'asplenia, complement deficiency, microbiologist exposure, or a serogroup B '
-          + 'outbreak — also applies. The transplant alone creates no booster schedule — a '
-          + 'booster is due only if the patient has an additional risk factor already '
-          + 'covered by this app\'s standing MenB guidance. Outside this group, transplant '
-          + 'centers often vaccinate '
-          + 'more broadly and may choose to.',
+        plan: 'Give from age 10 years — MenB\'s minimum licensed age. CDC and ASCO '
+          + 'specifically source this post-transplant indication for ages 16 through 23, or '
+          + 'any age from 10 years with a high-risk condition (asplenia, persistent '
+          + 'complement deficiency, or eculizumab/ravulizumab); age and risk affect dosing '
+          + 'and boosters, not whether the vaccine can be given. No post-transplant timing '
+          + 'is sourced beyond eligibility — use this app\'s standard age-based MenB dosing '
+          + 'once transplant recovery allows: 2 doses if the transplant is the only reason '
+          + 'MenB applies; 3 doses (accelerated high-risk schedule) only if an additional '
+          + 'MenB risk factor — asplenia, complement deficiency, microbiologist exposure, or '
+          + 'a serogroup B outbreak — also applies. The transplant alone creates no booster '
+          + 'schedule — a booster is due only if the patient has an additional risk factor '
+          + 'already covered by this app\'s standing MenB guidance. Outside that sourced '
+          + 'population, no source states a transplant-specific indication, but transplant '
+          + 'centers often vaccinate more broadly and may choose to.',
         refs: ['alteredImmunocompetence', 'ascoAdultCancer2024'],
       },
       {
