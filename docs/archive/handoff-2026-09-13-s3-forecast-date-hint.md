@@ -1,3 +1,7 @@
+> **STATUS (2026-09-13): SUPERSEDED.** Continue from
+> [`handoff-2026-09-13-s4-pdf-merge.md`](handoff-2026-09-13-s4-pdf-merge.md), not this
+> file. S4 (the PDF merge) has shipped since this was written.
+
 # vaxapp (PediVax) — Handoff after S3 (2026-09-13)
 
 Repo: `/Users/joannehuang/Downloads/vaxapp-main` · Live: <https://jojohuhu-git.github.io/vaxapp/>
