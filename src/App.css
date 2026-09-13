@@ -249,6 +249,25 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .hard-stop-banner-refs{font-size:11px;color:var(--gy2);}
 .hard-stop-banner-refs a{color:var(--r);text-decoration:underline;}
 
+/* POST-HSCT RE-VACCINATION PLAN (backlog B-9) — advisory only, no dates */
+.hct-recipe{background:var(--wh);border:1px solid var(--gy5);border-radius:var(--rad);padding:14px 16px;margin-bottom:12px;}
+.hct-recipe-title{font-size:14px;font-weight:700;color:var(--gy);margin:0 0 8px 0;}
+.hct-recipe-restart{font-size:13px;font-weight:600;color:var(--gy);margin:0 0 6px 0;line-height:1.5;}
+.hct-recipe-note{font-size:12px;color:var(--gy2);margin:0 0 6px 0;line-height:1.5;}
+.hct-recipe-group{margin-top:14px;}
+.hct-recipe-when{font-size:12px;font-weight:700;color:var(--gy2);text-transform:uppercase;letter-spacing:.03em;margin:0 0 6px 0;padding-bottom:4px;border-bottom:1px solid var(--gy5);}
+.hct-recipe-list{margin:0;}
+.hct-recipe-row{display:grid;grid-template-columns:150px 1fr;gap:8px;padding:6px 0;border-bottom:1px solid var(--gy6);}
+.hct-recipe-row:last-child{border-bottom:none;}
+.hct-recipe-vax{font-size:13px;font-weight:600;color:var(--gy);}
+.hct-recipe-plan{font-size:13px;color:var(--gy);margin:0;line-height:1.5;}
+.hct-recipe-refs{display:block;font-size:11px;color:var(--gy2);margin-top:3px;}
+.hct-recipe-refs a{color:var(--gy2);text-decoration:underline;}
+.hct-recipe-coordinate{font-size:13px;font-weight:600;color:var(--gy);margin:0 0 10px 0;padding-bottom:10px;border-bottom:1px solid var(--gy5);line-height:1.5;}
+@media (max-width:600px){
+  .hct-recipe-row{grid-template-columns:1fr;gap:2px;}
+}
+
 /* TODAY PANEL */
 .today-panel{background:var(--wh);border-radius:var(--rad);border:1px solid var(--gy5);border-left:5px solid var(--g);margin-bottom:12px;box-shadow:var(--sh);overflow:hidden;}
 .today-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:var(--glt);border-bottom:1px solid var(--gy5);gap:10px;flex-wrap:wrap;}

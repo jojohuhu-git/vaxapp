@@ -109,12 +109,15 @@ Each item has enough context to implement later. When you pick one up, follow th
 
 ## HCT/CAR-T/B-cell hard-stop follow-up (added 2026-09-13)
 
-### B-9. A full sourced HCT recipe for vaxapp, covering all its vaccines
+### B-9. A full sourced HCT recipe for vaxapp, covering all its vaccines — DONE (2026-09-13)
 
-**Today:** Step 1 of the hard stop (`src/logic/hardStop.js`) covers CAR-T therapy, B-cell malignancy, and B-cell-depleting therapy only. HSCT keeps its existing thin, PCV/Hib-only advisory in `recommendations.js` for now. Step 2 (not yet built) flips HSCT over to the same hard stop and deletes that old advisory — which is more honest than the current partial coverage, but still means vaxapp gives HSCT patients no vaccine-specific guidance at all, unlike PneumoVax and MeningoVax, which each have a sourced step-by-step post-transplant recipe for their one vaccine family.
+**Shipped:** `src/logic/hctRecipe.js` + `src/components/HctRecipe.jsx` render a sourced post-transplant re-vaccination plan under the hard-stop banner whenever HSCT is the reason for the stop. It covers all 18 `VAX_KEYS` (Td and Tdap share the DTaP row), with a per-row citation, and a coverage test fails if a future vaccine is added to the app without being given a post-transplant line.
 
-**Wanted:** A full sourced HCT "recipe" for vaxapp covering all ~10 of its vaccine families (not just pneumococcal/Hib), in the same relative-timing style PneumoVax's `hsctAdvisory()` and MeningoVax's planned `hctAdvisory()` use (see `project_hsct_no_date_design` memory — no transplant-date input, timing expressed relative to transplant).
+**Scope, as decided by the owner on 2026-09-13:**
+- Advisory only. No transplant-date input, no calendar due-dates. Today's Visit, the forecast and the clinician PDF stay switched off for these patients; the Compliance Audit tab keeps working as before.
+- Live vaccines (MMR, varicella) carry no timing at all — they read "your transplant team decides", even though CDC publishes a citable 24-month rule. The owner chose the conservative option.
+- Chronic GVHD is deliberately not modeled anywhere, and a test asserts the string never appears.
+- Hepatitis A and RSV carry no recommendation: hepatitis A timing depends on serology the app cannot see, and no HCT-specific guidance exists for infant RSV prevention.
+- CAR-T, B-cell malignancy and B-cell-depleting therapy keep the bare stop. A patient carrying HSCT *plus* one of those also gets the bare stop, rather than a plan that ignores half their history.
 
-**Why this is separate, not part of Step 1 or Step 2:** sequencing a recipe across ~8-10 vaccine families, and propagating it across all five of vaxapp's output surfaces (see `docs/agent/five-surface-verification.md`), is a real scoping problem on its own. Confirmed wanted by the owner (2026-09-12), explicitly deferred both times the hard-stop work has been scoped.
-
-**Where the detail lives:** `docs/archive/handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md` and its predecessor `handoff-2026-09-12-vaxapp-hct-hardstop-design.md`.
+**Where the detail lives:** `docs/archive/handoff-2026-09-13-vaxapp-hct-recipe-design.md` (sourcing and verbatim quotes), preceded by `handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md` and `handoff-2026-09-12-vaxapp-hct-hardstop-design.md`.

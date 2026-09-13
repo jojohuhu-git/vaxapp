@@ -72,10 +72,54 @@ describe('Immunization Schedule tab — hard stop', () => {
     expect(queryByText('This tool does not apply to this patient')).toBeNull();
   });
 
-  it('shows the stop banner for hsct too (Step 2: hsct joined the stop)', () => {
+  it('stops for hsct, but with the transplant-specific heading (B-9)', () => {
     const { getByText, queryByText } = renderApp({ risks: ['hsct'], tab: 'forecast' });
-    expect(getByText('This tool does not apply to this patient')).toBeTruthy();
+    expect(getByText('Standard schedule does not apply after transplant')).toBeTruthy();
     expect(queryByText("Today's Visit")).toBeNull();
+    // The generic dead-end wording is no longer accurate once a plan is shown.
+    expect(queryByText('This tool does not apply to this patient')).toBeNull();
+  });
+});
+
+describe('Post-HSCT re-vaccination plan (B-9)', () => {
+  it('renders the plan for hsct, with the restart warning and a timing group', () => {
+    const { getByText, queryByText } = renderApp({ risks: ['hsct'], tab: 'forecast' });
+    expect(getByText('Post-transplant re-vaccination plan')).toBeTruthy();
+    expect(queryByText(/Vaccine doses given before the transplant no longer count/)).toBeTruthy();
+    expect(getByText('From 3 to 6 months after transplant')).toBeTruthy();
+    expect(getByText('Your transplant team decides — this tool gives no timing')).toBeTruthy();
+  });
+
+  it('shows the pneumococcal row with its PCV20 schedule', () => {
+    const { queryByText } = renderApp({ risks: ['hsct'], tab: 'forecast' });
+    expect(queryByText(/4 doses of PCV20, beginning 3 to 6 months after transplant/)).toBeTruthy();
+  });
+
+  it('opens with the transplant/ID team disclaimer, above the plan itself', () => {
+    const { container } = renderApp({ risks: ['hsct'], tab: 'forecast' });
+    const disclaimer = container.querySelector('.hct-recipe-coordinate');
+    expect(disclaimer.textContent).toMatch(/Coordinate with the transplant\/ID team/);
+    // It has to lead the section, not trail it.
+    const firstGroup = container.querySelector('.hct-recipe-group');
+    expect(disclaimer.compareDocumentPosition(firstGroup) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
+  });
+
+  it('does NOT render the plan for car_t — that stays a bare stop', () => {
+    const { queryByText } = renderApp({ risks: ['car_t'], tab: 'forecast' });
+    expect(queryByText('Post-transplant re-vaccination plan')).toBeNull();
+    expect(queryByText('This tool does not apply to this patient')).toBeTruthy();
+  });
+
+  it('falls back to the bare stop when hsct is combined with car_t', () => {
+    const { queryByText } = renderApp({ risks: ['hsct', 'car_t'], tab: 'forecast' });
+    expect(queryByText('Post-transplant re-vaccination plan')).toBeNull();
+    expect(queryByText('This tool does not apply to this patient')).toBeTruthy();
+  });
+
+  it('renders no plan at all when no stop risk is selected', () => {
+    const { queryByText } = renderApp({ risks: [], tab: 'forecast' });
+    expect(queryByText('Post-transplant re-vaccination plan')).toBeNull();
   });
 });
 
