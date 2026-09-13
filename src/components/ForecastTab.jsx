@@ -1297,11 +1297,6 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           const optDob = optPatient.dob ?? addD(today, -Math.round(am * 30.4375));
           return (
             <div>
-              <div className="fct-opt-stats">
-                <div><div className="fct-opt-stat-num">{optResult.length}</div><div className="fct-opt-stat-label">visits</div></div>
-                <div><div className="fct-opt-stat-num">{totalInj}</div><div className="fct-opt-stat-label">injections</div></div>
-                {lastDate && <div><div className="fct-opt-stat-date">{lastDate}</div><div className="fct-opt-stat-label">series complete</div></div>}
-              </div>
               {comboUsage.length > 0 && (
                 <div className="fct-opt-combo-suggestion">
                   <span className="fct-opt-combo-suggestion-label">Suggestion — fewest shots overall:</span>{' '}
@@ -1318,6 +1313,11 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                   {' '}Your timeline below may differ if you picked other brands.
                 </div>
               )}
+              <div className="fct-opt-stats">
+                <div><div className="fct-opt-stat-num">{optResult.length}</div><div className="fct-opt-stat-label">visits</div></div>
+                <div><div className="fct-opt-stat-num">{totalInj}</div><div className="fct-opt-stat-label">injections</div></div>
+                {lastDate && <div><div className="fct-opt-stat-date">{lastDate}</div><div className="fct-opt-stat-label">series complete</div></div>}
+              </div>
               {/* "Download Schedule" for this optimized plan lives in the
                   Today's Visit action row above (same slot/label Routine
                   Schedule uses, though the underlying PDF is the optimizer's
