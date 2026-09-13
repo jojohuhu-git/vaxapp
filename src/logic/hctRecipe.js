@@ -58,6 +58,14 @@ export const HCT_RECIPE_COORDINATE =
   'Coordinate with the transplant team. Your center\'s own post-transplant protocol takes '
   + 'precedence over this page.';
 
+/**
+ * Used verbatim by the rows where the app deliberately states no timing. Shared
+ * so the wording — which matches PneumoVax's post-HSCT coordination line — can't
+ * drift apart row by row.
+ */
+export const HCT_DEFER_TO_TEAM =
+  'Coordinate with the transplant/ID team — your center may use its own post-HCT protocol.';
+
 export const HCT_RECIPE_TRANSPLANT_TYPE =
   'Recipients of an allogeneic transplant generally sit at the later end of each range '
   + 'below; autologous recipients at the earlier end.';
@@ -161,16 +169,14 @@ export const HCT_RECIPE_GROUPS = [
       {
         vax: 'HepA',
         label: 'Hepatitis A',
-        plan: 'Coordinate with the transplant/ID team — your center may use its own '
-          + 'post-HCT protocol. Hepatitis A serology is recommended 6 months after '
+        plan: HCT_DEFER_TO_TEAM + ' Hepatitis A serology is recommended 6 months after '
           + 'transplant; a patient with negative serology may then be vaccinated.',
         refs: ['hctVaccineProtocol2024'],
       },
       {
         vax: 'RSV',
         label: 'RSV (monoclonal antibody)',
-        plan: 'No transplant-specific guidance exists for infant RSV prevention. Follow '
-          + 'your institution.',
+        plan: HCT_DEFER_TO_TEAM,
         refs: [],
       },
       {

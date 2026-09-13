@@ -12,6 +12,7 @@ import {
   HCT_RECIPE_GROUPS,
   HCT_RECIPE_RESTART,
   HCT_RECIPE_NO_DATES,
+  HCT_DEFER_TO_TEAM,
 } from '../hctRecipe.js';
 import { VAX_KEYS } from '../../data/vaccineData.js';
 import { REFS } from '../../data/refs.js';
@@ -86,8 +87,8 @@ describe('owner scope decisions (2026-09-13) — must not regress', () => {
   });
 
   it('makes no hepatitis A or RSV recommendation', () => {
-    expect(find('HepA').plan).toMatch(/Coordinate with the transplant\/ID team/);
-    expect(find('RSV').plan).toMatch(/Follow your institution/);
+    expect(find('HepA').plan).toContain(HCT_DEFER_TO_TEAM);
+    expect(find('RSV').plan).toBe(HCT_DEFER_TO_TEAM);
   });
 
   it('never mentions GVHD anywhere in the plan', () => {
