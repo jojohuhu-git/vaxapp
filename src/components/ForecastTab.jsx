@@ -606,6 +606,21 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
   // catch-up. See applyScheduledEarly in forecastLogic for the merge semantics.
   const visits = applyScheduledEarly(baseWithSynth, scheduledEarliest);
 
+  // Plan keys for every catch-up row, grouped by vaccine, so a brand chosen at
+  // one visit can be carried forward onto them. Routine rows are keyed
+  // "{months}_{vk}" and the reducer can derive those from FORECAST_VISITS on
+  // its own; catch-up rows are keyed "cu{age}_{vk}" and exist only in this
+  // patient's computed plan, so the reducer has no way to find them unless we
+  // hand them over. Without this, a behind-schedule child's later visits never
+  // inherit the brand and every future brand box stays empty.
+  const futureCatchupKeys = {};
+  for (const v of visits) {
+    if (!v.isCatchup || !v.catchupDoseKeys) continue;
+    for (const [cuVk, cuKey] of Object.entries(v.catchupDoseKeys)) {
+      (futureCatchupKeys[cuVk] ||= []).push({ m: v.m, key: cuKey });
+    }
+  }
+
   // Exclude scheduled-early rows from the past count (they're always shown).
   const pastCount = visits.filter(v => v.m < am && !v.isScheduledEarly).length;
 
@@ -721,7 +736,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           anyBrand: isAnyBrandVk(vk, bOpts),
           onBrandChange: (e) => dispatch({
             type: "FC_BRAND_CHANGE",
-            payload: { visitM: info.visitM, vk, brandName: e.target.value, fcKey: visit.earlyFcKey },
+            payload: { visitM: info.visitM, vk, brandName: e.target.value, fcKey: visit.earlyFcKey, futureCatchupKeys },
           }),
         });
         continue;
@@ -776,7 +791,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           anyBrand: isAnyBrandVk(vk, bOpts3),
           onBrandChange: (e) => dispatch({
             type: "FC_BRAND_CHANGE",
-            payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey },
+            payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey, futureCatchupKeys },
           }),
           isMoved: true,
           onRevertClick: () => setScheduledEarliest(prev => { const n = new Map(prev); n.delete(fcKey); return n; }),
@@ -823,7 +838,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       const comboSelected = !!(displayBrandKey && COMBO_RATIONALE[displayBrandKey]);
       const onBrandChange = (e) => dispatch({
         type: "FC_BRAND_CHANGE",
-        payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey, siblingFcKeys: visit.isCatchup ? visit.catchupDoseKeys : undefined },
+        payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey, siblingFcKeys: visit.isCatchup ? visit.catchupDoseKeys : undefined, futureCatchupKeys },
       });
 
       if (isCurr) {
@@ -1094,9 +1109,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                           onClick={() => {
                             if (isActive) {
                               const anchorVk = bo.dueCovered.find(vk => state.fcBrands[`${am}_${vk}`]);
-                              if (anchorVk) dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: am, vk: anchorVk, brandName: "" } });
+                              if (anchorVk) dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: am, vk: anchorVk, brandName: "", futureCatchupKeys } });
                             } else {
-                              dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: am, vk: bo.dueCovered[0], brandName: bo.label } });
+                              dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: am, vk: bo.dueCovered[0], brandName: bo.label, futureCatchupKeys } });
                             }
                           }}
                         >
@@ -1156,7 +1171,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                               value={displayBrand}
                               onChange={e => dispatch({
                                 type: "FC_BRAND_CHANGE",
-                                payload: { visitM: am, vk: rec.vk, brandName: e.target.value },
+                                payload: { visitM: am, vk: rec.vk, brandName: e.target.value, futureCatchupKeys },
                               })}
                               className={`today-brand-sel${coveredByCombo && displayBrand ? " today-brand-sel-combo" : ""}`}
                             />
