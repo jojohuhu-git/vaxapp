@@ -18,7 +18,9 @@ import {
 } from '../data/annualSchedules.js';
 
 // ── Immunocompromised risks set ───────────────────────────────────────────────
-const IMMUNOCOMP_RISKS = new Set(['immunocomp', 'hiv', 'hsct', 'complement']);
+// car_t/bcell_malignancy/bcell_depleting_therapy added as a safety net — see
+// the matching comment on highRisk() in stateHelpers.js.
+const IMMUNOCOMP_RISKS = new Set(['immunocomp', 'hiv', 'hsct', 'complement', 'car_t', 'bcell_malignancy', 'bcell_depleting_therapy']);
 
 function isImmunocomp(risks) {
   return (risks || []).some(r => IMMUNOCOMP_RISKS.has(r));

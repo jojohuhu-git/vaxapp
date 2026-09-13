@@ -242,6 +242,13 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .past-toggle-btn:hover{background:var(--gy5);color:var(--gy);}
 .fct-err-banner{background:var(--rlt);border:1px solid var(--rmd);border-left:4px solid var(--r);border-radius:var(--rads);padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--r);}
 
+/* HARD STOP — CAR-T / B-cell malignancy / B-cell-depleting therapy */
+.hard-stop-banner{background:var(--rlt);border:1px solid var(--rmd);border-left:4px solid var(--r);border-radius:var(--rads);padding:14px 16px;margin-bottom:12px;}
+.hard-stop-banner-title{font-size:14px;font-weight:700;color:var(--r);margin-bottom:6px;}
+.hard-stop-banner-message{font-size:13px;color:var(--gy);margin:0 0 8px 0;line-height:1.5;}
+.hard-stop-banner-refs{font-size:11px;color:var(--gy2);}
+.hard-stop-banner-refs a{color:var(--r);text-decoration:underline;}
+
 /* TODAY PANEL */
 .today-panel{background:var(--wh);border-radius:var(--rad);border:1px solid var(--gy5);border-left:5px solid var(--g);margin-bottom:12px;box-shadow:var(--sh);overflow:hidden;}
 .today-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:var(--glt);border-bottom:1px solid var(--gy5);gap:10px;flex-wrap:wrap;}

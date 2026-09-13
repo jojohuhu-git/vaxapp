@@ -21,8 +21,12 @@ export const anyBrand = (hist, vk) => {
 /** Check if patient is high-risk based on risk factors. */
 // Used for PCV, Hib, and other vaccines that share a broad high-risk definition.
 // Includes HIV, immunocomp, HSCT in addition to anatomic/complement risks.
+// Also includes car_t/bcell_malignancy/bcell_depleting_therapy as a safety
+// net: today the hard stop (src/logic/hardStop.js) fires before this is ever
+// consulted for those three ids, but listing them here means a future change
+// to the stop's scope can't silently fall through to "treated as healthy".
 // Do NOT use this for MenB gating — use highRiskMenB() instead.
-export const highRisk = (risks) => risks.some(r => ["asplenia", "sickle_cell", "hiv", "immunocomp", "hsct", "complement", "microbiologist"].includes(r));
+export const highRisk = (risks) => risks.some(r => ["asplenia", "sickle_cell", "hiv", "immunocomp", "hsct", "complement", "microbiologist", "car_t", "bcell_malignancy", "bcell_depleting_therapy"].includes(r));
 
 /**
  * MenB-specific high-risk gate (ACIP 2020 MMWR RR-9).

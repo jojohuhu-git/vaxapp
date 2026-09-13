@@ -249,4 +249,22 @@ export const REFS = {
     url:"https://www.cdc.gov/vaccines/hcp/imz-schedules/adult-age.html",
     label:"CDC Adult Immunization Schedule (by age)"
   },
+  // Cited by the CAR-T/B-cell-malignancy/B-cell-depleting-therapy hard stop
+  // (src/logic/hardStop.js). URL verified live 2026-09-13.
+  alteredImmunocompetence: {
+    url:"https://www.cdc.gov/vaccines/hcp/imz-best-practices/altered-immunocompetence.html",
+    label:"CDC: Altered Immunocompetence (General Best Practice Guidelines)"
+  },
+  asco: {
+    url:"https://www.asco.org/",
+    label:"American Society of Clinical Oncology (ASCO)"
+  },
+  nccn: {
+    url:"https://www.nccn.org/",
+    label:"National Comprehensive Cancer Network (NCCN)"
+  },
+  idsa: {
+    url:"https://www.idsociety.org/",
+    label:"Infectious Diseases Society of America (IDSA)"
+  },
 };

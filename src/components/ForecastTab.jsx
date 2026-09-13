@@ -13,10 +13,12 @@ import { classifyDose } from '../logic/compliance';
 import { addD, todayISO } from '../logic/utils';
 import { humanDays, fmtAm } from '../logic/ageFormat';
 import { buildOptimalSchedule, summarizeComboUsage } from '../logic/buildOptimalSchedule';
+import { hardStopExclusion, HARD_STOP_MESSAGE } from '../logic/hardStop';
 import { REFS } from '../data/refs';
 import PdfDownloadButton from './PdfDownloadButton';
 import { VisitCardShell, DoseRow, ComboDoseRow, PillLegend } from './VisitCard';
 import ForecastFullReference from './ForecastFullReference';
+import HardStopBanner from './HardStopBanner';
 
 // Primary CDC reference for each combo brand — surfaces in the Forecast "Why?" popover.
 const COMBO_PRIMARY_REF = {
@@ -510,6 +512,7 @@ function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses, dob }) {
 export default function ForecastTab({ recs, validHist: validHistProp }) {
   const { state, dispatch } = useApp();
   const am = getEffectiveAm(state).effectiveAm;
+  const hardStopped = hardStopExclusion(state.risks);
 
   const [showPast, setShowPast] = useState(false);
   const [showFull, setShowFull] = useState(false);
@@ -1033,6 +1036,12 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
   return (
     <div>
+      {/* Hard stop (car_t / bcell_malignancy / bcell_depleting_therapy):
+          replaces Today's Visit, the future forecast, and the PDF download —
+          all forward-looking. The "Full reference" section below stays
+          available since it's generic, not patient-specific (D-partial-stop,
+          docs/archive/handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md). */}
+      {hardStopped ? <HardStopBanner /> : (<>
       {errCount > 0 && (
         <div className="fct-err-banner">
           <strong>{errCount} schedule error{errCount !== 1 ? "s" : ""}</strong> detected in vaccination history.
@@ -1577,6 +1586,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
       </>
       )}
+      </>)}
 
       {/* ── Reference material folded in from the retired Compare Regimens
              tab (D11) — combo dose gates, brand age windows, catch-up table,

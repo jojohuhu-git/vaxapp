@@ -6,6 +6,7 @@ import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands } from './pcvDoses.js';
 import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
+import { hardStopExclusion } from './hardStop.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
 
@@ -338,6 +339,10 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
 // ── Main ──────────────────────────────────────────────────────────
 export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
   const { am, risks, hist = {} } = patient;
+  // This tool does not apply to CAR-T/B-cell-malignancy/B-cell-depleting-
+  // therapy patients — see src/logic/hardStop.js. Read patient.risks directly
+  // since `ctx` (which also carries risks) isn't built until further down.
+  if (hardStopExclusion(risks)) return [];
   // PediVax is for pediatric patients only (birth–18y).
   if (am >= 228) return [];
 
