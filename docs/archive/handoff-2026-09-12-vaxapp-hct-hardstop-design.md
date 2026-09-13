@@ -1,12 +1,12 @@
 # vaxapp — HCT/CAR-T/B-cell hard stop: design in progress (2026-09-12)
 
-> **DEFERRED — resequenced 2026-09-12.** The owner decided the app-simplification work
-> goes first (see
-> [`handoff-2026-09-12-simplification-design.md`](handoff-2026-09-12-simplification-design.md)).
-> This document's tab names, tab count and file references describe the app as it is
-> **today**, and will be stale once the simplification lands. The clinical reasoning and
-> the nine catalogued defects remain valid. Re-verify the UI details against the rebuilt
-> screens before building from this.
+> **SUPERSEDED (2026-09-13).** The predicted staleness happened: the simplification
+> work (S0–S5) shipped and retired the 3-tab layout this document describes. Read
+> [`handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md`](handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md)
+> instead — it re-verifies every file reference and the central proposal against the
+> current 2-tab code. The clinical reasoning, the disclaimer text, and the nine
+> cataloged defects below are otherwise unchanged and are inherited by v2; keep this file
+> for that detail, but map its UI references onto v2's, not this one's.
 
 **STATUS: DESIGN, NOT DECIDED. No code written. Do not start building.**
 
