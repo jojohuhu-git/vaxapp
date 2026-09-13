@@ -161,9 +161,9 @@ export const HCT_RECIPE_GROUPS = [
       {
         vax: 'HepA',
         label: 'Hepatitis A',
-        plan: 'Depends on antibody testing this tool cannot see. Hepatitis A serology is '
-          + 'recommended 6 months after transplant; a patient with negative serology may '
-          + 'then be vaccinated.',
+        plan: 'Coordinate with the transplant/ID team — your center may use its own '
+          + 'post-HCT protocol. Hepatitis A serology is recommended 6 months after '
+          + 'transplant; a patient with negative serology may then be vaccinated.',
         refs: ['hctVaccineProtocol2024'],
       },
       {

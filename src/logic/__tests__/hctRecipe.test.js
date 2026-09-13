@@ -86,7 +86,7 @@ describe('owner scope decisions (2026-09-13) — must not regress', () => {
   });
 
   it('makes no hepatitis A or RSV recommendation', () => {
-    expect(find('HepA').plan).toMatch(/cannot see/);
+    expect(find('HepA').plan).toMatch(/Coordinate with the transplant\/ID team/);
     expect(find('RSV').plan).toMatch(/Follow your institution/);
   });
 
