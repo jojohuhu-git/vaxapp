@@ -185,12 +185,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("Hib", `Catch-up \u2014 1 final dose (16\u201359 months)`, hib + 1, "catchup",
       `Age \u226515 months with \u22651 prior Hib dose: 1 additional dose needed (ACIP catch-up Table 2). Min 8 weeks from last dose.`,
       ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { minInt: 56, refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.catchup.url, refLabel2: REFS.catchup.label });
-  } else if (am >= 60 && risks.includes("hsct") && hib < 3) {
-    // HSCT: 3-dose reset regardless of prior history
-    r("Hib", `Risk-based \u2014 dose ${hib + 1} of 3 (HSCT, 3-dose reset)`, hib + 1, "risk-based",
-      "HSCT: 3-dose series regardless of prior vaccination history (6\u201312 months post-transplant, 4 weeks between doses). Enter only post-transplant doses in history.",
-      ["ActHIB (PRP-T)", "Hiberix (PRP-T)", "PedvaxHIB (PRP-OMP)"], { minInt: 28, refUrl: REFS.Hib.cdcUrl, refLabel: REFS.Hib.cdcLabel, refUrl2: REFS.Hib.url, refLabel2: REFS.Hib.label });
-  } else if (am >= 60 && !risks.includes("hsct") && hib < hibTotal && hr) {
+  } else if (am >= 60 && hib < hibTotal && hr) {
     r("Hib", hib === 0 ? "Risk-based \u2014 1 dose (\u22655 years, high-risk)" : `Risk-based \u2014 dose ${hib + 1} (\u22655 years, incomplete series)`, hib + 1, "risk-based",
       hib === 0
         ? "Asplenia, HIV, immunocompromise: 1 dose for unvaccinated high-risk patients \u22655 years."
@@ -281,16 +276,6 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         optionABrands,
         { minInt: 56, bt: pcvNote, refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
     }
-  }
-
-  // ── HSCT advisory: post-transplant PCV re-vaccination ─────────────
-  // Separate from the normal PCV pathway. Fires unconditionally when HSCT is set
-  // (no transplant date → can’t distinguish pre/post; clinician coordinates timing).
-  if (risks.includes('hsct') && am < 228) {
-    r("PCV", "Post-HSCT \u2014 PCV re-vaccination (advisory)", 1, "risk-based",
-      "Child post-HSCT: prior pneumococcal history is considered nullified. Re-vaccinate with 4 doses of PCV20 beginning 3\u20136 months after HSCT \u2014 give 3 doses 4 weeks apart, then a 4th dose \u22656 months after dose 3 AND \u226512 months after HSCT. If PCV20 unavailable: 3 doses of PCV15 (4 weeks apart) starting 3\u20136 months post-HSCT, then PPSV23 \u226512 months after HSCT. Coordinate with transplant/ID team \u2014 your center may use its own protocol. (Timing is relative to transplant date; calendar due-dates not shown.)",
-      ["PCV20 (Prevnar 20) \u2014 preferred", "Vaxneuvance (PCV15) \u2014 follow with PPSV23"],
-      { refUrl: REFS.PCV.cdcUrl, refLabel: REFS.PCV.cdcLabel, refUrl2: REFS.PCV.url, refLabel2: REFS.PCV.label });
   }
 
   // ── PPSV23 (polysaccharide, Pneumovax 23) — separate from PCV ─

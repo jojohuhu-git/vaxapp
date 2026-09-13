@@ -92,23 +92,12 @@ describe('Immunocompromised — live vaccine gate (Surface 1)', () => {
   });
 });
 
-describe('HSCT — high-risk indication (Surface 1)', () => {
-
-  it('S1: Hib rec at am=60 with hsct', () => {
-    const r = firstRec('Hib', 60, {}, ['hsct']);
-    expect(r).not.toBeNull();
-    expect(r.status).toBe('risk-based');
-  });
-
-  // P0 (audit-2026-08-11-pneumo-spec-vs-code.md item 1): recommendations.js
-  // had the "Post-HSCT — PCV re-vaccination" block written twice, so a
-  // single genRecs() call pushed 2 identical advisory cards.
-  it('S1: exactly 1 Post-HSCT PCV advisory card at am=60 with hsct', () => {
-    const pcvRecs = recsFor('PCV', 60, {}, ['hsct']);
-    const hsctCards = pcvRecs.filter(r => r.dose === 'Post-HSCT — PCV re-vaccination (advisory)');
-    expect(hsctCards.length).toBe(1);
-  });
-});
+// HSCT was a Hib/PCV high-risk indication here through Step 1 of the HCT
+// hard-stop design; Step 2 (2026-09-13) folded it into the shared hard stop
+// (src/logic/hardStop.js) instead — it now returns no recs at all, on every
+// surface. See src/tests/five-surface/hct-cart-bcell.test.js for that
+// coverage; the old Hib-risk-based and Post-HSCT-PCV-advisory assertions
+// that lived here no longer apply now that the code they tested is deleted.
 
 describe('Complement deficiency — MenACWY/MenB (Surface 1)', () => {
 

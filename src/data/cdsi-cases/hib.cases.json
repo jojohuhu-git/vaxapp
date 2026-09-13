@@ -26,10 +26,10 @@
     },
     {
       "id": "HIB-004",
-      "description": "HSCT: 3-dose reset post-transplant regardless of prior",
+      "description": "HSCT: hard stop (Step 2, 2026-09-13) — the old 3-dose-reset advisory this case documented was deleted; hsct now returns no Hib rec at all, same as every other vaccine",
       "patient": { "ageMonths": 60, "riskConditions": ["hsct"] },
-      "expect": { "rec": { "vk": "Hib", "props": { "doseNum": 1, "status": "risk-based" } } },
-      "rationale": "CDSI Risk 3-dose series: minAgeToStart=42d, 3 doses. Code line 159-163 implements HSCT 3-dose reset."
+      "expect": { "rec": { "vk": "Hib", "absent": true } },
+      "rationale": "src/logic/hardStop.js hardStopExclusion(risks) short-circuits genRecs() before any age/risk branch runs. See docs/archive/handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md."
     }
   ],
   "summary": { "totalRulesAudited": 4, "matches": 4, "conflicts": 0 }

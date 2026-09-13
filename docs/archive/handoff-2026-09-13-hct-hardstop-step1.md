@@ -1,3 +1,6 @@
+**SUPERSEDED** — Step 2 is now done. See
+`docs/archive/handoff-2026-09-13-hct-hardstop-step2.md` for current state (PR #144).
+
 # vaxapp (PediVax) — Handoff after HCT hard-stop design + Step 1 (2026-09-13)
 
 Repo: `/Users/joannehuang/Downloads/vaxapp-main` · Live: <https://jojohuhu-git.github.io/vaxapp/>
