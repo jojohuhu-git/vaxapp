@@ -1025,7 +1025,12 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               <span className="today-title">Today&apos;s Visit</span>
               <span className="today-age">{fmtAm(am)}</span>
               {state.dob && (
-                <span className="today-visit-date">{visitDateLabel(state.dob, am)}</span>
+                // Today's Visit is always the CURRENT visit, so its date is
+                // the real calendar today — not a dob+age estimate (which
+                // can drift by a day or two from fractional-month rounding).
+                // The removed duplicate "Now" card (S1: merge) used the same
+                // real-today value; this keeps that accuracy in one place.
+                <span className="today-visit-date">{fmtDateShort(today)}</span>
               )}
             </div>
             <div className="today-actions">

@@ -23,6 +23,7 @@ import {
   getCardByLabel,
   getCardDoseRowByVk,
   getTodayRowByVk,
+  getTodayPanel,
   expandForecast,
 } from '../../test-helpers/renderForecast';
 
@@ -200,9 +201,16 @@ function dobForAgeMonths(months) {
 }
 
 describe('ForecastTab — card header format (Routine vs Fewest Injections consistency)', () => {
+  // dobForAgeMonths(24) makes the CURRENT visit land at ~2 years — which, since
+  // S1, renders only in the Today's Visit panel (a .vcard would be flaky here:
+  // whether "2 years" is exactly current depends on the real calendar date's
+  // fractional-month rounding — see the CI failure this replaced). "4 years"
+  // is always a future card for this patient, so it's a stable target for a
+  // format-only check that isn't about the current visit specifically.
   it('a Routine Schedule card shows an ISO date and an injection count', () => {
     const { container } = renderForecast({ am: 24, dob: dobForAgeMonths(24) });
-    const card = getCardByLabel(container, '2 years');
+    expandForecast(container);
+    const card = getCardByLabel(container, '4 years');
     expect(card).not.toBeNull();
     const dateEl = card.querySelector('.vcard-date');
     const countEl = card.querySelector('.vcard-count');
@@ -210,34 +218,33 @@ describe('ForecastTab — card header format (Routine vs Fewest Injections consi
     expect(countEl?.textContent).toMatch(/^\d+ injections?$/);
   });
 
-  it('the current-visit card shows the real today date, not a DOB-derived estimate', () => {
+  it("Today's Visit panel shows the real today date, not a DOB-derived estimate", () => {
     const { container } = renderForecast({ am: 24, dob: dobForAgeMonths(24) });
-    const card = getCardByLabel(container, '2 years');
-    const dateEl = card.querySelector('.vcard-date');
-    // The DOB-derived estimate for a 24m visit would be exactly 2 years after
-    // dob; the real "today" the test env uses will not reliably differ in a
-    // way we can assert without mocking the clock, so just assert it's a
-    // well-formed ISO date sourced from todayISO(), i.e. matches the actual
-    // current date rather than being empty/malformed.
+    const todayPanel = getTodayPanel(container);
+    expect(todayPanel).not.toBeNull();
+    const dateEl = todayPanel.querySelector('.today-visit-date');
     expect(dateEl).not.toBeNull();
-    expect(dateEl.textContent).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const expectedToday = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    expect(dateEl.textContent).toBe(expectedToday);
   });
 
-  it('a combo brand selection collapses the injection count on a Routine card', () => {
+  it('a combo brand selection collapses the injection count on a future Routine card', () => {
     const { container, dispatch } = renderForecast({ am: 24, dob: dobForAgeMonths(24) });
-    const cardBefore = getCardByLabel(container, '2 years');
+    expandForecast(container);
+    const cardBefore = getCardByLabel(container, '4 years');
     const countBefore = parseInt(cardBefore.querySelector('.vcard-count').textContent, 10);
 
     const dtapRow = getCardDoseRowByVk(cardBefore, 'DTaP');
     const select = dtapRow.querySelector('select');
-    const pediarixOpt = Array.from(select.options).find(o => o.value.startsWith('Pediarix'));
+    const kinrixOpt = Array.from(select.options).find(o => o.value.startsWith('Kinrix'));
+    expect(kinrixOpt, 'expected a Kinrix (DTaP+IPV combo) option at the 4y DTaP row').toBeTruthy();
     act(() => {
-      fireEvent.change(select, { target: { value: pediarixOpt.value } });
+      fireEvent.change(select, { target: { value: kinrixOpt.value } });
     });
 
-    const cardAfter = getCardByLabel(container, '2 years');
+    const cardAfter = getCardByLabel(container, '4 years');
     const countAfter = parseInt(cardAfter.querySelector('.vcard-count').textContent, 10);
-    expect(countAfter, 'Pediarix covers 3 antigens in 1 shot — count must drop').toBeLessThan(countBefore);
+    expect(countAfter, 'Kinrix covers 2 antigens in 1 shot — count must drop').toBeLessThan(countBefore);
     dispatch({ type: 'RESET_FORECAST' });
   });
 
