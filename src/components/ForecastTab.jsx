@@ -536,9 +536,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
   // Hoisted so the Today's Visit panel action row (rendered above the
   // optView-specific branches) can offer "Download Schedule" backed by the
-  // optimizer's own plan (SchedulePDF) when a Fewest-* view is active,
-  // instead of the standard routine timeline (ForecastPDF) — same label,
-  // same button slot, different PDF underneath.
+  // optimizer's own plan when a Fewest-* view is active, instead of the
+  // standard routine timeline — same label, same button slot, same
+  // SchedulePDF.jsx, different props underneath.
   let optResult = null;
   let optError = null;
   if (optView !== null) {
@@ -1083,16 +1083,17 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               {/* Combined PDF: today's shot-list-style admin page (lot#/route/
                   signature) followed by the full schedule — one download per
                   view instead of a separate "Shot List PDF" + "Print Visit
-                  Summary" + schedule button. Which schedule depends on which
-                  view is active: Routine gets the standard ACIP timeline
-                  (ForecastPDF); Fewest Injections gets the optimizer's own
-                  combo-bundled plan (SchedulePDF) in this SAME slot, so only
-                  one "download everything" button is ever visible at once. */}
+                  Summary" + schedule button. Which schedule body depends on
+                  which view is active: Routine passes `rows` for the standard
+                  ACIP timeline; Fewest Injections passes `visits` for the
+                  optimizer's own combo-bundled plan — same SchedulePDF.jsx,
+                  same slot, so only one "download everything" button is ever
+                  visible at once. */}
               {optView === null ? (
                 <PdfDownloadButton
                   buildDoc={async () => {
-                    const { default: ForecastPDF } = await import('./ForecastPDF');
-                    return ForecastPDF({ am, dob: state.dob, risks: state.risks, rows: pdfRows, recs, fcBrands: state.fcBrands });
+                    const { default: SchedulePDF } = await import('./SchedulePDF');
+                    return SchedulePDF({ am, dob: state.dob, risks: state.risks, rows: pdfRows, recs, fcBrands: state.fcBrands });
                   }}
                   fileName="pedivax-forecast.pdf"
                   className="fct-download-btn"

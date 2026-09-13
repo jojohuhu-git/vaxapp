@@ -43,8 +43,7 @@ src/
     ShareModal.jsx      Share URL modal
     Disclaimer.jsx      Clinical disclaimer
     PdfDownloadButton.jsx  Generic on-click PDF generator — dynamically imports @react-pdf/renderer + the PDF template so neither ships in the main bundle
-    SchedulePDF.jsx     PDF template for optimal schedule
-    ForecastPDF.jsx     PDF template for full forecast
+    SchedulePDF.jsx     PDF template for full forecast + optimal schedule (merged, D10)
     ShotListPDF.jsx     PDF template for today's shot list
     HistoryImageImport.jsx  OCR import drop zone + ReviewModal
     SuggestionCard.jsx  Shared combo-suggestion card (OCR modal + drawer panel)
