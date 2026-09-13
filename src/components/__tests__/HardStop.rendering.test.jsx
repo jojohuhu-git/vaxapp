@@ -72,10 +72,10 @@ describe('Immunization Schedule tab — hard stop', () => {
     expect(queryByText('This tool does not apply to this patient')).toBeNull();
   });
 
-  it('is unaffected by hsct alone (Step 1: hsct not yet part of the stop)', () => {
+  it('shows the stop banner for hsct too (Step 2: hsct joined the stop)', () => {
     const { getByText, queryByText } = renderApp({ risks: ['hsct'], tab: 'forecast' });
-    expect(getByText("Today's Visit")).toBeTruthy();
-    expect(queryByText('This tool does not apply to this patient')).toBeNull();
+    expect(getByText('This tool does not apply to this patient')).toBeTruthy();
+    expect(queryByText("Today's Visit")).toBeNull();
   });
 });
 

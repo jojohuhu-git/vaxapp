@@ -2,15 +2,16 @@
 // patient." Every surface that computes recommendations consults this, so the
 // stop can never be re-derived (and drift) per surface.
 //
-// Step 1 (2026-09-13): only CAR-T therapy, B-cell malignancy, and B-cell-
-// depleting therapy trigger the stop. HSCT keeps its existing PCV/Hib-specific
-// handling in recommendations.js for now — folding it into this same stop is
-// deferred to step 2 of the design at
+// Step 1 (2026-09-13): added CAR-T therapy, B-cell malignancy, and B-cell-
+// depleting therapy as pure additions, alongside HSCT's existing PCV/Hib-
+// specific handling in recommendations.js.
+// Step 2 (2026-09-13): HSCT joins this same stop; its old PCV/Hib-specific
+// code in recommendations.js is deleted (see
 // docs/archive/handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md, which also
 // carries the exact clinical sourcing for this text (CDC Altered
 // Immunocompetence page, fetched and quoted 2026-09-12; verbatim wording
-// re-used from PneumoVax's and MeningoVax's identical stop).
-export const HARD_STOP_RISK_IDS = ['car_t', 'bcell_malignancy', 'bcell_depleting_therapy'];
+// re-used from PneumoVax's and MeningoVax's identical stop)).
+export const HARD_STOP_RISK_IDS = ['hsct', 'car_t', 'bcell_malignancy', 'bcell_depleting_therapy'];
 
 export function hardStopExclusion(risks) {
   return (risks || []).some(r => HARD_STOP_RISK_IDS.includes(r));

@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { genRecs } from '../recommendations.js';
 import { makePatient } from './helpers/makePatient.js';
 import { expectRec } from './helpers/expectRecommendation.js';
@@ -15,8 +15,9 @@ describe('Hib — primary + booster', () => {
     expectRec(run(makePatient({ ageMonths: 12, dosesGiven: { Hib: 3 } })), 'Hib', { doseNum: 4 });
   });
 
-  it('60mo HSCT, 0 doses → 3-dose reset (risk-based)', () => {
-    expectRec(run(makePatient({ ageMonths: 60, riskConditions: ['hsct'] })), 'Hib', { doseNum: 1, status: 'risk-based' });
+  it('60mo HSCT, 0 doses → hard stop, no recs at all', () => {
+    const recs = run(makePatient({ ageMonths: 60, riskConditions: ['hsct'] }));
+    expect(recs).toEqual([]);
   });
 });
 

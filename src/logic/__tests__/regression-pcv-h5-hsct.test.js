@@ -1,6 +1,9 @@
 // regression-pcv-h5-hsct.test.js
 // H5: PCV booster completeness must require a dose at ≥12 months.
-// HSCT advisory: post-transplant PCV re-vaccination fires for hsct risk.
+// HSCT: Step 2 (2026-09-13) folded hsct into the shared hard stop
+// (src/logic/hardStop.js) and deleted its old post-transplant PCV advisory —
+// see src/tests/five-surface/hct-cart-bcell.test.js for the five-surface
+// hard-stop coverage that now applies to hsct.
 
 import { describe, it, expect } from 'vitest';
 import { genRecs } from '../recommendations.js';
@@ -136,33 +139,20 @@ describe('H5 — buildOptimalSchedule schedules missing booster', () => {
   });
 });
 
-// ── HSCT advisory ─────────────────────────────────────────────────
+// ── HSCT hard stop (formerly the post-transplant PCV advisory) ───
 
-describe('HSCT — post-transplant PCV advisory', () => {
-  it('child with hsct risk → risk-based PCV advisory rec emitted', () => {
+describe('HSCT — hard stop replaces the old PCV advisory', () => {
+  it('child with hsct risk → no recs at all (hard stop), not a PCV advisory', () => {
     const recs = genRecs(18, {}, ['hsct'], null, {});
-    const pcvRisked = recs.filter(r => r.vk === 'PCV' && r.status === 'risk-based');
-    expect(pcvRisked.length).toBeGreaterThanOrEqual(1);
-    // Advisory note should mention HSCT
-    const note = pcvRisked[0].note || '';
-    expect(note.toLowerCase()).toContain('hsct');
+    expect(recs).toEqual([]);
   });
 
-  it('hsct advisory fires for infant (am=6)', () => {
+  it('hard stop fires for infant (am=6)', () => {
     const recs = genRecs(6, {}, ['hsct'], null, {});
-    const pcvRisked = recs.filter(r => r.vk === 'PCV' && r.status === 'risk-based');
-    expect(pcvRisked.length).toBeGreaterThanOrEqual(1);
+    expect(recs).toEqual([]);
   });
 
-  it('hsct advisory includes PCV20 as preferred brand', () => {
-    const recs = genRecs(36, {}, ['hsct'], null, {});
-    const pcvRisked = recs.filter(r => r.vk === 'PCV' && r.status === 'risk-based');
-    expect(pcvRisked.length).toBeGreaterThanOrEqual(1);
-    const brands = pcvRisked[0].brands || [];
-    expect(brands.some(b => b.includes('PCV20'))).toBe(true);
-  });
-
-  it('hsct fires even if PCV history present (prior history nullified post-HSCT)', () => {
+  it('hard stop fires even if PCV history present (prior history is irrelevant once stopped)', () => {
     const hist = {
       PCV: [
         { given: true, mode: 'age', ageDays: 61 },
@@ -170,17 +160,11 @@ describe('HSCT — post-transplant PCV advisory', () => {
       ],
     };
     const recs = genRecs(24, hist, ['hsct'], null, {});
-    const pcvRisked = recs.filter(r => r.vk === 'PCV' && r.status === 'risk-based');
-    expect(pcvRisked.length).toBeGreaterThanOrEqual(1);
+    expect(recs).toEqual([]);
   });
 
-  it('hsct advisory does not fire for adults (am >= 228)', () => {
-    // vaxapp is peds-only — HSCT advisory has am < 228 guard
+  it('no recs for hsct at the adult cap either (am >= 228) — both guards agree', () => {
     const recs = genRecs(228, {}, ['hsct'], null, {});
-    const pcvRisked = recs.filter(r => r.vk === 'PCV' && r.status === 'risk-based');
-    // At 228m, the adult cap fires — no recs at all expected
-    // Just verify no HSCT advisory leaks through
-    const hsctAdvisory = pcvRisked.filter(r => (r.note || '').toLowerCase().includes('post-hsct') || (r.note || '').toLowerCase().includes('nullified'));
-    expect(hsctAdvisory.length).toBe(0);
+    expect(recs).toEqual([]);
   });
 });
