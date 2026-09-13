@@ -1,3 +1,7 @@
+> **SUPERSEDED** by
+> [handoff-2026-09-13-fewest-shots-brand-pick.md](handoff-2026-09-13-fewest-shots-brand-pick.md).
+> S1e and S1f described below as the remaining queue are now DONE — read the new file.
+
 # vaxapp (PediVax) — Handoff after the brand carry-forward fix (2026-09-13)
 
 Repo: `/Users/joannehuang/Downloads/vaxapp-main` · Live: <https://jojohuhu-git.github.io/vaxapp/>
