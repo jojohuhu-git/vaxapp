@@ -1041,7 +1041,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           all forward-looking. The "Full reference" section below stays
           available since it's generic, not patient-specific (D-partial-stop,
           docs/archive/handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md). */}
-      {hardStopped ? <HardStopBanner /> : (<>
+      {hardStopped ? <HardStopBanner risks={state.risks} /> : (<>
       {errCount > 0 && (
         <div className="fct-err-banner">
           <strong>{errCount} schedule error{errCount !== 1 ? "s" : ""}</strong> detected in vaccination history.

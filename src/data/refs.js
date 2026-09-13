@@ -253,7 +253,8 @@ export const REFS = {
   // (src/logic/hardStop.js). URL verified live 2026-09-13.
   alteredImmunocompetence: {
     url:"https://www.cdc.gov/vaccines/hcp/imz-best-practices/altered-immunocompetence.html",
-    label:"CDC: Altered Immunocompetence (General Best Practice Guidelines)"
+    label:"CDC: Altered Immunocompetence (General Best Practice Guidelines)",
+    short:"CDC Altered Immunocompetence"
   },
   asco: {
     url:"https://www.asco.org/",
@@ -266,5 +267,31 @@ export const REFS = {
   idsa: {
     url:"https://www.idsociety.org/",
     label:"Infectious Diseases Society of America (IDSA)"
+  },
+  // Cited by the post-HSCT re-vaccination plan (src/logic/hctRecipe.js).
+  // All four fetched live and quoted 2026-09-13; quotes are recorded in
+  // docs/archive/handoff-2026-09-13-vaxapp-hct-recipe-design.md.
+  //
+  // Pneumococcal is the SOLE peds-HSCT source and is shared with PneumoVax's
+  // hsctAdvisory() — the two apps must keep quoting the same table.
+  p3086Table5: {
+    url:"https://www.immunize.org/wp-content/uploads/catg.d/p3086.pdf",
+    label:"Immunize.org Standing Orders for Administering Pneumococcal Vaccines to Children and Teens — Table 5 (children <19y following HSCT)",
+    short:"Immunize.org Table 5 (HSCT)"
+  },
+  hctVaccineSchedules2024: {
+    url:"https://pmc.ncbi.nlm.nih.gov/articles/PMC10909447/",
+    label:"Vaccine schedule recommendations for patients post-HCT or CAR T-cell therapy (2024), summarizing IDSA 2013, ECIL-7 and national guidance",
+    short:"Post-HCT vaccine schedules review (2024)"
+  },
+  hctVaccineProtocol2024: {
+    url:"https://pmc.ncbi.nlm.nih.gov/articles/PMC11680230/",
+    label:"Vaccination After Haematopoietic Stem Cell Transplant: A Review of the Literature and Proposed Vaccination Protocol, Vaccines (Basel) 2024",
+    short:"Vaccines (Basel) 2024 post-HSCT protocol"
+  },
+  hctPediatricReview2025: {
+    url:"https://pmc.ncbi.nlm.nih.gov/articles/PMC12474115/",
+    label:"Immunization Strategies in Pediatric Patients Receiving HCT and CAR-T Therapy (2025 narrative review)",
+    short:"Pediatric HCT/CAR-T review (2025)"
   },
 };
