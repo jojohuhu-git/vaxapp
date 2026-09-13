@@ -907,6 +907,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         const earliestLabel = (!isCurr && (proj.earliestAge ?? proj.dueAge) > am) ? fmtEarliestDate(proj, state.dob) : "";
         items.push({
           vk, chipText: fmtDose(proj.doseNum), chipClass: "fch fch-proj", dateLabel: fmtProjection(proj, state.dob),
+          dueDateISO: proj.dueDate || "",
           fcKey, rec, hasPopover, onChipClick,
           brandOpts, displayBrand, showDropdown: brandOpts.length > 0 && !isAnyBrandVk(vk, brandOpts),
           anyBrand: isAnyBrandVk(vk, brandOpts), onBrandChange,
@@ -933,6 +934,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               : "fch fch-need";
         items.push({
           vk, chipText: fmtDose(rec.doseNum), chipClass, fcKey, rec, hasPopover, onChipClick,
+          dueDateISO: state.dob ? visitDateISO(state.dob, visit.m) : "",
           brandOpts, displayBrand, showDropdown: brandOpts.length > 0 && !isAnyBrandVk(vk, brandOpts),
           anyBrand: isAnyBrandVk(vk, brandOpts), onBrandChange,
           comboSelected, displayBrandKey, comboOfferedHere,
@@ -1407,51 +1409,77 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               : `▸ ${pastCount} past visit${pastCount !== 1 ? 's' : ''} — click to show`}
           </button>
         )}
-        {visits.map((visit, vi) => {
-          if (visit.m < am && !showPast && !visit.isScheduledEarly) return null;
-          const isCurr = visit.m === am;
-          // The current-age visit is already shown in full, with "Why" links,
-          // by the Today's Visit panel above — rendering it again here as a
-          // card just repeats the same vaccines/doses in a plainer format
-          // (S1 simplification: merge the duplicate "Today" lists).
-          if (isCurr) return null;
-          const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
-          // "N past visits — click to show" must reveal ALL past visits, not
-          // just the ones isAlwaysVisible() already shows (imminent/
-          // next-routine). Without this, showPast flips true but this second
-          // gate still hides most past rows unless "Show full forecast" is
-          // ALSO on — the toggle looked broken/blank.
-          const isRevealedPast = isPast && showPast;
-          if (!showFull && !isAlwaysVisible(visit) && !isRevealedPast) return null;
+        {(() => {
+          // Build one row per visible visit card. `forceShowFull` lets the
+          // same logic run twice below: once for what's actually on screen,
+          // once assuming everything is expanded, so the "Later doses"
+          // toggle can say how many doses it's hiding (D9).
+          const buildRows = (forceShowFull) => visits.map((visit, vi) => {
+            if (visit.m < am && !showPast && !visit.isScheduledEarly) return null;
+            const isCurr = visit.m === am;
+            // The current-age visit is already shown in full, with "Why" links,
+            // by the Today's Visit panel above — rendering it again here as a
+            // card just repeats the same vaccines/doses in a plainer format
+            // (S1 simplification: merge the duplicate "Today" lists).
+            if (isCurr) return null;
+            const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
+            // "N past visits — click to show" must reveal ALL past visits, not
+            // just the ones isAlwaysVisible() already shows (imminent/
+            // next-routine). Without this, showPast flips true but this second
+            // gate still hides most past rows unless "Later doses" is
+            // ALSO on — the toggle looked broken/blank.
+            const isRevealedPast = isPast && showPast;
+            if (!forceShowFull && !isAlwaysVisible(visit) && !isRevealedPast) return null;
 
-          const items = buildVisitCardItems(visit);
-          if (items.length === 0) return null;
+            const items = buildVisitCardItems(visit);
+            if (items.length === 0) return null;
 
-          const cardKey = visit.isScheduledEarly
-            ? `v-early-${visit.m}-${visit.vk || vi}`
-            : visit.isCatchup
-              ? `v-cu-${visit.m}-${vi}`
-              : `v-rt-${visit.m}`;
-          const dateLabel = visit.isScheduledEarly
-            ? (scheduledEarliest.get(visit.earlyFcKey)?.date ?? '')
-            : isCurr
-              ? today
-              : (state.dob ? visitDateISO(state.dob, visit.m) : '');
-          const injCount = countCardInjections(items);
-          const countLabel = `${injCount} injection${injCount !== 1 ? 's' : ''}`;
+            const cardKey = visit.isScheduledEarly
+              ? `v-early-${visit.m}-${visit.vk || vi}`
+              : visit.isCatchup
+                ? `v-cu-${visit.m}-${vi}`
+                : `v-rt-${visit.m}`;
+            const dateLabel = visit.isScheduledEarly
+              ? (scheduledEarliest.get(visit.earlyFcKey)?.date ?? '')
+              : isCurr
+                ? today
+                : (state.dob ? visitDateISO(state.dob, visit.m) : '');
+            const injCount = countCardInjections(items);
+            const countLabel = `${injCount} injection${injCount !== 1 ? 's' : ''}`;
 
-          return (
+            return { visit, items, cardKey, dateLabel, injCount, countLabel, isCurr, isPast };
+          }).filter(Boolean);
+
+          const rows = buildRows(showFull);
+          const pastRows = rows.filter(r => r.isPast);
+          const futureRows = rows.filter(r => !r.isPast);
+
+          // (D8) "Book on or after" — the latest date any dose among the
+          // currently-visible future rows requires, and how many injections
+          // that covers. Said once here rather than repeated per row.
+          let maxDueISO = "";
+          futureRows.forEach(r => r.items.forEach(it => {
+            if (it.dueDateISO && it.dueDateISO > maxDueISO) maxDueISO = it.dueDateISO;
+          }));
+          const bookInjCount = futureRows.reduce((sum, r) => sum + r.injCount, 0);
+
+          // (D9) How much the "Later doses" toggle is currently hiding.
+          const allFutureRows = showFull ? futureRows : buildRows(true).filter(r => !r.isPast);
+          const laterDoseCount = allFutureRows.reduce((sum, r) => sum + r.items.length, 0)
+            - futureRows.reduce((sum, r) => sum + r.items.length, 0);
+
+          const renderCard = (r) => (
             <VisitCardShell
-              key={cardKey}
-              label={visit.l}
-              dateLabel={dateLabel}
-              countLabel={countLabel}
-              isCurr={isCurr}
-              isPast={isPast}
-              isCatchup={visit.isCatchup}
-              isScheduledEarly={visit.isScheduledEarly}
+              key={r.cardKey}
+              label={r.visit.l}
+              dateLabel={r.dateLabel}
+              countLabel={r.countLabel}
+              isCurr={r.isCurr}
+              isPast={r.isPast}
+              isCatchup={r.visit.isCatchup}
+              isScheduledEarly={r.visit.isScheduledEarly}
             >
-              {items.map(item => (
+              {r.items.map(item => (
                 <DoseRow
                   key={item.fcKey || item.vk}
                   vk={VAX_META[item.vk]?.ab || item.vk}
@@ -1511,17 +1539,39 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               ))}
             </VisitCardShell>
           );
-        })}
-      </div>
 
-      {/* ── Progressive disclosure toggle ─────────────────────── */}
-      <div className="fct-show-full-btn-wrap">
-        <button
-          onClick={() => setShowFull(v => !v)}
-          className="fct-show-full-btn"
-        >
-          {showFull ? '← Show less' : 'Show full forecast →'}
-        </button>
+          return (
+            <>
+              {pastRows.map(renderCard)}
+
+              {futureRows.length > 0 && (
+                <p className="fct-next-visit-hint">Next visit — earliest date each dose may be given</p>
+              )}
+
+              {futureRows.map(renderCard)}
+
+              {futureRows.length > 0 && maxDueISO && (
+                <div className="fct-book-line">
+                  Book on or after <b>{fmtDateShort(maxDueISO)}</b> — {bookInjCount} injection{bookInjCount !== 1 ? 's' : ''}.
+                </div>
+              )}
+
+              {/* ── Progressive disclosure toggle (D9) ─────────── */}
+              {(laterDoseCount > 0 || showFull) && (
+                <div className="fct-show-full-btn-wrap">
+                  <button
+                    onClick={() => setShowFull(v => !v)}
+                    className="fct-show-full-btn"
+                  >
+                    {showFull
+                      ? '▴ Hide later doses'
+                      : `▸ Later doses — ${laterDoseCount} more`}
+                  </button>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       </>
