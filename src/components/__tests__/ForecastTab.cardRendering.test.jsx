@@ -22,6 +22,8 @@ import {
   renderForecast,
   getCardByLabel,
   getCardDoseRowByVk,
+  getTodayRowByVk,
+  getTodayPanel,
   expandForecast,
 } from '../../test-helpers/renderForecast';
 
@@ -33,10 +35,10 @@ describe('ForecastTab — visit-card list is the default view', () => {
   });
 
   it('a due vaccine at the current visit renders as a dose row with a brand dropdown', () => {
+    // Current visit lives in the Today's Visit panel (S1: merged with the
+    // former duplicate "2 years" card), not a .vcard.
     const { container } = renderForecast({ am: 24 });
-    const card = getCardByLabel(container, '2 years');
-    expect(card).not.toBeNull();
-    const row = getCardDoseRowByVk(card, 'IPV');
+    const row = getTodayRowByVk(container, 'IPV');
     expect(row).not.toBeNull();
     expect(row.querySelector('select')).not.toBeNull();
   });
@@ -69,9 +71,8 @@ describe('ForecastTab — visit-card list is the default view', () => {
 
   it('selecting Pediarix at a DTaP row fills the sibling HepB/IPV rows at the same visit', () => {
     const { container } = renderForecast({ am: 24 });
-    const card = getCardByLabel(container, '2 years');
-    expect(card).not.toBeNull();
-    const dtapRow = getCardDoseRowByVk(card, 'DTaP');
+    const dtapRow = getTodayRowByVk(container, 'DTaP');
+    expect(dtapRow).not.toBeNull();
     const select = dtapRow.querySelector('select');
     expect(select).not.toBeNull();
 
@@ -82,9 +83,8 @@ describe('ForecastTab — visit-card list is the default view', () => {
       fireEvent.change(select, { target: { value: pediarixOpt.value } });
     });
 
-    const cardAfter = getCardByLabel(container, '2 years');
-    const hepBRow = getCardDoseRowByVk(cardAfter, 'HepB');
-    const ipvRow = getCardDoseRowByVk(cardAfter, 'IPV');
+    const hepBRow = getTodayRowByVk(container, 'HepB');
+    const ipvRow = getTodayRowByVk(container, 'IPV');
     expect(hepBRow.querySelector('select').value).toMatch(/^Pediarix/);
     expect(ipvRow.querySelector('select').value).toMatch(/^Pediarix/);
   });
@@ -150,10 +150,8 @@ describe('ForecastTab — card view guards (PR #80 regression tests)', () => {
         IPV: [{ mode: 'age', ageDays: Math.round(6 * 30.4375), brand: 'IPOL', given: true }],
       },
     });
-    const card = getCardByLabel(container, '6 months');
-    expect(card).not.toBeNull();
-    const row = getCardDoseRowByVk(card, 'IPV');
-    expect(row, 'expected an IPV row at the 6-month card').not.toBeNull();
+    const row = getTodayRowByVk(container, 'IPV');
+    expect(row, 'expected an IPV row in the Today\'s Visit panel').not.toBeNull();
     expect(row.textContent, 'dose given today must show as done').toMatch(/done/);
     expect(row.querySelector('select'), 'a dose already given today must not expose a live brand dropdown').toBeNull();
   });
@@ -203,9 +201,16 @@ function dobForAgeMonths(months) {
 }
 
 describe('ForecastTab — card header format (Routine vs Fewest Injections consistency)', () => {
+  // dobForAgeMonths(24) makes the CURRENT visit land at ~2 years — which, since
+  // S1, renders only in the Today's Visit panel (a .vcard would be flaky here:
+  // whether "2 years" is exactly current depends on the real calendar date's
+  // fractional-month rounding — see the CI failure this replaced). "4 years"
+  // is always a future card for this patient, so it's a stable target for a
+  // format-only check that isn't about the current visit specifically.
   it('a Routine Schedule card shows an ISO date and an injection count', () => {
     const { container } = renderForecast({ am: 24, dob: dobForAgeMonths(24) });
-    const card = getCardByLabel(container, '2 years');
+    expandForecast(container);
+    const card = getCardByLabel(container, '4 years');
     expect(card).not.toBeNull();
     const dateEl = card.querySelector('.vcard-date');
     const countEl = card.querySelector('.vcard-count');
@@ -213,34 +218,33 @@ describe('ForecastTab — card header format (Routine vs Fewest Injections consi
     expect(countEl?.textContent).toMatch(/^\d+ injections?$/);
   });
 
-  it('the current-visit card shows the real today date, not a DOB-derived estimate', () => {
+  it("Today's Visit panel shows the real today date, not a DOB-derived estimate", () => {
     const { container } = renderForecast({ am: 24, dob: dobForAgeMonths(24) });
-    const card = getCardByLabel(container, '2 years');
-    const dateEl = card.querySelector('.vcard-date');
-    // The DOB-derived estimate for a 24m visit would be exactly 2 years after
-    // dob; the real "today" the test env uses will not reliably differ in a
-    // way we can assert without mocking the clock, so just assert it's a
-    // well-formed ISO date sourced from todayISO(), i.e. matches the actual
-    // current date rather than being empty/malformed.
+    const todayPanel = getTodayPanel(container);
+    expect(todayPanel).not.toBeNull();
+    const dateEl = todayPanel.querySelector('.today-visit-date');
     expect(dateEl).not.toBeNull();
-    expect(dateEl.textContent).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const expectedToday = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    expect(dateEl.textContent).toBe(expectedToday);
   });
 
-  it('a combo brand selection collapses the injection count on a Routine card', () => {
+  it('a combo brand selection collapses the injection count on a future Routine card', () => {
     const { container, dispatch } = renderForecast({ am: 24, dob: dobForAgeMonths(24) });
-    const cardBefore = getCardByLabel(container, '2 years');
+    expandForecast(container);
+    const cardBefore = getCardByLabel(container, '4 years');
     const countBefore = parseInt(cardBefore.querySelector('.vcard-count').textContent, 10);
 
     const dtapRow = getCardDoseRowByVk(cardBefore, 'DTaP');
     const select = dtapRow.querySelector('select');
-    const pediarixOpt = Array.from(select.options).find(o => o.value.startsWith('Pediarix'));
+    const kinrixOpt = Array.from(select.options).find(o => o.value.startsWith('Kinrix'));
+    expect(kinrixOpt, 'expected a Kinrix (DTaP+IPV combo) option at the 4y DTaP row').toBeTruthy();
     act(() => {
-      fireEvent.change(select, { target: { value: pediarixOpt.value } });
+      fireEvent.change(select, { target: { value: kinrixOpt.value } });
     });
 
-    const cardAfter = getCardByLabel(container, '2 years');
+    const cardAfter = getCardByLabel(container, '4 years');
     const countAfter = parseInt(cardAfter.querySelector('.vcard-count').textContent, 10);
-    expect(countAfter, 'Pediarix covers 3 antigens in 1 shot — count must drop').toBeLessThan(countBefore);
+    expect(countAfter, 'Kinrix covers 2 antigens in 1 shot — count must drop').toBeLessThan(countBefore);
     dispatch({ type: 'RESET_FORECAST' });
   });
 
