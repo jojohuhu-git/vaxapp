@@ -496,6 +496,7 @@ function substituteCombos(visit, dob, hist) {
     changed = false;
     let bestCombo = null;
     let bestCoverage = 0;
+    let bestIsUserPick = false;
     for (const [comboName, def] of Object.entries(COMBOS)) {
       // Age window
       if (ageMonthsAt < def.minM || ageMonthsAt > def.maxM) continue;
@@ -507,16 +508,29 @@ function substituteCombos(visit, dob, hist) {
       // Coverage subset check + collect items
       const coveredItems = [];
       let allPresent = true;
+      let conflictsWithUserPick = false;
       for (const ant of def.c) {
         const item = visit.items.find(it => it.vk === ant && !it._combo);
         if (!item) { allPresent = false; break; }
         if (!comboFitsDose(comboName, ant, item.doseNum)) { allPresent = false; break; }
+        // D16: the timeline follows the brand the user actually picked. If
+        // this antigen already carries a brand (routine or catch-up) that
+        // isn't this combo, this combo can't claim it — whether that brand
+        // is a rival combo or a standalone product.
+        if (item.brand && !item.brand.startsWith(comboName)) conflictsWithUserPick = true;
         coveredItems.push(item);
       }
-      if (!allPresent) continue;
-      if (coveredItems.length > bestCoverage) {
+      if (!allPresent || conflictsWithUserPick) continue;
+      const isUserPick = coveredItems.some(it => it.brand && it.brand.startsWith(comboName));
+      // A combo the user picked always outranks a merely higher-coverage
+      // one they didn't (D16); ties within the same tier go to coverage.
+      const better = isUserPick && !bestIsUserPick
+        ? true
+        : (isUserPick === bestIsUserPick && coveredItems.length > bestCoverage);
+      if (better) {
         bestCoverage = coveredItems.length;
         bestCombo = { name: comboName, def, coveredItems };
+        bestIsUserPick = isUserPick;
       }
     }
     if (bestCombo && bestCoverage >= 2) {
@@ -538,6 +552,30 @@ function substituteCombos(visit, dob, hist) {
 
 function ageInMonths(dob, date) {
   return (_d(date) - _d(dob)) / (1000 * 60 * 60 * 24 * 30.4375);
+}
+
+// S1f — the Fewest-shots header summary. Walks a finished fewestInjections
+// schedule and lists which combo brands it actually used, at what ages, and
+// how many separate injections each one folded together. This is advisory
+// information ONLY (D16): it describes what the engine picked, independent
+// of the per-row brand dropdowns the owner sees in the timeline below.
+export function summarizeComboUsage(visits, dob) {
+  const groups = [];
+  const byName = new Map();
+  for (const visit of visits) {
+    for (const item of visit.items) {
+      if (!item._combo) continue;
+      let g = byName.get(item.comboName);
+      if (!g) {
+        g = { comboName: item.comboName, ageMonths: [], savedInjections: 0 };
+        byName.set(item.comboName, g);
+        groups.push(g);
+      }
+      g.ageMonths.push(Math.round(ageInMonths(dob, visit.date)));
+      g.savedInjections += item.coveredDoses.length - 1;
+    }
+  }
+  return groups;
 }
 
 // comboFitsDose is imported from brandRules.js — single source of truth.

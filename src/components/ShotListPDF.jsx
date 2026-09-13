@@ -86,9 +86,9 @@ const ROUTE = {
 /**
  * Today's-visit administration record — patient demographics grid, per-vaccine
  * checkbox/lot#/route/initials table, and a provider signature block. Reused
- * as the first page of both ForecastPDF and SchedulePDF (see those files) so
- * a single "Download" button produces one combined document, rather than a
- * separate standalone "Shot List PDF" download.
+ * as the first page of SchedulePDF (see that file) so a single "Download"
+ * button produces one combined document, rather than a separate standalone
+ * "Shot List PDF" download.
  *
  * @param {object} props
  * @param {number} props.am - patient age in months

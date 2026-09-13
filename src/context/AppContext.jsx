@@ -223,13 +223,13 @@ function reducer(state, action) {
     }
 
     case "SET_TAB": {
-      const validTabs = new Set(["compliance", "plan", "forecast"]);
+      const validTabs = new Set(["compliance", "forecast"]);
       const tab = validTabs.has(action.payload) ? action.payload : "forecast";
       return { ...state, tab };
     }
 
     case "FC_BRAND_CHANGE": {
-      const { visitM, vk, brandName, fcKey: explicitFcKey, siblingFcKeys } = action.payload;
+      const { visitM, vk, brandName, fcKey: explicitFcKey, siblingFcKeys, futureCatchupKeys } = action.payload;
       let nextFc = { ...state.fcBrands };
 
       // For catch-up doses, the plan key is "cu{age}_{vk}" (e.g. "cu49.2_HepB"),
@@ -291,6 +291,15 @@ function reducer(state, action) {
         return true; // standalone brands propagate to all future visits
       };
 
+      // Write `label` onto every catch-up row for `targetVk` that falls after
+      // this visit and is still within the brand's valid age window. Mirrors
+      // the FORECAST_VISITS loops exactly, for rows those loops can't see.
+      const propagateToCatchup = (targetVk, label) => {
+        for (const { m, key } of futureCatchupKeys?.[targetVk] || []) {
+          if (m > visitM && brandValidAtVisit(m)) nextFc[key] = label;
+        }
+      };
+
       // Step 5: Set brand at selected visit + propagate forward
       // Use the explicit fcKey for the immediate write so catch-up cells
       // (cu{age}_{vk}) land at the key their cell reads from.
@@ -300,6 +309,11 @@ function reducer(state, action) {
           nextFc[`${v.m}_${vk}`] = brandName;
         }
       });
+      // Catch-up rows ("cu{age}_{vk}") exist only in the patient's computed
+      // plan, so FORECAST_VISITS above cannot reach them. ForecastTab passes
+      // them in. Without this a behind-schedule child inherits nothing and
+      // every later brand box stays empty.
+      propagateToCatchup(vk, brandName);
 
       // Step 6: If combo, set siblings at selected visit + propagate forward
       if (newComboName && newComboData) {
@@ -324,6 +338,7 @@ function reducer(state, action) {
               nextFc[`${v.m}_${sibVk}`] = comboLabel;
             }
           });
+          propagateToCatchup(sibVk, comboLabel);
         }
       }
 

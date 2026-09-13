@@ -9,7 +9,7 @@
 // brand-combo-rules.md.
 //
 // sev: "err" = hard contraindication, "warn" = caution, "info" = tip, "ok" = no issue.
-// RegTab renders left border + background tint based on sev — no icons.
+// ForecastFullReference renders left border + background tint based on sev — no icons.
 //
 // Return shape:
 //   constraints      — flat list (all categories below, tagged with .category)

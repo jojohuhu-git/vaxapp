@@ -3,7 +3,6 @@ import { useApp, getEffectiveAm, useRecs } from '../context/AppContext';
 import { REFS } from '../data/refs';
 import { fmtAm } from '../logic/ageFormat';
 import TabBar from './TabBar';
-import PlanTab from './PlanTab';
 import ForecastTab from './ForecastTab';
 import ComplianceAuditTab from './ComplianceAuditTab';
 import PatientInfo from './PatientInfo';
@@ -82,7 +81,6 @@ export default function MainPanel() {
       <TabBar />
 
       {state.tab === "compliance" && <ComplianceAuditTab recs={recs} validHist={validHist} />}
-      {state.tab === "plan" && <PlanTab recs={recs} />}
       {state.tab === "forecast" && <ForecastTab recs={recs} validHist={validHist} />}
     </div>
   );

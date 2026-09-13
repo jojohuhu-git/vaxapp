@@ -115,12 +115,11 @@ export function renderForecast(seed = {}) {
 // ── Query helpers ──────────────────────────────────────────────
 
 /**
- * Click "Show full forecast →" to expand all future rows.
+ * Click "▸ Later doses" to expand all future rows.
  * Call this in tests that need access to rows beyond today + next visit.
  */
 export function expandForecast(container) {
-  const btn = Array.from(container.querySelectorAll('button'))
-    .find(b => b.textContent.includes('Show full forecast'));
+  const btn = container.querySelector('.fct-show-full-btn');
   if (btn) act(() => { fireEvent.click(btn); });
 }
 

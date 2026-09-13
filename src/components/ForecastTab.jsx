@@ -12,10 +12,11 @@ import { validatedHistory, auditAll } from '../logic/validation';
 import { classifyDose } from '../logic/compliance';
 import { addD, todayISO } from '../logic/utils';
 import { humanDays, fmtAm } from '../logic/ageFormat';
-import { buildOptimalSchedule } from '../logic/buildOptimalSchedule';
+import { buildOptimalSchedule, summarizeComboUsage } from '../logic/buildOptimalSchedule';
 import { REFS } from '../data/refs';
 import PdfDownloadButton from './PdfDownloadButton';
 import { VisitCardShell, DoseRow, ComboDoseRow, PillLegend } from './VisitCard';
+import ForecastFullReference from './ForecastFullReference';
 
 // Primary CDC reference for each combo brand — surfaces in the Forecast "Why?" popover.
 const COMBO_PRIMARY_REF = {
@@ -425,15 +426,19 @@ function OptWhyButton({ doseKey, openKey, setOpenKey, explanation }) {
 
 // Inline "Why combo?" pill button shown next to the brand dropdown in the Forecast table
 // when a combo brand is selected. Surfaces the clinical rationale for picking the combo.
-function ComboWhyButton({ comboName, doseKey, openKey, setOpenKey }) {
+function ComboWhyButton({ comboName, offeredHere, doseKey, openKey, setOpenKey }) {
   const isOpen = openKey === doseKey;
   const btnRef = useRef(null);
   const [anchorRect, setAnchorRect] = useState(null);
   const rationale = COMBO_RATIONALE[comboName];
   if (!rationale) return null;
   const ref = COMBO_PRIMARY_REF[comboName];
+  // A brand carried forward from an earlier visit can stop being valid here
+  // (offeredHere false) — the rationale text already explains why, but the
+  // heading must not claim comboName applies to a row that isn't offering it.
+  const heading = offeredHere ? `Why ${comboName}?` : `Why not ${comboName} here?`;
   const explanation = {
-    summary: `Why ${comboName}?`,
+    summary: heading,
     detail: rationale,
     refUrl: ref?.url,
     refLabel: ref?.label,
@@ -445,7 +450,7 @@ function ComboWhyButton({ comboName, doseKey, openKey, setOpenKey }) {
   };
   return (
     <>
-      <button ref={btnRef} type="button" onClick={handleClick} title={`Why ${comboName}?`}
+      <button ref={btnRef} type="button" onClick={handleClick} title={heading}
         className={`fct-combo-why-btn${isOpen ? ' open' : ''}`}>
         Why?
       </button>
@@ -531,9 +536,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
   // Hoisted so the Today's Visit panel action row (rendered above the
   // optView-specific branches) can offer "Download Schedule" backed by the
-  // optimizer's own plan (SchedulePDF) when a Fewest-* view is active,
-  // instead of the standard routine timeline (ForecastPDF) — same label,
-  // same button slot, different PDF underneath.
+  // optimizer's own plan when a Fewest-* view is active, instead of the
+  // standard routine timeline — same label, same button slot, same
+  // SchedulePDF.jsx, different props underneath.
   let optResult = null;
   let optError = null;
   if (optView !== null) {
@@ -541,6 +546,23 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       optResult = buildOptimalSchedule(optPatient, state.fcBrands ?? {}, { today, mode: optView });
     } catch (e) {
       optError = e.message;
+    }
+  }
+
+  // S1f — Fewest-shots header suggestion (D16). Computed WITHOUT the owner's
+  // brand picks (fcBrands: {}), so it always names the combos that would
+  // minimize injections — independent of, and allowed to disagree with, the
+  // chosen-brand timeline in optResult above.
+  let comboUsage = [];
+  if (optView === 'fewestInjections') {
+    try {
+      const advisory = buildOptimalSchedule(optPatient, {}, { today, mode: 'fewestInjections' });
+      if (Array.isArray(advisory)) {
+        const optDob = optPatient.dob ?? addD(today, -Math.round(am * 30.4375));
+        comboUsage = summarizeComboUsage(advisory, optDob);
+      }
+    } catch {
+      comboUsage = [];
     }
   }
 
@@ -605,6 +627,21 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
   // age even when the host row was originally for a different vaccine's
   // catch-up. See applyScheduledEarly in forecastLogic for the merge semantics.
   const visits = applyScheduledEarly(baseWithSynth, scheduledEarliest);
+
+  // Plan keys for every catch-up row, grouped by vaccine, so a brand chosen at
+  // one visit can be carried forward onto them. Routine rows are keyed
+  // "{months}_{vk}" and the reducer can derive those from FORECAST_VISITS on
+  // its own; catch-up rows are keyed "cu{age}_{vk}" and exist only in this
+  // patient's computed plan, so the reducer has no way to find them unless we
+  // hand them over. Without this, a behind-schedule child's later visits never
+  // inherit the brand and every future brand box stays empty.
+  const futureCatchupKeys = {};
+  for (const v of visits) {
+    if (!v.isCatchup || !v.catchupDoseKeys) continue;
+    for (const [cuVk, cuKey] of Object.entries(v.catchupDoseKeys)) {
+      (futureCatchupKeys[cuVk] ||= []).push({ m: v.m, key: cuKey });
+    }
+  }
 
   // Exclude scheduled-early rows from the past count (they're always shown).
   const pastCount = visits.filter(v => v.m < am && !v.isScheduledEarly).length;
@@ -721,7 +758,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           anyBrand: isAnyBrandVk(vk, bOpts),
           onBrandChange: (e) => dispatch({
             type: "FC_BRAND_CHANGE",
-            payload: { visitM: info.visitM, vk, brandName: e.target.value, fcKey: visit.earlyFcKey },
+            payload: { visitM: info.visitM, vk, brandName: e.target.value, fcKey: visit.earlyFcKey, futureCatchupKeys },
           }),
         });
         continue;
@@ -776,7 +813,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           anyBrand: isAnyBrandVk(vk, bOpts3),
           onBrandChange: (e) => dispatch({
             type: "FC_BRAND_CHANGE",
-            payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey },
+            payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey, futureCatchupKeys },
           }),
           isMoved: true,
           onRevertClick: () => setScheduledEarliest(prev => { const n = new Map(prev); n.delete(fcKey); return n; }),
@@ -821,9 +858,16 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       const displayBrand = resolveDropdownBrand(state.fcBrands[fcKey] || "", brandOpts);
       const displayBrandKey = displayBrand ? displayBrand.split(' (')[0].trim() : '';
       const comboSelected = !!(displayBrandKey && COMBO_RATIONALE[displayBrandKey]);
+      // A brand carried forward from an earlier visit can stop being valid here
+      // (e.g. Pentacel past its licensed DTaP dose range) — resolveDropdownBrand
+      // then has no matching option and falls back to the stale label. The Why
+      // button still needs to render (its body already explains the row is not
+      // valid for that brand), but its heading must not claim the brand applies
+      // to this row when brandOpts doesn't actually offer it.
+      const comboOfferedHere = brandOpts.some(bo => bo.label.startsWith(displayBrandKey));
       const onBrandChange = (e) => dispatch({
         type: "FC_BRAND_CHANGE",
-        payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey, siblingFcKeys: visit.isCatchup ? visit.catchupDoseKeys : undefined },
+        payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey, siblingFcKeys: visit.isCatchup ? visit.catchupDoseKeys : undefined, futureCatchupKeys },
       });
 
       if (isCurr) {
@@ -853,7 +897,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
             vk, chipText: fmtDose(rec.doseNum), chipClass, fcKey, rec, hasPopover, onChipClick,
             brandOpts, displayBrand, showDropdown: brandOpts.length > 0 && !isAnyBrandVk(vk, brandOpts),
             anyBrand: isAnyBrandVk(vk, brandOpts), onBrandChange,
-            comboSelected, displayBrandKey,
+            comboSelected, displayBrandKey, comboOfferedHere,
           });
         }
         continue;
@@ -863,10 +907,11 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         const earliestLabel = (!isCurr && (proj.earliestAge ?? proj.dueAge) > am) ? fmtEarliestDate(proj, state.dob) : "";
         items.push({
           vk, chipText: fmtDose(proj.doseNum), chipClass: "fch fch-proj", dateLabel: fmtProjection(proj, state.dob),
+          dueDateISO: proj.dueDate || "",
           fcKey, rec, hasPopover, onChipClick,
           brandOpts, displayBrand, showDropdown: brandOpts.length > 0 && !isAnyBrandVk(vk, brandOpts),
           anyBrand: isAnyBrandVk(vk, brandOpts), onBrandChange,
-          comboSelected, displayBrandKey,
+          comboSelected, displayBrandKey, comboOfferedHere,
           earliestLabel,
           onEarliestClick: earliestLabel ? () => setScheduledEarliest(prev => {
             const n = new Map(prev);
@@ -889,9 +934,10 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               : "fch fch-need";
         items.push({
           vk, chipText: fmtDose(rec.doseNum), chipClass, fcKey, rec, hasPopover, onChipClick,
+          dueDateISO: state.dob ? visitDateISO(state.dob, visit.m) : "",
           brandOpts, displayBrand, showDropdown: brandOpts.length > 0 && !isAnyBrandVk(vk, brandOpts),
           anyBrand: isAnyBrandVk(vk, brandOpts), onBrandChange,
-          comboSelected, displayBrandKey,
+          comboSelected, displayBrandKey, comboOfferedHere,
         });
       }
     }
@@ -1037,16 +1083,17 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               {/* Combined PDF: today's shot-list-style admin page (lot#/route/
                   signature) followed by the full schedule — one download per
                   view instead of a separate "Shot List PDF" + "Print Visit
-                  Summary" + schedule button. Which schedule depends on which
-                  view is active: Routine gets the standard ACIP timeline
-                  (ForecastPDF); Fewest Injections gets the optimizer's own
-                  combo-bundled plan (SchedulePDF) in this SAME slot, so only
-                  one "download everything" button is ever visible at once. */}
+                  Summary" + schedule button. Which schedule body depends on
+                  which view is active: Routine passes `rows` for the standard
+                  ACIP timeline; Fewest Injections passes `visits` for the
+                  optimizer's own combo-bundled plan — same SchedulePDF.jsx,
+                  same slot, so only one "download everything" button is ever
+                  visible at once. */}
               {optView === null ? (
                 <PdfDownloadButton
                   buildDoc={async () => {
-                    const { default: ForecastPDF } = await import('./ForecastPDF');
-                    return ForecastPDF({ am, dob: state.dob, risks: state.risks, rows: pdfRows, recs, fcBrands: state.fcBrands });
+                    const { default: SchedulePDF } = await import('./SchedulePDF');
+                    return SchedulePDF({ am, dob: state.dob, risks: state.risks, rows: pdfRows, recs, fcBrands: state.fcBrands });
                   }}
                   fileName="pedivax-forecast.pdf"
                   className="fct-download-btn"
@@ -1094,9 +1141,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                           onClick={() => {
                             if (isActive) {
                               const anchorVk = bo.dueCovered.find(vk => state.fcBrands[`${am}_${vk}`]);
-                              if (anchorVk) dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: am, vk: anchorVk, brandName: "" } });
+                              if (anchorVk) dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: am, vk: anchorVk, brandName: "", futureCatchupKeys } });
                             } else {
-                              dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: am, vk: bo.dueCovered[0], brandName: bo.label } });
+                              dispatch({ type: "FC_BRAND_CHANGE", payload: { visitM: am, vk: bo.dueCovered[0], brandName: bo.label, futureCatchupKeys } });
                             }
                           }}
                         >
@@ -1156,7 +1203,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                               value={displayBrand}
                               onChange={e => dispatch({
                                 type: "FC_BRAND_CHANGE",
-                                payload: { visitM: am, vk: rec.vk, brandName: e.target.value },
+                                payload: { visitM: am, vk: rec.vk, brandName: e.target.value, futureCatchupKeys },
                               })}
                               className={`today-brand-sel${coveredByCombo && displayBrand ? " today-brand-sel-combo" : ""}`}
                             />
@@ -1253,6 +1300,22 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           const optDob = optPatient.dob ?? addD(today, -Math.round(am * 30.4375));
           return (
             <div>
+              {comboUsage.length > 0 && (
+                <div className="fct-opt-combo-suggestion">
+                  <span className="fct-opt-combo-suggestion-label">Suggestion — fewest shots overall:</span>{' '}
+                  {comboUsage.map((g, i) => (
+                    <span key={g.comboName}>
+                      {i > 0 && ' · '}
+                      {g.comboName} ({g.ageMonths.map(m => fmtAm(m)).join(', ')})
+                    </span>
+                  ))}
+                  {' — '}
+                  {comboUsage.length} combination product{comboUsage.length !== 1 ? 's' : ''}, saving{' '}
+                  {comboUsage.reduce((s, g) => s + g.savedInjections, 0)} injection
+                  {comboUsage.reduce((s, g) => s + g.savedInjections, 0) !== 1 ? 's' : ''} total.
+                  {' '}Your timeline below may differ if you picked other brands.
+                </div>
+              )}
               <div className="fct-opt-stats">
                 <div><div className="fct-opt-stat-num">{optResult.length}</div><div className="fct-opt-stat-label">visits</div></div>
                 <div><div className="fct-opt-stat-num">{totalInj}</div><div className="fct-opt-stat-label">injections</div></div>
@@ -1347,51 +1410,77 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               : `▸ ${pastCount} past visit${pastCount !== 1 ? 's' : ''} — click to show`}
           </button>
         )}
-        {visits.map((visit, vi) => {
-          if (visit.m < am && !showPast && !visit.isScheduledEarly) return null;
-          const isCurr = visit.m === am;
-          // The current-age visit is already shown in full, with "Why" links,
-          // by the Today's Visit panel above — rendering it again here as a
-          // card just repeats the same vaccines/doses in a plainer format
-          // (S1 simplification: merge the duplicate "Today" lists).
-          if (isCurr) return null;
-          const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
-          // "N past visits — click to show" must reveal ALL past visits, not
-          // just the ones isAlwaysVisible() already shows (imminent/
-          // next-routine). Without this, showPast flips true but this second
-          // gate still hides most past rows unless "Show full forecast" is
-          // ALSO on — the toggle looked broken/blank.
-          const isRevealedPast = isPast && showPast;
-          if (!showFull && !isAlwaysVisible(visit) && !isRevealedPast) return null;
+        {(() => {
+          // Build one row per visible visit card. `forceShowFull` lets the
+          // same logic run twice below: once for what's actually on screen,
+          // once assuming everything is expanded, so the "Later doses"
+          // toggle can say how many doses it's hiding (D9).
+          const buildRows = (forceShowFull) => visits.map((visit, vi) => {
+            if (visit.m < am && !showPast && !visit.isScheduledEarly) return null;
+            const isCurr = visit.m === am;
+            // The current-age visit is already shown in full, with "Why" links,
+            // by the Today's Visit panel above — rendering it again here as a
+            // card just repeats the same vaccines/doses in a plainer format
+            // (S1 simplification: merge the duplicate "Today" lists).
+            if (isCurr) return null;
+            const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
+            // "N past visits — click to show" must reveal ALL past visits, not
+            // just the ones isAlwaysVisible() already shows (imminent/
+            // next-routine). Without this, showPast flips true but this second
+            // gate still hides most past rows unless "Later doses" is
+            // ALSO on — the toggle looked broken/blank.
+            const isRevealedPast = isPast && showPast;
+            if (!forceShowFull && !isAlwaysVisible(visit) && !isRevealedPast) return null;
 
-          const items = buildVisitCardItems(visit);
-          if (items.length === 0) return null;
+            const items = buildVisitCardItems(visit);
+            if (items.length === 0) return null;
 
-          const cardKey = visit.isScheduledEarly
-            ? `v-early-${visit.m}-${visit.vk || vi}`
-            : visit.isCatchup
-              ? `v-cu-${visit.m}-${vi}`
-              : `v-rt-${visit.m}`;
-          const dateLabel = visit.isScheduledEarly
-            ? (scheduledEarliest.get(visit.earlyFcKey)?.date ?? '')
-            : isCurr
-              ? today
-              : (state.dob ? visitDateISO(state.dob, visit.m) : '');
-          const injCount = countCardInjections(items);
-          const countLabel = `${injCount} injection${injCount !== 1 ? 's' : ''}`;
+            const cardKey = visit.isScheduledEarly
+              ? `v-early-${visit.m}-${visit.vk || vi}`
+              : visit.isCatchup
+                ? `v-cu-${visit.m}-${vi}`
+                : `v-rt-${visit.m}`;
+            const dateLabel = visit.isScheduledEarly
+              ? (scheduledEarliest.get(visit.earlyFcKey)?.date ?? '')
+              : isCurr
+                ? today
+                : (state.dob ? visitDateISO(state.dob, visit.m) : '');
+            const injCount = countCardInjections(items);
+            const countLabel = `${injCount} injection${injCount !== 1 ? 's' : ''}`;
 
-          return (
+            return { visit, items, cardKey, dateLabel, injCount, countLabel, isCurr, isPast };
+          }).filter(Boolean);
+
+          const rows = buildRows(showFull);
+          const pastRows = rows.filter(r => r.isPast);
+          const futureRows = rows.filter(r => !r.isPast);
+
+          // (D8) "Book on or after" — the latest date any dose among the
+          // currently-visible future rows requires, and how many injections
+          // that covers. Said once here rather than repeated per row.
+          let maxDueISO = "";
+          futureRows.forEach(r => r.items.forEach(it => {
+            if (it.dueDateISO && it.dueDateISO > maxDueISO) maxDueISO = it.dueDateISO;
+          }));
+          const bookInjCount = futureRows.reduce((sum, r) => sum + r.injCount, 0);
+
+          // (D9) How much the "Later doses" toggle is currently hiding.
+          const allFutureRows = showFull ? futureRows : buildRows(true).filter(r => !r.isPast);
+          const laterDoseCount = allFutureRows.reduce((sum, r) => sum + r.items.length, 0)
+            - futureRows.reduce((sum, r) => sum + r.items.length, 0);
+
+          const renderCard = (r) => (
             <VisitCardShell
-              key={cardKey}
-              label={visit.l}
-              dateLabel={dateLabel}
-              countLabel={countLabel}
-              isCurr={isCurr}
-              isPast={isPast}
-              isCatchup={visit.isCatchup}
-              isScheduledEarly={visit.isScheduledEarly}
+              key={r.cardKey}
+              label={r.visit.l}
+              dateLabel={r.dateLabel}
+              countLabel={r.countLabel}
+              isCurr={r.isCurr}
+              isPast={r.isPast}
+              isCatchup={r.visit.isCatchup}
+              isScheduledEarly={r.visit.isScheduledEarly}
             >
-              {items.map(item => (
+              {r.items.map(item => (
                 <DoseRow
                   key={item.fcKey || item.vk}
                   vk={VAX_META[item.vk]?.ab || item.vk}
@@ -1431,6 +1520,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                       {item.comboSelected && (
                         <ComboWhyButton
                           comboName={item.displayBrandKey}
+                          offeredHere={item.comboOfferedHere}
                           doseKey={`combo:card:${item.fcKey}`}
                           openKey={whyOpenKey}
                           setOpenKey={setWhyOpenKey}
@@ -1450,21 +1540,49 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               ))}
             </VisitCardShell>
           );
-        })}
-      </div>
 
-      {/* ── Progressive disclosure toggle ─────────────────────── */}
-      <div className="fct-show-full-btn-wrap">
-        <button
-          onClick={() => setShowFull(v => !v)}
-          className="fct-show-full-btn"
-        >
-          {showFull ? '← Show less' : 'Show full forecast →'}
-        </button>
+          return (
+            <>
+              {pastRows.map(renderCard)}
+
+              {futureRows.length > 0 && (
+                <p className="fct-next-visit-hint">Next visit — earliest date each dose may be given</p>
+              )}
+
+              {futureRows.map(renderCard)}
+
+              {futureRows.length > 0 && maxDueISO && (
+                <div className="fct-book-line">
+                  Book on or after <b>{fmtDateShort(maxDueISO)}</b> — {bookInjCount} injection{bookInjCount !== 1 ? 's' : ''}.
+                </div>
+              )}
+
+              {/* ── Progressive disclosure toggle (D9) ─────────── */}
+              {(laterDoseCount > 0 || showFull) && (
+                <div className="fct-show-full-btn-wrap">
+                  <button
+                    onClick={() => setShowFull(v => !v)}
+                    className="fct-show-full-btn"
+                  >
+                    {showFull
+                      ? '▴ Hide later doses'
+                      : `▸ Later doses — ${laterDoseCount} more`}
+                  </button>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       </>
       )}
+
+      {/* ── Reference material folded in from the retired Compare Regimens
+             tab (D11) — combo dose gates, brand age windows, catch-up table,
+             and the multi-vaccine Brand Constraints Analyzer. Collapsed by
+             default; shown regardless of the Separate/Fewest shots toggle. */}
+      <ForecastFullReference recs={recs} />
     </div>
   );
 }

@@ -1,13 +1,15 @@
 // @vitest-environment happy-dom
 /* eslint-disable react/prop-types */
 /**
- * RegTab.analyzerSections.test.jsx — the Brand Constraints Analyzer's flat
- * severity-colored list was reorganized into labeled sections (Interchanging
- * Brands, Brand Age Windows, Doses Approved For, Minimum Interval, and
- * Co-Administration Notes at the bottom) so the output is easier to scan.
+ * ForecastFullReference.analyzerSections.test.jsx — the Brand Constraints
+ * Analyzer's section headers (Interchanging Brands, Brand Age Windows,
+ * Doses Approved For, Minimum Interval, Co-Administration Notes), now living
+ * inside the collapsed "Full reference" section on the Immunization Schedule
+ * tab rather than the retired standalone Compare Regimens tab.
+ * Formerly RegTab.analyzerSections.test.jsx.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, act, cleanup } from '@testing-library/react';
+import { render, fireEvent, act, cleanup } from '@testing-library/react';
 import { AppProvider, useApp } from '../../context/AppContext';
 import { VAX_KEYS } from '../../data/vaccineData';
 import MainPanel from '../MainPanel';
@@ -29,7 +31,7 @@ function fullHist() {
   return out;
 }
 
-function renderComparRegimensTab(am = 4, hist = fullHist()) {
+function renderScheduleTab(am = 4, hist = fullHist()) {
   let dispatch;
   function Capture() {
     dispatch = useApp().dispatch;
@@ -47,7 +49,11 @@ function renderComparRegimensTab(am = 4, hist = fullHist()) {
       payload: { am, dob: '', risks: [], cd4: null, hist, fcBrands: {} },
     });
   });
-  act(() => { dispatch({ type: 'SET_TAB', payload: 'plan' }); });
+  // Expand the collapsed reference section so the analyzer inside it renders.
+  const details = [...container.querySelectorAll('details')].find(d =>
+    d.querySelector('summary')?.textContent === 'Full reference'
+  );
+  act(() => { details.open = true; fireEvent(details, new Event('toggle', { bubbles: true })); });
   return container;
 }
 
@@ -55,12 +61,12 @@ function analyzerBox(container) {
   return [...container.querySelectorAll('.aiout')][0];
 }
 
-describe('RegTab Brand Constraints Analyzer sections', () => {
+describe('ForecastFullReference Brand Constraints Analyzer sections', () => {
   it('renders section headers in order: Interchanging Brands, Brand Age Windows, Doses Approved For, Minimum Interval, Co-Administration Notes', () => {
     // 4mo, no history: HepB/DTaP/Hib/PCV/IPV due — has combo suggestions
     // (Vaxelis/Pediarix/Pentacel), brand age windows (HepB<18y), and
     // interval data for all of them.
-    const container = renderComparRegimensTab(4);
+    const container = renderScheduleTab(4);
     const box = analyzerBox(container);
     const headers = [...box.querySelectorAll('div')]
       .map(d => d.textContent)
@@ -77,20 +83,20 @@ describe('RegTab Brand Constraints Analyzer sections', () => {
     // (The separate Full Reference accordion still shows RV's rule on a
     // broader age basis — that's the pre-existing, intentionally-unchanged
     // "browse everything" surface, not the patient-scoped analyzer.)
-    const container = renderComparRegimensTab(6);
+    const container = renderScheduleTab(6);
     const box = analyzerBox(container);
     expect(box.textContent).not.toContain('Rotavirus (RV): Prefer the same product');
   });
 
   it('shows the Rotavirus interchange row when RV is still within its dosing window', () => {
-    const container = renderComparRegimensTab(2);
+    const container = renderScheduleTab(2);
     const box = analyzerBox(container);
     expect(box.textContent).toContain('Interchanging Brands');
     expect(box.textContent).toContain('Rotavirus (RV): Prefer the same product');
   });
 
   it('shows Minimum Interval cards scoped to the selected vaccines, not all 18', () => {
-    const container = renderComparRegimensTab(4);
+    const container = renderScheduleTab(4);
     const box = analyzerBox(container);
     expect(box.textContent).toContain('Minimum Interval');
     expect(box.textContent).toContain('Min age D1');

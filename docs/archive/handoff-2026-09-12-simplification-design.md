@@ -1,5 +1,24 @@
 # vaxapp — Handoff after the simplification design session (2026-09-12)
 
+> **STATUS (2026-09-13): SUPERSEDED for sequencing, AMENDED for decisions.**
+>
+> Continue from
+> [`handoff-2026-09-13-brand-carry-forward-and-fewest-shots.md`](handoff-2026-09-13-brand-carry-forward-and-fewest-shots.md),
+> not this file. S0, S1a, S1b, S1c and S1d have shipped since this was written.
+>
+> The D1–D12 table below is still the authority **except** for these three, which the
+> owner changed on 2026-09-13 (see D13–D16 in the new handoff):
+>
+> - **D3** — the app no longer pre-fills a suggested brand. Boxes start blank. D3's
+>   cascade-forward half stands and now also covers catch-up rows.
+> - **D6** — **dropped.** No two-line option set, and **no amber "where the product has to
+>   change" blocks** — the item this document called "the only genuinely new behaviour" is
+>   no longer in scope. The dropdown on the row already lists the valid brands.
+> - **D7** — future rows stay **editable**, not read-only, because D6's removal relies on
+>   the user reading the dropdown options there.
+>
+> D1, D2, D4, D5, D8, D9, D10, D11 and D12 are unchanged and still binding.
+
 **This is a DESIGN handoff. No code was written. Nothing is built.**
 
 Branch: `main`, at `1537b49`. Nothing pushed, nothing committed by this session except
