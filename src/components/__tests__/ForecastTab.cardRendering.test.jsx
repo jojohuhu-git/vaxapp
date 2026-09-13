@@ -247,7 +247,7 @@ describe('ForecastTab — card header format (Routine vs Fewest Injections consi
   it('a Fewest Injections card is labeled by age, not "Visit N", and matches the Routine header shape', () => {
     const { container } = renderForecast({ am: 24, dob: '2024-07-04' });
     const btn = Array.from(container.querySelectorAll('.fct-view-btn'))
-      .find(b => b.textContent.includes('Fewest Injections'));
+      .find(b => b.textContent.includes('Fewest shots'));
     act(() => { fireEvent.click(btn); });
 
     const labels = Array.from(container.querySelectorAll('.vcard-label')).map(el => el.textContent.trim());
