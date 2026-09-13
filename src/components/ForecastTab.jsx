@@ -425,15 +425,19 @@ function OptWhyButton({ doseKey, openKey, setOpenKey, explanation }) {
 
 // Inline "Why combo?" pill button shown next to the brand dropdown in the Forecast table
 // when a combo brand is selected. Surfaces the clinical rationale for picking the combo.
-function ComboWhyButton({ comboName, doseKey, openKey, setOpenKey }) {
+function ComboWhyButton({ comboName, offeredHere, doseKey, openKey, setOpenKey }) {
   const isOpen = openKey === doseKey;
   const btnRef = useRef(null);
   const [anchorRect, setAnchorRect] = useState(null);
   const rationale = COMBO_RATIONALE[comboName];
   if (!rationale) return null;
   const ref = COMBO_PRIMARY_REF[comboName];
+  // A brand carried forward from an earlier visit can stop being valid here
+  // (offeredHere false) — the rationale text already explains why, but the
+  // heading must not claim comboName applies to a row that isn't offering it.
+  const heading = offeredHere ? `Why ${comboName}?` : `Why not ${comboName} here?`;
   const explanation = {
-    summary: `Why ${comboName}?`,
+    summary: heading,
     detail: rationale,
     refUrl: ref?.url,
     refLabel: ref?.label,
@@ -445,7 +449,7 @@ function ComboWhyButton({ comboName, doseKey, openKey, setOpenKey }) {
   };
   return (
     <>
-      <button ref={btnRef} type="button" onClick={handleClick} title={`Why ${comboName}?`}
+      <button ref={btnRef} type="button" onClick={handleClick} title={heading}
         className={`fct-combo-why-btn${isOpen ? ' open' : ''}`}>
         Why?
       </button>
@@ -853,6 +857,13 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       const displayBrand = resolveDropdownBrand(state.fcBrands[fcKey] || "", brandOpts);
       const displayBrandKey = displayBrand ? displayBrand.split(' (')[0].trim() : '';
       const comboSelected = !!(displayBrandKey && COMBO_RATIONALE[displayBrandKey]);
+      // A brand carried forward from an earlier visit can stop being valid here
+      // (e.g. Pentacel past its licensed DTaP dose range) — resolveDropdownBrand
+      // then has no matching option and falls back to the stale label. The Why
+      // button still needs to render (its body already explains the row is not
+      // valid for that brand), but its heading must not claim the brand applies
+      // to this row when brandOpts doesn't actually offer it.
+      const comboOfferedHere = brandOpts.some(bo => bo.label.startsWith(displayBrandKey));
       const onBrandChange = (e) => dispatch({
         type: "FC_BRAND_CHANGE",
         payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey, siblingFcKeys: visit.isCatchup ? visit.catchupDoseKeys : undefined, futureCatchupKeys },
@@ -885,7 +896,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
             vk, chipText: fmtDose(rec.doseNum), chipClass, fcKey, rec, hasPopover, onChipClick,
             brandOpts, displayBrand, showDropdown: brandOpts.length > 0 && !isAnyBrandVk(vk, brandOpts),
             anyBrand: isAnyBrandVk(vk, brandOpts), onBrandChange,
-            comboSelected, displayBrandKey,
+            comboSelected, displayBrandKey, comboOfferedHere,
           });
         }
         continue;
@@ -898,7 +909,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           fcKey, rec, hasPopover, onChipClick,
           brandOpts, displayBrand, showDropdown: brandOpts.length > 0 && !isAnyBrandVk(vk, brandOpts),
           anyBrand: isAnyBrandVk(vk, brandOpts), onBrandChange,
-          comboSelected, displayBrandKey,
+          comboSelected, displayBrandKey, comboOfferedHere,
           earliestLabel,
           onEarliestClick: earliestLabel ? () => setScheduledEarliest(prev => {
             const n = new Map(prev);
@@ -923,7 +934,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           vk, chipText: fmtDose(rec.doseNum), chipClass, fcKey, rec, hasPopover, onChipClick,
           brandOpts, displayBrand, showDropdown: brandOpts.length > 0 && !isAnyBrandVk(vk, brandOpts),
           anyBrand: isAnyBrandVk(vk, brandOpts), onBrandChange,
-          comboSelected, displayBrandKey,
+          comboSelected, displayBrandKey, comboOfferedHere,
         });
       }
     }
@@ -1479,6 +1490,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                       {item.comboSelected && (
                         <ComboWhyButton
                           comboName={item.displayBrandKey}
+                          offeredHere={item.comboOfferedHere}
                           doseKey={`combo:card:${item.fcKey}`}
                           openKey={whyOpenKey}
                           setOpenKey={setWhyOpenKey}
