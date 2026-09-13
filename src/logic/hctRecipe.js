@@ -146,9 +146,13 @@ export const HCT_RECIPE_GROUPS = [
           + 'a high-risk condition (asplenia, persistent complement deficiency, or '
           + 'eculizumab/ravulizumab). No post-transplant timing is sourced beyond eligibility '
           + '— use this app\'s standard age-based MenB dosing once transplant recovery '
-          + 'allows. The transplant alone creates no booster schedule — a booster is due '
-          + 'only if the patient has an additional risk factor already covered by this app\'s '
-          + 'standing MenB guidance. Outside this group, transplant centers often vaccinate '
+          + 'allows: 2 doses if the transplant is the only reason MenB applies; 3 doses '
+          + '(accelerated high-risk schedule) only if an additional MenB risk factor — '
+          + 'asplenia, complement deficiency, microbiologist exposure, or a serogroup B '
+          + 'outbreak — also applies. The transplant alone creates no booster schedule — a '
+          + 'booster is due only if the patient has an additional risk factor already '
+          + 'covered by this app\'s standing MenB guidance. Outside this group, transplant '
+          + 'centers often vaccinate '
           + 'more broadly and may choose to.',
         refs: ['alteredImmunocompetence', 'ascoAdultCancer2024'],
       },

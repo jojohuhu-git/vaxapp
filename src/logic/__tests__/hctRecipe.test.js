@@ -137,6 +137,13 @@ describe('post-HSCT meningococcal rule (settled 2026-09-13 — CDC + ASCO)', () 
     expect(item.plan).toMatch(highRiskWording);
   });
 
+  it('MenB: the transplant alone gives 2 doses, not 3 — 3 doses require an additional MenB risk factor', () => {
+    const item = find('MenB');
+    expect(item.plan).toMatch(/2 doses if the transplant is the only reason/);
+    expect(item.plan).toMatch(/3 doses/);
+    expect(item.plan).toMatch(/accelerated high-risk schedule/);
+  });
+
   it('neither row invents a booster schedule from transplant alone', () => {
     for (const vax of ['MenACWY', 'MenB']) {
       const item = find(vax);
