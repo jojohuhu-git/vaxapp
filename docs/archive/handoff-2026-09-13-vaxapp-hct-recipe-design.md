@@ -1,5 +1,11 @@
 # vaxapp — post-HCT re-vaccination plan (backlog B-9)
 
+> **Partly corrected 2026-09-13.** The MenACWY and MenB rows described here ("2 doses"
+> at any age) are **wrong** and are being fixed before PR #145 merges — see
+> `handoff-2026-09-13-post-hsct-meningococcal-crossrepo.md`, which carries the verified
+> CDC and ASCO text and the rule that replaces them. Everything else in this document —
+> the other sixteen vaccines, the scope decisions, the sourcing — still stands.
+
 **Status:** built and shipped 2026-09-13. This document records the clinical sourcing, so
 a future session can check a rule without re-fetching every page.
 
