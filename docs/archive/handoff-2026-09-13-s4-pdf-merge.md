@@ -1,3 +1,6 @@
+> **SUPERSEDED** by `handoff-2026-09-13-s5-mobile-tab-scroll.md` — S5 is done; read that
+> file instead of resuming from here.
+
 # vaxapp (PediVax) — Handoff after S4 (2026-09-13)
 
 Repo: `/Users/joannehuang/Downloads/vaxapp-main` · Live: <https://jojohuhu-git.github.io/vaxapp/>
