@@ -1,3 +1,10 @@
+> **STATUS (2026-09-13): the S-list portion below is still accurate (S0–S5 all done).**
+> For what comes next — the HCT/CAR-T/B-cell hard stop this handoff points to as "Then" —
+> continue from
+> [`handoff-2026-09-13-hct-hardstop-step1.md`](handoff-2026-09-13-hct-hardstop-step1.md)
+> instead. That work has since had its design doc rewritten, four owner decisions
+> obtained, and Step 1 (CAR-T/B-cell only) built and pushed as PR #143.
+
 # vaxapp (PediVax) — Handoff after S5 (2026-09-13)
 
 Repo: `/Users/joannehuang/Downloads/vaxapp-main` · Live: <https://jojohuhu-git.github.io/vaxapp/>
