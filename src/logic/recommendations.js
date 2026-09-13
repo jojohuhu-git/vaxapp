@@ -5,6 +5,7 @@ import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menB
 import { isD, dBetween } from './utils.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
+import { hardStopExclusion } from './hardStop.js';
 
 // Returns the flu-season start year for a given ISO date.
 // Season runs Jul 1 YEAR → Jun 30 YEAR+1; identified by start year.
@@ -31,6 +32,10 @@ function tf(url, frag) {
  * @param {string} dob - patient date of birth (ISO string)
  */
 export function genRecs(am, hist, risks, dob, opts = {}) {
+  // This tool does not apply to CAR-T/B-cell-malignancy/B-cell-depleting-
+  // therapy patients — see src/logic/hardStop.js. Checked before the age
+  // guard so it applies at every age, not just pediatric ones.
+  if (hardStopExclusion(risks)) return [];
   // PediVax is for pediatric patients only (birth–18y). Return empty for adults.
   if (am >= 228) return [];
 

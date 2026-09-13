@@ -21,6 +21,7 @@ import { getDoseBand } from '../data/aapDoseBands';
 import { fmtDateInput, addD, todayISO } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
 import { genRecs } from '../logic/recommendations';
+import { hardStopExclusion } from '../logic/hardStop';
 import { labelForDose } from '../logic/annualLabel';
 import { FLU_SCHEDULES, COVID_SCHEDULES } from '../data/annualSchedules';
 
@@ -898,11 +899,34 @@ function StatusLegend() {
   );
 }
 
+// Shown at the top of this tab (never replacing it — see hardStopped above)
+// for a CAR-T/B-cell-malignancy/B-cell-depleting-therapy patient: explains why
+// the Immunization Schedule tab is showing a stop instead of recommendations,
+// without implying this tab's own past-dose review is affected.
+function ComplianceAuditStopNotice() {
+  return (
+    <div className="hard-stop-banner">
+      <div className="hard-stop-banner-title">Forward-looking recommendations are switched off for this patient</div>
+      <p className="hard-stop-banner-message">
+        Standard age-based immunization logic doesn't apply to this patient (see the
+        Immunization Schedule tab for the full explanation). This review of doses already
+        given is unaffected — whether a past dose was correctly spaced doesn't change.
+      </p>
+    </div>
+  );
+}
+
 // ── Main ComplianceAuditTab ────────────────────────────────────────────────────
 export default function ComplianceAuditTab({ recs: recsProp, validHist: validHistProp }) {
   const { state } = useApp();
   const { effectiveAm: am } = getEffectiveAm(state);
   const { hist, dob, risks, fcBrands } = state;
+  // Partial hard stop (car_t / bcell_malignancy / bcell_depleting_therapy):
+  // this tab keeps working — whether a past dose was correctly spaced is a
+  // fact about the past that a later diagnosis doesn't change — but shows a
+  // notice explaining that the forward-looking tabs are switched off. See
+  // docs/archive/handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md.
+  const hardStopped = hardStopExclusion(risks);
 
   // Accept recs/validHist from the parent's useRecs() call (avoids recomputing
   // for the whole tab); fall back to a local computation for standalone/test
@@ -934,14 +958,18 @@ export default function ComplianceAuditTab({ recs: recsProp, validHist: validHis
 
   if (vaccinesWithHistory.length === 0) {
     return (
-      <div style={{ padding: 24, textAlign: 'center', color: 'var(--gy3)', fontSize: 13 }}>
-        No vaccination history recorded. Add doses in the Edit Patient drawer to see compliance review.
+      <div>
+        {hardStopped && <ComplianceAuditStopNotice />}
+        <div style={{ padding: 24, textAlign: 'center', color: 'var(--gy3)', fontSize: 13 }}>
+          No vaccination history recorded. Add doses in the Edit Patient drawer to see compliance review.
+        </div>
       </div>
     );
   }
 
   return (
     <div>
+      {hardStopped && <ComplianceAuditStopNotice />}
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <p style={{ margin: 0, fontSize: 11.5, color: 'var(--gy3)' }}>

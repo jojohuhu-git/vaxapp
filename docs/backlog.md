@@ -104,3 +104,17 @@ Each item has enough context to implement later. When you pick one up, follow th
 - **D State persistence gaps** — see B-7.
 - **E Off-by-one and unit confusion** — `am` comparisons that conflate "≥" and ">" in age-window endpoints. Mostly cosmetic.
 - **F Recommended automated test scaffold** — DONE (TEST_SCAFFOLD.md, 2026-04-27).
+
+---
+
+## HCT/CAR-T/B-cell hard-stop follow-up (added 2026-09-13)
+
+### B-9. A full sourced HCT recipe for vaxapp, covering all its vaccines
+
+**Today:** Step 1 of the hard stop (`src/logic/hardStop.js`) covers CAR-T therapy, B-cell malignancy, and B-cell-depleting therapy only. HSCT keeps its existing thin, PCV/Hib-only advisory in `recommendations.js` for now. Step 2 (not yet built) flips HSCT over to the same hard stop and deletes that old advisory — which is more honest than the current partial coverage, but still means vaxapp gives HSCT patients no vaccine-specific guidance at all, unlike PneumoVax and MeningoVax, which each have a sourced step-by-step post-transplant recipe for their one vaccine family.
+
+**Wanted:** A full sourced HCT "recipe" for vaxapp covering all ~10 of its vaccine families (not just pneumococcal/Hib), in the same relative-timing style PneumoVax's `hsctAdvisory()` and MeningoVax's planned `hctAdvisory()` use (see `project_hsct_no_date_design` memory — no transplant-date input, timing expressed relative to transplant).
+
+**Why this is separate, not part of Step 1 or Step 2:** sequencing a recipe across ~8-10 vaccine families, and propagating it across all five of vaxapp's output surfaces (see `docs/agent/five-surface-verification.md`), is a real scoping problem on its own. Confirmed wanted by the owner (2026-09-12), explicitly deferred both times the hard-stop work has been scoped.
+
+**Where the detail lives:** `docs/archive/handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md` and its predecessor `handoff-2026-09-12-vaxapp-hct-hardstop-design.md`.

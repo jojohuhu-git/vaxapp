@@ -1,6 +1,21 @@
 // Risk factors grouped for display. Each group has a `header` and `items`.
 export const RISK_FACTOR_GROUPS = [
   {
+    // These three aren't ordinary risk factors that adjust a recommendation —
+    // each one means "this tool does not apply to this patient" (see
+    // src/logic/hardStop.js). Kept in their own group, visually separated
+    // from "Immune", so they don't read as just another checkbox in that
+    // list. HSCT stays in "Immune" below for now — folding it into this
+    // same stop is a separate, not-yet-built step (see
+    // docs/archive/handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md).
+    header: "This tool does not apply",
+    items: [
+      { id: "car_t",                   l: "CAR-T cell therapy" },
+      { id: "bcell_malignancy",        l: "B-cell malignancy (e.g., lymphoma, CLL)" },
+      { id: "bcell_depleting_therapy", l: "Recent B-cell-depleting therapy (e.g., rituximab)" },
+    ],
+  },
+  {
     header: "Immune",
     items: [
       { id: "complement",     l: "Complement deficiency or inhibitor (e.g., eculizumab/ravulizumab)" },
