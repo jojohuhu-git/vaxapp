@@ -54,14 +54,10 @@ export const HCT_RECIPE_NO_DATES =
   'All timing below is counted from the transplant date. This tool does not record that '
   + 'date, so it shows no calendar due-dates and no "due today" flags.';
 
-export const HCT_RECIPE_COORDINATE =
-  'Coordinate with the transplant team. Your center\'s own post-transplant protocol takes '
-  + 'precedence over this page.';
-
 /**
- * Used verbatim by the rows where the app deliberately states no timing. Shared
- * so the wording — which matches PneumoVax's post-HSCT coordination line — can't
- * drift apart row by row.
+ * The plan's opening disclaimer, and the verbatim text of the rows where the app
+ * deliberately states no timing. One constant so the wording — which matches
+ * PneumoVax's post-HSCT coordination line — cannot drift apart.
  */
 export const HCT_DEFER_TO_TEAM =
   'Coordinate with the transplant/ID team — your center may use its own post-HCT protocol.';

@@ -95,9 +95,14 @@ describe('Post-HSCT re-vaccination plan (B-9)', () => {
     expect(queryByText(/4 doses of PCV20, beginning 3 to 6 months after transplant/)).toBeTruthy();
   });
 
-  it('keeps the transplant-team coordination line visible', () => {
-    const { queryByText } = renderApp({ risks: ['hsct'], tab: 'forecast' });
-    expect(queryByText(/Coordinate with the transplant team/)).toBeTruthy();
+  it('opens with the transplant/ID team disclaimer, above the plan itself', () => {
+    const { container } = renderApp({ risks: ['hsct'], tab: 'forecast' });
+    const disclaimer = container.querySelector('.hct-recipe-coordinate');
+    expect(disclaimer.textContent).toMatch(/Coordinate with the transplant\/ID team/);
+    // It has to lead the section, not trail it.
+    const firstGroup = container.querySelector('.hct-recipe-group');
+    expect(disclaimer.compareDocumentPosition(firstGroup) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
   });
 
   it('does NOT render the plan for car_t — that stays a bare stop', () => {

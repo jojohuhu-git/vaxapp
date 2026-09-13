@@ -6,7 +6,7 @@ import {
   HCT_RECIPE_TITLE,
   HCT_RECIPE_RESTART,
   HCT_RECIPE_NO_DATES,
-  HCT_RECIPE_COORDINATE,
+  HCT_DEFER_TO_TEAM,
   HCT_RECIPE_TRANSPLANT_TYPE,
   HCT_RECIPE_GROUPS,
 } from '../logic/hctRecipe';
@@ -16,6 +16,8 @@ export default function HctRecipe() {
   return (
     <section className="hct-recipe" aria-label={HCT_RECIPE_TITLE}>
       <h3 className="hct-recipe-title">{HCT_RECIPE_TITLE}</h3>
+
+      <p className="hct-recipe-coordinate">{HCT_DEFER_TO_TEAM}</p>
 
       <p className="hct-recipe-restart">{HCT_RECIPE_RESTART}</p>
       <p className="hct-recipe-note">{HCT_RECIPE_NO_DATES}</p>
@@ -51,8 +53,6 @@ export default function HctRecipe() {
           </dl>
         </div>
       ))}
-
-      <p className="hct-recipe-coordinate">{HCT_RECIPE_COORDINATE}</p>
     </section>
   );
 }

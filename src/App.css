@@ -263,7 +263,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .hct-recipe-plan{font-size:13px;color:var(--gy);margin:0;line-height:1.5;}
 .hct-recipe-refs{display:block;font-size:11px;color:var(--gy2);margin-top:3px;}
 .hct-recipe-refs a{color:var(--gy2);text-decoration:underline;}
-.hct-recipe-coordinate{font-size:13px;font-weight:600;color:var(--gy);margin:14px 0 0 0;padding-top:10px;border-top:1px solid var(--gy5);line-height:1.5;}
+.hct-recipe-coordinate{font-size:13px;font-weight:600;color:var(--gy);margin:0 0 10px 0;padding-bottom:10px;border-bottom:1px solid var(--gy5);line-height:1.5;}
 @media (max-width:600px){
   .hct-recipe-row{grid-template-columns:1fr;gap:2px;}
 }
