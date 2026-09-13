@@ -31,6 +31,8 @@ import {
   getCardByLabel,
   getCardDoseRowByVk,
   getCardLabels,
+  getTodayPanel,
+  getTodayRowByVk,
   expandForecast,
 } from '../../test-helpers/renderForecast';
 
@@ -41,8 +43,10 @@ describe('ForecastTab — 2yo no history baseline', () => {
     // Expand to full view — baseline test needs to see all cards.
     expandForecast(container);
     const labels = getCardLabels(container);
-    // Current visit card + future routine slots
-    expect(labels.some(l => l.startsWith('2 years'))).toBe(true);
+    // Current visit lives only in the Today's Visit panel (S1: merged with
+    // the former duplicate "2 years" card) + future routine slots as cards.
+    expect(getTodayPanel(container)).not.toBeNull();
+    expect(getCardByLabel(container, '2 years'), 'current visit must not also render as a card').toBeNull();
     expect(labels.some(l => l.startsWith('4 years'))).toBe(true);
     // "11 years" renders via the genRecs future-first-dose fallback (Tdap/
     // HPV/MenACWY D1 — dosePlan's seed-scan never writes seeded D1s), and
@@ -109,11 +113,10 @@ describe('ForecastTab — IPV D4 earliest collision (regression guard)', () => {
 
 // ── Brand cascade ─────────────────────────────────────────────────────────
 describe('ForecastTab — brand cascade', () => {
-  it('selecting Pediarix for DTaP at 2y card fills HepB and IPV at 2y card', () => {
+  it('selecting Pediarix for DTaP at 2y visit fills HepB and IPV at the same (Today) visit', () => {
     const { container } = renderForecast({ am: 24 });
 
-    const card = getCardByLabel(container, '2 years');
-    const dtapRow = getCardDoseRowByVk(card, 'DTaP');
+    const dtapRow = getTodayRowByVk(container, 'DTaP');
     const dtapSelect = dtapRow.querySelector('select');
     expect(dtapSelect).not.toBeNull();
 
@@ -126,10 +129,9 @@ describe('ForecastTab — brand cascade', () => {
       fireEvent.change(dtapSelect, { target: { value: pediarixOption.value } });
     });
 
-    // After cascade: HepB and IPV rows at the same card should also show Pediarix
-    const cardAfter = getCardByLabel(container, '2 years');
-    const hepbRow = getCardDoseRowByVk(cardAfter, 'HepB');
-    const ipvRow = getCardDoseRowByVk(cardAfter, 'IPV');
+    // After cascade: HepB and IPV rows at the same visit should also show Pediarix
+    const hepbRow = getTodayRowByVk(container, 'HepB');
+    const ipvRow = getTodayRowByVk(container, 'IPV');
     expect(hepbRow.querySelector('select').value, 'HepB should show Pediarix after cascade').toMatch(/^Pediarix/);
     expect(ipvRow.querySelector('select').value, 'IPV should show Pediarix after cascade').toMatch(/^Pediarix/);
   });
@@ -161,8 +163,9 @@ describe('ForecastTab — catch-up card vk isolation', () => {
 describe('ForecastTab — earliest button visibility', () => {
   it('does NOT show earliest button at past or current visits', () => {
     const { container } = renderForecast({ am: 24 });
-    const currentCard = getCardByLabel(container, '2 years');
-    const earliestBtns = currentCard.querySelectorAll('.fc-earliest-btn');
+    const todayPanel = getTodayPanel(container);
+    expect(todayPanel).not.toBeNull();
+    const earliestBtns = todayPanel.querySelectorAll('.fc-earliest-btn');
     expect(earliestBtns.length, 'current visit must not offer earliest button').toBe(0);
   });
 });
@@ -306,10 +309,9 @@ describe('ForecastTab — standalone scheduled-early card brand picker', () => {
 // clinician could not pick Vaxelis directly from Hib's dropdown — they had
 // to pick it from another row and rely on the cascade. Asymmetric.
 describe('ForecastTab — Hib brand list at 2y catch-up', () => {
-  it('Hib dropdown at 2y card must include Vaxelis', () => {
+  it('Hib dropdown at 2y visit must include Vaxelis', () => {
     const { container } = renderForecast({ am: 24 });
-    const card = getCardByLabel(container, '2 years');
-    const hibRow = getCardDoseRowByVk(card, 'Hib');
+    const hibRow = getTodayRowByVk(container, 'Hib');
     const select = hibRow.querySelector('select');
     expect(select, 'expected Hib brand dropdown').not.toBeNull();
     const optionLabels = Array.from(select.options).map(o => o.value);
@@ -319,14 +321,13 @@ describe('ForecastTab — Hib brand list at 2y catch-up', () => {
     ).toBe(true);
   });
 
-  it('Hib dropdown at 2y card offers DTaP/IPV/HepB rows and Hib symmetrically', () => {
+  it('Hib dropdown at 2y visit offers DTaP/IPV/HepB rows and Hib symmetrically', () => {
     // Sanity-symmetric assertion — every row that Vaxelis covers should
     // expose Vaxelis when all four antigens are due. If this assertion fails
     // we have a regression in the broader brand-cascade validity logic.
     const { container } = renderForecast({ am: 24 });
-    const card = getCardByLabel(container, '2 years');
     for (const vk of ['DTaP', 'IPV', 'HepB', 'Hib']) {
-      const row = getCardDoseRowByVk(card, vk);
+      const row = getTodayRowByVk(container, vk);
       const select = row.querySelector('select');
       const optionLabels = Array.from(select.options).map(o => o.value);
       expect(
@@ -341,8 +342,7 @@ describe('ForecastTab — Hib brand list at 2y catch-up', () => {
 describe('ForecastTab — progressive disclosure', () => {
   it('default view shows today card', () => {
     const { container } = renderForecast({ am: 24 });
-    const labels = getCardLabels(container);
-    expect(labels.some(l => l.startsWith('2 years')), 'today card must be visible by default').toBe(true);
+    expect(getTodayPanel(container), 'Today\'s Visit panel must be visible by default').not.toBeNull();
   });
 
   it('default view shows next upcoming routine visit', () => {
@@ -370,18 +370,19 @@ describe('ForecastTab — progressive disclosure', () => {
 
   it('overdue vaccines from a missed visit are never hidden in default view (CRITICAL INVARIANT)', () => {
     // 13-month-old who missed the 12-month visit. The overdue vaccines (e.g.
-    // MMR) must still be visible without expanding — but via the current
-    // ("Now") card, not a duplicate always-shown 12m card. The original past
-    // 12m slot is folded under "past visits" like any other past visit,
-    // since showing it separately would just repeat the same catch-up doses
-    // already listed on Now.
+    // MMR) must still be visible without expanding — via the Today's Visit
+    // panel, not a duplicate always-shown 12m card or a separate "Now" card
+    // (S1: merged). The original past 12m slot is folded under "past visits"
+    // like any other past visit, since showing it separately would just
+    // repeat the same catch-up doses already listed in Today's Visit.
     const { container } = renderForecast({ am: 13 });
     // Don't expand — test that the overdue dose appears WITHOUT expanding.
     const labels = getCardLabels(container);
-    expect(labels.some(l => l.startsWith('12 months')), '12m card must be hidden by default (duplicates Now)').toBe(false);
-    const nowCard = getCardByLabel(container, 'Now');
-    expect(nowCard, 'current visit ("Now") card must render without expanding').toBeTruthy();
-    expect(getCardDoseRowByVk(nowCard, 'MMR'), 'MMR catch-up dose from the missed 12m visit must appear on the Now card').toBeTruthy();
+    expect(labels.some(l => l.startsWith('12 months')), '12m card must be hidden by default (duplicates Today)').toBe(false);
+    expect(getCardByLabel(container, 'Now'), 'current visit must not also render as a "Now" card').toBeNull();
+    const todayPanel = getTodayPanel(container);
+    expect(todayPanel, 'Today\'s Visit panel must render without expanding').toBeTruthy();
+    expect(getTodayRowByVk(container, 'MMR'), 'MMR catch-up dose from the missed 12m visit must appear in Today\'s Visit').toBeTruthy();
   });
 });
 

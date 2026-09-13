@@ -149,3 +149,16 @@ export function getCardDoseRowByVk(card, vk) {
 export function getCardLabels(container) {
   return Array.from(container.querySelectorAll('.vcard-label')).map(el => el.textContent.trim());
 }
+
+// ── Today's Visit panel query helpers ───────────────────────────
+// The current-age visit (S1: merged with the former "Now" card, see
+// ForecastTab.jsx's "TODAY'S VISIT PANEL") is rendered ONCE here, not as a
+// .vcard — one .today-rec[data-vk] per due (or already-given) vaccine.
+
+export function getTodayPanel(container) {
+  return container.querySelector('.today-panel');
+}
+
+export function getTodayRowByVk(container, vk) {
+  return container.querySelector(`.today-rec[data-vk="${vk}"]`) || null;
+}

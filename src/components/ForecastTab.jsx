@@ -933,6 +933,24 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
     return null;
   })();
 
+  // Doses already given at today's visit age. recs (genRecs) only reports
+  // what's still DUE, so a dose already recorded in history at this age has
+  // no entry here — buildVisitCardItems' isCurr branch is the one place that
+  // checks history for this ("dosesGivenHere"). Now that the current-visit
+  // card is no longer rendered separately (S1: merge the duplicate "Today"
+  // lists), reuse that same computation rather than re-deriving it, so the
+  // Today panel doesn't silently drop a dose the clinician already gave.
+  const currVisit = visits.find(v => v.m === am);
+  const givenTodayItems = currVisit
+    ? buildVisitCardItems(currVisit).filter(it => it.chipText?.endsWith(" done"))
+    : [];
+  // A vk already shown as "done" above must not ALSO show as a live "due"
+  // row from recs — genRecs doesn't know a dose was just given at this same
+  // age (it projects the next dose, e.g. D2, regardless), but
+  // buildVisitCardItems' dosesGivenHere check treats the two as mutually
+  // exclusive per vk. Mirror that priority here.
+  const givenTodayVks = new Set(givenTodayItems.map(it => it.vk));
+
   // Which dose-chip colors are actually visible right now, across whichever
   // cards are currently shown (collapsed vs "Show full forecast", past
   // hidden vs revealed) — computed once here so the legend can render above
@@ -1052,7 +1070,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
             </div>
           </div>
 
-          {recs.length === 0 ? (
+          {recs.length === 0 && givenTodayItems.length === 0 ? (
             <div className="today-empty">No vaccines are due at this visit.</div>
           ) : (
             <>
@@ -1087,7 +1105,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
               {/* ── PER-VACCINE ROWS ─────────────────────────────────── */}
               <div className="today-recs">
-                {recs.map(rec => {
+                {recs.filter(rec => !givenTodayVks.has(rec.vk)).map(rec => {
                   const fcKey = `${am}_${rec.vk}`;
                   const selectedBrand = state.fcBrands[fcKey] || "";
                   const bOpts = todayBOptsByVk[rec.vk] || [];
@@ -1110,7 +1128,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                   // When this vk is covered by the active combo, label the picker as auto-filled.
                   const coveredByCombo = activeComboName && (COMBO_COVERS[activeComboName] || []).includes(rec.vk);
                   return (
-                    <div key={rec.vk} className="today-rec">
+                    <div key={rec.vk} className="today-rec" data-vk={rec.vk}>
                       <div className="today-rec-main">
                         <span
                           className={`today-badge ${statusBadgeClass}`}
@@ -1167,6 +1185,16 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                     </div>
                   );
                 })}
+                {givenTodayItems.map(item => (
+                  <div key={`given-${item.vk}`} className="today-rec" data-vk={item.vk}>
+                    <div className="today-rec-main">
+                      <span className="today-vax" style={{ color: 'var(--gy)' }}>
+                        {VAX_META[item.vk]?.n || item.vk}
+                      </span>
+                      <span className={item.chipClass}>{item.chipText}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -1317,6 +1345,11 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         {visits.map((visit, vi) => {
           if (visit.m < am && !showPast && !visit.isScheduledEarly) return null;
           const isCurr = visit.m === am;
+          // The current-age visit is already shown in full, with "Why" links,
+          // by the Today's Visit panel above — rendering it again here as a
+          // card just repeats the same vaccines/doses in a plainer format
+          // (S1 simplification: merge the duplicate "Today" lists).
+          if (isCurr) return null;
           const isPast = visit.m < am && !isCurr && !visit.isScheduledEarly;
           // "N past visits — click to show" must reveal ALL past visits, not
           // just the ones isAlwaysVisible() already shows (imminent/

@@ -22,6 +22,7 @@ import {
   renderForecast,
   getCardByLabel,
   getCardDoseRowByVk,
+  getTodayRowByVk,
   expandForecast,
 } from '../../test-helpers/renderForecast';
 
@@ -33,10 +34,10 @@ describe('ForecastTab — visit-card list is the default view', () => {
   });
 
   it('a due vaccine at the current visit renders as a dose row with a brand dropdown', () => {
+    // Current visit lives in the Today's Visit panel (S1: merged with the
+    // former duplicate "2 years" card), not a .vcard.
     const { container } = renderForecast({ am: 24 });
-    const card = getCardByLabel(container, '2 years');
-    expect(card).not.toBeNull();
-    const row = getCardDoseRowByVk(card, 'IPV');
+    const row = getTodayRowByVk(container, 'IPV');
     expect(row).not.toBeNull();
     expect(row.querySelector('select')).not.toBeNull();
   });
@@ -69,9 +70,8 @@ describe('ForecastTab — visit-card list is the default view', () => {
 
   it('selecting Pediarix at a DTaP row fills the sibling HepB/IPV rows at the same visit', () => {
     const { container } = renderForecast({ am: 24 });
-    const card = getCardByLabel(container, '2 years');
-    expect(card).not.toBeNull();
-    const dtapRow = getCardDoseRowByVk(card, 'DTaP');
+    const dtapRow = getTodayRowByVk(container, 'DTaP');
+    expect(dtapRow).not.toBeNull();
     const select = dtapRow.querySelector('select');
     expect(select).not.toBeNull();
 
@@ -82,9 +82,8 @@ describe('ForecastTab — visit-card list is the default view', () => {
       fireEvent.change(select, { target: { value: pediarixOpt.value } });
     });
 
-    const cardAfter = getCardByLabel(container, '2 years');
-    const hepBRow = getCardDoseRowByVk(cardAfter, 'HepB');
-    const ipvRow = getCardDoseRowByVk(cardAfter, 'IPV');
+    const hepBRow = getTodayRowByVk(container, 'HepB');
+    const ipvRow = getTodayRowByVk(container, 'IPV');
     expect(hepBRow.querySelector('select').value).toMatch(/^Pediarix/);
     expect(ipvRow.querySelector('select').value).toMatch(/^Pediarix/);
   });
@@ -150,10 +149,8 @@ describe('ForecastTab — card view guards (PR #80 regression tests)', () => {
         IPV: [{ mode: 'age', ageDays: Math.round(6 * 30.4375), brand: 'IPOL', given: true }],
       },
     });
-    const card = getCardByLabel(container, '6 months');
-    expect(card).not.toBeNull();
-    const row = getCardDoseRowByVk(card, 'IPV');
-    expect(row, 'expected an IPV row at the 6-month card').not.toBeNull();
+    const row = getTodayRowByVk(container, 'IPV');
+    expect(row, 'expected an IPV row in the Today\'s Visit panel').not.toBeNull();
     expect(row.textContent, 'dose given today must show as done').toMatch(/done/);
     expect(row.querySelector('select'), 'a dose already given today must not expose a live brand dropdown').toBeNull();
   });

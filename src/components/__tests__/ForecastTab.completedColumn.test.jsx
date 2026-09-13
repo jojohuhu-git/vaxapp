@@ -29,10 +29,14 @@ import {
   expandForecast,
 } from '../../test-helpers/renderForecast';
 
-// Helper: does the vk appear as a dose row anywhere in the (expanded) card list?
+// Helper: does the vk appear as a dose row anywhere — the (expanded) card
+// list, OR the Today's Visit panel, which owns the current visit's rows
+// since S1 merged the former duplicate "Now"/current-age card into it.
 function vkAppearsAnywhere(container, vk) {
-  return Array.from(container.querySelectorAll('.vcard-dose-vk'))
+  const inCards = Array.from(container.querySelectorAll('.vcard-dose-vk'))
     .some(el => el.textContent.trim() === vk);
+  const inToday = !!container.querySelector(`.today-rec[data-vk="${vk}"]`);
+  return inCards || inToday;
 }
 
 // "Show full forecast" only reveals distant FUTURE visits — past visits are
