@@ -16,6 +16,7 @@ import { buildOptimalSchedule, summarizeComboUsage } from '../logic/buildOptimal
 import { REFS } from '../data/refs';
 import PdfDownloadButton from './PdfDownloadButton';
 import { VisitCardShell, DoseRow, ComboDoseRow, PillLegend } from './VisitCard';
+import ForecastFullReference from './ForecastFullReference';
 
 // Primary CDC reference for each combo brand — surfaces in the Forecast "Why?" popover.
 const COMBO_PRIMARY_REF = {
@@ -1525,6 +1526,12 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
       </>
       )}
+
+      {/* ── Reference material folded in from the retired Compare Regimens
+             tab (D11) — combo dose gates, brand age windows, catch-up table,
+             and the multi-vaccine Brand Constraints Analyzer. Collapsed by
+             default; shown regardless of the Separate/Fewest shots toggle. */}
+      <ForecastFullReference recs={recs} />
     </div>
   );
 }

@@ -4,7 +4,6 @@ import { useApp } from '../context/AppContext';
 const TABS = [
   { id: "compliance",  label: "Compliance Audit" },
   { id: "forecast",    label: "Immunization Schedule" },
-  { id: "plan",        label: "Compare Regimens" },
 ];
 
 export default function TabBar() {

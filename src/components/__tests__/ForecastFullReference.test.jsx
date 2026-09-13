@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
 /* eslint-disable react/prop-types */
 /**
- * RegTab.fullReference.test.jsx — the "Full reference" accordion added to
- * Compare Regimens (RegTab) as part of merging the old Brand Rules tab and
- * Catch-up Schedule modal into this tab (item #3, reference consolidation).
+ * ForecastFullReference.test.jsx — the collapsed "Full reference" section
+ * folded into the bottom of the Immunization Schedule tab when the
+ * standalone Compare Regimens tab was retired (S2, D11: "every CDC link is
+ * kept, folded behind the recommendation it supports rather than massed on
+ * a separate tab"). Formerly RegTab.fullReference.test.jsx.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, act, cleanup } from '@testing-library/react';
@@ -28,7 +30,7 @@ function fullHist() {
   return out;
 }
 
-function renderComparRegimensTab(am = 4) {
+function renderScheduleTab(am = 4) {
   let dispatch;
   function Capture() {
     dispatch = useApp().dispatch;
@@ -46,23 +48,26 @@ function renderComparRegimensTab(am = 4) {
       payload: { am, dob: '', risks: [], cd4: null, hist: fullHist(), fcBrands: {} },
     });
   });
-  act(() => { dispatch({ type: 'SET_TAB', payload: 'plan' }); });
   return container;
 }
 
-describe('RegTab Full Reference accordion', () => {
-  it('renders a collapsed "Full reference" section', () => {
-    const container = renderComparRegimensTab(4);
-    const summary = [...container.querySelectorAll('summary')].find(s => s.textContent === 'Full reference');
-    expect(summary).toBeTruthy();
-    expect(summary.closest('details').open).toBe(false);
+function detailsByTitle(container, title) {
+  return [...container.querySelectorAll('details')].find(d =>
+    d.querySelector('summary')?.textContent === title
+  );
+}
+
+describe('ForecastFullReference — collapsed reference section', () => {
+  it('renders a collapsed "Full reference" section on the Immunization Schedule tab', () => {
+    const container = renderScheduleTab(4);
+    const details = detailsByTitle(container, 'Full reference');
+    expect(details).toBeTruthy();
+    expect(details.open).toBe(false);
   });
 
   it('shows combo dose-gate cards, brand age-window cards, and the catch-up table once expanded', () => {
-    const container = renderComparRegimensTab(4);
-    const details = [...container.querySelectorAll('details')].find(d =>
-      d.querySelector('summary')?.textContent === 'Full reference'
-    );
+    const container = renderScheduleTab(4);
+    const details = detailsByTitle(container, 'Full reference');
     act(() => { details.open = true; fireEvent(details, new Event('toggle', { bubbles: true })); });
 
     expect(container.textContent).toContain('Combination Vaccine Dose-Number Limits');
@@ -72,10 +77,10 @@ describe('RegTab Full Reference accordion', () => {
     expect(container.textContent).toContain('Min Age D1');
   });
 
-  it('does not render the old standalone Brand Rules tab or Catch-up Schedule button', () => {
-    const container = renderComparRegimensTab(4);
+  it('no longer has a separate Compare Regimens tab', () => {
+    const container = renderScheduleTab(4);
     const tabLabels = [...container.querySelectorAll('button.tab')].map(b => b.textContent);
-    expect(tabLabels).not.toContain('Brand Rules');
-    expect(tabLabels.some(l => l.includes('Catch-up Schedule'))).toBe(false);
+    expect(tabLabels).not.toContain('Compare Regimens');
+    expect(tabLabels).toEqual(['Compliance Audit', 'Immunization Schedule']);
   });
 });

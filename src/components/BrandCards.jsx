@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 // Shared card components for combo/brand/interval reference material.
-// Used by RegTab.jsx (Compare Regimens' patient-scoped analyzer) and
+// Used by ForecastFullReference.jsx (the patient-scoped analyzer) and
 // RegimenFullReference.jsx (the collapsed Full Reference accordion) so the
 // same visual vocabulary — not duplicate JSX — represents the same facts.
 import { COMBOS, VAX_META } from '../data/vaccineData';

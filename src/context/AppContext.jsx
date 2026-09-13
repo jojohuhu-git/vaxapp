@@ -223,7 +223,7 @@ function reducer(state, action) {
     }
 
     case "SET_TAB": {
-      const validTabs = new Set(["compliance", "plan", "forecast"]);
+      const validTabs = new Set(["compliance", "forecast"]);
       const tab = validTabs.has(action.payload) ? action.payload : "forecast";
       return { ...state, tab };
     }
