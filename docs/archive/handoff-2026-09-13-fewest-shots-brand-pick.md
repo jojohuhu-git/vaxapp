@@ -1,3 +1,7 @@
+> **SUPERSEDED** by
+> [handoff-2026-09-13-s1g-c1-s2.md](handoff-2026-09-13-s1g-c1-s2.md).
+> S1g, C1, and S2 (below, in "What's NOT done") are now DONE — read the new file.
+
 # vaxapp (PediVax) — Handoff after S1e/S1f: Fewest-shots follows your brand pick (2026-09-13)
 
 Repo: `/Users/joannehuang/Downloads/vaxapp-main` · Live: <https://jojohuhu-git.github.io/vaxapp/>
