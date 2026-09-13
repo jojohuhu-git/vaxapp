@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp, getEffectiveAm } from '../context/AppContext';
 import { FORECAST_VISITS } from '../data/forecastData';
-import { VAX_META, COMBO_COVERS, VAX_KEYS } from '../data/vaccineData';
+import { VAX_META, COMBO_COVERS, VAX_KEYS, VBR } from '../data/vaccineData';
 import { genRecs } from '../logic/recommendations';
 import { orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly } from '../logic/forecastLogic';
 import { dc } from '../logic/stateHelpers';
@@ -76,6 +76,19 @@ function BrandSelect({ bOpts, value, onChange, style, className }) {
       )}
     </select>
   );
+}
+
+// D4: "Where brands are clinically interchangeable, the row says 'any brand'
+// rather than naming one. Only combination products get named." A vaccine
+// qualifies when it isn't brand-locked (VBR[vk].lock — MenB only, see
+// vaccineData.js) AND none of its current options is a combination product;
+// once a combo is on the table the row still needs a real picker so the
+// user can choose it.
+function hasComboOption(bOpts) {
+  return bOpts.some(bo => bo.antigenCount > 1);
+}
+function isAnyBrandVk(vk, bOpts) {
+  return bOpts.length > 0 && !VBR[vk]?.lock && !hasComboOption(bOpts);
 }
 
 // Portal popover for forecast cells — shows clinical note + CDC references on click.
@@ -704,7 +717,8 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         const displayBrand = resolveDropdownBrand(state.fcBrands[visit.earlyFcKey] || "", bOpts);
         items.push({
           vk, chipText, chipClass: "fch fch-proj", fcKey: visit.earlyFcKey,
-          brandOpts: bOpts, displayBrand, showDropdown: bOpts.length > 0,
+          brandOpts: bOpts, displayBrand, showDropdown: bOpts.length > 0 && !isAnyBrandVk(vk, bOpts),
+          anyBrand: isAnyBrandVk(vk, bOpts),
           onBrandChange: (e) => dispatch({
             type: "FC_BRAND_CHANGE",
             payload: { visitM: info.visitM, vk, brandName: e.target.value, fcKey: visit.earlyFcKey },
@@ -758,7 +772,8 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         const disp3 = resolveDropdownBrand(state.fcBrands[fcKey] || "", bOpts3);
         items.push({
           vk, chipText: `→ ${movedDate}`, chipClass: "fch fch-moved", fcKey,
-          brandOpts: bOpts3, displayBrand: disp3, showDropdown: bOpts3.length > 0,
+          brandOpts: bOpts3, displayBrand: disp3, showDropdown: bOpts3.length > 0 && !isAnyBrandVk(vk, bOpts3),
+          anyBrand: isAnyBrandVk(vk, bOpts3),
           onBrandChange: (e) => dispatch({
             type: "FC_BRAND_CHANGE",
             payload: { visitM: visit.m, vk, brandName: e.target.value, fcKey },
@@ -836,7 +851,8 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                 : "fch fch-need";
           items.push({
             vk, chipText: fmtDose(rec.doseNum), chipClass, fcKey, rec, hasPopover, onChipClick,
-            brandOpts, displayBrand, showDropdown: brandOpts.length > 0, onBrandChange,
+            brandOpts, displayBrand, showDropdown: brandOpts.length > 0 && !isAnyBrandVk(vk, brandOpts),
+            anyBrand: isAnyBrandVk(vk, brandOpts), onBrandChange,
             comboSelected, displayBrandKey,
           });
         }
@@ -848,7 +864,8 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         items.push({
           vk, chipText: fmtDose(proj.doseNum), chipClass: "fch fch-proj", dateLabel: fmtProjection(proj, state.dob),
           fcKey, rec, hasPopover, onChipClick,
-          brandOpts, displayBrand, showDropdown: brandOpts.length > 0, onBrandChange,
+          brandOpts, displayBrand, showDropdown: brandOpts.length > 0 && !isAnyBrandVk(vk, brandOpts),
+          anyBrand: isAnyBrandVk(vk, brandOpts), onBrandChange,
           comboSelected, displayBrandKey,
           earliestLabel,
           onEarliestClick: earliestLabel ? () => setScheduledEarliest(prev => {
@@ -872,7 +889,8 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
               : "fch fch-need";
         items.push({
           vk, chipText: fmtDose(rec.doseNum), chipClass, fcKey, rec, hasPopover, onChipClick,
-          brandOpts, displayBrand, showDropdown: brandOpts.length > 0, onBrandChange,
+          brandOpts, displayBrand, showDropdown: brandOpts.length > 0 && !isAnyBrandVk(vk, brandOpts),
+          anyBrand: isAnyBrandVk(vk, brandOpts), onBrandChange,
           comboSelected, displayBrandKey,
         });
       }
@@ -1107,7 +1125,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                         </span>
                         <span className="today-dose">{doseChip}</span>
                         {bOpts.length > 0 && (
-                          <>
+                          isAnyBrandVk(rec.vk, bOpts) ? (
+                            <span className="today-anybrand">any brand</span>
+                          ) : (
                             <BrandSelect
                               bOpts={bOpts}
                               value={displayBrand}
@@ -1117,7 +1137,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                               })}
                               className={`today-brand-sel${coveredByCombo && displayBrand ? " today-brand-sel-combo" : ""}`}
                             />
-                          </>
+                          )
                         )}
                         <button
                           className="today-why"
@@ -1339,6 +1359,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                   vk={VAX_META[item.vk]?.ab || item.vk}
                   chipText={item.chipText}
                   chipClassName={item.chipClass}
+                  brandText={item.anyBrand ? "any brand" : undefined}
                   dateLabel={item.dateLabel}
                   dateEarly={item.dateEarly}
                   onChipClick={item.onChipClick}

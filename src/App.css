@@ -278,6 +278,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .today-dose{font-size:11px;color:var(--gy2);}
 .today-brand-sel{font-size:11px;padding:4px 8px;border:1px solid var(--gy5);border-radius:var(--rads);max-width:264px;color:var(--gy);background:var(--wh);}
 .today-brand-sel:focus{border-color:var(--g3);outline:none;box-shadow:0 0 0 3px rgba(79,177,140,.16);}
+.today-anybrand{font-size:11px;color:var(--gy3);font-style:italic;}
 .today-covers{font-size:11px;color:var(--b);font-weight:600;}
 .today-why{background:none;border:none;font-size:11px;color:var(--b2);font-weight:600;cursor:pointer;padding:0 3px;font-family:inherit;text-decoration:underline dotted;}
 .today-why:hover{color:var(--b);}

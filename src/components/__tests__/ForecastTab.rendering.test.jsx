@@ -267,7 +267,7 @@ describe('ForecastTab — moved-dose brand validity (clinical safety)', () => {
 // expose a select element. Selecting a brand should write to the same
 // fcKey the original card uses ("54_DTaP"), so both cards stay in sync.
 describe('ForecastTab — standalone scheduled-early card brand picker', () => {
-  it('moved DTaP D5 to 3y 2mo: standalone card exposes a brand dropdown', () => {
+  it('moved DTaP D5 to 3y 2mo: standalone card shows "any brand" once combos age out (D4)', () => {
     const { container } = renderForecast({ am: 24 });
     expandForecast(container);
 
@@ -281,21 +281,21 @@ describe('ForecastTab — standalone scheduled-early card brand picker', () => {
     const movedCard = getCardByLabel(container, '3y 2mo');
     expect(movedCard, 'standalone scheduled-early card should appear at 3y 2mo').not.toBeNull();
 
+    // At info.ageM=38 (< 48), Kinrix/Quadracel (≥4y combos) have aged out,
+    // leaving only Daptacel/Infanrix — two interchangeable DTaP standalones
+    // with no combo option and no brand lock. Per D4 ("Where brands are
+    // clinically interchangeable, the row says 'any brand' rather than
+    // naming one"), this row must show that text instead of a dropdown —
+    // there is nothing left to meaningfully pick between.
     const dtapMovedRow = getCardDoseRowByVk(movedCard, 'DTaP');
-    const select = dtapMovedRow.querySelector('select');
-    expect(select, 'standalone moved card must expose a brand dropdown').not.toBeNull();
-
-    // Daptacel/Infanrix (DTaP standalones, no age window restriction <7y) must
-    // be offered. Kinrix/Quadracel (≥4y combos) must NOT — info.ageM=38 < 48.
-    const opts = Array.from(select.options).map(o => o.value);
     expect(
-      opts.some(l => l.startsWith('Daptacel') || l.startsWith('Infanrix')),
-      `standalone DTaP brands must be offered. Got: ${opts.join(' | ')}`,
-    ).toBe(true);
+      dtapMovedRow.querySelector('select'),
+      'no combo option remains at this age, so no dropdown should render',
+    ).toBeNull();
     expect(
-      opts.some(l => l.startsWith('Kinrix') || l.startsWith('Quadracel')),
-      `≥4y combos must NOT be offered (info.ageM=38m < 48m). Got: ${opts.join(' | ')}`,
-    ).toBe(false);
+      dtapMovedRow.textContent,
+      'row should read "any brand" once only interchangeable standalones remain',
+    ).toContain('any brand');
   });
 });
 
