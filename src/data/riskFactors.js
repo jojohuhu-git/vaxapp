@@ -1,30 +1,26 @@
 // Risk factors grouped for display. Each group has a `header` and `items`.
 export const RISK_FACTOR_GROUPS = [
   {
-    // These aren't ordinary risk factors that adjust a recommendation — each
-    // one means "this tool does not apply to this patient" (see
-    // src/logic/hardStop.js). Kept in their own group, visually separated
-    // from "Immune", so they don't read as just another checkbox in that
-    // list. HSCT moved in here in Step 2 of
-    // docs/archive/handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md.
-    //
-    // CAR-T/B-cell malignancy/B-cell-depleting therapy were 3 separate
-    // checkboxes here until 2026-09-13 (P1-B, cross-app parity): they always
-    // triggered the identical hard stop, so MeningoVax/PneumoVax's single
-    // combined checkbox was adopted instead. The two retired ids
-    // (bcell_malignancy, bcell_depleting_therapy) are kept as recognized
-    // synonyms in hardStop.js/hctRecipe.js/etc. so a URL saved before this
-    // change still hard-stops correctly — they just aren't offered as
-    // separate checkboxes anymore.
-    header: "This tool does not apply",
-    items: [
-      { id: "hsct",  l: "Hematopoietic stem cell transplant (HSCT)" },
-      { id: "car_t", l: "CAR-T therapy, B-cell malignancy, or B-cell-depleting therapy" },
-    ],
-  },
-  {
     header: "Immune",
     items: [
+      // HSCT and CAR-T/B-cell malignancy/B-cell-depleting therapy aren't
+      // ordinary risk factors that adjust a recommendation — each one means
+      // "this tool does not apply to this patient" (see src/logic/hardStop.js).
+      // They used to sit in their own "This tool does not apply" group,
+      // separate from "Immune" (see
+      // docs/archive/handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md); the
+      // owner asked to fold that group into "Immune" instead (2026-09-14).
+      //
+      // CAR-T/B-cell malignancy/B-cell-depleting therapy were 3 separate
+      // checkboxes until 2026-09-13 (P1-B, cross-app parity): they always
+      // triggered the identical hard stop, so MeningoVax/PneumoVax's single
+      // combined checkbox was adopted instead. The two retired ids
+      // (bcell_malignancy, bcell_depleting_therapy) are kept as recognized
+      // synonyms in hardStop.js/hctRecipe.js/etc. so a URL saved before that
+      // change still hard-stops correctly — they just aren't offered as
+      // separate checkboxes anymore.
+      { id: "hsct",  l: "Hematopoietic stem cell transplant (HSCT)" },
+      { id: "car_t", l: "CAR-T therapy, B-cell malignancy, or B-cell-depleting therapy" },
       { id: "complement",     l: "Complement deficiency or inhibitor (e.g., eculizumab/ravulizumab)" },
       { id: "hiv",            l: "HIV infection" },
       { id: "immunocomp",     l: "Immunocompromised", tip: "Incl. malignancy, chemotherapy, high-dose steroids, biologics, primary immunodeficiency, solid organ transplant" },
