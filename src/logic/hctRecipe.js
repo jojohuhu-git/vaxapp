@@ -134,7 +134,7 @@ export const HCT_RECIPE_GROUPS = [
           + 'source 2 doses, 2 months apart, 6 to 12 months after transplant, for ages 11 '
           + 'through 18 or any age with a high-risk condition (asplenia, persistent '
           + 'complement deficiency, or eculizumab/ravulizumab). No booster from the '
-          + 'transplant alone — boosters follow this app\'s standing MenACWY guidance. '
+          + 'transplant alone. '
           + 'Outside this group, no source states a timing, but centers often vaccinate '
           + 'more broadly.',
         refs: ['alteredImmunocompetence', 'ascoAdultCancer2024'],
@@ -149,7 +149,7 @@ export const HCT_RECIPE_GROUPS = [
           + 'transplant is the only reason MenB applies; 3 doses (accelerated high-risk '
           + 'schedule) only with an additional MenB risk factor — asplenia, complement '
           + 'deficiency, microbiologist exposure, or a serogroup B outbreak. No booster from '
-          + 'the transplant alone — boosters follow this app\'s standing MenB guidance. '
+          + 'the transplant alone. '
           + 'Outside this group, no source states an indication, but centers often '
           + 'vaccinate more broadly.',
         refs: ['alteredImmunocompetence', 'ascoAdultCancer2024'],

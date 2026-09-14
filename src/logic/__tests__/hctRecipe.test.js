@@ -175,6 +175,18 @@ describe('post-HSCT meningococcal rule (settled 2026-09-13 — CDC + ASCO)', () 
       expect(item.refs).toContain('ascoAdultCancer2024');
     }
   });
+
+  // P0-B (2026-09-14): with HCT ticked, genRecs() hard-stops and returns []
+  // (hardStop.js) -- so "boosters follow this app's standing MenACWY/MenB
+  // guidance" pointed at a page that never renders. This recipe is the only
+  // place a clinician reading this patient's plan will ever see, so it must
+  // not send them looking for guidance the app itself has hidden.
+  it('does not point to "standing guidance" that HCT hides from view', () => {
+    for (const vax of ['MenACWY', 'MenB']) {
+      const item = find(vax);
+      expect(item.plan).not.toMatch(/standing (MenACWY|MenB) guidance/);
+    }
+  });
 });
 
 describe('pneumococcal parity with PneumoVax (immunize.org p3086 Table 5)', () => {
