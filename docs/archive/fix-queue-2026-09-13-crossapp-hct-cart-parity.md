@@ -1,5 +1,22 @@
 # Cross-app queue — make HCT and CAR-T say the same thing everywhere (2026-09-13)
 
+**STATUS 2026-09-14: P2-A, P0-A, P0-B, P1-C all DONE, shipped as open PRs, CI green,
+awaiting owner review/merge. P0-C, P1-B, P2-B, P2-C remain — not started.**
+
+| Item | Status | Where |
+|---|---|---|
+| P2-A | DONE | `~/Downloads/MeningoVax-main` reset to `origin/main` (`ba255ef`) |
+| P0-A | DONE, PR open | [PneumoVax#13](https://github.com/jojohuhu-git/PneumoVax/pull/13) |
+| P1-C | DONE, PR open | same PR — [PneumoVax#13](https://github.com/jojohuhu-git/PneumoVax/pull/13) |
+| P0-B | DONE, PRs open | [vaxapp#146](https://github.com/jojohuhu-git/vaxapp/pull/146), [MeningoVax#10](https://github.com/jojohuhu-git/MeningoVax/pull/10) |
+| P0-C | Not started | owner confirmed vaxapp/MeningoVax divergence is fine (peds-only app) — no longer blocking, but not yet built |
+| P1-B, P2-B, P2-C | Not started | cosmetic/housekeeping, low priority |
+
+All three PRs have green CI. **Nothing merged — owner reviews every PR herself.**
+New baselines: vaxapp 2195, MeningoVax 399, PneumoVax 143.
+
+
+
 **Scope the owner set:** every HSCT and CAR-T decision must match across vaxapp,
 MeningoVax and PneumoVax, for meningococcal *and* pneumococcal vaccines.
 
