@@ -11,6 +11,11 @@
 // carries the exact clinical sourcing for this text (CDC Altered
 // Immunocompetence page, fetched and quoted 2026-09-12; verbatim wording
 // re-used from PneumoVax's and MeningoVax's identical stop)).
+// Step 3 (2026-09-13, P1-B): the checkbox UI collapsed car_t/bcell_malignancy/
+// bcell_depleting_therapy into one combined checkbox (id "car_t"), matching
+// MeningoVax/PneumoVax. bcell_malignancy and bcell_depleting_therapy stay
+// listed here as recognized synonyms so a URL saved before this change still
+// hard-stops.
 export const HARD_STOP_RISK_IDS = ['hsct', 'car_t', 'bcell_malignancy', 'bcell_depleting_therapy'];
 
 export function hardStopExclusion(risks) {
