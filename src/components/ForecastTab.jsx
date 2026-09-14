@@ -1072,6 +1072,26 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
       <PillLegend usedChipClasses={usedChipClasses} />
 
+      {/* ── FEWEST-SHOTS SUGGESTION (moved above Today's Visit, P1 —
+          owner wants this immediately under the Separate/Fewest shots
+          toggle rather than buried below the visit stats) ──────────── */}
+      {optView === 'fewestInjections' && comboUsage.length > 0 && (
+        <div className="fct-opt-combo-suggestion">
+          <span className="fct-opt-combo-suggestion-label">Suggestion — fewest shots overall:</span>{' '}
+          {comboUsage.map((g, i) => (
+            <span key={g.comboName}>
+              {i > 0 && ' · '}
+              {g.comboName} ({g.ageMonths.map(m => fmtAm(m)).join(', ')})
+            </span>
+          ))}
+          {' — '}
+          {comboUsage.length} combination product{comboUsage.length !== 1 ? 's' : ''}, saving{' '}
+          {comboUsage.reduce((s, g) => s + g.savedInjections, 0)} injection
+          {comboUsage.reduce((s, g) => s + g.savedInjections, 0) !== 1 ? 's' : ''} total.
+          {' '}Your timeline below may differ if you picked other brands.
+        </div>
+      )}
+
       {/* ── TODAY'S VISIT PANEL ──────────────────────────────────── */}
       {am >= 0 && (
         <div className="today-panel">
@@ -1309,22 +1329,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           const optDob = optPatient.dob ?? addD(today, -Math.round(am * 30.4375));
           return (
             <div>
-              {comboUsage.length > 0 && (
-                <div className="fct-opt-combo-suggestion">
-                  <span className="fct-opt-combo-suggestion-label">Suggestion — fewest shots overall:</span>{' '}
-                  {comboUsage.map((g, i) => (
-                    <span key={g.comboName}>
-                      {i > 0 && ' · '}
-                      {g.comboName} ({g.ageMonths.map(m => fmtAm(m)).join(', ')})
-                    </span>
-                  ))}
-                  {' — '}
-                  {comboUsage.length} combination product{comboUsage.length !== 1 ? 's' : ''}, saving{' '}
-                  {comboUsage.reduce((s, g) => s + g.savedInjections, 0)} injection
-                  {comboUsage.reduce((s, g) => s + g.savedInjections, 0) !== 1 ? 's' : ''} total.
-                  {' '}Your timeline below may differ if you picked other brands.
-                </div>
-              )}
+              {/* "Suggestion — fewest shots overall" now renders above the
+                  Today's Visit panel (see near the view toggle) instead of
+                  here, so it isn't buried below the visit stats. */}
               <div className="fct-opt-stats">
                 <div><div className="fct-opt-stat-num">{optResult.length}</div><div className="fct-opt-stat-label">visits</div></div>
                 <div><div className="fct-opt-stat-num">{totalInj}</div><div className="fct-opt-stat-label">injections</div></div>
