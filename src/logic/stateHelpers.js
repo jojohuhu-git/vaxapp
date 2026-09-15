@@ -488,3 +488,61 @@ export function menACWYPrimaryTotal(givenDoses, doseAgeMonths, opts = {}) {
   if (d2AgeM != null && d2AgeM >= 7) return 3; // D6 shortcut
   return 4;                                // started at 2–6 months
 }
+
+/**
+ * How many of a patient's recorded doses actually ADVANCE the series.
+ *
+ * For most vaccines this is simply the number recorded. For MenB and for the
+ * routine adolescent MenACWY schedule it is not: some doses are given safely
+ * and validly but do not move the patient through the series (M1, M2, M6), so
+ * a later dose is still owed.
+ *
+ * WHY THIS EXISTS
+ *   Two places decided whether a patient had an "extra" dose by comparing the
+ *   RAW number of recorded doses against the expected total — compliance.js's
+ *   VALID_EXTRA grading and validation.js's "series complete" advisory. When a
+ *   patient had a dose that did not count, the raw number ran one ahead of the
+ *   real one, and the dose that actually COMPLETED the series was reported as
+ *   a surplus dose instead.
+ *
+ *   Observed live 2026-09-15: a healthy patient with MenACWY at 11, 14 and 16
+ *   years had the age-16 dose graded "VALID · EXTRA" with an advisory saying
+ *   the series was already complete. The age-14 dose does not count toward the
+ *   routine 2-dose series, so the age-16 dose is the booster that completes it.
+ *
+ *   CDC child & adolescent schedule notes, fetched live 2026-09-15:
+ *     "2-dose series at age 11–12 years; 16 years"
+ *     "Age 13–15 years: 1 dose now and booster at age 16–18 years
+ *      (minimum interval: 8 weeks)."
+ *   The second sentence is the point: a dose at 13–15 years does not satisfy
+ *   the 16-year booster, so a later 16-year dose is required, not surplus.
+ *
+ * This is the same defect already fixed twice for adjacent cases — see
+ * regression-m8-menb-highrisk-booster-not-extra.test.js and
+ * regression-m9-menacwy-travel-boosters.test.js. Both places now share this
+ * one helper so it cannot drift back apart a third time.
+ *
+ * @param {string} vk - vaccine key
+ * @param {object} hist - full patient history
+ * @param {string|null} dob - ISO date of birth
+ * @param {string[]} risks - patient risk factors
+ * @param {number|null} [rawTotal] - the caller's own recorded-dose count, used
+ *   as the answer for every vaccine with no non-counting doses. Defaults to the
+ *   number of given doses in `hist`.
+ * @returns {number|null}
+ */
+export function advancingDoseCount(vk, hist, dob, risks = [], rawTotal = undefined) {
+  const given = (hist?.[vk] || []).filter((d) => d.given);
+  const fallback = rawTotal === undefined ? given.length : rawTotal;
+  if (given.length === 0) return fallback;
+
+  if (vk === 'MenB') {
+    return menBEffectiveDoses({ MenB: given }, dob, null, highRiskMenB(risks || [])).length;
+  }
+  // Risk-based MenACWY schedules (ACIP Tables 7–9) keep every dose: a dose
+  // given before age 10 is their PRIMARY dose, not a premature booster.
+  if (vk === 'MenACWY' && !menACWYOnRiskBasedSchedule(risks || [])) {
+    return menACWYRoutineCount({ MenACWY: given }, dob);
+  }
+  return fallback;
+}

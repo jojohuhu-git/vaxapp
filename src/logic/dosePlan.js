@@ -7,6 +7,7 @@ import { addD } from './utils.js';
 import { genRecs } from './recommendations.js';
 import { highRisk, highRiskMenB, isHighRiskMenACWY, menACWYGivenAtOrAfter16y, menBSeriesTotal, menACWYPrimaryTotal, isTravelOngoingMenACWY } from './stateHelpers.js';
 import { pcvHighRiskChildPlan, isHighRiskPCV, isPCV7 } from './pcvDoses.js';
+import { advancingDoseCount } from './stateHelpers.js';
 
 /**
  * Standard routine ages (months) for each dose by vaccine key.
@@ -503,7 +504,19 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
       // project no further doses. Returning the given count makes the projection
       // loop short-circuit (startDose >= totalDoses). Undated doses are not treated
       // as ≥16y, so they conservatively keep the 2-dose booster projection.
-      if (givenMenACWY >= 1 && menACWYGivenAtOrAfter16y(hist, dob)) return givenMenACWY;
+      // This used to return the RAW recorded count, which doubles as the
+      // signal that short-circuits the projection loop (startDose >=
+      // totalDoses). But the compliance tab reads the same number as the
+      // DENOMINATOR in "N of M doses", so a patient with a dose that does not
+      // advance the series saw the total inflate to match their row count:
+      // doses at 11, 14 and 16 read "In progress - 2 of 3 doses" when the
+      // routine series is 2 doses and they had finished it.
+      //
+      // Counting advancing doses gives the true total (2), and still
+      // short-circuits the loop, because the 3 recorded doses remain >= 2.
+      if (givenMenACWY >= 1 && menACWYGivenAtOrAfter16y(hist, dob)) {
+        return advancingDoseCount('MenACWY', hist, dob, risks, givenMenACWY);
+      }
       // M4: a high-risk series begun in infancy is 3 or 4 doses, not 2. Without
       // this the forecast printed "Dose 3 of 2" for a child the engine had
       // correctly asked to finish their primary series.
