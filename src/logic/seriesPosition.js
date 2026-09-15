@@ -21,12 +21,15 @@
  *   not needed. Same for a dose whose date is unknown and a dose still awaiting
  *   a provider answer: no number, but no repeat implied either.
  *
- * SCOPE — step 1 of the plan (docs/archive/plan-2026-09-15-vaxapp-dose-numbering.md).
- *   This module answers "does it count, and what number is it". It does NOT yet
- *   answer "is it primary or booster" — `phase` and `primaryTotal` are returned
- *   as null on purpose and are filled in step 2, which is clinical work requiring
- *   a live-verified source per vaccine. Callers must treat null as "not known
- *   yet" and print nothing, never as "primary".
+ * SCOPE — steps 1 and 2 of the plan (docs/archive/plan-2026-09-15-vaxapp-dose-numbering.md).
+ *   This module answers "does it count, what number is it, and is it primary or
+ *   booster". The primary/booster boundary itself lives in data/seriesPhases.js,
+ *   where every vaccine's line is quoted from a source fetched live on
+ *   2026-09-15.
+ *
+ *   `phase` and `primaryTotal` are still null for any vaccine whose schedule
+ *   draws no primary/booster line (most of them). Callers must treat null as
+ *   "no split is documented" and print no heading at all — never as "primary".
  *
  * Applies to recorded doses only (the four `labelForDose` surfaces). Forward-
  * looking labels in the forecast, recommendations, clinician PDF and optimal
@@ -36,6 +39,7 @@
 import { classifyDose } from './compliance.js';
 import { validatedHistory } from './validation.js';
 import { isPCV7 } from './pcvDoses.js';
+import { primaryTotalFor, phaseFor } from '../data/seriesPhases.js';
 
 /**
  * Short reasons shown on a dose that consumes no number. Kept here, together,
@@ -85,8 +89,8 @@ const STRUCK_STATUSES = new Set(['OFF_WINDOW', 'INVALID']);
  *   counts: boolean,            // does this dose advance the series?
  *   seriesIndex: number|null,   // 1-based position among counting doses; null if it doesn't count
  *   seriesTotal: number|null,   // null = open-ended, print no denominator
- *   primaryTotal: null,         // step 2
- *   phase: null,                // step 2
+ *   primaryTotal: number|null,  // counting doses in the primary series; null = no documented split
+ *   phase: 'primary'|'booster'|null, // null = no documented split, or the dose consumes no number
  *   struck: boolean,            // is a repeat owed?
  *   reason: string|null,        // short reason, only when it consumes no number
  *   status: string,             // the underlying classifyDose status, for callers
@@ -115,6 +119,8 @@ export function seriesPositions(vk, hist, dob, am, risks = [], opts = {}) {
   }
 
   const firstDoseDate = givenDoses[0]?.date || null;
+  const phaseCtx = { risks, hist, dob };
+  const primaryTotal = primaryTotalFor(vk, phaseCtx);
   let counted = 0;
 
   return givenDoses.map((dose, i) => {
@@ -126,7 +132,7 @@ export function seriesPositions(vk, hist, dob, am, risks = [], opts = {}) {
         counts: false,
         seriesIndex: null,
         seriesTotal: expectedTotal,
-        primaryTotal: null,
+        primaryTotal,
         phase: null,
         struck: true,
         reason: NO_NUMBER_REASON.PCV7,
@@ -145,8 +151,10 @@ export function seriesPositions(vk, hist, dob, am, risks = [], opts = {}) {
       counts,
       seriesIndex: counts ? counted : null,
       seriesTotal: expectedTotal,
-      primaryTotal: null,
-      phase: null,
+      primaryTotal,
+      // A dose that consumes no number sits in no phase — it is not part of
+      // the primary series and it is not a booster.
+      phase: counts ? phaseFor(vk, counted, phaseCtx) : null,
       struck: !counts && STRUCK_STATUSES.has(cls.status),
       reason: counts ? null : (NO_NUMBER_REASON[cls.status] || null),
       status: cls.status,

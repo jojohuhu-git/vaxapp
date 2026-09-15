@@ -179,15 +179,42 @@ describe('D1 — strikethrough is narrower than not-counting', () => {
   });
 });
 
-// ── The contract step 2 has to honour ────────────────────────────────────────
-describe('step 2 fields are explicitly not-yet-known', () => {
-  it('returns null phase and primaryTotal, never a guessed "primary"', () => {
+// ── Step 2: primary vs booster ───────────────────────────────────────────────
+describe('phase', () => {
+  it('marks the routine MenACWY 11-12y dose primary and the 16y dose a booster', () => {
     const dob = '2008-01-15';
-    const hist = { MenACWY: [{ given: true, mode: 'date', date: '2019-01-15', brand: 'Menveo' }] };
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2019-01-15', brand: 'Menveo' },
+        { given: true, mode: 'date', date: '2024-01-15', brand: 'Menveo' },
+      ],
+    };
     const pos = seriesPositions('MenACWY', hist, dob, 17 * 12, [], { expectedTotal: 2 });
-    // Callers must print nothing for these. A default of 'primary' would be a
-    // clinical claim this module has not verified.
+    expect(pos[0].phase).toBe('primary');
+    expect(pos[1].phase).toBe('booster');
+    expect(pos[0].primaryTotal).toBe(1);
+  });
+
+  it('places no dose that consumes no number in either phase', () => {
+    const dob = '2009-01-20';
+    const hist = { MenB: [{ given: true, mode: 'date', date: '2023-01-20', brand: 'Bexsero' }] };
+    const pos = seriesPositions('MenB', hist, dob, 17 * 12, [], { expectedTotal: 2 });
+    expect(pos[0].counts).toBe(false);
     expect(pos[0].phase).toBeNull();
+  });
+
+  it('leaves phase null where the schedule documents no booster', () => {
+    // MMR is a 2-dose primary series with no booster in any fetched source.
+    // A default of 'primary' here would be a clinical claim with no citation.
+    const dob = '2020-01-15';
+    const hist = {
+      MMR: [
+        { given: true, mode: 'date', date: '2021-02-15', brand: 'MMR-II' },
+        { given: true, mode: 'date', date: '2025-02-15', brand: 'MMR-II' },
+      ],
+    };
+    const pos = seriesPositions('MMR', hist, dob, 80, [], { expectedTotal: 2 });
+    expect(pos.map((p) => p.phase)).toEqual([null, null]);
     expect(pos[0].primaryTotal).toBeNull();
   });
 });
