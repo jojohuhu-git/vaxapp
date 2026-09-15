@@ -114,43 +114,18 @@ at every age. ACIP actually requires:
 vaxapp's own engine already says 8 weeks (`recommendations.js:629`) and 4 weeks for infants
 (`recommendations.js:576`), so only the validator is wrong.
 
-## Found while doing M6–M8 — NOT yet fixed, not part of the original 22
+## Found while doing M6–M8 — moved to a follow-up queue
 
-These were reproduced against the running code on 2026-09-15 and are pre-existing (each
-was confirmed to behave identically before M6 by checking out the prior commit). They are
-recorded here rather than folded into an item mid-flight.
+Three defects found during M6–M8 (none among the original 22), plus an owner request made
+the same day, now live in their own queue:
+[fix-queue-2026-09-15-meningococcal-followup.md](fix-queue-2026-09-15-meningococcal-followup.md).
 
-### N1 — surface 5 plans a high-risk MenACWY infant series in the wrong order (worst of these)
-
-An asplenic 2-month-old with dose 1 given gets this optimal schedule:
-
-    dose 3 on 2026-09-15 (today) ; dose 4 on 2026-09-15 (today) ; dose 2 on 2026-12-03
-
-Doses 3 and 4 are planned for **today, before dose 2**. `MIN_INT.MenACWY.i` is
-`[null,56,null,null,null]`, so doses 3 and 4 have no interval at all and fall through to
-"today". Surface 1 has the series right ("Dose 2 of 4 (infant high-risk, primary series)",
-28 days), so the two surfaces flatly disagree. Fixing it properly means giving
-`scheduleRules` the infant series' own minimum ages and intervals (ACIP: doses at 2, 4, 6
-and 12 months) rather than inventing a flat floor — verify against the source first.
-
-### N2 — surface 5 ignores M1's age-conditional intervals
-
-Same patient: dose 2 is planned 84 days out, but ACIP (and vaxapp's own engine) wants 28.
-`buildOptimalSchedule.doseEarliestDate` has its own copy of the `iCond` matcher, and it
-checks `ageGte` and `riskIncludes` but **not** the `prevDoseAgeGte`/`prevDoseAgeLt`
-conditions M1 added to `scheduleRules`. So both MenACWY iCond entries match every
-high-risk patient and the last one (84 days) always wins — for an 11-year-old too, where
-the answer should be 56. M1 taught `validation.js` about these conditions and this second
-matcher was never updated. Small fix, directly undoes M1 on surface 5.
-
-### N3 — nothing checks MenB booster intervals
-
-A high-risk MenB booster given **one month** after the primary series is accepted without
-comment. M8 correctly stopped grading such a dose as an "extra dose" (there is no series
-total), but that leaves the timing unchecked: CDC wants the booster 1 year after the
-series, then every 2–3 years. This is the MenB twin of what M6 built for MenACWY, and the
-same owner decision should apply (too soon → does not count). A fixture in
-`regression-m8-menb-risk-dependent-total.test.js` already exercises this case.
+**Owner decision 2026-09-15: run that queue only AFTER M9–M19 below are done.** It holds
+N1 (the optimal schedule plans a high-risk infant's MenACWY doses out of order — doses 3 and
+4 dated today, before dose 2), N2 (`buildOptimalSchedule`'s own `iCond` matcher ignores the
+`prevDoseAge` conditions M1 added), N3 (nothing checks MenB booster intervals), and N4 (make
+it visible which doses are the primary series and which are boosters, the way MeningoVax
+does — owner-requested).
 
 ## Deferred — do NOT start without explicit owner go-ahead
 

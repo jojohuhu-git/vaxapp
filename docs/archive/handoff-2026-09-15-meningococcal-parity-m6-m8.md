@@ -94,9 +94,17 @@ M9–M19, in the queue's execution order. All still untouched:
 (`validation.js`, `recommendations.js`) but **1096** in MeningoVax. M6 deliberately used
 vaxapp's own 1095 so the checker could not reject a dose its own engine had recommended.
 
-**Three new findings from this session, NOT fixed** — reproduced live, each confirmed
-pre-existing by checking out the prior commit. Written up with evidence in the queue doc
-under "Found while doing M6–M8": **N1** surface 5 plans a high-risk MenACWY infant series
+**A follow-up queue now exists:**
+[fix-queue-2026-09-15-meningococcal-followup.md](fix-queue-2026-09-15-meningococcal-followup.md).
+**Owner decision 2026-09-15: work it only AFTER M9–M19 above are done.** It holds N1–N3
+below plus **N4**, an owner request: make it visible which doses are the primary series and
+which are boosters, the way MeningoVax does. Today a high-risk child's compliance tab shows
+five identical "DOSE n" cards with nothing marking the booster, and the recommendation chip
+reads "Dose 6 of 6" while its own label calls the dose a recurring booster.
+
+**The three findings, NOT fixed** — reproduced live, each confirmed
+pre-existing by checking out the prior commit. Written up with evidence and reproduction
+steps in the follow-up queue linked above: **N1** surface 5 plans a high-risk MenACWY infant series
 out of order (doses 3 and 4 dated *today*, before dose 2); **N2** `buildOptimalSchedule`'s
 own `iCond` matcher ignores the `prevDoseAge` conditions M1 added, so every high-risk
 patient gets 84 days instead of 28 or 56; **N3** nothing checks MenB booster intervals.
@@ -129,10 +137,11 @@ pathways, which are genuinely cross-repo and should start with both suites green
    lives in `sessionStorage` under `pedivax_patient_state`, base64 of
    `{v:4, am, dob, r:[risks], c:null, h:{VK:[{m,d,a,b,v,rd}]}, f:{}}`. `am` must match the
    DOB against the real date or the app pauses on an age/DOB conflict banner.
-4. **Ask, don't default**, before starting: N1/N2/N3 above are not in the owner's original
-   22 and N1 is arguably more urgent than M9–M19. Ask whether to promote them ahead of M9,
-   and confirm whether the M6 verdict rule (too soon → does not count) should also govern
-   N3's MenB boosters.
+4. Start at **M9**. The follow-up queue (N1–N4) is deliberately sequenced after M19 —
+   owner decided this on 2026-09-15; do not promote it without being asked again. Two
+   decisions are still open inside it and are flagged there: N4's exact wording is a
+   `design-review` question, and N3 should confirm the M6 verdict rule (too soon → does not
+   count) before coding.
 5. Per item: reproduce first → failing test (confirm it fails) → smallest fix → full suite →
    five-surface **plus** the compliance tab for any vaccine-logic change → drive the running
    app → one commit naming the ID. Any meningococcal change must land in **both** repos or
