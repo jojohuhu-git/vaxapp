@@ -2,6 +2,13 @@
 
 **Status:** in progress. Started 2026-09-15.
 
+> **M1–M5 are DONE** (2026-09-15). Latest session handoff, with commits, verified test
+> counts and the resume steps:
+> [handoff-2026-09-15-meningococcal-parity-m2-m5.md](handoff-2026-09-15-meningococcal-parity-m2-m5.md).
+> Work remaining starts at **M6**. Neither branch is pushed.
+> vaxapp: `fix/meningococcal-parity-m1-m19` (2351 passing).
+> MeningoVax: `fix/m4-booster-clock-primary-series` (428 passing).
+
 Findings document (owner-facing, plain English, with every ACIP quote):
 https://claude.ai/artifact/UWPtaBJYPSBpCX8thaX1V9
 
