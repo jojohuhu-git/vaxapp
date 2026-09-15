@@ -626,7 +626,15 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         : "Booster dose at 12\u201323 months for high-risk infants who completed the primary MenACWY series. Min 12 weeks after last primary dose. Then revaccinate in 3 years (primary series completed before age 7).",
       ["Menveo 2-vial (MenACWY-CRM, \u22652 months)", "MenQuadfi (MenACWY-TT, \u22652 years)"],
       { minInt: 84, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (am >= 132 && am <= 144 && menRoutineGate(0)) {
+  // M7: these two routine adolescent branches sit ABOVE the high-risk primary
+  // series branch below, and neither used to ask whether the patient was high
+  // risk — so for ages 11 through 15 the high-risk branch was unreachable. The
+  // difference is not cosmetic: the routine path is one dose now and a booster
+  // at 16 years, while an asplenic child needs a SECOND dose eight weeks later.
+  // ACIP 2020 MMWR 69(RR-9) Table 5 (increased risk, \u22652 years): 2 doses at
+  // least 8 weeks apart. MeningoVax already answered this correctly, so this is
+  // a vaxapp-only correction.
+  } else if (am >= 132 && am <= 144 && !isHighRiskMen && menRoutineGate(0)) {
     r("MenACWY", "Dose 1 (routine, 11\u201312 years)", 1, "due", "Routine at 11\u201312y. Booster at 16y. Use Penbraya if also starting MenB.",
       (menb === 0 && (hr || am >= 192)) ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenB too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenB too (4C family)", menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"] : [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { bt: menb === 0 ? "Penbraya contains Trumenba (Pfizer/FHbp); Penmenvy contains Bexsero (GSK/4C). The MenB series must be completed with the same product or its matching partner \u2014 these two pairs do not interchange." : undefined, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
@@ -661,7 +669,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       menRoutineDoseAtAge10
         ? { minInt: 56, refUrl: REFS.acwyAge10CountsAsDose1.url, refLabel: REFS.acwyAge10CountsAsDose1.label, refUrl2: REFS.MenACWY.cdcUrl, refLabel2: REFS.MenACWY.cdcLabel }
         : { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (am > 144 && am < 192 && menRoutineGate(0)) {
+  } else if (am > 144 && am < 192 && !isHighRiskMen && menRoutineGate(0)) {
     // 13\u201315y catch-up: Dose 1 of 2; booster at 16y because first dose given before 16y.
     r("MenACWY", "Catch-up (13\u201315 years)", 1, "catchup",
       "Give 1 dose if not yet received. Booster at 16y if first dose given before 16y.",
@@ -673,7 +681,12 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     const d1RevaxNote = am < 84
       ? "revaccinate in 3 years (primary series completed before age 7)"
       : "revaccinate in 5 years (primary series completed at age 7 or older)";
-    r("MenACWY", "Risk-based \u2014 high-risk", 1, "risk-based",
+    // M7: name the dose count in the label, the way the dose-2 label below
+    // already does and the way MeningoVax does ("Dose 1 of 2 (high-risk primary
+    // series)"). Until M7 this branch was unreachable for ages 11\u201315, where it
+    // matters most \u2014 those patients were reading a routine "one dose now,
+    // booster at 16" card instead.
+    r("MenACWY", "Dose 1 of 2 (high-risk primary series, \u22658 weeks apart)", 1, "risk-based",
       `High-risk (asplenia, HIV, complement deficiency): 2-dose primary series 8 weeks apart; then ${d1RevaxNote}.`,
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"], { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men === 0 && risks.includes("military")) {
