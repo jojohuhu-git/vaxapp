@@ -1,13 +1,15 @@
-# vaxapp — Handoff after F6 port (MenACWY terminal-dose-1 extra-dose fix) (2026-09-14)
+# vaxapp — Handoff after F6 port + sweep (M7/M8/M9 dose-total drift fixes) (2026-09-14)
 
 Branch: `fix/m7-menacwy-terminal-dose1-extra`, off `main` at `fc4a883`. **Pushed** to
 `origin/fix/m7-menacwy-terminal-dose1-extra`; **PR #150 open**
-(https://github.com/jojohuhu-git/vaxapp/pull/150), CI `test` check green,
-`mergeStateStatus: CLEAN` — not yet merged. Per this repo's rule (`main` is protected,
-branch → PR → squash merge), and the owner reviews every PR herself — do not merge for her.
+(https://github.com/jojohuhu-git/vaxapp/pull/150), title "Dose-total drift fix: MenACWY,
+MenB, and HPV extra doses now flagged correctly" — CI was pending as of this handoff (the
+first commit's `test` check had already gone green; this is the 2nd commit re-running it).
+Per this repo's rule (`main` is protected, branch → PR → squash merge), and the owner
+reviews every PR herself — do not merge for her.
 
-Baseline was 2195 passing tests; now **2209 passing (135 files)**, all green, working
-tree has only this session's 5 files staged/committed (see note below on unrelated
+Baseline was 2195 passing tests; now **2229 passing (137 files)**, all green, working
+tree has only this session's files staged/committed (see note below on unrelated
 pre-existing modifications).
 
 This resumes the **F6** item queued in
@@ -15,69 +17,86 @@ This resumes the **F6** item queued in
 0-120y×risk×dose-count dose-counter sweep investigation (its own PR #12, F1-F5) to
 vaxapp, to check whether `stateHelpers.js`'s `menACWYRoutineCount` carries the same
 "N/M drift" bug MeningoVax had. **`menACWYRoutineCount` itself turned out to be fine** —
-the drift was in two *other* files that each independently hardcoded the routine MenACWY
-series total at 2, unaware of the existing "dose 1 given at/after 16y is terminal" rule
-(`stateHelpers.menACWYGivenAtOrAfter16y`, already correctly used by
-`genRecs`/`buildOptimalSchedule`/`dosePlan`, cited to CDC MMWR RR-9).
+the drift was in *other* files. The owner then asked whether other vaccines had the same
+drift, which turned into a full sweep (M8, M9) that found two more, worse-shaped
+instances.
 
 ## What's done
 
-- **`src/logic/compliance.js`** (M7): `classifyDose` graded a 2nd (or 3rd+) MenACWY dose
-  after a terminal dose 1 as `VALID` — implying it was a real, needed part of a 2-dose
-  series — instead of `VALID_EXTRA`. Added a check (mirroring the existing M6 pattern
-  right above it) that reads dose 1's age via the already-imported `doseAgeMonths` and
-  short-circuits to `VALID_EXTRA` for any later dose when dose 1 was ≥192 months (16y).
-  High-risk patients (asplenia/sickle cell/complement/HIV) are excluded, same as M6 —
-  their series is open-ended.
-- **`src/logic/validation.js`** (M7): `auditAll`'s MenACWY "series overdose" check used a
-  flat `doses.length > 2` threshold. Fixed to compute the real standard total (1 if dose
-  1 was ≥16y, else 2) via the same `doseAgeMonths` helper, and worded the advisory text
-  differently for each case. **This is the surface that actually matters most** —
-  `MainPanel.jsx` hides the entire Compliance Audit tab for patients ≥19y
-  (`effectiveAm >= 228`, "Adult Patient" placeholder), so `AuditFooter` (backed by
-  `auditAll`) is the *only* place an adult patient ever sees this. This exactly matches
-  the shape of the real reported patient (82y, HSCT, 3 MenACWY doses, all given as an
-  adult) that started the whole MeningoVax F1-F6 investigation.
-- **Tests**: `src/logic/__tests__/regression-m7-menacwy-terminal-dose1-extra.test.js` (6
-  cases, `compliance.js`), `src/logic/__tests__/regression-m7-menacwy-terminal-auditall.test.js`
-  (6 cases, `validation.js`), plus 2 new cases added to
-  `src/components/__tests__/ComplianceAuditTab.test.jsx`. All 14 confirmed to **fail**
-  against the pre-fix code (verified via `git stash` on each touched file), then pass
-  after the fix.
-- **Live-verified in the running app** (not just the suite): drove the owner's exact
-  reported case (DOB 1944-02-01, HSCT, MenACWY doses 2024-04-05/07-05/10-04) and confirmed
-  the Schedule Audit banner now reads "The first dose was given at or after the 16th
-  birthday, which completes the routine series on its own — no booster is needed" instead
-  of the old "Non-high-risk patients need only 2 doses: D1 at 11–12 years and a booster at
-  16 years" (which was simply false for this patient). Also drove an in-range 17-year-old
-  with the same 2-dose pattern and confirmed the Compliance Audit tab shows Dose 2 as
-  `VALID · EXTRA` and the series header as "Complete · 2 doses given (1 extra,
-  acceptable)" (previously would have shown as a clean, non-extra 2-dose series).
+**M7 (MenACWY)** — `stateHelpers.menACWYGivenAtOrAfter16y` already correctly says a dose-1
+given at/after 16y is terminal (no booster needed), cited to CDC MMWR RR-9, and
+`genRecs`/`buildOptimalSchedule`/`dosePlan` already used it correctly. Two other files
+didn't:
+- **`src/logic/compliance.js`**: `classifyDose` graded a 2nd (or 3rd+) dose after a
+  terminal dose 1 as `VALID` instead of `VALID_EXTRA`. Fixed with a check mirroring the
+  existing M6 pattern (reads dose 1's age via `doseAgeMonths`).
+- **`src/logic/validation.js`**: `auditAll`'s MenACWY overdose check used a flat
+  `doses.length > 2` threshold — missed a 2-dose case entirely and mislabeled a 3-dose
+  case's advisory text. **This is the surface that matters most**: `MainPanel.jsx` hides
+  the whole Compliance Audit tab for patients ≥19y, so `AuditFooter`/`auditAll` is the
+  *only* place an adult ever sees this — exactly the shape of the real reported patient
+  (82y, HSCT, 3 MenACWY doses, all as an adult) that started this whole investigation.
+
+**M8 (MenB)** — found by checking every other vaccine with an age/risk-variable total.
+True total is 2 (healthy) or 3 (high-risk), per `buildOptimalSchedule.js`'s
+`highRiskMenB()` check. `compliance.js`'s `STANDARD_SERIES_TOTAL.MenB=3` applied
+unconditionally — **worse than M7**: no threshold at all, a healthy patient could have any
+number of MenB doses with zero flag anywhere. `validation.js` had no MenB overdose check
+at all (M7's MenACWY check was at least *some* signal). Both fixed.
+
+**M9 (HPV)** — same sweep. True total is 2 (dose 1 before 15y + not immunocompromised) or
+3, per `buildOptimalSchedule.js`'s exact 5475-day threshold. `compliance.js`'s
+`STANDARD_SERIES_TOTAL.HPV=3` applied unconditionally — an unnecessary 3rd dose for a
+2-dose-eligible patient showed as **`ON_TIME`**, not just unflagged but labeled as the
+expected dose of a "3-dose schedule." `validation.js` had no HPV overdose check either.
+Both fixed.
+
+**Tests**: `regression-m7-menacwy-terminal-dose1-extra.test.js` (6),
+`regression-m7-menacwy-terminal-auditall.test.js` (6),
+`regression-m8-menb-risk-dependent-total.test.js` (8),
+`regression-m9-hpv-age-dependent-total.test.js` (9), plus 5 new `ComplianceAuditTab.test.jsx`
+cases. All 34 confirmed to **fail** against pre-fix code (`git stash` per touched file),
+then pass after the fix.
+
+**Live-verified in the running app** for all three (not just the suite):
+- The owner's exact reported MenACWY case (DOB 1944-02-01, HSCT, 3 doses 2024) — Schedule
+  Audit banner now correctly attributes completion to dose 1 alone.
+- A healthy 18-year-old with 3 well-spaced MenB doses — Compliance Audit tab now reads
+  "Complete · 3 doses given (1 extra, acceptable)" with dose 3 as `VALID · EXTRA` (was a
+  clean, unflagged 3-dose series).
+- A 13-year-old who started HPV at 12 with an unnecessary 3rd dose — dose 3 now reads
+  `VALID · EXTRA` (was `ON_TIME`).
 
 ## What's NOT done — the remaining queue
 
-- **PR #150 merge** — open, CI green, awaiting the owner's own review. Nothing blocks it.
+- **PR #150 merge** — open, awaiting the owner's own review. Nothing blocks it once CI is
+  green on the latest commit.
 - **P1 (clinical, blocked)** on the MeningoVax side — whether the post-HCT 2-dose MenACWY
-  schedule applies above age 18. Still needs a live ASCO/CDC source read
+  schedule applies above age 18. Needs a live ASCO/CDC source read
   (`verify-clinical-source` skill) before any code change; unrelated to this fix. See
   [[project_meningovax]].
-- **Not investigated in this session, flagged only in passing**: `validation.js`'s
-  `auditAll` MenACWY check (and `compliance.js`'s `STANDARD_SERIES_TOTAL.MenACWY`) still
-  assume every non-high-risk MenACWY series needs 1 or 2 doses — they don't know about the
-  military/travel/microbiologist "exposure" categories (`genRecs` handles these
-  separately, and those are genuinely 1-dose-forever categories regardless of age). This
-  is a **pre-existing, separate gap**, same bug *class* but different root cause and much
-  larger blast radius to fix (would need `risks` threaded further through both files to
-  distinguish exposure categories from the routine schedule). Not fixed here — flagging
-  for a future session if the owner wants it chased down.
+- **Checked, explicitly NOT fixed (documented in the PR body)**:
+  - MenACWY military/travel/microbiologist "exposure" categories (1-dose-forever,
+    regardless of age) aren't distinguished from the routine schedule in `compliance.js`/
+    `validation.js` — a pre-existing, separate gap, same bug *class* but larger blast
+    radius (would need `risks` threaded further through both files). Flagged in M7's
+    original handoff, still not started.
+  - **IPV**: adults (≥18y) need only 3 doses vs. the pediatric 4 (`buildOptimalSchedule.js`
+    `am >= 216 ? 3 : 4`); `validation.js` has zero IPV overdose check. Lower priority — only
+    matters in the narrow 18–19y sliver, since the app already tells older adults to use
+    the CDC adult schedule.
+  - **PPSV23** already has a *different* check (`ppsv23AuditFlag` — "was this dose
+    indicated at all," not "is the count right"). Its true total is also risk-dependent (1
+    vs. 2) per `buildOptimalSchedule.js`; whether that specific count-drift also exists
+    was not checked in depth this session.
 
 ## Why this is a good stopping point
 
-The fix is a single, independently-shippable unit: two files, both touched via the exact
-same underlying rule vaxapp already trusts elsewhere, no new clinical claim introduced,
-full test coverage confirmed red→green, and live-verified against both the exact reported
-patient and a second, differently-shaped in-range case. It doesn't block or depend on
-anything else in the current queue.
+Three independently-shippable fixes in one coherent PR, all touched via rules the rest of
+the app already trusts elsewhere, no new clinical claims, full test coverage confirmed
+red→green, and every one live-verified in the browser. IPV/PPSV23/exposure-categories are
+explicitly scoped out (not silently skipped) so a future session doesn't have to re-derive
+whether they were considered.
 
 ## Note on unrelated uncommitted files
 
@@ -93,13 +112,13 @@ throughout this session.
 
 1. `cd ~/Downloads/vaxapp-main && git checkout fix/m7-menacwy-terminal-dose1-extra` (or
    `main` after PR #150 merges).
-2. Run `npm test -- --run` — confirm **2209 passing (135 files)**.
+2. Run `npm test -- --run` — confirm **2229 passing (137 files)**.
 3. Check whether PR #150 merged; if not, that's the next action (or ask the owner if she
    wants review changes first).
-4. If tackling the military/travel/microbiologist gap noted above: start by reading
-   `genRecs`'s MenACWY branches in `src/logic/recommendations.js` (~line 656 onward) to
-   see exactly which risk ids need their own 1-dose-forever total in `compliance.js`/
-   `validation.js`, then follow the same M7 pattern (shared helper, not two independent
-   re-implementations).
-5. Ship per the `ship` skill: this repo's PR is already open with green CI; squash-merge
-   after the owner's review, do not push directly to `main`.
+4. If tackling IPV or the MenACWY exposure-category gap: follow the same M7/M8/M9
+   pattern — find the existing correct source of truth in `buildOptimalSchedule.js`,
+   reuse it (don't re-derive), fix `compliance.js`'s `STANDARD_SERIES_TOTAL` entry and add
+   a matching `validation.js` overdose check, write regression tests for both surfaces
+   confirmed to fail pre-fix, then live-verify in the running app.
+5. Ship per the `ship` skill: this repo's PR is already open; squash-merge after the
+   owner's review, do not push directly to `main`.
