@@ -3,7 +3,7 @@
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
-import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands } from './pcvDoses.js';
+import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
 import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 import { hardStopExclusion } from './hardStop.js';
@@ -153,8 +153,9 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
         return { totalDoses: ppsvCount };
       }
       // chronic_kidney_dialysis (dialysis/nephrotic syndrome) is CDC's own
-      // IC-subset kidney category; general chronic_kidney is not.
-      return { totalDoses: risks.some(r => ['asplenia', 'sickle_cell', 'immunocomp', 'hiv', 'chronic_kidney_dialysis'].includes(r)) ? 2 : 1 };
+      // IC-subset kidney category; general chronic_kidney is not. Shared with
+      // compliance.js/validation.js via pcvDoses.js's ppsv23StandardTotal (F6d).
+      return { totalDoses: ppsv23StandardTotal(risks) };
     }
 
     case 'IPV':
