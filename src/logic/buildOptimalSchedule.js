@@ -4,11 +4,15 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
-import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses } from './stateHelpers.js';
+import { MENACWY_AGE_7Y_MONTHS, MENACWY_BOOSTER_3Y, MENACWY_BOOSTER_5Y, isLiveVaccineContraindicated, menACWYOnRiskBasedSchedule, menacwyExposureCategory, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 import { hardStopExclusion } from './hardStop.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
+
+// M6/M9: the MenACWY booster cadence lives in stateHelpers.js
+// (menACWYBoosterIntervalDays) so this surface, the engine and the dose checker
+// all read one copy of it.
 
 // ── Date helpers ──────────────────────────────────────────────────
 const _d     = iso => new Date(iso + 'T00:00:00Z');
@@ -182,7 +186,67 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
     }
 
     case 'MenACWY': {
-      if (isHRMen) return { totalDoses: 2 };
+      // M4: a high-risk primary series is not always 2 doses. A child who started
+      // as an infant has 3 or 4, and hardcoding 2 here made this surface treat a
+      // half-finished infant series as complete and schedule nothing, while the
+      // Recommendations tab was asking for the remaining doses. The length comes
+      // from menACWYPrimaryTotal(), the same helper the engine uses.
+      // M6: and once that primary series IS behind them, a high-risk patient is
+      // owed a booster. This surface modelled no booster phase at all, so a child
+      // who had been correctly and completely vaccinated got an EMPTY optimal
+      // schedule while every other surface was asking for the 3-year booster —
+      // a due dose that silently disappears is worse than a visibly wrong one.
+      // Exactly one booster is planned: the next one due, which is what genRecs
+      // offers. The lifelong every-5-years cadence beyond it is not projected
+      // here, the same way genRecs offers one dose at a time.
+      if (isHRMen) {
+        const menDates = gDates(hist, 'MenACWY');
+        const ageAtMenDose = (d) => {
+          const dt = d?._date;
+          return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
+        };
+        const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose);
+        return { totalDoses: menDates.length >= primaryTotal ? primaryTotal + 1 : primaryTotal };
+      }
+      // M9: the same gap, one indication over. A traveler who remains at risk is
+      // owed boosters (ACIP 2020 MMWR 69(RR-9) Table 9) and this surface planned
+      // none, so their optimal schedule came back EMPTY while the Recommendations
+      // tab asked for the booster by name. From the 2nd birthday the traveler's
+      // primary series is a single dose, so dose 2 is already the first booster.
+      if (isTravelOngoingMenACWY(risks)) {
+        const menDates = gDates(hist, 'MenACWY');
+        const ageAtMenDose = (d) => {
+          const dt = d?._date;
+          return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
+        };
+        const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose, { travel: true });
+        return { totalDoses: menDates.length >= primaryTotal ? primaryTotal + 1 : primaryTotal };
+      }
+      // M12: the same gap again, for the serogroup A/C/W/Y outbreak indication.
+      // Without this the patient falls through to the routine seed below, which
+      // plans their FIRST dose at age 11 — so a 5-year-old identified at risk in
+      // an outbreak today was given an optimal schedule starting in 2032, while
+      // the Recommendations tab asked for the dose now. ACIP 2020 MMWR 69(RR-9)
+      // Table 8: 1 dose from the 2nd birthday (the infant series below that,
+      // which menACWYPrimaryTotal already keys to the age at dose 1), then a
+      // single top-up if the patient is identified at risk again.
+      //
+      // Only ONE further dose is planned, never a repeating cadence: Table 8's
+      // top-up is a response to being re-exposed, not a standing countdown
+      // (owner-confirmed 2026-09-15). That is the same shape this surface uses
+      // for high-risk and travel above — plan the next dose, not the series
+      // stretching out forever.
+      if (menacwyExposureCategory(risks) === 'outbreak') {
+        const menDates = gDates(hist, 'MenACWY');
+        const ageAtMenDose = (d) => {
+          const dt = d?._date;
+          return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
+        };
+        // travel: true selects the SAME "1 dose from 24 months, infant series
+        // below it" shape Table 8 and Table 9 share verbatim.
+        const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose, { travel: true });
+        return { totalDoses: menDates.length >= primaryTotal ? primaryTotal + 1 : primaryTotal };
+      }
       // V1: routine series count excludes only doses given before the 10th birthday
       // (120mo) — see menACWYRoutineCount. isHRMen already returned above, so every
       // use of givenMen below is on the non-high-risk path.
@@ -201,27 +265,71 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
     }
 
     case 'MenB': {
+      // M11: ACIP defers MenB in pregnancy unless the patient is at increased
+      // risk. ACIP 2020 MMWR 69(RR-9), "Pregnancy and Lactation", fetched live
+      // from cdc.gov 2026-09-15: "Because limited data are available for MenB
+      // vaccination during pregnancy, vaccination with MenB should be deferred
+      // unless the woman is at increased risk and, after consultation with her
+      // health care provider, the benefits of vaccination are considered to
+      // outweigh the potential risks."
+      //
+      // This surface plans doses from its own seriesDoses(), NOT from genRecs,
+      // so the deferral the engine applies does not reach it on its own: a
+      // pregnant 17-year-old was shown "Deferred in pregnancy" on the forecast
+      // while the optimal schedule below planned dose 1 for TODAY. Returning
+      // null plans nothing, matching how pregnancy already suppresses the live
+      // vaccines (isLiveVaccineContraindicated). The reason stays visible on
+      // the forecast's deferred card, which is where it is explained.
+      if (risks.includes('pregnancy') && !isHRMenB) return null;
       // M1: non-high-risk patients' pre-16 doses don't count toward the healthy
       // 2-dose series (mirrors the isHRMen pre-10 exclusion for MenACWY above).
       // M2: high-risk patients' ambiguous pre-16 doses don't count either, unless
       // the provider confirmed the patient was already high-risk on that date.
-      const givenMenB = menBEffectiveDoses(hist, dob, am, isHRMenB).length;
+      const effMenB = menBEffectiveDoses(hist, dob, am, isHRMenB);
+      const givenMenB = effMenB.length;
       // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
       // accelerated series for BOTH antigen families (4C and FHbp), starting at 10y.
-      // Healthy: 2-dose shared-decision series, 16–23y (192–276m).
-      // SCOPE LIMIT: the optimizer does not model:
-      //   (a) non-HR FHbp 3-dose rescue (triggered when healthy D1→D2 < 182d)
-      //   (b) HR MenACWY/MenB ongoing revaccination after primary series completion
-      // These require interval-based scheduling logic beyond seriesDoses(). The Full
-      // Forecast (genRecs) handles both correctly. For complex histories, use Forecast.
+      // Healthy: 2-dose shared-decision series, 16–23y (192m through 287m,
+      // i.e. up to but not including the 24th birthday at 288m — see M13 below).
+      // SCOPE LIMIT: the optimizer does not model HR MenACWY/MenB ongoing
+      // revaccination after primary series completion. That needs interval-based
+      // scheduling logic beyond seriesDoses(); the Full Forecast (genRecs) handles
+      // it correctly. For such histories, use Forecast.
+      //
+      // M3: the healthy rescue dose IS modelled now (it used to be listed above as
+      // a scope limit). Once an early dose 2 counts instead of being voided, this
+      // surface went from scheduling a wrong dose 2 to scheduling nothing at all —
+      // and a dose that silently disappears from the optimal schedule is worse for
+      // a patient than a visibly wrong one. CDC, shared clinical decision-making:
+      // "2-dose series at least 6 months apart (if dose 2 is administered earlier
+      // than 6 months, administer dose 3 at least 4 months after dose 2)".
       if (isHRMenB) {
         if (am < 120) return { totalDoses: 3, seedAgeMonths: 120 };
         return { totalDoses: 3 };
       }
       if (am < 192) return { totalDoses: 2, seedAgeMonths: 192 }; // routine seed at 16y
-      // Don't start a new series after 23y for non-risk patients.
-      if (am > 276 && givenMenB === 0) return null;
-      return { totalDoses: 2 };
+      // Don't start a new series for non-risk patients once they are past 23.
+      // M13: this said `am > 276`, which cut eligibility off on the patient's
+      // 23rd BIRTHDAY. CDC's child & adolescent schedule notes (verified live
+      // 2026-09-15) say "Adolescents not at increased risk age 16-23 years
+      // (preferred age 16-18 years)... based on shared clinical decision-making",
+      // and that page writes age bands inclusively ("Age 13-15 years" for
+      // MenACWY catch-up covers a 15y11m-old). So eligibility runs through
+      // 23y11m and ends at the 24th birthday = 288 months.
+      //
+      // This is an eligibility GATE, not a recommended-window band, which is why
+      // it moved while the MenB row in aapDoseBands.js deliberately did not --
+      // see regression-m13-menb-shared-decision-window.test.js.
+      //
+      // Unreachable today, and knowingly so: buildOptimalSchedule returns []
+      // at `am >= 228` (19y) before seriesDoses() is ever called, so no live
+      // patient reaches 276 months here. Corrected anyway because raising the
+      // pediatric age cap (deferred queue item 11) would otherwise silently
+      // deny the series to every 23-year-old.
+      if (am >= 288 && givenMenB === 0) return null;
+      // Healthy patient whose dose 2 came early needs 3 doses, not 2 —
+      // menBSeriesTotal() is the one place that rule lives.
+      return { totalDoses: menBSeriesTotal(hist, dob, am, isHRMenB) };
     }
 
     case 'COVID': return { totalDoses: 1 };
@@ -258,6 +366,58 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
     }
   }
 
+  // ── M6: MenACWY booster cadence ───────────────────────────────────
+  // MIN_INT.MenACWY.i stops at dose 2, so without this a planned booster had no
+  // interval at all and would have been dated today. Which dose is the first
+  // booster depends on the primary series length, and the first booster's clock
+  // keys off the age at the LAST primary dose — the same rule the dose checker
+  // applies in validation.js, read from the same menACWYPrimaryTotal() helper.
+  // M9: travelers are on the same cadence (ACIP Table 9), counted from a
+  // one-dose primary series. The 3-year/5-year rule itself now lives in
+  // stateHelpers.menACWYBoosterIntervalDays, which the engine and the dose checker
+  // read too, so the three surfaces cannot drift apart on it.
+  const menTravelOngoing = isTravelOngoingMenACWY(ctx?.risks ?? []);
+  // M12: an outbreak top-up is NOT on that cadence. ACIP Table 8 measures it
+  // from the patient's age TODAY ("Aged <7 yrs: Single dose if >=3 yrs since
+  // vaccination", ">=5 yrs" at 7 or older), where Tables 4-6 and 9 measure from
+  // the age at which the primary series was completed. Handled before the shared
+  // cadence below so it cannot pick up the wrong clock.
+  if (vk === 'MenACWY' && prevDate && menacwyExposureCategory(ctx?.risks ?? []) === 'outbreak') {
+    const amNow = ctx?.am;
+    // Only doses BEYOND the primary series are top-ups. An infant on Table 8's
+    // "2-23 mos" row is still finishing a 4-dose primary series, whose doses are
+    // 4 and 12 weeks apart — not 3 years. Same primaryTotal test the travel and
+    // high-risk cadence below uses.
+    const menDatesOb = gDates(ctx?.hist ?? {}, 'MenACWY');
+    const ageAtMenDoseOb = (d) => {
+      const dt = d?._date;
+      return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
+    };
+    const primaryTotalOb = menACWYPrimaryTotal(menDatesOb.map(dt => ({ _date: dt })), ageAtMenDoseOb, { travel: true });
+    if (doseNum > primaryTotalOb) {
+      // M19: was `1095 : 1826` written out by hand here, a second copy of the
+      // cadence constants that silently kept the old 365-day year when
+      // stateHelpers moved to 1096. Use the shared constants so the two
+      // cannot drift apart again.
+      minInt = (amNow != null && amNow < MENACWY_AGE_7Y_MONTHS) ? MENACWY_BOOSTER_3Y : MENACWY_BOOSTER_5Y;
+      intLabel = `MenACWY outbreak top-up=${minInt}d (age ${amNow != null && amNow < 84 ? 'under 7' : '7 or older'} today)`;
+    }
+  } else if (vk === 'MenACWY' && prevDate && (isHighRiskMenACWY(ctx?.risks ?? []) || menTravelOngoing)) {
+    const menDates = gDates(ctx?.hist ?? {}, 'MenACWY');
+    const ageAtMenDose = (d) => {
+      const dt = d?._date;
+      return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
+    };
+    const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose, { travel: menTravelOngoing });
+    if (doseNum > primaryTotal) {
+      const isFirstBooster = doseNum === primaryTotal + 1;
+      const lastPrimary    = menDates[primaryTotal - 1] || null;
+      const lastPrimaryAgeM = (lastPrimary && dob) ? diff(dob, lastPrimary) / 30.4375 : null;
+      minInt = menACWYBoosterIntervalDays(isFirstBooster, lastPrimaryAgeM);
+      intLabel = `MenACWY booster cadence=${minInt}d (${isFirstBooster ? 'first booster' : 'every 5 years'})`;
+    }
+  }
+
   // ── Build candidates ──────────────────────────────────────────────
   const cands = [{ date: today, label: 'today' }];
 
@@ -278,7 +438,13 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
     cands.push({ date: addD(prevDate, minInt), label: intLabel });
 
   // Cross-dose constraint from D1 (e.g. HepB D3 ≥112d from D1, MenB D3 ≥182d from D1, HPV D3 ≥152d from D1)
-  const d1Min = rule.d1Cross?.[doseNum];
+  // M3: MenB's D1→D3 floor belongs to the high-risk accelerated 0/1–2/6-month
+  // series. A healthy patient's rescue dose 3 is timed from dose 2 only — CDC:
+  // "administer dose 3 at least 4 months after dose 2" — so applying the dose-1
+  // floor to them would push the dose ~4 weeks later than CDC asks for.
+  // Owner decision 2026-09-15: follow CDC's literal text.
+  const skipD1Cross = rule.d1CrossHighRiskMenBOnly && !highRiskMenB(ctx?.risks ?? []);
+  const d1Min = skipD1Cross ? null : rule.d1Cross?.[doseNum];
   if (d1Min != null && d1Date)
     cands.push({ date: addD(d1Date, d1Min), label: `MIN_INT.${vk}.d1Cross[${doseNum}]=${d1Min}d` });
 
@@ -372,7 +538,24 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
   const allDoses = [];
 
   for (const vk of VAX_ORDER) {
-    const given  = (vk === 'MenACWY' && !isHRMenMain)
+    // M9: travelers are counted like the medically high-risk — every dose counts.
+    // menACWYRoutineCount drops doses given before the 10th birthday, which is the
+    // right rule for the ROUTINE adolescent series but not for an ongoing-risk
+    // traveler: ACIP says such a patient "should follow the booster dose schedule
+    // (Tables 4, 5, 6, 7, 8, and 9), not the routine adolescent schedule". Counting
+    // a traveler's dose at age 3 as zero made this surface plan dose 1 over again
+    // today and then date "dose 2" three years from today — a duplicate dose, and
+    // the real booster mis-dated.
+    // M12: outbreak contacts join them, and the ACIP sentence quoted above names
+    // the very table they are on — "Tables 4, 5, 6, 7, 8, and 9" — Table 8 being
+    // the outbreak schedule. Counting their pre-age-10 dose as zero made this
+    // surface plan dose 1 again today alongside the top-up.
+    // M15: microbiologists (ACIP Table 7) belong here too and were missed when
+    // M9 and M12 added travel and outbreak by hand. The list now lives in one
+    // place -- menACWYOnRiskBasedSchedule -- which also covers the medical
+    // high-risk tables, so isHRMenMain is folded into it.
+    const menOnBoosterSchedule = menACWYOnRiskBasedSchedule(risks ?? []);
+    const given  = (vk === 'MenACWY' && !isHRMenMain && !menOnBoosterSchedule)
       ? menACWYRoutineCount(ctx.hist, ctx.dob)
       : (vk === 'MenB')
       ? menBEffectiveDoses(ctx.hist, ctx.dob, ctx.am, isHRMenBMain).length

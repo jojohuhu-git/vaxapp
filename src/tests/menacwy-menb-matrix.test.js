@@ -593,11 +593,25 @@ describe('MenACWY risk-based', () => {
     expect(doses.length).toBe(0);
   });
 
-  it('19b. 6y (72m), asplenia, 4-dose infant primary (men=4) → subsequent booster minInt 1826d (5y)', () => {
-    // 4-dose infant primary series (D1–D3 primary at 2/4/6m, D4 booster at 12m).
-    // The D4 booster at 12m IS the first booster within the infant series.
-    // When assessed at 6y: men=4, isFirstBooster=(men===2)=false → subsequent booster (5y).
-    // This matches MeningoVax's ≥24m primary2 path exactly.
+  it('19b. 6y (72m), asplenia, 4-dose infant primary (men=4) → FIRST booster minInt 1095d (3y)', () => {
+    // CHANGED BY M4 (2026-09-15). This test used to expect 1826d (5 years) on the
+    // reasoning, written in its own comment, that "the D4 booster at 12m IS the
+    // first booster within the infant series", so a dose at 6y was a SUBSEQUENT
+    // booster. That model is wrong on both counts.
+    //
+    // CDC child & adolescent schedule notes, "Meningococcal serogroup A,C,W,Y
+    // vaccination", special situations, Menveo (fetched live 2026-09-15):
+    //   "Dose 1 at age 2 months: 4-dose series (additional 3 doses at age 4, 6,
+    //    and 12 months)"
+    // All four doses are the PRIMARY series — CDC does not call the 12-month
+    // dose a booster. Owner-confirmed table (meningococcal parity queue,
+    // 2026-09-15) says the same: first dose at 2 months → "4 doses — 2, 4, 6, 12
+    // months", listed as the primary series.
+    //
+    // The booster clock therefore starts at the 12-month dose, and since the
+    // primary series finished well before the 7th birthday the FIRST booster is
+    // due 3 years later (1095d), not 5. The old expectation made a high-risk
+    // child wait two extra years.
     const am = 72;
     const risks = ['asplenia'];
     const hist = { MenACWY: [
@@ -609,11 +623,16 @@ describe('MenACWY risk-based', () => {
     const r = firstRec('MenACWY', am, hist, risks);
     expect(r).not.toBeNull();
     expect(r.status).toBe('risk-based');
-    expect(r.doseNum).toBe(5); // dose 5 = first post-infant-series booster
-    // men=4 → isFirstBooster=false → subsequent booster interval (5y)
-    expect(r.minInt).toBe(1826);
+    expect(r.doseNum).toBe(5); // dose 5 = first booster after the 4-dose primary
+    // men === menPrimaryTotal (4) → this IS the first booster → 3 years
+    expect(r.minInt).toBe(1095);
+    expect(r.dose).toMatch(/first booster/i);
 
-    // Surface 5: primary series (2 doses in optimizer model) already exceeded → 0 projected
+    // Surface 5: still projects nothing here — buildOptimalSchedule models the
+    // high-risk MenACWY primary as 2 doses and treats the series as exceeded, so
+    // it never offers the booster. That is a pre-existing surface-5 gap, not
+    // something M4 introduced (it was 0 before this change too), and it is queue
+    // item M6's territory. Recorded here rather than silently left unasserted.
     const doses = optimalDosesFor('MenACWY', am, hist, risks);
     expect(doses.length).toBe(0);
   });
@@ -823,12 +842,18 @@ describe('MenB shared decision (non-risk, 16–23y)', () => {
     // Surface 4
     expect(recsFor('MenB', am, hist).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5: seriesDoses for non-HR Trumenba returns {totalDoses:2}. With 2 doses given,
-    // given>=totalDoses → 0 additional doses scheduled by optimal schedule.
-    // BUG (surface 5 only): buildOptimalSchedule doesn't model the accelerated 3-dose path
-    // for non-HR FHbp. genRecs correctly emits D3, but optimal schedule sees series complete.
+    // Surface 5: FIXED by M3 (2026-09-15). This assertion used to read
+    // `expect(doses.length).toBe(0)` and carried a comment calling it a
+    // surface-5 bug: seriesDoses returned {totalDoses:2} for a non-high-risk
+    // patient no matter when dose 2 was given, so the optimal schedule treated
+    // the series as complete and the third dose the patient actually needs never
+    // appeared — even though genRecs emitted it. seriesDoses now returns
+    // {totalDoses:3} when a healthy patient's dose 2 came under 6 months after
+    // dose 1, per CDC: "if dose 2 is administered earlier than 6 months,
+    // administer dose 3 at least 4 months after dose 2".
     const doses = optimalDosesFor('MenB', am, hist);
-    expect(doses.length).toBe(0); // engine behavior: series "complete" at 2 doses per seriesDoses
+    expect(doses.length).toBe(1);
+    expect(doses[0].doseNum).toBe(3);
   });
 
   // Scenario 27: 18y (216m), no history → shared decision (last peds year in 16-23y window)
@@ -860,7 +885,11 @@ describe('MenB shared decision (non-risk, 16–23y)', () => {
   it('28. 24y (288m), no history → no MenB rec (beyond 16–23y shared decision window)', () => {
     const am = 288;
 
-    // Surface 1: no rec — engine now gates non-risk D1 at am <= 276 (23y11m)
+    // Surface 1: no rec. M13 2026-09-15 — this used to say the engine gates
+    // non-risk D1 at "am <= 276 (23y11m)". Both halves were wrong: 276 months is
+    // 23y0m, not 23y11m, and what actually stops a 24-year-old here is the
+    // pediatric cap (recommendations.js:40 returns [] at am >= 228), not any
+    // MenB-specific bound.
     const r = firstRec('MenB', am);
     expect(r).toBeNull();
 
@@ -870,16 +899,23 @@ describe('MenB shared decision (non-risk, 16–23y)', () => {
     // Surface 4: no catch-up
     expect(recsFor('MenB', am).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5: seriesDoses returns null for non-risk am > 276 with no doses → 0
+    // Surface 5: 0 doses. Same story — buildOptimalSchedule returns [] at
+    // am >= 228 (line 492) before seriesDoses() runs, so its own non-risk gate
+    // (am >= 288 since M13) is not what produces this.
     const doses = optimalDosesFor('MenB', am);
     expect(doses.length).toBe(0);
   });
 
   it('28b. 24y (288m), no history → NO MenB rec (upper age gate now enforced)', () => {
-    // BUG: Surface 1 — recommendations.js MenB section has `if (menb === 0 && (hr || am >= 192))`
-    // with no upper age bound for the non-risk path. ACIP shared clinical decision: ages 16–23y.
-    // The fix: change gate to `if (menb === 0 && (hr || (am >= 192 && am <= 276)))`.
-    // Also affects Surface 5: buildOptimalSchedule.seriesDoses has no upper bound either.
+    // Surface 1 — recommendations.js MenB has `if (menb === 0 && (hr || am >= 192))`
+    // with no MenB-specific upper age bound on the non-risk path; the pediatric
+    // cap at am >= 228 is what makes this assertion pass.
+    // M13 2026-09-15: the old note here proposed bounding it at `am <= 276`.
+    // That is the wrong number — CDC's shared-decision window is "age 16-23
+    // years", written inclusively, so it ends at the 24th birthday (288m), not
+    // on the 23rd (276m). buildOptimalSchedule's gate was corrected to 288;
+    // adding one here would be dead code behind the same 228 cap, so it was
+    // deliberately left alone.
     const am = 288;
     const r = firstRec('MenB', am);
     expect(r).toBeNull();

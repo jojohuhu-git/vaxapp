@@ -49,6 +49,9 @@ export default function HistoryTable() {
             const rawDoses = state.hist[vk] || [];
             const sorted = sortDosesByDate(rawDoses, state.dob);
             const totalGivenDated = sorted.filter(s => s.dose.given && s.dose.mode !== 'unknown').length;
+            // M6: the pill needs the whole series, in date order, to work out where
+            // the primary series ends and the MenACWY booster cadence begins.
+            const sortedDoses = sorted.map(s => s.dose);
             return (
               <tr key={vk}>
                 <td style={{ whiteSpace: "nowrap" }}>
@@ -72,6 +75,7 @@ export default function HistoryTable() {
                           isExtra={vk === "MenACWY" && !isHighRiskMen && i >= 2}
                           totalDoses={totalGivenDated}
                           risks={state.risks}
+                          allDoses={sortedDoses}
                         />
                       );
                     })}

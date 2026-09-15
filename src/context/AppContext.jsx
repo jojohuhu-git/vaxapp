@@ -456,8 +456,12 @@ export function useRecs() {
   const { state } = useApp();
   const { effectiveAm, conflict } = getEffectiveAm(state);
   const validHist = useMemo(
-    () => validatedHistory(state.hist, state.dob),
-    [state.hist, state.dob]
+    // M2: risks belong in this dependency list as well as the call — some doses
+    // are only valid in light of a risk factor (high-risk MenB dose 2 at one
+    // month, high-risk MenACWY dose 2 at four weeks), so adding or removing a
+    // risk factor has to recompute which doses count.
+    () => validatedHistory(state.hist, state.dob, state.risks),
+    [state.hist, state.dob, state.risks]
   );
   const recs = useMemo(() => {
     if (effectiveAm < 0 || conflict) return [];

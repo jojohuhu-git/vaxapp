@@ -2,8 +2,9 @@
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
 import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO } from './utils.js';
-import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menACWYPrimaryTotal, menBSeriesTotal, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
+import { brandAgeSpec } from '../data/brandRegistry.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
 import { REFS } from '../data/refs.js';
 import { isHighRiskPCV, ppsv23StandardTotal } from './pcvDoses.js';
@@ -11,6 +12,14 @@ import { fmtAgeClinical, fmtIntervalClinical } from './ageFormat.js';
 
 // M9: mirrors buildOptimalSchedule.js's HPV 5475-day (15y) + immunocomp threshold.
 const HPV_TWO_DOSE_MAX_AGE_DAYS = 5475;
+
+// M6: the floor between any two MenACWY doses. The booster cadence itself moved
+// to stateHelpers.js in M9 (menACWYBoosterIntervalDays) so the checker, the engine
+// and the optimal schedule all read one copy of it — a checker that rounded
+// differently from its own engine could reject a dose the app had just
+// recommended. MeningoVax writes 1096 days where vaxapp writes 1095 for the same
+// "3 years"; aligning the two repos' day-count conventions is queue item M19.
+const MENACWY_ANY_DOSE_MIN_INTERVAL = 28; // 4 weeks between any two doses
 
 // ── Season helpers for Flu audit ─────────────────────────────────────────────
 // Flu season runs July 1 → June 30. seasonOf(iso) returns the starting year.
@@ -37,7 +46,7 @@ function seasonLabel(s) {
  * @param {number|null} totalDoses - total number of given dated doses for this vaccine (used for
  *   schedule-path-aware rules, e.g. HepB 4-dose intermediate dose relaxation)
  */
-export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = null, firstDoseDate = null, totalDoses = null, risks = []) {
+export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = null, firstDoseDate = null, totalDoses = null, risks = [], allDoses = null) {
   const spec = MIN_INT[vk];
   if (!spec) return { ok: true };
   const results = [];
@@ -72,9 +81,10 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
       }
       // Brand-level min age
       if (dose.brand) {
-        const bk = Object.keys(BRAND_MIN).find(k => dose.brand.startsWith(k));
-        if (bk) {
-          const bSpec = typeof BRAND_MIN[bk] === "number" ? { d: BRAND_MIN[bk] } : (BRAND_MIN[bk] || {});
+        // M14: brandAgeSpec takes the LONGEST matching key, so 'Menveo 1-vial'
+        // is not shadowed by the general 'Menveo'.
+        const bSpec = brandAgeSpec(BRAND_MIN, dose.brand);
+        if (bSpec) {
           if (bSpec.d && currentAgeDays < bSpec.d) {
             return { ok: false, err: true, results: [{ type: "min_age_impossible", ok: false, err: true,
               msg: `${dose.brand} minimum age is ${fmtAgeClinical(bSpec.d)}. Patient is currently ${fmtAgeClinical(currentAgeDays)} old — this dose could not have been validly given.`,
@@ -249,6 +259,9 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   if (doseIdx > 0 && isD(thisDate) && isD(prevDate)) {
     // 3a. iCond — age-conditional interval overrides (data-driven from spec.iCond)
     let minInt = spec.i[doseIdx]; // i is 0-indexed: i[0]=minD, i[1]=d1d2, i[2]=d2d3...
+    // Plain-English reason appended to the interval message when the minimum did
+    // not come from the plain per-dose table (M6 booster cadence).
+    let minWhy = '';
 
     // HepB 4-dose final-dose interval: the scheduleRules has i[3]=null for HepB (because
     // the standard 3-dose schedule has no D4). In a ≥4-dose series, the final dose must
@@ -257,14 +270,86 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
       minInt = 56; // ≥8 weeks D(n-1)→D(n) for the final dose in a 4-dose schedule
     }
     if (Array.isArray(spec.iCond)) {
+      // prevDoseAgeGte/prevDoseAgeLt key a condition to how old the patient was at the
+      // PREVIOUS dose, which for dose 2 is the age the series started at. ACIP's
+      // meningococcal intervals are written that way (M1). When that age can't be
+      // determined — date-mode doses with no DOB — such a condition does not fire and
+      // the unconditional spec.i interval stands.
+      const prevDoseAge = doseAgeDays(prevDose, dob);
       for (const cond of spec.iCond) {
         if (cond.doseNum === doseIdx + 1) {
           const ageOk = !cond.ageGte || (ageAtDose !== null && ageAtDose >= cond.ageGte);
           const riskOk = !cond.riskIncludes || cond.riskIncludes.some(r => risks.includes(r));
-          if (ageOk && riskOk) minInt = cond.minInterval;
+          const needsPrevAge = cond.prevDoseAgeGte != null || cond.prevDoseAgeLt != null;
+          const prevAgeOk = !needsPrevAge || (prevDoseAge !== null
+            && (cond.prevDoseAgeGte == null || prevDoseAge >= cond.prevDoseAgeGte)
+            && (cond.prevDoseAgeLt == null || prevDoseAge < cond.prevDoseAgeLt));
+          if (ageOk && riskOk && prevAgeOk) minInt = cond.minInterval;
         }
       }
     }
+    // ── M6: MenACWY past dose 2 ──────────────────────────────────────────────
+    // scheduleRules declares i:[null,56,null,null,null] for MenACWY: dose 2 must
+    // be 8 weeks after dose 1, and past that the checker said nothing at all. A
+    // "booster" given six months after a completed primary series was reported as
+    // fine, and so were two doses five days apart. Two rules close that gap.
+    //
+    //  • Booster cadence, for medically high-risk patients only — the exposure
+    //    pathways (travel, outbreak, military, college) are queue item M9.
+    //    CDC, "Meningococcal Vaccine Recommendations" (hcp/vaccine-recommendations),
+    //    fetched live 2026-09-15 — people at increased risk:
+    //      under 7 years: "CDC recommends administering a booster dose 3 years
+    //        after completion of the primary series and every 5 years thereafter."
+    //      7 years and older: "CDC recommends administering a booster dose every
+    //        5 years."
+    //    WHICH dose is the first booster depends on how long this patient's
+    //    primary series is, and that depends on the age at dose 1 — the M4 rule.
+    //    It is read from the shared menACWYPrimaryTotal() helper instead of being
+    //    re-derived here, so the checker cannot drift away from the engine.
+    //    Without the dose list that length is unknowable, so the cadence check
+    //    stays silent rather than guessing: it exists to catch a real error and
+    //    must never invent one.
+    //
+    //  • A 4-week floor between ANY two doses — what actually catches a duplicate.
+    //    That floor is vaxapp's own infant-series minimum (scheduleRules note, M1).
+    //
+    // Owner decision 2026-09-15: a too-soon booster does NOT count and must be
+    // repeated, the same verdict MeningoVax already gives ("This dose is too soon
+    // and does not count", validate.js). An advisory-only variant, matching the M3
+    // MenB rescue-dose channel, was considered and saved as a future to-do.
+    if (vk === "MenACWY") {
+      const datedAll = Array.isArray(allDoses)
+        ? allDoses.filter(d => d && d.given && d.mode !== "unknown")
+        : null;
+      // M9: travelers who remain at risk are on the same booster cadence, from
+      // ACIP Table 9 (see menACWYBoosterIntervalDays). Their primary series is a
+      // SINGLE dose from the 2nd birthday, so dose 2 is already a booster and is
+      // checked against 3 or 5 years, not the 4-week floor.
+      const travelOngoing = isTravelOngoingMenACWY(risks);
+      if (datedAll && datedAll.length && (isHighRiskMenACWY(risks) || travelOngoing)) {
+        const primaryTotal = menACWYPrimaryTotal(datedAll, d => doseAgeMonths(d, dob), { travel: travelOngoing });
+        if (doseIdx >= primaryTotal) {
+          const isFirstBooster = doseIdx === primaryTotal;
+          // The first booster is measured from the LAST dose of the primary
+          // series, so that dose's age is what picks 3 years or 5. Every later
+          // booster is 5 years regardless. An unknown age falls to the shorter
+          // 3-year interval, which is the choice that cannot manufacture a
+          // rejection.
+          const lastPrimary = datedAll[primaryTotal - 1] || null;
+          const lastPrimaryAgeM = lastPrimary ? doseAgeMonths(lastPrimary, dob) : null;
+          const cadence = menACWYBoosterIntervalDays(isFirstBooster, lastPrimaryAgeM);
+          if (minInt == null || cadence > minInt) {
+            minInt = cadence;
+            minWhy = isFirstBooster
+              ? ' (first booster after the primary series)'
+              : ' (booster — one every 5 years while the risk lasts)';
+          }
+        }
+      }
+      // The floor applies to every MenACWY pair the rules above left unconstrained.
+      if (minInt == null) minInt = MENACWY_ANY_DOSE_MIN_INTERVAL;
+    }
+
     // Legacy age-dependent overrides (kept for backward compat; iCond in scheduleRules is now authoritative)
     if (vk === "VAR" && doseIdx === 1 && ageAtDose !== null && ageAtDose >= 4745) minInt = 28;
     if (vk === "HPV" && doseIdx === 1 && ageAtDose !== null && ageAtDose >= 5475) minInt = 28;
@@ -286,7 +371,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
           }
         }
         results.push({ type: "interval", ok: false, err: true,
-          msg: `D${doseIdx + 1} only ${actualLabel} after D${doseIdx} — minimum ${minLabel}.${ageNote} Dose INVALID — must repeat.`,
+          msg: `D${doseIdx + 1} only ${actualLabel} after D${doseIdx} — minimum ${minLabel}${minWhy}.${ageNote} Dose INVALID — must repeat.`,
           _days: { actual: days, min: minInt },
           earliest: addD(prevDate, minInt) });
       } else if (days !== null && days < minInt) {
@@ -297,7 +382,15 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
     }
 
     // 3b. iByTotalDoses — series-path interval (HPV 2-dose, MenB 2-dose)
-    if (spec.iByTotalDoses) {
+    //
+    // M2: a series-path rule only applies to patients who are actually on that
+    // path. MenB's 6-month dose-2 minimum describes the healthy 2-dose series;
+    // a patient with a MenB high-risk indication follows the 0/1–2/6-month
+    // 3-dose series instead, where dose 2 at one month is exactly right. Risk is
+    // read through highRiskMenB() rather than a second list of risk ids kept
+    // here, so the validator cannot drift away from the engine's gate.
+    const skipSeriesPath = spec.iByTotalDosesSkipHighRiskMenB && highRiskMenB(risks);
+    if (spec.iByTotalDoses && !skipSeriesPath) {
       // Determine which path based on total doses recorded + planned
       // Conservative: if we only have a few doses entered, use the longer interval path
       // (the engine will use the shorter one when 3-dose path is confirmed)
@@ -322,10 +415,24 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
             if (totalNum === doseIdx + 1) {
               const actualLabel = fmtIntervalClinical(days);
               const minLabel = fmtIntervalClinical(minIntForPath);
-              results.push({ type: "iByTotalDoses", ok: false, err: true,
-                msg: `D${doseIdx + 1} only ${actualLabel} after D1 — minimum ${minLabel} is required for a ${totalNum}-dose ${vk} series. Dose INVALID — must repeat.`,
-                _days: { actual: days, min: minIntForPath },
-                earliest: addD(prevDate, minIntForPath) });
+              // M3: for some vaccines a short series-path interval lengthens the
+              // series instead of voiding the dose. MenB is the case CDC spells
+              // out: an early dose 2 counts, and dose 3 is added ≥4 months later.
+              // Saying "must repeat" there sends the patient back for a dose that
+              // replaces nothing and still leaves them short of the third one.
+              const advisory = spec.iByTotalDosesAdvisory;
+              if (advisory) {
+                results.push({ type: "iByTotalDoses", ok: true, advisory: true,
+                  msg: `D${doseIdx + 1} given ${actualLabel} after D1, less than the ${minLabel} a ${totalNum}-dose ${vk} series needs. ${advisory.consequence}`,
+                  action: advisory.action,
+                  _days: { actual: days, min: minIntForPath },
+                  earliest: null });
+              } else {
+                results.push({ type: "iByTotalDoses", ok: false, err: true,
+                  msg: `D${doseIdx + 1} only ${actualLabel} after D1 — minimum ${minLabel} is required for a ${totalNum}-dose ${vk} series. Dose INVALID — must repeat.`,
+                  _days: { actual: days, min: minIntForPath },
+                  earliest: addD(prevDate, minIntForPath) });
+              }
             }
           }
         }
@@ -333,7 +440,11 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
     }
 
     // 3c. d1Cross — dose-1 cross floor (HepB D3 ≥112d from D1, HPV D3 ≥152d, MenB D3 ≥182d)
-    if (spec.d1Cross && firstDoseDate && isD(firstDoseDate) && isD(thisDate)) {
+    // M3: MenB's D1→D3 floor describes the high-risk accelerated series. A healthy
+    // patient's rescue dose 3 is timed from dose 2 alone ("at least 4 months after
+    // dose 2"), so applying the dose-1 floor to them would reject a dose CDC allows.
+    const skipD1Cross = spec.d1CrossHighRiskMenBOnly && !highRiskMenB(risks);
+    if (spec.d1Cross && !skipD1Cross && firstDoseDate && isD(firstDoseDate) && isD(thisDate)) {
       const crossMin = spec.d1Cross[doseIdx + 1]; // 1-based dose number
       if (crossMin != null) {
         const daysFromD1 = dBetween(firstDoseDate, thisDate);
@@ -382,8 +493,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   const asSpec = (v) => (typeof v === "number" ? { d: v } : v || {});
 
   // 4. Brand min age
-  const bKey = Object.keys(BRAND_MIN).find(k => brand.startsWith(k));
-  const bMinSpec = bKey ? asSpec(BRAND_MIN[bKey]) : null;
+  const bMinSpec = brandAgeSpec(BRAND_MIN, brand);
   if (bMinSpec && bMinSpec.d && ageAtDose !== null && ageAtDose < bMinSpec.d - GRACE) {
     results.push({ type: "brand_min_age", ok: false, err: true,
       msg: `${brand} minimum age is ${fmtAgeClinical(bMinSpec.d)} (~${(bMinSpec.d / 365).toFixed(1)}y). Administered at age ${fmtAgeClinical(ageAtDose)}. Dose must be repeated once minimum age is reached.`,
@@ -392,8 +502,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   }
 
   // 4b. Brand max age (e.g., ProQuad >12y, Kinrix/Quadracel >6y)
-  const bMaxKey = Object.keys(BRAND_MAX).find(k => brand.startsWith(k));
-  const bMaxSpec = bMaxKey ? asSpec(BRAND_MAX[bMaxKey]) : null;
+  const bMaxSpec = brandAgeSpec(BRAND_MAX, brand);
   if (bMaxSpec && bMaxSpec.d && ageAtDose !== null && ageAtDose > bMaxSpec.d) {
     results.push({ type: "brand_max_age", ok: false, err: true,
       msg: `${brand} maximum labeled age is ${fmtAgeClinical(bMaxSpec.d)} (~${(bMaxSpec.d / 365).toFixed(1)}y). Administered at age ${fmtAgeClinical(ageAtDose)}. Not approved for this age \u2014 dose may not be countable.`,
@@ -420,9 +529,12 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   const errs = consolidated.filter(r => r.err && !r.ok);
   const graces = consolidated.filter(r => r.grace);
   const offLabels = consolidated.filter(r => r.offLabel);
+  const advisories = consolidated.filter(r => r.advisory);
   if (errs.length) return { ok: false, err: true, results: consolidated };
   if (offLabels.length) return { ok: true, offLabel: true, results: consolidated };
   if (graces.length) return { ok: true, grace: true, results: consolidated };
+  // M3: a valid dose that still carries guidance — the series got longer.
+  if (advisories.length) return { ok: true, advisory: true, results: consolidated };
   return { ok: true };
 }
 
@@ -438,7 +550,7 @@ export function auditAll(hist, dob, risks = [], am = -1) {
     ? dBetween(dob, todayISO())
     : (am >= 0 ? Math.round(am * 30.4) : null);
   // Pre-compute validated history to detect effective dose renumbering
-  const vh = validatedHistory(hist, dob);
+  const vh = validatedHistory(hist, dob, risks);
   for (const vk of VAX_KEYS) {
     // Sort doses chronologically before validating.
     const doses = sortDosesByDate(hist[vk] || [], dob)
@@ -530,19 +642,31 @@ export function auditAll(hist, dob, risks = [], am = -1) {
       // nuance below. Shared classification with compliance.js's M7/exposure logic —
       // see menacwyExposureCategory in stateHelpers.js.
       const exposure = menacwyExposureCategory(risks);
-      if (!isHighRiskMenACWY(risks) && exposure !== 'microbiologist') {
+      // M9: 'travel' joins 'microbiologist' as open-ended. ACIP Table 9 gives a
+      // traveler who remains at risk a booster "every 5 yrs thereafter" with no
+      // stopping point, so no number of doses makes one extra. Before M9, travel
+      // was classed 'singleDose' with the military recruits and the second dose —
+      // the booster the app now asks for — was reported as not ACIP-indicated.
+      // M12: an A/C/W/Y outbreak contact joins them. ACIP Table 8 gives a
+      // previously-vaccinated patient identified at risk again "a single dose if
+      // >=3 yrs since vaccination" (under 7) or ">=5 yrs" (7 or older), so a
+      // second dose is indicated and must not be reported as an extra. It is a
+      // top-up rather than a standing cadence, but either way there is no dose
+      // count at which the next one becomes un-indicated.
+      if (!isHighRiskMenACWY(risks) && exposure !== 'microbiologist' && exposure !== 'travel'
+          && exposure !== 'outbreak') {
         const isExposureSingleDose = exposure === 'singleDose';
         const d1AgeM = doseAgeMonths(doses[0], dob);
         const standardTotal = isExposureSingleDose ? 1 : (d1AgeM != null && d1AgeM >= 192) ? 1 : 2;
         if (doses.length > standardTotal) {
           const detail = isExposureSingleDose
-            ? `${doses.length} MenACWY doses recorded. Military recruit and international-travel indications are a single dose, regardless of the age given. Doses beyond the first are not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is also present.`
+            ? `${doses.length} MenACWY doses recorded. A military recruit's indication is a single dose, regardless of the age given. Doses beyond the first are not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is also present.`
             : standardTotal === 1
             ? `${doses.length} MenACWY doses recorded. The first dose was given at or after the 16th birthday, which completes the routine series on its own — no booster is needed. Doses beyond the first are not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`
             : `${doses.length} MenACWY doses recorded. Non-high-risk patients need only 2 doses: D1 at 11–12 years and a booster at 16 years. A 3rd or later dose is not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`;
-          const exposureRefs = isExposureSingleDose
-            ? (risks.includes('military') ? REFS.acip2020Table10 : REFS.acip2020Table9)
-            : null;
+          // M9: only military recruits are 'singleDose' now, so Table 10 is the
+          // only citation this path can need.
+          const exposureRefs = isExposureSingleDose ? REFS.acip2020Table10 : null;
           errors.push({ vk, type: "series_over", severity: "warn",
             title: "MenACWY — Extra Dose (series complete for non-high-risk patient)",
             detail,
@@ -561,14 +685,29 @@ export function auditAll(hist, dob, risks = [], am = -1) {
     // Before this fix, there was NO MenB overdose check here at all — a healthy
     // patient could have any number of MenB doses with zero advisory, unlike the
     // MenACWY check just above which at least fired past a fixed threshold.
-    if (vk === "MenB") {
-      const isHighRiskMenBPatient = highRiskMenB(risks);
-      const standardTotal = isHighRiskMenBPatient ? 3 : 2;
+    // M8 (2026-09-15, meningococcal parity queue — NOT the older "M8" this block
+    // was named for): both halves of the old threshold were wrong.
+    //
+    // High-risk MenB has no total. CDC, "Meningococcal Vaccine Recommendations",
+    // fetched live 2026-09-15 — people at increased risk aged 10+ get "A 3-dose
+    // primary series" and then "Regular booster doses": "1 year after series
+    // completion" and "Every 2 to 3 years thereafter". So the app was warning
+    // about the dose its own engine had just asked for by name ("Revaccination —
+    // dose 4 (high-risk, 1 year after primary series)"). High-risk MenACWY is
+    // already modelled this way; MenB is no different.
+    //
+    // And the healthy total is not always 2: M3's rescue dose 3 is required when
+    // dose 2 came early, so a healthy patient could be told "Series Needs an
+    // Extra Dose" and "Extra Dose (series complete)" about the same dose at the
+    // same time. menBSeriesTotal() is the shared source of truth M3 added for
+    // exactly this; re-deriving the number here is what let them disagree.
+    if (vk === "MenB" && !highRiskMenB(risks)) {
+      const standardTotal = menBSeriesTotal(hist, dob, am, false);
       if (doses.length > standardTotal) {
         errors.push({ vk, type: "series_over", severity: "warn",
           title: "MenB — Extra Dose (series complete for this patient's risk level)",
-          detail: `${doses.length} MenB doses recorded. Non-high-risk patients need only 2 doses (16–23 years, shared clinical decision); high-risk patients (asplenia, complement deficiency, microbiologist exposure, or serogroup B outbreak) need 3. A dose beyond that count is not ACIP-indicated.`,
-          action: "Verify patient risk status. If no high-risk indication applies, the extra dose is not harmful but was not indicated. Add the appropriate risk factor if the patient is high-risk.",
+          detail: `${doses.length} MenB doses recorded. This patient's series is ${standardTotal} dose${standardTotal === 1 ? "" : "s"}${standardTotal === 3 ? " — 3 because dose 2 was given less than 6 months after dose 1, so a rescue dose was needed" : " (16–23 years, shared clinical decision)"}. A dose beyond that count is not ACIP-indicated for a patient with no MenB risk factor.`,
+          action: "Verify patient risk status. The extra dose is not harmful, but it was not indicated. If the patient has a MenB high-risk condition (asplenia or sickle cell, complement deficiency or a complement inhibitor, microbiologist exposure, or a serogroup B outbreak), add that risk factor — those patients get a booster 1 year after the primary series and another every 2–3 years, and none of those count as extra.",
           refUrl: REFS.MenB.url, refLabel: REFS.MenB.label,
           refUrl2: REFS.MenB.cdcUrl, refLabel2: REFS.MenB.cdcLabel });
       }
@@ -714,10 +853,10 @@ export function auditAll(hist, dob, risks = [], am = -1) {
 
     datedDoses.forEach((dose, idx) => {
       const prev = idx > 0 ? datedDoses[idx - 1] : null;
-      const vr = validateDose(vk, idx, dose, prev, dob, patientAgeDays, firstDoseDate, datedDoses.length, risks);
+      const vr = validateDose(vk, idx, dose, prev, dob, patientAgeDays, firstDoseDate, datedDoses.length, risks, datedDoses);
       const thisDt = doseDate(dose, dob);
       const effectiveN = thisDt ? effectiveDoseByDate[thisDt] : undefined;
-      if (!vr.ok || vr.grace || vr.offLabel) {
+      if (!vr.ok || vr.grace || vr.offLabel || vr.advisory) {
         (vr.results || []).forEach(r => {
           if (r.type === "off_label") {
             errors.push({ vk, doseNum: idx + 1, type: "off_label", severity: r.countable ? "offLabel" : "err",
@@ -769,6 +908,16 @@ export function auditAll(hist, dob, risks = [], am = -1) {
                 refUrl: withFrag, refLabel: primaryLabel,
                 refUrl2: secondaryUrl, refLabel2: secondaryLabel });
             }
+          } else if (r.advisory) {
+            // M3: valid dose, but the series changed shape because of it. "warn"
+            // (not "err") so the compliance tab shows guidance rather than a
+            // repeat instruction, and the dose keeps counting.
+            errors.push({ vk, doseNum: idx + 1, type: r.type, severity: "warn",
+              title: `${VAX_META[vk].n} \u2014 Dose ${idx + 1}: Series Needs an Extra Dose`,
+              detail: r.msg,
+              action: r.action || "No repeat is needed. See the Recommendations tab for the additional dose.",
+              refUrl: REFS[vk].url, refLabel: REFS[vk].label,
+              refUrl2: REFS.interval.url, refLabel2: REFS.interval.label });
           } else if (r.grace) {
             errors.push({ vk, doseNum: idx + 1, type: r.type, severity: "grace",
               title: `${VAX_META[vk].n} \u2014 Dose ${idx + 1} Within \u22644-Day Grace Period`,
@@ -785,8 +934,19 @@ export function auditAll(hist, dob, risks = [], am = -1) {
 
 /**
  * Return a history object containing only doses that count toward the series.
+ *
+ * M2: `risks` matters here. This is the gate AppContext runs once and hands to
+ * every surface, so a dose it drops disappears from the recommendations, the
+ * forecast, the catch-up table, the optimal schedule and the compliance tab at
+ * the same time — and the app then asks for a dose the patient already had.
+ * Without the patient's risk factors the risk-conditional rules (high-risk MenB
+ * dose 2, high-risk MenACWY dose 2) cannot fire, so they must be passed in.
+ *
+ * @param {object} hist - raw dose history
+ * @param {string} dob - patient date of birth (ISO string)
+ * @param {string[]} risks - patient risk-factor ids
  */
-export function validatedHistory(hist, dob) {
+export function validatedHistory(hist, dob, risks = []) {
   const out = {};
   for (const vk of VAX_KEYS) {
     const rawDoses = hist[vk] || [];
@@ -801,7 +961,7 @@ export function validatedHistory(hist, dob) {
       if (!dose.given) { kept.push(dose); continue; }
       if (dose.mode === "unknown") { kept.push(dose); continue; }
       const prevKept = kept.filter(k => k.given && k.mode !== "unknown").slice(-1)[0] || null;
-      const vr = validateDose(vk, validIdx, dose, prevKept, dob, null, firstValidDate, totalGivenDated);
+      const vr = validateDose(vk, validIdx, dose, prevKept, dob, null, firstValidDate, totalGivenDated, risks, kept);
       if (vr.ok) {
         if (firstValidDate === null) firstValidDate = doseDate(dose, dob);
         kept.push(dose);

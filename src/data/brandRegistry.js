@@ -147,12 +147,28 @@ export const BRANDS = [
   { name: 'Menveo 2-vial', vks: ['MenACWY'], match: 'Menveo',
     label: 'Menveo 2-vial (MenACWY-CRM, ≥2m)',
     minAge: { key: 'Menveo', d: 60, textFrag: 'Menveo' } },
+  // M14: the one-vial presentation files its own, stricter floor. Immunize.org
+  // (Ask the Experts: MenACWY, last reviewed 2024-11-15): "The one-vial
+  // formulation that does not require reconstitution was licensed in 2022 for
+  // ages 10 through 55 years and should not be used for children younger than
+  // age 10." It used to share the two-vial's `key: 'Menveo'`, so its "≥10y"
+  // existed only as dropdown text and a dose recorded below 10 was never
+  // flagged. A bare "Menveo" string still resolves to the permissive 2-month
+  // floor, because an old record rarely says which presentation was used.
   { name: 'Menveo 1-vial', vks: ['MenACWY'], match: 'Menveo',
     label: 'Menveo 1-vial (≥10y) (MenACWY-CRM)',
-    minAge: { key: 'Menveo', d: 60, textFrag: 'Menveo' } },
+    minAge: { d: 3650, textFrag: 'Menveo' } },
   { name: 'MenQuadfi', vks: ['MenACWY'], label: 'MenQuadfi (MenACWY-TT, ≥2y)', match: 'MenQuadfi',
     minAge: { d: 730, textFrag: 'MenQuadfi' } },
-  { name: 'Menactra', vks: ['MenACWY'], match: 'Menactra', historical: true },
+  // M14: Menactra is discontinued -- immunize.org, same page: "Menactra
+  // (Sanofi) is a discontinued MenACWY conjugate vaccine. The last doses of
+  // Menactra expired in 2023." It stays recognize-only so old records can be
+  // READ, which is precisely why it needs a floor: FDA licensed it for
+  // "individuals 9 months through 55 years of age"
+  // (https://www.fda.gov/vaccines-blood-biologics/vaccines/menactra) and it
+  // previously had none, so a Menactra dose recorded at any age passed.
+  { name: 'Menactra', vks: ['MenACWY'], match: 'Menactra', historical: true,
+    minAge: { d: 274, textFrag: 'Menactra' } },
 
   // ── MenB ────────────────────────────────────────────────────────────────
   { name: 'Bexsero', vks: ['MenB'], label: 'Bexsero (MenB-4C)', match: 'Bexsero',
@@ -362,6 +378,34 @@ function buildAgeTable(field) {
     if (!(k in out)) out[k] = rest;
   }
   return out;
+}
+
+/**
+ * Look up a brand's age spec, preferring the MOST SPECIFIC key.
+ *
+ * Keys are prefixes and they overlap: 'Menveo' and 'Menveo 1-vial' both match
+ * the string "Menveo 1-vial". Every consumer used to do
+ *
+ *   Object.keys(TABLE).find(k => brand.startsWith(k))
+ *
+ * which returns the first key in INSERTION order, so the general key always
+ * shadowed the specific one and a stricter per-presentation floor could never
+ * take effect (M14). Matching the longest key instead makes specificity, not
+ * array order, decide -- so adding a narrower product below a broader one is
+ * now safe.
+ *
+ * Returns a normalized { d, refUrl, refLabel, textFrag } or null.
+ */
+export function brandAgeSpec(table, brand) {
+  if (!table || !brand) return null;
+  let best = null;
+  for (const k of Object.keys(table)) {
+    if (!brand.startsWith(k)) continue;
+    if (best === null || k.length > best.length) best = k;
+  }
+  if (best === null) return null;
+  const v = table[best];
+  return typeof v === 'number' ? { d: v } : (v || {});
 }
 
 /** BRAND_MIN — brand-specific minimum ages (days). */

@@ -5,7 +5,7 @@ import { MIN_INT } from '../data/scheduleRules.js';
 import { FORECAST_VISITS } from '../data/forecastData.js';
 import { addD } from './utils.js';
 import { genRecs } from './recommendations.js';
-import { highRisk, highRiskMenB, menACWYGivenAtOrAfter16y } from './stateHelpers.js';
+import { highRisk, highRiskMenB, isHighRiskMenACWY, menACWYGivenAtOrAfter16y, menBSeriesTotal, menACWYPrimaryTotal, isTravelOngoingMenACWY } from './stateHelpers.js';
 import { pcvHighRiskChildPlan, isHighRiskPCV, isPCV7 } from './pcvDoses.js';
 
 /**
@@ -478,6 +478,25 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
     }
     case "MenACWY": {
       const givenMenACWY = (hist?.MenACWY || []).filter(d => d.given).length;
+      // M9: a traveler who remains at risk is checked FIRST, because neither of
+      // the two "series is finished" shortcuts below is true for them — ACIP 2020
+      // MMWR 69(RR-9) Table 9 keeps giving boosters "every 5 yrs thereafter", and
+      // a dose at or after the 16th birthday is not terminal the way it is on the
+      // routine adolescent schedule. Their primary series is a single dose from
+      // the 2nd birthday, so dose 2 is already the first booster and the card must
+      // count it — otherwise the booster the engine is offering right now reads
+      // "Dose 2 of 2", which says the series ends here when it does not.
+      if (isTravelOngoingMenACWY(risks)) {
+        const givenDoses = (hist?.MenACWY || []).filter(d => d.given);
+        const ageM = (d) => {
+          if (d.mode === "age" && d.ageDays != null) return d.ageDays / 30.4375;
+          if (d.mode === "date" && d.date && dob) return (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
+          return null;
+        };
+        const primaryTotal = menACWYPrimaryTotal(givenDoses, ageM, { travel: true });
+        if (rec?.doseNum > primaryTotal) return rec.doseNum;
+        return Math.max(primaryTotal, givenMenACWY);
+      }
       // First dose given at ≥16y (am≥192, no prior doses): no booster needed per ACIP
       if (am >= 192 && givenMenACWY === 0) return 1;
       // A recorded dose already administered at ≥16y is terminal — series complete,
@@ -485,6 +504,30 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
       // loop short-circuit (startDose >= totalDoses). Undated doses are not treated
       // as ≥16y, so they conservatively keep the 2-dose booster projection.
       if (givenMenACWY >= 1 && menACWYGivenAtOrAfter16y(hist, dob)) return givenMenACWY;
+      // M4: a high-risk series begun in infancy is 3 or 4 doses, not 2. Without
+      // this the forecast printed "Dose 3 of 2" for a child the engine had
+      // correctly asked to finish their primary series.
+      if (highRisk(risks) || isHighRiskMenACWY(risks)) {
+        const givenDoses = (hist?.MenACWY || []).filter(d => d.given);
+        const ageM = (d) => {
+          if (d.mode === "age" && d.ageDays != null) return d.ageDays / 30.4375;
+          if (d.mode === "date" && d.date && dob) return (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
+          return null;
+        };
+        const primaryTotal = menACWYPrimaryTotal(givenDoses, ageM);
+        // M6: when the dose actually being offered is a BOOSTER — its number is
+        // past the end of the primary series — the denominator has to count it.
+        // M4 taught this function the primary-series length but stopped there, so
+        // a child correctly due their 3-year booster got a card reading "Dose 5
+        // of 4". Found by driving the running app, not by any test.
+        // Deliberately keyed to the dose being displayed rather than to the dose
+        // count alone: with no booster on offer, a finished primary series must
+        // still read as complete on the compliance tab, which asks this same
+        // function a different question ("is this series done?") and passes no
+        // recommendation at all.
+        if (rec?.doseNum > primaryTotal) return rec.doseNum;
+        return Math.max(primaryTotal, givenMenACWY);
+      }
       return 2;
     }
     case "Flu": {
@@ -516,7 +559,11 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
       // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
       // accelerated series for BOTH antigen families (4C and FHbp). Healthy: 2 doses.
       if (highRiskMenB(risks) && (is4C || isFHbp || !mb)) return 3;
-      return 2;
+      // M3: a healthy patient whose dose 2 came under 6 months after dose 1
+      // needs a third dose. Without this the compliance tab called such a series
+      // "Complete · 2 of 2 doses" directly above its own advisory saying a third
+      // dose was still needed. menBSeriesTotal() is the single source of truth.
+      return menBSeriesTotal(hist, dob, am, false);
     }
     default: return 1;
   }

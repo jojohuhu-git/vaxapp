@@ -75,7 +75,7 @@ describe('F6b: microbiologist MenACWY revaccination is open-ended, never extra',
   });
 });
 
-describe('F6b: military/travel MenACWY exposure is exactly 1 dose regardless of age at dose 1', () => {
+describe('F6b: military MenACWY exposure is exactly 1 dose regardless of age at dose 1 (M9: travel is not)', () => {
   const dob = '2000-01-01';
   const d1 = { mode: 'date', date: '2015-01-01', given: true }; // 15y — BEFORE the routine 16y gate
   const d2 = { mode: 'date', date: '2016-01-15', given: true }; // ~16y0.5mo — lands in the routine booster band
@@ -84,14 +84,27 @@ describe('F6b: military/travel MenACWY exposure is exactly 1 dose regardless of 
   it('classifyDose: military — 2nd dose is VALID_EXTRA, not a routine ON_TIME booster', () => {
     const c2 = classifyDose('MenACWY', 1, d2, 2, dob, d1, d1.date, hist, ['military']);
     expect(c2.status).toBe('VALID_EXTRA');
-    expect(c2.label).toMatch(/Military recruit and international-travel/);
+    // M9 narrowed this copy: it used to read "Military recruit and
+    // international-travel ... are a single dose". Travel is no longer routed here.
+    expect(c2.label).toMatch(/military recruit's MenACWY indication is a single dose/i);
     expect(c2.extraScenario.citation).toBe(REFS.acip2020Table10);
   });
 
-  it('classifyDose: travel — 2nd dose is VALID_EXTRA, cites the travel table', () => {
+  // M9 (2026-09-15) REFUTED the travel half of this describe block. F6b treated
+  // travel and military alike as "exactly 1 dose, ever". ACIP 2020 MMWR 69(RR-9)
+  // Table 9, fetched live 2026-09-15, gives travelers who remain at risk
+  // "Boosters ... every 5 yrs thereafter" with no stopping point, so a traveler's
+  // 2nd dose is a booster, not an extra dose.
+  //
+  // The two tests below previously asserted:
+  //   expect(c2.status).toBe('VALID_EXTRA');   // classifyDose
+  //   expect(warning).toBeTruthy();            // auditAll series_over
+  // They are flipped rather than deleted, so the refuted behaviour stays on the
+  // record. Military is untouched and still asserted above — ACIP Table 10 really
+  // is a single dose for recruits.
+  it('M9: travel — the 2nd dose is a booster, NOT an extra dose', () => {
     const c2 = classifyDose('MenACWY', 1, d2, 2, dob, d1, d1.date, hist, ['travel']);
-    expect(c2.status).toBe('VALID_EXTRA');
-    expect(c2.extraScenario.citation).toBe(REFS.acip2020Table9);
+    expect(c2.status).not.toBe('VALID_EXTRA');
   });
 
   it('classifyDose: dose 1 itself is unaffected — not classified as extra', () => {
@@ -107,14 +120,19 @@ describe('F6b: military/travel MenACWY exposure is exactly 1 dose regardless of 
   it('auditAll: military — 2-dose history triggers the overdose warning, citing the DoD/ACIP table', () => {
     const warning = menacwyOverdoseWarning(hist, dob, ['military']);
     expect(warning).toBeTruthy();
-    expect(warning.detail).toMatch(/Military recruit and international-travel/);
+    expect(warning.detail).toMatch(/military recruit's indication is a single dose/i);
     expect(warning.refUrl).toBe(REFS.acip2020Table10.url);
   });
 
-  it('auditAll: travel — 2-dose history triggers the overdose warning, citing the travel table', () => {
+  it('M9: travel — a 2-dose history is no longer an overdose; the cadence is open-ended', () => {
     const warning = menacwyOverdoseWarning(hist, dob, ['travel']);
-    expect(warning).toBeTruthy();
-    expect(warning.refUrl).toBe(REFS.acip2020Table9.url);
+    expect(warning).toBeUndefined();
+    // These two doses are 1 year apart and dose 1 was given at 15y, so the real
+    // problem is the INTERVAL — the first booster is owed 5 years later, not 1.
+    const interval = auditAll(hist, dob, ['travel'], -1)
+      .find(e => e.vk === 'MenACWY' && e.type === 'interval');
+    expect(interval).toBeDefined();
+    expect(interval.detail).toMatch(/5 years/);
   });
 
   it('auditAll: a single military dose (no 2nd dose) triggers no warning', () => {

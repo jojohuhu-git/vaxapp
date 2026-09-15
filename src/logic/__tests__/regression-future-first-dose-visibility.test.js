@@ -55,7 +55,10 @@ describe('computeDosePlan for a 2yo with empty history', () => {
     // Per 2025 ACIP: healthy shared-decision MenB is 2 doses ≥6 months apart
     // (not the high-risk accelerated ≥1 month). See dosePlan.js getMinInterval's
     // iByTotalDoses lookup.
-    expect(plan['cu198_MenB']?.doseNum).toBe(2);
+    // M19 (2026-09-15): 6 months is 183 days (was 182), which nudges this
+    // projected visit from the 198-month bucket into the 199-month one. Dose 2
+    // is still projected; only the bucket label moved.
+    expect(plan['cu199_MenB']?.doseNum).toBe(2);
   });
 
   it('by design emits no seeded-D1 entries — the UI genRecs fallback owns them', () => {

@@ -126,23 +126,47 @@ describe('M-3/H4 — MenB family lock in buildOptimalSchedule', () => {
   });
 });
 
-// ─── MenACWY iCond: HR-infant D2 via validateDose and classifyDose ────────────
-describe('MenACWY iCond — HR-infant D2 ≥12wk interval', () => {
-  // Use a valid D1 well past minD=60d: DOB 2023-01-01, D1 2023-03-15 (73d), D2 at 65d after D1
+// ─── MenACWY iCond: high-risk infant D2 via validateDose and classifyDose ─────
+// AMENDED by M1 (2026-09-15). This block previously asserted a flat 12-week (84d)
+// minimum between doses 1 and 2 for every high-risk patient. That was the bug, not
+// the rule: its own fixture starts the series at 73 days old (~2.4 months), which is
+// the 2/4/6/12-month infant series — ACIP 2020 MMWR 69(9) Tables 4/5/6 put those
+// primary doses ~2 months apart with a 4-week absolute minimum, so the old assertion
+// rejected the textbook schedule. The 12-week figure belongs to a series STARTED at
+// 7–23 months ("2 doses (second dose ≥12 wks after the first dose and after the 1st
+// birthday)"), which is now covered below and in
+// regression-m1-menacwy-highrisk-d2-interval.test.js.
+describe('MenACWY iCond — high-risk infant D2 interval is keyed to the start age', () => {
+  // Series started at 2.4 months: DOB 2023-01-01, D1 2023-03-15 (73d old)
   const dob = '2023-01-01';
   const dose1 = { given: true, mode: 'date', date: '2023-03-15', brand: '' };
   const dose2_early = { given: true, mode: 'date', date: '2023-05-19', brand: '' }; // 65d after D1
   const dose2_ok    = { given: true, mode: 'date', date: '2023-06-22', brand: '' }; // 99d after D1
+  const dose2_tooSoon = { given: true, mode: 'date', date: '2023-04-01', brand: '' }; // 17d after D1
 
-  it('validateDose flags HR MenACWY D2 at 65d (< 84d) as invalid', () => {
+  it('validateDose accepts HR MenACWY D2 at 65d — a 2-month start needs only 4 weeks', () => {
     const vr = validateDose('MenACWY', 1, dose2_early, dose1, dob, null, '2023-03-15', 2, ['asplenia']);
+    expect(vr.ok).toBe(true);
+  });
+
+  it('validateDose accepts HR MenACWY D2 at 99d as valid', () => {
+    const vr = validateDose('MenACWY', 1, dose2_ok, dose1, dob, null, '2023-03-15', 2, ['asplenia']);
+    expect(vr.ok).toBe(true);
+  });
+
+  it('validateDose still rejects HR MenACWY D2 at 17d (under the 4-week infant floor)', () => {
+    const vr = validateDose('MenACWY', 1, dose2_tooSoon, dose1, dob, null, '2023-03-15', 2, ['asplenia']);
     expect(vr.ok).toBe(false);
     expect(vr.results.some(r => r.type === 'interval')).toBe(true);
   });
 
-  it('validateDose accepts HR MenACWY D2 at 99d (> 84d) as valid', () => {
-    const vr = validateDose('MenACWY', 1, dose2_ok, dose1, dob, null, '2023-03-15', 2, ['asplenia']);
-    expect(vr.ok).toBe(true);
+  it('validateDose flags a 7–23-month start at 65d — that series does need 12 weeks', () => {
+    const lateStartDob = '2023-01-01';
+    const lateD1 = { given: true, mode: 'date', date: '2023-09-01', brand: '' }; // ~8 months
+    const lateD2 = { given: true, mode: 'date', date: '2023-11-05', brand: '' }; // 65d after D1
+    const vr = validateDose('MenACWY', 1, lateD2, lateD1, lateStartDob, null, '2023-09-01', 2, ['asplenia']);
+    expect(vr.ok).toBe(false);
+    expect(vr.results.some(r => r.type === 'interval')).toBe(true);
   });
 
   it('validateDose accepts non-HR MenACWY D2 at 65d (> 56d) as valid', () => {
@@ -150,10 +174,10 @@ describe('MenACWY iCond — HR-infant D2 ≥12wk interval', () => {
     expect(vr.ok).toBe(true);
   });
 
-  it('classifyDose marks HR MenACWY D2 at 65d as INVALID (Compliance Audit surface)', () => {
+  it('classifyDose does not mark HR MenACWY D2 at 65d INVALID (Compliance Audit surface)', () => {
     const hist = { MenACWY: [dose1, dose2_early] };
     const cls = classifyDose('MenACWY', 1, dose2_early, 2, dob, dose1, '2023-03-15', hist, ['asplenia']);
-    expect(cls.status).toBe('INVALID');
+    expect(cls.status).not.toBe('INVALID');
   });
 
   it('classifyDose marks non-HR MenACWY D2 at 65d as ON_TIME or VALID (not INVALID)', () => {

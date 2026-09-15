@@ -15,8 +15,77 @@ export const MIN_INT = {
   Tdap:    {minD:2555, maxD1:null, i:[null,28,180,null,null],note:"Min age 7y (Adacel) or 10y (Boostrix). Routine adolescent: single Tdap at 11–12y. Catch-up ≥7y unvaccinated: 3-dose primary (Tdap → Td/Tdap 4w → Td/Tdap 6mo). If first catch-up dose at 7–9y, also give routine 11–12y Tdap (4 total). Decennial Td/Tdap booster every 10y after primary."},
   Td:      {minD:2555, maxD1:null, i:[null,28,180,null,null],note:"Min age 7 years. Used in tetanus catch-up series (doses 2–3) and decennial booster. D1→D2 min 4 weeks; D2→D3 min 6 months."},
   HPV:     {minD:3285, maxD1:null, i:[null,152,84,null,null],  iByTotalDoses:{2:[null,152],3:[null,28,84]}, d1Cross:{3:152}, note:"Min age 9 years. 2-dose (<15y): D1→D2 ≥152d (5 months). 3-dose (≥15y/immunocomp): D1→D2 ≥28d, D2→D3 ≥84d, D1→D3 ≥152d."},
-  MenACWY: {minD:60,   maxD1:null, i:[null,56,null,null,null], iCond:[{doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv"], minInterval:84}], note:"High-risk: min 3 months (84d) D1→D2 (Menveo). Routine: 11–12y, booster 16y."},
-  MenB:    {minD:3650, maxD1:null, i:[null,28,112,null,null],  iByTotalDoses:{2:[null,182]},             d1Cross:{3:182}, note:"Min age 10y. Bexsero D1→D2 ≥1m; Trumenba standard 2-dose D1→D2 ≥6m; accelerated 3-dose D1→D2 28d, D2→D3 4m, D1→D3 ≥6m."},
+  // M1: the dose-2 minimum depends on the age at DOSE 1, not a single flat number.
+  // ACIP 2020 MMWR 69(9) Tables 4/5/6 (identical wording in all three):
+  //   dose 1 at 2–6 mos  → 4 doses at 2, 4, 6, 12 mos, ≥4 weeks apart
+  //   dose 1 at 7–23 mos → 2 doses, second ≥12 weeks after the first AND after the 1st birthday
+  //   dose 1 at ≥2 yrs   → "2 doses ≥8 wks apart"  ← the base i[1]=56 below
+  // The old flat 84d applied the 7–23-month infant rule to every high-risk patient at
+  // every age, so a correctly spaced dose was reported "INVALID — must repeat".
+  // When the age at dose 1 is unknown, neither condition fires and the 8-week base
+  // applies — deliberately the permissive choice, since the failure being fixed here
+  // is a false rejection.
+  // M10: the infant interval rows below apply to EVERY indication that puts an
+  // infant on the MenACWY series, not only to the medical high-risk ones. ACIP
+  // 2020 MMWR 69(RR-9) prints the same "2-23 mos" row in Table 9 (travel),
+  // Table 8 (outbreak) and Tables 4-6 (medical high risk), fetched live
+  // 2026-09-15. Before M10 an infant traveler's dose 2 fell back to the
+  // unconditional 56-day interval, so a dose given at the correct 4-week infant
+  // interval was graded INVALID and silently dropped from the history.
+  //
+  // The two rows take DIFFERENT risk lists on purpose:
+  //   Row 1 (dose 1 before ~7 months, 4 weeks) is identical in all three tables.
+  //   Row 2 (dose 1 at 7-23 months, 12 weeks) deliberately omits "travel".
+  //     Table 9 alone adds a traveler exemption, verbatim: "MenACWY-D (aged >=9
+  //     mos): 2 doses >=12 wks apart (may be administered as early as >=8 wks
+  //     apart in travelers)". Table 8 has no such clause. Holding travelers to
+  //     84 days would therefore flag a Menactra dose ACIP expressly permits as
+  //     invalid and demand a repeat, so travel keeps the unconditional 56-day
+  //     floor here. That is deliberately lenient for a Menveo traveler, whose
+  //     true floor is 12 weeks; expressing it needs a per-brand condition, which
+  //     iCond does not have (see validation.js). Logged as N7.
+  MenACWY: {minD:60,   maxD1:null, i:[null,56,null,null,null], iCond:[
+    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv","travel","outbreak_acwy"], prevDoseAgeLt:213, minInterval:28},
+    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv","outbreak_acwy"], prevDoseAgeGte:213, prevDoseAgeLt:730, minInterval:84},
+  ], note:"High-risk: ≥8 weeks D1→D2 from age 2y; infant series ≥4 weeks; a 7–23-month start needs ≥12 weeks AND the 1st birthday. Routine: 11–12y, booster 16y."},
+  // M2: the 6-month dose-2 rule belongs to the HEALTHY 2-dose path only. A patient
+  // with a MenB high-risk indication is on a different schedule entirely, so the
+  // rule must not be applied to them — iByTotalDosesSkipHighRiskMenB below.
+  // CDC child & adolescent schedule notes, "Meningococcal serogroup B vaccination"
+  // (child-adolescent-notes.html), fetched live 2026-09-15:
+  //   Special situations (asplenia/sickle cell, complement deficiency, complement
+  //   inhibitor) - "Bexsero or Trumenba (use same brand for all doses including
+  //   booster doses) 3-dose series at 0, 1-2, 6 months (if dose 2 was administered
+  //   at least 6 months after dose 1, dose 3 not needed; ...)"
+  //   Shared clinical decision-making - "2-dose series at least 6 months apart (if
+  //   dose 2 is administered earlier than 6 months, administer dose 3 at least 4
+  //   months after dose 2)"
+  // So for high risk, dose 2 at 1-2 months IS the recommended schedule; the only
+  // consequence of giving it before 6 months is that dose 3 is still required,
+  // which the recommendation engine already says (recommendations.js fhbpD2Min).
+  // Their dose 2 is therefore governed by the unconditional 28-day floor in i[1].
+  // M3: falling short of that 6-month interval does NOT invalidate the dose. CDC,
+  // same page, shared clinical decision-making: "2-dose series at least 6 months
+  // apart (if dose 2 is administered earlier than 6 months, administer dose 3 at
+  // least 4 months after dose 2)". The remedy is an ADDITIONAL dose, not a repeat
+  // of the one given - so this rule is advisory: it changes how long the series
+  // is, not whether the dose counted. iByTotalDosesAdvisory carries the plain-
+  // English consequence shown to the clinician.
+  // M19 (2026-09-15): 122 = round(4 * 30.4375) and 183 = round(6 * 30.4375).
+  // These were 112 (16 weeks) and 182 (26 weeks). CDC's General Best Practice
+  // Guidelines bound the weeks conversion to short intervals -- "'3 calendar
+  // months' (or fewer) can be converted into weeks per the formula '1 month =
+  // 4 weeks'" -- so 16 weeks for a FOUR-month rule used it past its range.
+  // 112 also disagreed with the engine's own rescue card, which said 120.
+  MenB:    {minD:3650, maxD1:null, i:[null,28,122,null,null],  iByTotalDoses:{2:[null,183]}, iByTotalDosesSkipHighRiskMenB:true,
+            iByTotalDosesAdvisory:{consequence:"This dose still counts. Because it was given less than 6 months after dose 1, the series needs a third dose at least 4 months after dose 2.",
+                                   action:"No repeat is needed. Give a third dose at least 4 months after dose 2, in the same antigen family (Bexsero/Penmenvy, or Trumenba/Penbraya)."},
+            // The D1->D3 >=6 month floor belongs to the HIGH-RISK accelerated
+            // 0/1-2/6-month series only. For a healthy patient whose dose 2 came
+            // early, CDC states one floor and no other: "administer dose 3 at
+            // least 4 months after dose 2" - measured from dose 2, not dose 1.
+            // Owner decision 2026-09-15: follow CDC's literal text there.
+            d1Cross:{3:182}, d1CrossHighRiskMenBOnly:true, note:"Min age 10y. High risk: 3-dose 0/1–2/6m, so D1→D2 ≥1 month. Healthy: 2-dose D1→D2 ≥6m (an earlier D2 needs a 3rd dose ≥4m later, it is not invalid). Bexsero and Trumenba are not interchangeable."},
   RSV:     {minD:0,    maxD1:243,  i:[null,null,null,null,null],note:"Nirsevimab: <8m first RSV season. Max age 8 months for routine."},
   COVID:   {minD:182,  maxD1:null, i:[null,28,null,null,null], note:"Min age 6m (Spikevax), 5y (Comirnaty), 12y (mNexspike/Nuvaxovid)."},
 };

@@ -8,6 +8,7 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 import { VBR } from '../data/vaccineData.js';
 import { BRAND_MIN } from '../data/scheduleRules.js';
+import { brandAgeSpec } from '../data/brandRegistry.js';
 import { REFS } from '../data/refs.js';
 
 // ── Combo dose-number gates ───────────────────────────────────────────────
@@ -105,10 +106,10 @@ export function comboFitsDose(comboName, antigen, doseNum) {
 const DAYS_PER_MONTH = 30.4375;
 
 function brandMinDays(brand) {
-  const key = Object.keys(BRAND_MIN).find(k => brand.startsWith(k));
-  if (!key) return 0;
-  const spec = BRAND_MIN[key];
-  return typeof spec === "number" ? spec : (spec?.d ?? 0);
+  // M14: longest matching key wins, so 'Menveo 1-vial' (>=10y) is not shadowed
+  // by the general 'Menveo' (>=2mo) and is no longer offered to young children.
+  const spec = brandAgeSpec(BRAND_MIN, brand);
+  return spec?.d ?? 0;
 }
 
 /**

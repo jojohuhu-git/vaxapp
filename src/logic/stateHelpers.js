@@ -57,7 +57,15 @@ export const isHighRiskMenACWY = (risks) =>
  *     open-ended, same shape as medical high-risk, but graded against the routine
  *     dose bands, not the high-risk-primary-series bands. Source: ACIP 2020 MMWR
  *     RR-9 Table 7.
- *   - 'singleDose' (military recruit or international travel): exactly 1 dose,
+ *   - 'outbreak' (serogroup A/C/W/Y outbreak participant): 1 dose from the 2nd
+ *     birthday, then a TOP-UP only when the patient is identified at risk again
+ *     — ACIP 2020 MMWR RR-9 Table 8 gives "Single dose if >=3 yrs since
+ *     vaccination" under age 7 and ">=5 yrs" at 7 or older, keyed to the
+ *     patient's age NOW, not to the age at the primary dose the way Tables 4-6
+ *     and 9 are. Unlike travel and microbiologist this is not a standing
+ *     countdown (owner-confirmed 2026-09-15), and unlike military it is not
+ *     one dose forever.
+ *   - 'singleDose' (military recruit): exactly 1 dose,
  *     ever, regardless of the age it was given — unlike the routine schedule's
  *     "given at/after 16y" terminal-dose nuance. Source: ACIP 2020 MMWR RR-9
  *     Table 9 (travel) / Table 10 (military).
@@ -69,8 +77,136 @@ export function menacwyExposureCategory(risks) {
   const r = risks || [];
   if (isHighRiskMenACWY(r)) return null;
   if (r.includes("microbiologist")) return "microbiologist";
-  if (r.includes("military") || r.includes("travel")) return "singleDose";
+  // M9: travel is checked BEFORE military. A patient who is both a recruit and an
+  // ongoing traveler is owed the travel boosters — the more protective of the two.
+  if (r.includes("travel")) return "travel";
+  // M12: an A/C/W/Y outbreak is its own category, below travel on purpose. A
+  // patient who is BOTH a traveler and an outbreak contact is owed the travel
+  // schedule: ACIP Table 9 promises boosters "every 5 yrs thereafter", while
+  // Table 8 promises nothing beyond a top-up, so travel is the more protective
+  // of the two — the same reasoning M9 used to put travel above military.
+  if (r.includes("outbreak_acwy")) return "outbreak";
+  if (r.includes("military")) return "singleDose";
   return null;
+}
+
+/**
+ * M9: true when this patient's MenACWY doses are on the travel schedule — one
+ * primary dose, then boosters for as long as the travel risk lasts. Medical
+ * high-risk and microbiologist have their own, different schedules and take
+ * precedence, which menacwyExposureCategory already encodes.
+ */
+export const isTravelOngoingMenACWY = (risks) =>
+  menacwyExposureCategory(risks) === "travel";
+
+/**
+ * M15: true when this patient's MenACWY doses belong to a RISK-BASED schedule
+ * rather than the routine adolescent one — which decides whether a dose given
+ * before the 10th birthday counts.
+ *
+ * ACIP 2020 MMWR 69(RR-9), verified live 2026-09-15:
+ *
+ *   "Children at increased risk for meningococcal disease caused by serogroups
+ *    A, C, W, or Y (Box 1) who received MenACWY at age <11 years and for whom
+ *    booster vaccination is recommended because of an ongoing increased risk
+ *    should follow the booster dose schedule (Tables 4, 5, 6, 7, 8, and 9), not
+ *    the routine adolescent schedule."
+ *
+ * Those six tables are, verbatim from the same page:
+ *   4 complement deficiency · 5 asplenia/sickle cell · 6 HIV   -> isHighRiskMenACWY
+ *   7 microbiologists                                          -> "microbiologist"
+ *   8 outbreak                                                 -> "outbreak"
+ *   9 travel                                                   -> "travel"
+ *
+ * TABLE 10 (college freshmen in residence halls and military recruits) is NOT
+ * in that list, so those patients stay on the routine adolescent rule and their
+ * pre-age-10 dose is still discarded. That omission is deliberate — do not
+ * "complete the set" by adding it.
+ *
+ * This exists so the rule lives in ONE place. It previously did not: M9 added
+ * the travel exemption and M12 the outbreak exemption, each by hand, in each
+ * surface that needed it — and microbiologists were missed in every one of
+ * them. Call this helper rather than re-deriving the list.
+ */
+export const menACWYOnRiskBasedSchedule = (risks) => {
+  const r = risks || [];
+  if (isHighRiskMenACWY(r)) return true;               // Tables 4-6
+  const cat = menacwyExposureCategory(r);
+  return cat === "microbiologist" || cat === "outbreak" || cat === "travel"; // 7-9
+};
+
+/**
+ * M10: does this patient need the MenACWY INFANT series (under 24 months)?
+ *
+ * The infant series does not depend on WHY the infant is being vaccinated, only
+ * on the age at dose 1. ACIP 2020 MMWR 69(RR-9) prints the identical "2-23 mos"
+ * row in Table 9 (travel), Table 8 (outbreak) and Tables 4-6 (medical high
+ * risk), fetched live 2026-09-15:
+ *   "MenACWY-CRM: If first dose at age
+ *      - 2 mos: 4 doses at 2, 4, 6, and 12 mos
+ *      - 3-6 mos: See catch-up schedule
+ *      - 7-23 mos: 2 doses (second dose >=12 wks after the first dose and after
+ *        the 1st birthday)"
+ *
+ * Before M10 every infant branch in recommendations.js was gated on
+ * isHighRiskMenACWY alone, so an infant traveler matched no branch and got no
+ * recommendation on any surface.
+ *
+ * Microbiologist, military recruit and college students are deliberately absent:
+ * ACIP gives them no infant row at all (Table 7 covers ages ">=10 yrs", Table 10
+ * is recruits, and the college indication is adolescent).
+ *
+ * "outbreak_acwy" was listed here by M10 before the risk factor existed, so that
+ * M12 would inherit the correct infant pathway rather than have to re-find it.
+ * M12 created it (2026-09-15) and this became live with no further change.
+ */
+export const menACWYInfantSeriesIndicated = (risks) =>
+  isHighRiskMenACWY(risks || []) ||
+  (risks || []).some(r => ["travel", "outbreak_acwy"].includes(r));
+
+/** The 3-year/5-year MenACWY booster cadence pivot, in months (the 7th birthday). */
+export const MENACWY_AGE_7Y_MONTHS = 84;
+// M19 (owner decision 2026-09-15): intervals longer than 3 months use AVERAGED
+// calendar months -- 30.4375 days/month, 365.25 days/year -- which is what
+// MeningoVax's DAYS helper already does, so the two apps stop dating the same
+// dose a day apart. round(3 * 365.25) = 1096; round(5 * 365.25) = 1826.
+//
+// The 5-year value was already right. The 3-year one was 1095, a plain 365-day
+// year, which is what put M9's traveler booster and M12's outbreak top-up one
+// day earlier in vaxapp than in MeningoVax.
+/** First booster 3 years after the primary series (completed before age 7). */
+export const MENACWY_BOOSTER_3Y = 1096;
+/** First booster 5 years after (completed at 7+), and every booster after that. */
+export const MENACWY_BOOSTER_5Y = 1826;
+
+/**
+ * M9: the interval before the NEXT MenACWY booster, in days.
+ *
+ * M6 put this cadence in three places at once — the engine (recommendations.js),
+ * the dose checker (validation.js) and the optimal schedule
+ * (buildOptimalSchedule.js). M9 needed it in all three again for travelers, so
+ * the rule now lives here and those three read it, rather than growing a fourth
+ * copy that could drift from the other three.
+ *
+ * ACIP 2020 MMWR 69(RR-9) Table 9 (travelers), fetched live 2026-09-15:
+ *   "Aged <7 yrs: Single dose at 3 yrs after primary vaccination and every 5 yrs
+ *    thereafter / Aged >=7 yrs: Single dose at 5 yrs after primary vaccination and
+ *    every 5 yrs thereafter"
+ * Tables 4-6 give the same cadence for the medical high-risk groups.
+ *
+ * An unknown age at the end of the primary series falls to the SHORTER 3-year
+ * interval. In the engine that offers a booster no later than it is really due;
+ * in the checker it is the choice that cannot manufacture a rejection.
+ *
+ * @param {boolean} isFirstBooster - is this the first booster after the primary series?
+ * @param {number|null} lastPrimaryAgeMonths - age at the LAST primary dose, in months
+ * @returns {number} days
+ */
+export function menACWYBoosterIntervalDays(isFirstBooster, lastPrimaryAgeMonths) {
+  if (!isFirstBooster) return MENACWY_BOOSTER_5Y;   // every 5 years thereafter
+  return (lastPrimaryAgeMonths == null || lastPrimaryAgeMonths < MENACWY_AGE_7Y_MONTHS)
+    ? MENACWY_BOOSTER_3Y
+    : MENACWY_BOOSTER_5Y;
 }
 
 /**
@@ -266,4 +402,89 @@ export function doseDate(dose, dob) {
   if (dose.mode === "date" && isD(dose.date)) return dose.date;
   if (dose.mode === "age" && dose.ageDays != null && isD(dob)) return addD(dob, Number(dose.ageDays));
   return null;
+}
+
+/**
+ * M3: how many doses a MenB series actually needs for this patient.
+ *
+ * This is the single source of truth for that count. It used to be decided
+ * independently in three places — buildOptimalSchedule's seriesDoses(),
+ * dosePlan's getTotalDoses(), and the recommendation engine — and they
+ * disagreed for the one case below, so the compliance tab could call a series
+ * "Complete · 2 of 2 doses" on the same screen as an advisory saying a third
+ * dose was still needed.
+ *
+ * High risk: 3 doses (0, 1–2, 6 months).
+ *
+ * Healthy (shared clinical decision): normally 2 doses ≥6 months apart, but if
+ * dose 2 was in fact given earlier than 6 months after dose 1, the series is 3.
+ * CDC child & adolescent schedule notes, "Meningococcal serogroup B
+ * vaccination" (fetched live 2026-09-15): "2–dose series at least 6 months
+ * apart (if dose 2 is administered earlier than 6 months, administer dose 3 at
+ * least 4 months after dose 2)".
+ *
+ * @param {object} hist - full patient history {vk: [{dose}]}
+ * @param {string} dob - patient DOB (ISO string) or falsy if unknown
+ * @param {number|null} am - patient's current age in months (null if unknown)
+ * @param {boolean} isHighRisk - highRiskMenB(risks) result for this patient
+ * @returns {number} 2 or 3
+ */
+export function menBSeriesTotal(hist, dob, am, isHighRisk) {
+  if (isHighRisk) return 3;
+  const eff = menBEffectiveDoses(hist, dob, am, isHighRisk);
+  if (eff.length < 2) return 2;
+  const d1 = doseDate(eff[0], dob);
+  const d2 = doseDate(eff[1], dob);
+  const gap = (d1 && d2) ? dBetween(d1, d2) : null;
+  return (gap !== null && gap < 182) ? 3 : 2;
+}
+
+/**
+ * M4: how many PRIMARY MenACWY doses this patient's series has, keyed to the
+ * age at DOSE 1 — which is what decides it clinically. Used to tell a primary
+ * dose apart from a booster, and so to know when the booster clock starts.
+ *
+ * The engine used to treat two doses as a finished primary series for every
+ * high-risk patient. For a child whose series is four doses that produced two
+ * separate errors: a completed infant series was offered a "subsequent booster"
+ * five years out instead of the first booster three years out, and an
+ * UNFINISHED series (2 of 4 doses) was declared complete and given a booster
+ * three years away rather than the two doses that were already overdue.
+ *
+ * CDC child & adolescent schedule notes, "Meningococcal serogroup A,C,W,Y
+ * vaccination", special situations, Menveo (fetched live 2026-09-15):
+ *   "Dose 1 at age 2 months: 4-dose series (additional 3 doses at age 4, 6,
+ *    and 12 months)"
+ *   "Dose 1 at age 7–23 months: 2-dose series (dose 2 at least 12 weeks after
+ *    dose 1 and after age 12 months)"
+ *   "Dose 1 at age 24 months or older: 2-dose series at least 8 weeks apart"
+ *
+ * The D6 shortcut (dose 1 at 2–6 months with dose 2 at ≥7 months completing the
+ * series in 3 doses) mirrors the 12–23-month branch in recommendations.js.
+ *
+ * When the age at dose 1 is unknown this returns the 2-dose total — the
+ * pre-existing assumption — so an undated history behaves exactly as before
+ * rather than silently switching a patient onto a 4-dose series.
+ *
+ * Mirrors MeningoVax's seriesTotals.js menacwyPrimaryTotal().
+ *
+ * @param {object[]} givenDoses - the MenACWY doses that count, in date order
+ * @param {(dose: object) => number|null} doseAgeMonths - age-at-dose resolver
+ * @returns {number} number of primary doses before the booster phase begins
+ */
+export function menACWYPrimaryTotal(givenDoses, doseAgeMonths, opts = {}) {
+  const d1AgeM = givenDoses[0] ? doseAgeMonths(givenDoses[0]) : null;
+  // M9: a traveler's primary series is ONE dose from the 2nd birthday on, not the
+  // 2-dose medical high-risk series — ACIP 2020 MMWR 69(RR-9) Table 9, "≥2 yrs:
+  // Primary vaccination: ... 1 dose". Below 2 years Table 9 repeats the infant
+  // series verbatim from Tables 4-6, so the age branches below already cover it.
+  // With no dated dose 1 the indication cannot be told apart, so travel falls
+  // through to the pre-existing 2-dose answer rather than guessing (queue item
+  // M10 covers the infant travel pathway).
+  if (opts.travel && d1AgeM != null && d1AgeM >= 24) return 1;
+  if (d1AgeM == null || d1AgeM >= 24) return 2;
+  if (d1AgeM >= 7) return 2;              // 7–23 months: 2-dose series
+  const d2AgeM = givenDoses[1] ? doseAgeMonths(givenDoses[1]) : null;
+  if (d2AgeM != null && d2AgeM >= 7) return 3; // D6 shortcut
+  return 4;                                // started at 2–6 months
 }

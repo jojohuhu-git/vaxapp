@@ -228,8 +228,16 @@ exports[`brand tables — characterization snapshot (Gap 4C refactor guard) > BR
     "d": 730,
     "textFrag": "MenQuadfi",
   },
+  "Menactra": {
+    "d": 274,
+    "textFrag": "Menactra",
+  },
   "Menveo": {
     "d": 60,
+    "textFrag": "Menveo",
+  },
+  "Menveo 1-vial": {
+    "d": 3650,
     "textFrag": "Menveo",
   },
   "Nuvaxovid": {

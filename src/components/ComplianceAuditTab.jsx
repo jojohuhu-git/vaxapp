@@ -16,7 +16,7 @@ import { REFS } from '../data/refs.js';
 import { validatedHistory, validateDose } from '../logic/validation';
 import { classifyDose, RULES_REGISTRY } from '../logic/compliance';
 import { fmtAgeClinical, fmtIntervalClinical, fmtAm } from '../logic/ageFormat';
-import { doseAgeDays, doseDate, isHighRiskMenACWY, menBEffectiveDoses, highRiskMenB, menACWYRoutineCount } from '../logic/stateHelpers';
+import { doseAgeDays, doseDate, isHighRiskMenACWY, menBEffectiveDoses, highRiskMenB, menACWYRoutineCount, isTravelOngoingMenACWY, menacwyExposureCategory, menACWYOnRiskBasedSchedule } from '../logic/stateHelpers';
 import { getDoseBand } from '../data/aapDoseBands';
 import { fmtDateInput, addD, todayISO } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
@@ -65,9 +65,9 @@ const STATUS_PILL_LABEL = {
 };
 
 // ── Validation rule summary for popover ───────────────────────────────────────
-function buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks) {
+function buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks, allDoses) {
   // Run full validation and inspect results
-  const vr = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses, risks);
+  const vr = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses, risks, allDoses);
   const rules = [];
 
   // Min age
@@ -134,7 +134,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
   const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist, risks);
   const { status, label, extraScenario, auditFlag, notAdolescentCount } = classification;
 
-  const { vr, rules } = buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks);
+  const { vr, rules } = buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks, hist ? hist[vk] : null);
 
   const popH = showRules ? 360 : 240;
   const spaceBelow = window.innerHeight - anchorRect.bottom;
@@ -575,7 +575,9 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
   const recForVk = recs.find(r => r.vk === vk);
   let expectedTotal = null;
   try {
-    expectedTotal = getTotalDoses(vk, recForVk || null, fcBrands || {}, am, hist, risks);
+    // M3: dob matters now — the MenB total depends on the gap between doses 1
+    // and 2, which can only be measured with a date of birth for age-mode doses.
+    expectedTotal = getTotalDoses(vk, recForVk || null, fcBrands || {}, am, hist, risks, dob);
   } catch {
     expectedTotal = null;
   }
@@ -598,7 +600,25 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
   // legitimately has 2+ pre-16 doses).
   const effectiveCount = vk === 'MenB'
     ? menBEffectiveDoses({ MenB: validDoses }, dob, am, highRiskMenB(risks || [])).length
-    : vk === 'MenACWY' && !isHighRiskMenACWY(risks || [])
+    // M9: travelers are excluded alongside the medically high-risk. Their doses
+    // are on ACIP Table 9, not the routine adolescent series, so a dose given
+    // before the 10th birthday is their PRIMARY dose and must count. Counting it
+    // as zero made this tab read "In progress · 0 of 2 doses" for a child whose
+    // dose was recorded right below, graded ON TIME. Same discount, same fix, as
+    // buildOptimalSchedule's given-dose count.
+    // M12: an A/C/W/Y outbreak contact is excluded for the same reason — they
+    // are on ACIP Table 8, which that same ACIP sentence names ("Tables 4, 5, 6,
+    // 7, 8, and 9"), so their pre-age-10 dose is their primary dose. Without
+    // this the tab read "In progress - 0 of 2 doses" directly above the dose it
+    // had just graded ON TIME, exactly as it did for travelers before M9.
+    // M15: and a microbiologist is on ACIP Table 7, which that same sentence
+    // names. The tab read "In progress - 0 of 2 doses" above a dose it had just
+    // graded ON TIME, exactly as it did for travelers before M9 and outbreak
+    // contacts before M12. The three hand-written conditions that used to sit
+    // here are now one shared helper, so the next group cannot be missed.
+    // Military and college recruits (Table 10) are NOT covered and keep the
+    // routine rule -- that is per ACIP, not an oversight.
+    : vk === 'MenACWY' && !menACWYOnRiskBasedSchedule(risks || [])
     ? menACWYRoutineCount({ MenACWY: validDoses }, dob)
     : validCount;
 
@@ -931,7 +951,7 @@ export default function ComplianceAuditTab({ recs: recsProp, validHist: validHis
   // Accept recs/validHist from the parent's useRecs() call (avoids recomputing
   // for the whole tab); fall back to a local computation for standalone/test
   // rendering where no parent has supplied them.
-  const validHist = validHistProp ?? validatedHistory(hist, dob);
+  const validHist = validHistProp ?? validatedHistory(hist, dob, risks);
   const recs = recsProp ?? genRecs(am, validHist, risks, dob, { today: todayISO(), cd4: state.cd4 });
 
   const [staleDismissed, setStaleDismissed] = useState(() => {

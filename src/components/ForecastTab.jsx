@@ -277,7 +277,7 @@ function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fc
         if (isCurr) {
           const rec = currentRecMap[vk];
           if (!rec) continue;
-          const total = getTotalDoses(vk, rec, fcBrands, am, validHist, risks);
+          const total = getTotalDoses(vk, rec, fcBrands, am, validHist, risks, dob);
           const qualifier = rec.status === 'catchup' ? ' catch-up'
             : rec.status === 'recommended' ? ' SCD' : '';
           const chip = isAnnual(vk) ? 'Annual'
@@ -288,7 +288,7 @@ function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fc
         } else if (!isPast && !proj && futureRecMap[vk]
             && firstFutureVisitForVk[vk] === visit.m && !currentRecMap[vk]) {
           const rec = futureRecMap[vk];
-          const total = getTotalDoses(vk, rec, fcBrands, am, validHist, risks);
+          const total = getTotalDoses(vk, rec, fcBrands, am, validHist, risks, dob);
           const chip = isAnnual(vk) ? 'Annual'
             : total > 1 ? `D${rec.doseNum}/${total}`
             : `D${rec.doseNum}`;
@@ -531,7 +531,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
   // Filter history to countable doses only (drops invalid/uncountable doses
   // like a Kinrix IPV at 2 months) so the projection advances correctly.
-  const validHist = validHistProp ?? validatedHistory(state.hist, state.dob);
+  const validHist = validHistProp ?? validatedHistory(state.hist, state.dob, state.risks ?? []);
 
   // Patient object for optimal schedule engine
   const today = todayISO();
@@ -829,7 +829,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       const given = dc(validHist, vk);
       const isAnnual = vk === "Flu" || vk === "COVID";
       const totalForVk = (proj && proj.totalDoses)
-        || getTotalDoses(vk, rec || { doseNum: given + 1, dose: "" }, state.fcBrands, am, validHist, state.risks);
+        || getTotalDoses(vk, rec || { doseNum: given + 1, dose: "" }, state.fcBrands, am, validHist, state.risks, state.dob);
       const fmtDose = (n) => isAnnual ? "Annual" : (!totalForVk || totalForVk <= 1) ? `Dose ${n}` : `Dose ${n} of ${totalForVk}`;
       const hasPopover = !!(rec?.note || rec?.refUrl);
       // "card:" prefix kept even though the matrix view (which shared this
@@ -893,6 +893,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
           items.push({ vk, chipText: `${fmtDose(given)} done`, chipClass: doneChipClass(vk, validHist, state.dob, state.risks), fcKey, rec, hasPopover, onChipClick });
         } else if (rec) {
           const chipClass = rec.status === "catchup" ? "fch fch-cu"
+            : rec.status === "deferred" ? "fch fch-def"
             : (rec.status === "risk-based" || rec.status === "exposure") ? "fch fch-rb"
               : rec.status === "recommended" ? "fch fch-ok"
                 : "fch fch-need";
@@ -932,6 +933,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         // (firstFutureVisitForVk dedupe), and skip vaccines already due
         // today (the Now row owns those; dosePlan owns their D2+).
         const chipClass = rec.status === "catchup" ? "fch fch-cu"
+          : rec.status === "deferred" ? "fch fch-def"
           : (rec.status === "risk-based" || rec.status === "exposure") ? "fch fch-rb"
             : rec.status === "recommended" ? "fch fch-ok"
               : "fch fch-need";
@@ -949,7 +951,11 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
   // ── Today panel data ─────────────────────────────────────────
   // Brand pickers in the today panel need the full co-due context.
-  const todayDueVks = recs.map(r => r.vk);
+  // M11: a deferred vaccine is NOT due, and must not make a combo look co-due.
+  // Penbraya and Penmenvy each bundle MenACWY with MenB, so counting a deferred
+  // MenB here offered a pregnant patient exactly the antigen being deferred —
+  // inside the MenACWY picker, where the deferral notice is not even visible.
+  const todayDueVks = recs.filter(r => r.status !== "deferred").map(r => r.vk);
   const todayDoseNumByVk = {};
   recs.forEach(r => { todayDoseNumByVk[r.vk] = r.doseNum; });
 
@@ -962,7 +968,13 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       const b = state.fcBrands[`${ev.m}_${rec.vk}`];
       if (b) { eb = b; break; }
     }
-    todayBOptsByVk[rec.vk] = orderedBrandsForVisit(rec.vk, rec.doseNum, am, todayDueVks, rec.brands, eb, todayDoseNumByVk);
+    // M11: no brand picker on a deferred row — nothing is being given today.
+    // orderedBrandsForVisit falls back to the full standalone brand set when it
+    // is handed an empty rec.brands, which would otherwise offer Bexsero and
+    // Trumenba on the very row that says to wait.
+    todayBOptsByVk[rec.vk] = rec.status === "deferred"
+      ? []
+      : orderedBrandsForVisit(rec.vk, rec.doseNum, am, todayDueVks, rec.brands, eb, todayDoseNumByVk);
   }
   // Deduplicated list of combo bundles available at this visit, sorted by coverage breadth.
   const visitComboMap = new Map();
@@ -1193,10 +1205,14 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                   const displayBrand = resolveDropdownBrand(selectedBrand, bOpts);
                   const isExpanded = expandedRationale === rec.vk;
                   const isAnnual = rec.vk === "Flu" || rec.vk === "COVID";
-                  const totalDoses = getTotalDoses(rec.vk, rec, state.fcBrands, am, validHist, state.risks);
-                  const doseChip = isAnnual ? "Annual" : `Dose ${rec.doseNum}${totalDoses > 1 ? ` of ${totalDoses}` : ""}`;
+                  const totalDoses = getTotalDoses(rec.vk, rec, state.fcBrands, am, validHist, state.risks, state.dob);
+                  // M11: a deferred row is not "Dose 1 of 2" — nothing is being
+                  // given. Show the engine's own label ("Deferred in pregnancy").
+                  const doseChip = rec.status === "deferred" ? rec.dose
+                    : isAnnual ? "Annual" : `Dose ${rec.doseNum}${totalDoses > 1 ? ` of ${totalDoses}` : ""}`;
                   const statusBadgeClass = rec.status === "due" ? "today-badge-due"
                     : rec.status === "catchup" ? "today-badge-cu"
+                    : rec.status === "deferred" ? "today-badge-def"
                     : (rec.status === "risk-based" || rec.status === "exposure") ? "today-badge-rb"
                     : rec.status === "recommended" ? "today-badge-rec"
                     : "today-badge-due";
@@ -1205,6 +1221,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                     : rec.status === "risk-based" ? "Risk-based"
                     : rec.status === "exposure" ? "Exposure"
                     : rec.status === "recommended" ? "Shared decision"
+                    : rec.status === "deferred" ? "Deferred"
                     : rec.status;
                   // When this vk is covered by the active combo, label the picker as auto-filled.
                   const coveredByCombo = activeComboName && (COMBO_COVERS[activeComboName] || []).includes(rec.vk);

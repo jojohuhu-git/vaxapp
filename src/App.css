@@ -217,6 +217,7 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .fch-need{background:var(--glt);color:var(--g);border:1px solid var(--gmd);}
 .fch-cu{background:var(--alt);color:var(--a);border:1px solid var(--amd);}
 .fch-rb{background:var(--plt);color:var(--p);border:1px solid var(--pmd);}
+.fch-def{background:var(--gy6);color:var(--gy2);border:1px solid var(--gy4);}
 .fch-inv{background:var(--rlt);color:var(--r);border:1px solid var(--rmd);text-decoration:line-through;}
 .fch-exp{background:var(--gy6);color:var(--gy3);border:1px solid var(--gy5);text-decoration:line-through;font-style:italic;}
 .fch-notyet{background:var(--gy6);color:var(--gy3);border:1px solid var(--gy5);font-style:italic;}
@@ -300,6 +301,10 @@ select:focus,input:focus{border-color:var(--g3);box-shadow:0 0 0 3px rgba(79,177
 .today-badge-cu{background:var(--alt);color:var(--a);}
 .today-badge-rb{background:var(--plt);color:var(--p);}
 .today-badge-rec{background:var(--blt);color:var(--b);}
+/* M11: deferred (MenB in pregnancy) is deliberately NEUTRAL — it is the one
+   status that asks the clinician to do nothing today, so it must not borrow the
+   colour of a dose that is due. */
+.today-badge-def{background:var(--gy6);color:var(--gy2);}
 .today-vax{font-size:11px;font-weight:700;}
 .today-dose{font-size:11px;color:var(--gy2);}
 .today-brand-sel{font-size:11px;padding:4px 8px;border:1px solid var(--gy5);border-radius:var(--rads);max-width:264px;color:var(--gy);background:var(--wh);}
