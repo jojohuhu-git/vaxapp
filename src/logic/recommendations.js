@@ -785,6 +785,18 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     r("MenACWY", "Dose 1 of 2 (high-risk primary series, \u22658 weeks apart)", 1, "risk-based",
       `High-risk (asplenia, HIV, complement deficiency): 2-dose primary series 8 weeks apart; then ${d1RevaxNote}.`,
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"], { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+  // M18 (2026-09-15): this card used to end "No routine booster unless a
+  // high-risk medical indication is also present." That is the COLLEGE rule,
+  // attached to the wrong group. ACIP 2020 MMWR 69(RR-9) Table 10, Boosters
+  // row, verified live 2026-09-15: "College freshmen living in residence
+  // halls: Not routinely recommended... Military recruits: Every 5 yrs on
+  // basis of assignment". Military is the one group in that table with a
+  // standing booster interval, and the card denied it.
+  // No booster LOGIC is added, deliberately — footnote †† of the same table:
+  // "Vaccination recommendations for military personnel are made by the U.S.
+  // Department of Defense on the basis of high-risk travel requirements."
+  // The interval depends on an assignment this app cannot see, so the card
+  // states the rule and says who owns it instead of inventing a countdown.
   } else if (am >= 24 && men === 0 && risks.includes("military")) {
     // U.S. military recruits: 1 dose MenACWY per DoD/ACIP. No routine booster.
     // M3: status 'exposure', not 'risk-based' \u2014 that word is reserved for ongoing
@@ -795,7 +807,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     // b43edc6 (W3, 2026-07-24 owner decision): same chip color as risk-based, only the
     // status word changed.
     r("MenACWY", "Risk-based \u2014 military (1 dose)", 1, "exposure",
-      "ACIP/DoD: U.S. military recruits receive 1 dose MenACWY. No routine booster unless a high-risk medical indication (asplenia, complement deficiency) is also present.",
+      "ACIP/DoD: U.S. military recruits receive 1 dose MenACWY. ACIP Table 10 gives recruits a booster every 5 years on the basis of assignment \u2014 but the Department of Defense sets vaccination requirements for military personnel according to high-risk travel, so the timing is theirs, not this schedule's. Check the service's current requirement rather than assuming nothing further is due. A separate high-risk medical indication (asplenia, complement deficiency) would add its own booster schedule on top.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { refUrl: REFS.acip2020Table10.url, refLabel: REFS.acip2020Table10.label, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men === 0 && risks.includes("microbiologist")) {
