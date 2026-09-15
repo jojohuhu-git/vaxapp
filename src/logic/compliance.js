@@ -169,9 +169,10 @@ const STANDARD_SERIES_TOTAL = {
   VAR: 2,
   HepA: 2,
   Tdap: 1,
-  HPV: 3,
+  // HPV intentionally omitted — use hpvStandardTotal(hist, dob, risks), which
+  // depends on dose-1 age and immunocompromised status (M9).
   MenACWY: 2,
-  MenB: 3,
+  // MenB intentionally omitted — use (menBHighRisk ? 3 : 2), risk-dependent (M8).
   Flu: 1,
   PPSV23: 2,
   RSV: 2,
@@ -209,6 +210,31 @@ function hibStandardTotal(hist) {
   // 3-dose standard ONLY when both D1 and D2 are PedvaxHIB
   const bothPrimaryPedvaxHIB = d1Brand.startsWith('PedvaxHIB') && d2Brand.startsWith('PedvaxHIB');
   return bothPrimaryPedvaxHIB ? 3 : 4;
+}
+
+/**
+ * M9 (2026-09-14, same F6 investigation as M7/M8): HPV's standard total depends on
+ * the age of dose 1 and immunocompromised status — 2 doses if dose 1 was given
+ * before age 15 (5475 days) AND the patient is not immunocompromised, else 3.
+ * Mirrors buildOptimalSchedule.js's seriesDoses() HPV case exactly (same 5475-day
+ * threshold, same 'hiv'/'immunocomp' risk check) — that function is the existing,
+ * already-correct source of truth this was drifting from.
+ *
+ * Before this fix, STANDARD_SERIES_TOTAL.HPV=3 applied unconditionally, so a
+ * patient who started before 15 (true total 2) and received an unnecessary 3rd
+ * dose saw it graded ON_TIME — not just unflagged, but labeled as the expected,
+ * on-schedule dose of a "3-dose schedule."
+ *
+ * @param {object|null} hist - full patient history {vk: [{dose}]}
+ * @param {string|null} dob - patient date of birth (ISO string)
+ * @param {string[]} risks - patient risk factor ids
+ * @returns {number} 2 or 3
+ */
+function hpvStandardTotal(hist, dob, risks) {
+  const isImmunocomp = (risks || []).some(r => ['hiv', 'immunocomp'].includes(r));
+  const d1 = (hist?.HPV || []).filter(d => d.given)[0];
+  const d1AgeDays = d1 ? doseAgeDays(d1, dob) : null;
+  return (d1AgeDays != null && d1AgeDays < 5475 && !isImmunocomp) ? 2 : 3;
 }
 
 /**
@@ -422,12 +448,26 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   const menacwyHighRisk = vk === 'MenACWY' && isHighRiskMenACWY(risks || []);
   const bandOpts = { highRisk: menacwyHighRisk };
 
+  // M8 (2026-09-14, same F6 investigation as M7 above): MenB's standard total is
+  // risk-dependent — 2 doses (healthy, 16-23y shared decision) or 3 (high-risk,
+  // accelerated schedule) — same distinction buildOptimalSchedule.js's seriesDoses()
+  // already gets right via highRiskMenB(). STANDARD_SERIES_TOTAL.MenB=3 below used to
+  // apply to EVERY patient regardless of risk, so a healthy patient's 3rd (or any
+  // later) MenB dose was graded as a normal, needed part of the series — with no
+  // threshold at which it would ever be flagged, unlike MenACWY's M7 case. Unlike
+  // MenACWY's high-risk series, MenB high-risk is a fixed 3-dose total (not
+  // open-ended), so this doesn't need a null/no-fixed-total branch.
+  const menBHighRisk = vk === 'MenB' && highRiskMenB(risks || []);
+
   // For Hib, use brand-aware standard total (PRP-OMP=3, PRP-T=4). For high-risk MenACWY
   // the series is open-ended (2-dose primary + lifelong boosters), so there is no fixed
   // "standard total" and later doses are boosters, not "extra" — skip the VALID_EXTRA path.
   const standardTotal = menacwyHighRisk
     ? null
-    : (vk === 'Hib' ? hibStandardTotal(hist) : STANDARD_SERIES_TOTAL[vk]);
+    : vk === 'Hib' ? hibStandardTotal(hist)
+    : vk === 'MenB' ? (menBHighRisk ? 3 : 2)
+    : vk === 'HPV' ? hpvStandardTotal(hist, dob, risks)
+    : STANDARD_SERIES_TOTAL[vk];
   if (standardTotal != null && totalDoses != null && totalDoses > standardTotal) {
     const extraSet = extraDoseIndices(vk, totalDoses, standardTotal, hist);
     if (extraSet.has(doseIdx)) {
