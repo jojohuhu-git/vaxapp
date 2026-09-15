@@ -931,7 +931,7 @@ export default function ComplianceAuditTab({ recs: recsProp, validHist: validHis
   // Accept recs/validHist from the parent's useRecs() call (avoids recomputing
   // for the whole tab); fall back to a local computation for standalone/test
   // rendering where no parent has supplied them.
-  const validHist = validHistProp ?? validatedHistory(hist, dob);
+  const validHist = validHistProp ?? validatedHistory(hist, dob, risks);
   const recs = recsProp ?? genRecs(am, validHist, risks, dob, { today: todayISO(), cd4: state.cd4 });
 
   const [staleDismissed, setStaleDismissed] = useState(() => {

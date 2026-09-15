@@ -64,7 +64,7 @@ function ForecastWithRecs() {
   const { state } = useApp();
   const { effectiveAm, conflict } = getEffectiveAm(state);
   if (conflict || effectiveAm < 0) return null;
-  const validHist = validatedHistory(state.hist, state.dob);
+  const validHist = validatedHistory(state.hist, state.dob, state.risks ?? []);
   const recs = genRecs(effectiveAm, validHist, state.risks, state.dob, {
     fcBrands: state.fcBrands,
   });

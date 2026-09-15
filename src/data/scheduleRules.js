@@ -29,7 +29,23 @@ export const MIN_INT = {
     {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv"], prevDoseAgeLt:213, minInterval:28},
     {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv"], prevDoseAgeGte:213, prevDoseAgeLt:730, minInterval:84},
   ], note:"High-risk: ≥8 weeks D1→D2 from age 2y; infant series ≥4 weeks; a 7–23-month start needs ≥12 weeks AND the 1st birthday. Routine: 11–12y, booster 16y."},
-  MenB:    {minD:3650, maxD1:null, i:[null,28,112,null,null],  iByTotalDoses:{2:[null,182]},             d1Cross:{3:182}, note:"Min age 10y. Bexsero D1→D2 ≥1m; Trumenba standard 2-dose D1→D2 ≥6m; accelerated 3-dose D1→D2 28d, D2→D3 4m, D1→D3 ≥6m."},
+  // M2: the 6-month dose-2 rule belongs to the HEALTHY 2-dose path only. A patient
+  // with a MenB high-risk indication is on a different schedule entirely, so the
+  // rule must not be applied to them — iByTotalDosesSkipHighRiskMenB below.
+  // CDC child & adolescent schedule notes, "Meningococcal serogroup B vaccination"
+  // (child-adolescent-notes.html), fetched live 2026-09-15:
+  //   Special situations (asplenia/sickle cell, complement deficiency, complement
+  //   inhibitor) - "Bexsero or Trumenba (use same brand for all doses including
+  //   booster doses) 3-dose series at 0, 1-2, 6 months (if dose 2 was administered
+  //   at least 6 months after dose 1, dose 3 not needed; ...)"
+  //   Shared clinical decision-making - "2-dose series at least 6 months apart (if
+  //   dose 2 is administered earlier than 6 months, administer dose 3 at least 4
+  //   months after dose 2)"
+  // So for high risk, dose 2 at 1-2 months IS the recommended schedule; the only
+  // consequence of giving it before 6 months is that dose 3 is still required,
+  // which the recommendation engine already says (recommendations.js fhbpD2Min).
+  // Their dose 2 is therefore governed by the unconditional 28-day floor in i[1].
+  MenB:    {minD:3650, maxD1:null, i:[null,28,112,null,null],  iByTotalDoses:{2:[null,182]}, iByTotalDosesSkipHighRiskMenB:true, d1Cross:{3:182}, note:"Min age 10y. High risk: 3-dose 0/1–2/6m, so D1→D2 ≥1 month. Healthy: 2-dose D1→D2 ≥6m (an earlier D2 needs a 3rd dose ≥4m later, it is not invalid). Bexsero and Trumenba are not interchangeable."},
   RSV:     {minD:0,    maxD1:243,  i:[null,null,null,null,null],note:"Nirsevimab: <8m first RSV season. Max age 8 months for routine."},
   COVID:   {minD:182,  maxD1:null, i:[null,28,null,null,null], note:"Min age 6m (Spikevax), 5y (Comirnaty), 12y (mNexspike/Nuvaxovid)."},
 };

@@ -307,7 +307,15 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
     }
 
     // 3b. iByTotalDoses — series-path interval (HPV 2-dose, MenB 2-dose)
-    if (spec.iByTotalDoses) {
+    //
+    // M2: a series-path rule only applies to patients who are actually on that
+    // path. MenB's 6-month dose-2 minimum describes the healthy 2-dose series;
+    // a patient with a MenB high-risk indication follows the 0/1–2/6-month
+    // 3-dose series instead, where dose 2 at one month is exactly right. Risk is
+    // read through highRiskMenB() rather than a second list of risk ids kept
+    // here, so the validator cannot drift away from the engine's gate.
+    const skipSeriesPath = spec.iByTotalDosesSkipHighRiskMenB && highRiskMenB(risks);
+    if (spec.iByTotalDoses && !skipSeriesPath) {
       // Determine which path based on total doses recorded + planned
       // Conservative: if we only have a few doses entered, use the longer interval path
       // (the engine will use the shorter one when 3-dose path is confirmed)
@@ -448,7 +456,7 @@ export function auditAll(hist, dob, risks = [], am = -1) {
     ? dBetween(dob, todayISO())
     : (am >= 0 ? Math.round(am * 30.4) : null);
   // Pre-compute validated history to detect effective dose renumbering
-  const vh = validatedHistory(hist, dob);
+  const vh = validatedHistory(hist, dob, risks);
   for (const vk of VAX_KEYS) {
     // Sort doses chronologically before validating.
     const doses = sortDosesByDate(hist[vk] || [], dob)
@@ -795,8 +803,19 @@ export function auditAll(hist, dob, risks = [], am = -1) {
 
 /**
  * Return a history object containing only doses that count toward the series.
+ *
+ * M2: `risks` matters here. This is the gate AppContext runs once and hands to
+ * every surface, so a dose it drops disappears from the recommendations, the
+ * forecast, the catch-up table, the optimal schedule and the compliance tab at
+ * the same time — and the app then asks for a dose the patient already had.
+ * Without the patient's risk factors the risk-conditional rules (high-risk MenB
+ * dose 2, high-risk MenACWY dose 2) cannot fire, so they must be passed in.
+ *
+ * @param {object} hist - raw dose history
+ * @param {string} dob - patient date of birth (ISO string)
+ * @param {string[]} risks - patient risk-factor ids
  */
-export function validatedHistory(hist, dob) {
+export function validatedHistory(hist, dob, risks = []) {
   const out = {};
   for (const vk of VAX_KEYS) {
     const rawDoses = hist[vk] || [];
@@ -811,7 +830,7 @@ export function validatedHistory(hist, dob) {
       if (!dose.given) { kept.push(dose); continue; }
       if (dose.mode === "unknown") { kept.push(dose); continue; }
       const prevKept = kept.filter(k => k.given && k.mode !== "unknown").slice(-1)[0] || null;
-      const vr = validateDose(vk, validIdx, dose, prevKept, dob, null, firstValidDate, totalGivenDated);
+      const vr = validateDose(vk, validIdx, dose, prevKept, dob, null, firstValidDate, totalGivenDated, risks);
       if (vr.ok) {
         if (firstValidDate === null) firstValidDate = doseDate(dose, dob);
         kept.push(dose);

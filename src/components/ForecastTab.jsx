@@ -531,7 +531,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
 
   // Filter history to countable doses only (drops invalid/uncountable doses
   // like a Kinrix IPV at 2 months) so the projection advances correctly.
-  const validHist = validHistProp ?? validatedHistory(state.hist, state.dob);
+  const validHist = validHistProp ?? validatedHistory(state.hist, state.dob, state.risks ?? []);
 
   // Patient object for optimal schedule engine
   const today = todayISO();
