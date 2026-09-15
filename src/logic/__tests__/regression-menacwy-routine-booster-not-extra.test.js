@@ -39,6 +39,8 @@ import { describe, it, expect } from 'vitest';
 import { classifyDose } from '../compliance.js';
 import { auditAll } from '../validation.js';
 import { advancingDoseCount } from '../stateHelpers.js';
+import { getTotalDoses } from '../dosePlan.js';
+import { genRecs } from '../recommendations.js';
 
 const DOB = '2008-01-15';
 const mk = (date) => ({ given: true, mode: 'date', date, brand: 'Menveo 2-vial (MenACWY-CRM, ≥2m)' });
@@ -91,5 +93,27 @@ describe('surface 2 — the schedule advisory', () => {
     const errors = auditAll(surplus, DOB, [], 224);
     const overdose = errors.find((e) => e.vk === 'MenACWY' && e.type === 'series_over');
     expect(overdose).toBeDefined();
+  });
+});
+
+describe('surface 3 — the series header denominator', () => {
+  it('reports the true 2-dose total, not the number of rows on file', () => {
+    // Before this fix the tab read "In progress · 2 of 3 doses" — the
+    // denominator grew to match the recorded doses, so a completed series
+    // could never look complete.
+    expect(getTotalDoses('MenACWY', null, {}, 224, HIST, [], DOB)).toBe(2);
+  });
+
+  it('is unchanged for a patient whose every dose advances the series', () => {
+    const clean = { MenACWY: [mk('2019-01-15'), mk('2024-01-15')] };
+    expect(getTotalDoses('MenACWY', null, {}, 224, clean, [], DOB)).toBe(2);
+  });
+
+  it('does not restart the forecast for a patient who has finished', () => {
+    // The raw count also served as the "project nothing further" signal. The
+    // recorded doses (3) still exceed the new total (2), so the series stays
+    // closed and no MenACWY dose is recommended.
+    const recs = genRecs(224, HIST, [], DOB);
+    expect(recs.filter((r) => r.vk === 'MenACWY')).toEqual([]);
   });
 });
