@@ -114,6 +114,7 @@ describe('M4 five-surface — a completed infant series', () => {
     const res = buildOptimalSchedule({ am: COMPLETE_AM, risks: RISKS, hist: COMPLETE, dob: DOB }, {}, { today: TODAY });
     const item = res.flatMap(v => v.items).find(i => i.vk === 'MenACWY');
     // Primary series finished 2024-01-05; 1095 days later is 2027-01-04.
-    expect(item.date).toBe('2027-01-04');
+    // M19 (2026-09-15): 3 years is 1096 days (averaged calendar years), was 1095.
+    expect(item.date).toBe('2027-01-05');
   });
 });

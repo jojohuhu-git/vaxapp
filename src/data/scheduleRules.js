@@ -71,7 +71,13 @@ export const MIN_INT = {
   // of the one given - so this rule is advisory: it changes how long the series
   // is, not whether the dose counted. iByTotalDosesAdvisory carries the plain-
   // English consequence shown to the clinician.
-  MenB:    {minD:3650, maxD1:null, i:[null,28,112,null,null],  iByTotalDoses:{2:[null,182]}, iByTotalDosesSkipHighRiskMenB:true,
+  // M19 (2026-09-15): 122 = round(4 * 30.4375) and 183 = round(6 * 30.4375).
+  // These were 112 (16 weeks) and 182 (26 weeks). CDC's General Best Practice
+  // Guidelines bound the weeks conversion to short intervals -- "'3 calendar
+  // months' (or fewer) can be converted into weeks per the formula '1 month =
+  // 4 weeks'" -- so 16 weeks for a FOUR-month rule used it past its range.
+  // 112 also disagreed with the engine's own rescue card, which said 120.
+  MenB:    {minD:3650, maxD1:null, i:[null,28,122,null,null],  iByTotalDoses:{2:[null,183]}, iByTotalDosesSkipHighRiskMenB:true,
             iByTotalDosesAdvisory:{consequence:"This dose still counts. Because it was given less than 6 months after dose 1, the series needs a third dose at least 4 months after dose 2.",
                                    action:"No repeat is needed. Give a third dose at least 4 months after dose 2, in the same antigen family (Bexsero/Penmenvy, or Trumenba/Penbraya)."},
             // The D1->D3 >=6 month floor belongs to the HIGH-RISK accelerated

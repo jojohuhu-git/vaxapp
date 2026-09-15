@@ -146,14 +146,18 @@ describe('M3: the rescue dose 3 is timed from dose 2, not from dose 1', () => {
   const d3 = (date, risks) => validateDose('MenB', 2, mk(date), d2Early, dob, null, d1.date, 3, risks);
 
   it('a healthy rescue dose 4 months after dose 2 is accepted, even though it is under 6 months after dose 1', () => {
-    // 2026-06-01 is 112d after dose 2 but only 147d after dose 1.
-    const vr = d3('2026-06-01', []);
+    // M19 (2026-09-15): "4 months" is now 122 days (averaged calendar months),
+    // not the 112 (16 weeks) this fixture was built on, so the date moved.
+    // 2026-06-15 is 126d after dose 2 -- clear of the 122-day floor -- but only
+    // 161d after dose 1, still under the 183-day (6-month) D1 cross floor, so
+    // the point of the test is unchanged.
+    const vr = d3('2026-06-15', []);
     expect(vr.ok).toBe(true);
     expect((vr.results || []).some(r => r.type === 'd1Cross')).toBe(false);
   });
 
   it('the dose-1 floor still applies to a high-risk patient (their series really is 0/1–2/6 months)', () => {
-    const vr = d3('2026-06-01', ['asplenia']);
+    const vr = d3('2026-06-15', ['asplenia']);
     expect((vr.results || []).some(r => r.type === 'd1Cross' && r.err)).toBe(true);
   });
 

@@ -103,7 +103,7 @@ describe('M12 — the top-up, not a standing booster schedule', () => {
     const recs = acwy(72, '2020-09-15', ['outbreak_acwy'], { MenACWY: [mk('2023-09-14')] });
     expect(recs).toHaveLength(1);
     expect(recs[0].doseNum).toBe(2);
-    expect(recs[0].minInt).toBe(1095);
+    expect(recs[0].minInt).toBe(1096)   // M19: averaged calendar years (was 1095);
   });
 
   it('under 7 and only 2 years on, no top-up is offered yet', () => {
@@ -147,7 +147,8 @@ describe('M12 — the other surfaces, not just the Recommendations tab', () => {
 
   it('it dates a top-up that is not due yet 3 years from the last dose', () => {
     const plan = optimal(72, '2020-09-15', ['outbreak_acwy'], { MenACWY: [mk('2024-09-15')] });
-    expect(plan).toEqual([{ n: 2, d: '2027-09-15' }]);
+    // M19 (2026-09-15): 3 years is 1096 days (averaged calendar years), was 1095.
+    expect(plan).toEqual([{ n: 2, d: '2027-09-16' }]);
   });
 
   it('an infant outbreak contact is still planned on infant intervals, not 3 years', () => {

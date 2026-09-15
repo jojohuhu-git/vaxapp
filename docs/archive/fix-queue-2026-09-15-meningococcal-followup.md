@@ -347,3 +347,47 @@ forecast both consume `genRecs`), and `buildOptimalSchedule` plans from its own
 **MeningoVax:** check the sibling before shipping. Its travel/microbiologist branch is
 shared (`recommend.js:209`, riskClass `single+boost`), so if it has the same hole the fix
 lands in both repos.
+
+
+### N11 — MeningoVax has no 4-day grace period (2026-09-15, found while doing M19)
+
+**OWNER DECISION 2026-09-15: add it. Scoped as its own item, deliberately not folded
+into M19, because it touches MeningoVax's validator broadly rather than a few constants.**
+
+CDC, General Best Practice Guidelines for Immunization — "Timing and Spacing of
+Immunobiologics", fetched live from cdc.gov 2026-09-15, verbatim:
+
+> "Known as the 'grace period', vaccine doses administered ≤4 days before the minimum
+> interval or age are considered valid; however, local or state mandates might supersede
+> this 4-day guideline."
+
+and, on the other side of the line:
+
+> "Doses of any vaccine administered ≥5 days earlier than the minimum interval or age
+> should not be counted as valid doses and should be repeated as age appropriate."
+
+vaxapp implements this (`GRACE = 4`, applied to minimum ages and intervals in
+`validation.js`). **MeningoVax has no grace period at all** — no `GRACE` constant exists in
+its source. So a dose given 1–4 days early is graded valid by vaxapp and invalid by
+MeningoVax, for the same patient and the same rule.
+
+This is why M19's one-day differences mattered unevenly: in vaxapp a 1-day gap is absorbed
+by the grace period, while in MeningoVax it is a hard boundary.
+
+**What the fix has to cover** (check each, don't assume):
+1. Minimum AGE checks — a dose given up to 4 days before the minimum age counts.
+2. Minimum INTERVAL checks between doses — same 4-day allowance.
+3. The exclusion CDC states explicitly, which must NOT get the grace period: the 4-week
+   interval between two different live vaccines. "The 4-day grace period discussed
+   earlier... should not be applied to this 4-week interval between 2 different live
+   vaccines." MeningoVax has no live vaccines, so this is likely moot there — confirm
+   rather than assume, and make sure vaxapp already honours it.
+4. Whether the ≥16y / pre-age-10 birthday boundaries should get the grace period. These
+   are eligibility rules keyed to a birthday rather than vaccine minimum ages, so they
+   probably should NOT — decide explicitly and write the decision down.
+
+Copy vaxapp's semantics rather than inventing new ones: `ageAtDose < minimum - GRACE` is
+the failing condition, so exactly-4-days-early passes and 5-days-early fails.
+
+Both layers, and re-run the cross-app agreement tests afterwards — loosening MeningoVax's
+validator will change verdicts that those tests currently pin.

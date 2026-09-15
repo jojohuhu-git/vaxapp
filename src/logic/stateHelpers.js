@@ -166,8 +166,16 @@ export const menACWYInfantSeriesIndicated = (risks) =>
 
 /** The 3-year/5-year MenACWY booster cadence pivot, in months (the 7th birthday). */
 export const MENACWY_AGE_7Y_MONTHS = 84;
+// M19 (owner decision 2026-09-15): intervals longer than 3 months use AVERAGED
+// calendar months -- 30.4375 days/month, 365.25 days/year -- which is what
+// MeningoVax's DAYS helper already does, so the two apps stop dating the same
+// dose a day apart. round(3 * 365.25) = 1096; round(5 * 365.25) = 1826.
+//
+// The 5-year value was already right. The 3-year one was 1095, a plain 365-day
+// year, which is what put M9's traveler booster and M12's outbreak top-up one
+// day earlier in vaxapp than in MeningoVax.
 /** First booster 3 years after the primary series (completed before age 7). */
-export const MENACWY_BOOSTER_3Y = 1095;
+export const MENACWY_BOOSTER_3Y = 1096;
 /** First booster 5 years after (completed at 7+), and every booster after that. */
 export const MENACWY_BOOSTER_5Y = 1826;
 

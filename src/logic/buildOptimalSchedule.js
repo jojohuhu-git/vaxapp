@@ -4,7 +4,7 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
-import { isLiveVaccineContraindicated, menACWYOnRiskBasedSchedule, menacwyExposureCategory, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
+import { MENACWY_AGE_7Y_MONTHS, MENACWY_BOOSTER_3Y, MENACWY_BOOSTER_5Y, isLiveVaccineContraindicated, menACWYOnRiskBasedSchedule, menacwyExposureCategory, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 import { hardStopExclusion } from './hardStop.js';
 
@@ -395,7 +395,11 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
     };
     const primaryTotalOb = menACWYPrimaryTotal(menDatesOb.map(dt => ({ _date: dt })), ageAtMenDoseOb, { travel: true });
     if (doseNum > primaryTotalOb) {
-      minInt = (amNow != null && amNow < 84) ? 1095 : 1826;
+      // M19: was `1095 : 1826` written out by hand here, a second copy of the
+      // cadence constants that silently kept the old 365-day year when
+      // stateHelpers moved to 1096. Use the shared constants so the two
+      // cannot drift apart again.
+      minInt = (amNow != null && amNow < MENACWY_AGE_7Y_MONTHS) ? MENACWY_BOOSTER_3Y : MENACWY_BOOSTER_5Y;
       intLabel = `MenACWY outbreak top-up=${minInt}d (age ${amNow != null && amNow < 84 ? 'under 7' : '7 or older'} today)`;
     }
   } else if (vk === 'MenACWY' && prevDate && (isHighRiskMenACWY(ctx?.risks ?? []) || menTravelOngoing)) {

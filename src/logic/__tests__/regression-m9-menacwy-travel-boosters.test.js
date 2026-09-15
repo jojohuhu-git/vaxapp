@@ -69,7 +69,7 @@ describe('M9 — genRecs offers the travel booster (Recommendations tab, surface
     expect(recs.length).toBeGreaterThan(0);                 // was: no rec at all
     const r = recs[0];
     expect(r.doseNum).toBe(2);
-    expect(r.minInt).toBe(1095);                            // 3 years
+    expect(r.minInt).toBe(1096)   // M19: averaged calendar years (was 1095);                            // 3 years
     expect(r.status).toBe('exposure');
     expect(r.dose).toMatch(/travel/i);
     expect(r.dose).toMatch(/booster/i);
@@ -197,6 +197,8 @@ describe('M9 — the optimal schedule plans the travel booster (surface 5)', () 
     const visits = buildOptimalSchedule({ am: 48, dob, hist, risks: ['travel'] }, {}, { today: TODAY });
     const men = visits.flatMap(v => v.items.filter(it => it.vk === 'MenACWY').map(it => ({ ...it, date: v.date })));
     expect(men.length).toBe(1);
-    expect(men[0].date).toBe('2029-03-14');   // 1095 days after the primary dose
+    // M19 (2026-09-15): 1096 days after the primary dose (averaged calendar
+    // years). Was 1095.
+    expect(men[0].date).toBe('2029-03-15');
   });
 });

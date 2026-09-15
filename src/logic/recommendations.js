@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menACWYOnRiskBasedSchedule, menBEffectiveDoses, menACWYRoutineCount, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYInfantSeriesIndicated, menacwyExposureCategory, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y } from './stateHelpers.js';
+import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menACWYOnRiskBasedSchedule, menBEffectiveDoses, menACWYRoutineCount, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYInfantSeriesIndicated, menacwyExposureCategory, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y, MENACWY_BOOSTER_5Y, MENACWY_AGE_7Y_MONTHS } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
@@ -578,7 +578,8 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // M12: outbreak top-up bookkeeping. Table 8's threshold is the patient's age
   // TODAY (3 years under 7, 5 years from 7), measured from the LAST dose given.
   const menExposure = menacwyExposureCategory(risks);
-  const menOutbreakTopUpInt = am < 84 ? MENACWY_BOOSTER_3Y : 1826;
+  // M19: 1826 was a literal beside a named constant. Both named now.
+  const menOutbreakTopUpInt = am < MENACWY_AGE_7Y_MONTHS ? MENACWY_BOOSTER_3Y : MENACWY_BOOSTER_5Y;
   const menOutbreakTopUpDue = (() => {
     if (menExposure !== "outbreak") return false;
     const lastD = lastDate(hist, "MenACWY");
@@ -1038,7 +1039,9 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         r("MenB", "Dose 3 of 3 (rescue \u2014 dose 2 given early)", 3, "due",
           "MenB dose 2 was given less than 6 months after dose 1. A third rescue dose is needed \u22654 months after dose 2 to complete the series. Continue in the same antigen family.",
           rescueBrands,
-          { minInt: 120, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
+          // M19: 122 = round(4 * 30.4375). Was 120, while the validator used
+          // 112 for the same rule -- 8 days apart, outside the 4-day grace.
+          { minInt: 122, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
       }
       // If d1\u2192d2 \u22656 months (or dates unknown), series is complete \u2014 no rec emitted.
       }
