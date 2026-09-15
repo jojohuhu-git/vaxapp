@@ -921,7 +921,14 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   }
 
   // ── MenB ──────────────────────────────────────────────────────
-  // High-risk patients: min age 10y (120m). Non-high-risk shared decision: ACIP preferred 16–23y.
+  // High-risk patients: min age 10y (120m). Non-high-risk shared decision: the
+  // ACIP window is 16–23y, with a PREFERRED age of 16–18y inside it — two
+  // different things. M16 (2026-09-15): the card label used to call 16–23 the
+  // "preferred" age, contradicting its own note ("preferred 16–18y") printed
+  // directly below it. ACIP 2020 MMWR 69(RR-9) Table 2, verified live 2026-09-15:
+  // "MenB series at age 16–23 yrs on basis of shared clinical decision-making
+  // (preferred age 16–18 yrs)". The gate below already uses `am < 288` — the
+  // 24th birthday — the same bound M13 corrected in buildOptimalSchedule.
   // MenB high-risk gate: ONLY asplenia/sickle_cell/complement/microbiologist/outbreak_b per ACIP 2020.
   // HIV, immunocomp, HSCT do NOT have a MenB high-risk indication (B1).
   const hrMenB = highRiskMenB(risks);
@@ -954,7 +961,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   const menbCount = menbEffective.length;
   if (am >= 120) {
     if (menbCount === 0 && (hrMenB || (am >= 192 && am < 288))) {
-      r("MenB", hrMenB ? "Dose 1 \u2014 risk-based (high-risk)" : "Dose 1 \u2014 shared clinical decision (preferred 16\u201323y)", 1, hrMenB ? "risk-based" : "recommended",
+      r("MenB", hrMenB ? "Dose 1 \u2014 risk-based (high-risk)" : "Dose 1 \u2014 shared clinical decision (16\u201323y, preferred 16\u201318y)", 1, hrMenB ? "risk-based" : "recommended",
         (hrMenB ? "Risk-based for high-risk patients: 3-dose accelerated schedule (0, 1\u20132 months, 6 months) for BOTH antigen families. MenB-4C (Bexsero/Penmenvy) and MenB-FHbp (Trumenba/Penbraya) are NOT interchangeable \u2014 complete within one family." : "Shared clinical decision making, preferred 16\u201318y. MenB-4C (Bexsero/Penmenvy): 2 doses \u22656 months apart. MenB-FHbp (Trumenba/Penbraya): 2 doses \u22656m apart (or accelerated 3-dose). Penbraya/Penmenvy if MenACWY also starting.") + menbPregnancyCaveat,
         men === 0 ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenACWY too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenACWY too (4C family)", "Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"] : ["Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"],
         { bt: "Two antigen families: 4C (Bexsero, Penmenvy) and FHbp (Trumenba, Penbraya). Within a family products are interchangeable; across families they are NOT. Complete the series within one family.", refUrl: hrMenB ? REFS.MenB.cdcUrl : REFS.mm7349a3.url, refLabel: hrMenB ? REFS.MenB.cdcLabel : REFS.mm7349a3.label, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
