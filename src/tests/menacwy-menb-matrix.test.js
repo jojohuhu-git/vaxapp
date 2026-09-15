@@ -823,12 +823,18 @@ describe('MenB shared decision (non-risk, 16–23y)', () => {
     // Surface 4
     expect(recsFor('MenB', am, hist).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5: seriesDoses for non-HR Trumenba returns {totalDoses:2}. With 2 doses given,
-    // given>=totalDoses → 0 additional doses scheduled by optimal schedule.
-    // BUG (surface 5 only): buildOptimalSchedule doesn't model the accelerated 3-dose path
-    // for non-HR FHbp. genRecs correctly emits D3, but optimal schedule sees series complete.
+    // Surface 5: FIXED by M3 (2026-09-15). This assertion used to read
+    // `expect(doses.length).toBe(0)` and carried a comment calling it a
+    // surface-5 bug: seriesDoses returned {totalDoses:2} for a non-high-risk
+    // patient no matter when dose 2 was given, so the optimal schedule treated
+    // the series as complete and the third dose the patient actually needs never
+    // appeared — even though genRecs emitted it. seriesDoses now returns
+    // {totalDoses:3} when a healthy patient's dose 2 came under 6 months after
+    // dose 1, per CDC: "if dose 2 is administered earlier than 6 months,
+    // administer dose 3 at least 4 months after dose 2".
     const doses = optimalDosesFor('MenB', am, hist);
-    expect(doses.length).toBe(0); // engine behavior: series "complete" at 2 doses per seriesDoses
+    expect(doses.length).toBe(1);
+    expect(doses[0].doseNum).toBe(3);
   });
 
   // Scenario 27: 18y (216m), no history → shared decision (last peds year in 16-23y window)

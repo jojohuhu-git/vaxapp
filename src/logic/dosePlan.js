@@ -5,7 +5,7 @@ import { MIN_INT } from '../data/scheduleRules.js';
 import { FORECAST_VISITS } from '../data/forecastData.js';
 import { addD } from './utils.js';
 import { genRecs } from './recommendations.js';
-import { highRisk, highRiskMenB, menACWYGivenAtOrAfter16y } from './stateHelpers.js';
+import { highRisk, highRiskMenB, menACWYGivenAtOrAfter16y, menBSeriesTotal } from './stateHelpers.js';
 import { pcvHighRiskChildPlan, isHighRiskPCV, isPCV7 } from './pcvDoses.js';
 
 /**
@@ -516,7 +516,11 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
       // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
       // accelerated series for BOTH antigen families (4C and FHbp). Healthy: 2 doses.
       if (highRiskMenB(risks) && (is4C || isFHbp || !mb)) return 3;
-      return 2;
+      // M3: a healthy patient whose dose 2 came under 6 months after dose 1
+      // needs a third dose. Without this the compliance tab called such a series
+      // "Complete · 2 of 2 doses" directly above its own advisory saying a third
+      // dose was still needed. menBSeriesTotal() is the single source of truth.
+      return menBSeriesTotal(hist, dob, am, false);
     }
     default: return 1;
   }

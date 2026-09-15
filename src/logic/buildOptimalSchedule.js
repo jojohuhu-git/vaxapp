@@ -4,7 +4,7 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
-import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses } from './stateHelpers.js';
+import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 import { hardStopExclusion } from './hardStop.js';
 
@@ -205,15 +205,23 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       // 2-dose series (mirrors the isHRMen pre-10 exclusion for MenACWY above).
       // M2: high-risk patients' ambiguous pre-16 doses don't count either, unless
       // the provider confirmed the patient was already high-risk on that date.
-      const givenMenB = menBEffectiveDoses(hist, dob, am, isHRMenB).length;
+      const effMenB = menBEffectiveDoses(hist, dob, am, isHRMenB);
+      const givenMenB = effMenB.length;
       // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
       // accelerated series for BOTH antigen families (4C and FHbp), starting at 10y.
       // Healthy: 2-dose shared-decision series, 16–23y (192–276m).
-      // SCOPE LIMIT: the optimizer does not model:
-      //   (a) non-HR FHbp 3-dose rescue (triggered when healthy D1→D2 < 182d)
-      //   (b) HR MenACWY/MenB ongoing revaccination after primary series completion
-      // These require interval-based scheduling logic beyond seriesDoses(). The Full
-      // Forecast (genRecs) handles both correctly. For complex histories, use Forecast.
+      // SCOPE LIMIT: the optimizer does not model HR MenACWY/MenB ongoing
+      // revaccination after primary series completion. That needs interval-based
+      // scheduling logic beyond seriesDoses(); the Full Forecast (genRecs) handles
+      // it correctly. For such histories, use Forecast.
+      //
+      // M3: the healthy rescue dose IS modelled now (it used to be listed above as
+      // a scope limit). Once an early dose 2 counts instead of being voided, this
+      // surface went from scheduling a wrong dose 2 to scheduling nothing at all —
+      // and a dose that silently disappears from the optimal schedule is worse for
+      // a patient than a visibly wrong one. CDC, shared clinical decision-making:
+      // "2-dose series at least 6 months apart (if dose 2 is administered earlier
+      // than 6 months, administer dose 3 at least 4 months after dose 2)".
       if (isHRMenB) {
         if (am < 120) return { totalDoses: 3, seedAgeMonths: 120 };
         return { totalDoses: 3 };
@@ -221,7 +229,9 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       if (am < 192) return { totalDoses: 2, seedAgeMonths: 192 }; // routine seed at 16y
       // Don't start a new series after 23y for non-risk patients.
       if (am > 276 && givenMenB === 0) return null;
-      return { totalDoses: 2 };
+      // Healthy patient whose dose 2 came early needs 3 doses, not 2 —
+      // menBSeriesTotal() is the one place that rule lives.
+      return { totalDoses: menBSeriesTotal(hist, dob, am, isHRMenB) };
     }
 
     case 'COVID': return { totalDoses: 1 };
@@ -278,7 +288,13 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
     cands.push({ date: addD(prevDate, minInt), label: intLabel });
 
   // Cross-dose constraint from D1 (e.g. HepB D3 ≥112d from D1, MenB D3 ≥182d from D1, HPV D3 ≥152d from D1)
-  const d1Min = rule.d1Cross?.[doseNum];
+  // M3: MenB's D1→D3 floor belongs to the high-risk accelerated 0/1–2/6-month
+  // series. A healthy patient's rescue dose 3 is timed from dose 2 only — CDC:
+  // "administer dose 3 at least 4 months after dose 2" — so applying the dose-1
+  // floor to them would push the dose ~4 weeks later than CDC asks for.
+  // Owner decision 2026-09-15: follow CDC's literal text.
+  const skipD1Cross = rule.d1CrossHighRiskMenBOnly && !highRiskMenB(ctx?.risks ?? []);
+  const d1Min = skipD1Cross ? null : rule.d1Cross?.[doseNum];
   if (d1Min != null && d1Date)
     cands.push({ date: addD(d1Date, d1Min), label: `MIN_INT.${vk}.d1Cross[${doseNum}]=${d1Min}d` });
 

@@ -575,7 +575,9 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
   const recForVk = recs.find(r => r.vk === vk);
   let expectedTotal = null;
   try {
-    expectedTotal = getTotalDoses(vk, recForVk || null, fcBrands || {}, am, hist, risks);
+    // M3: dob matters now — the MenB total depends on the gap between doses 1
+    // and 2, which can only be measured with a date of birth for age-mode doses.
+    expectedTotal = getTotalDoses(vk, recForVk || null, fcBrands || {}, am, hist, risks, dob);
   } catch {
     expectedTotal = null;
   }

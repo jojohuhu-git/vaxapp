@@ -340,10 +340,24 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
             if (totalNum === doseIdx + 1) {
               const actualLabel = fmtIntervalClinical(days);
               const minLabel = fmtIntervalClinical(minIntForPath);
-              results.push({ type: "iByTotalDoses", ok: false, err: true,
-                msg: `D${doseIdx + 1} only ${actualLabel} after D1 — minimum ${minLabel} is required for a ${totalNum}-dose ${vk} series. Dose INVALID — must repeat.`,
-                _days: { actual: days, min: minIntForPath },
-                earliest: addD(prevDate, minIntForPath) });
+              // M3: for some vaccines a short series-path interval lengthens the
+              // series instead of voiding the dose. MenB is the case CDC spells
+              // out: an early dose 2 counts, and dose 3 is added ≥4 months later.
+              // Saying "must repeat" there sends the patient back for a dose that
+              // replaces nothing and still leaves them short of the third one.
+              const advisory = spec.iByTotalDosesAdvisory;
+              if (advisory) {
+                results.push({ type: "iByTotalDoses", ok: true, advisory: true,
+                  msg: `D${doseIdx + 1} given ${actualLabel} after D1, less than the ${minLabel} a ${totalNum}-dose ${vk} series needs. ${advisory.consequence}`,
+                  action: advisory.action,
+                  _days: { actual: days, min: minIntForPath },
+                  earliest: null });
+              } else {
+                results.push({ type: "iByTotalDoses", ok: false, err: true,
+                  msg: `D${doseIdx + 1} only ${actualLabel} after D1 — minimum ${minLabel} is required for a ${totalNum}-dose ${vk} series. Dose INVALID — must repeat.`,
+                  _days: { actual: days, min: minIntForPath },
+                  earliest: addD(prevDate, minIntForPath) });
+              }
             }
           }
         }
@@ -351,7 +365,11 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
     }
 
     // 3c. d1Cross — dose-1 cross floor (HepB D3 ≥112d from D1, HPV D3 ≥152d, MenB D3 ≥182d)
-    if (spec.d1Cross && firstDoseDate && isD(firstDoseDate) && isD(thisDate)) {
+    // M3: MenB's D1→D3 floor describes the high-risk accelerated series. A healthy
+    // patient's rescue dose 3 is timed from dose 2 alone ("at least 4 months after
+    // dose 2"), so applying the dose-1 floor to them would reject a dose CDC allows.
+    const skipD1Cross = spec.d1CrossHighRiskMenBOnly && !highRiskMenB(risks);
+    if (spec.d1Cross && !skipD1Cross && firstDoseDate && isD(firstDoseDate) && isD(thisDate)) {
       const crossMin = spec.d1Cross[doseIdx + 1]; // 1-based dose number
       if (crossMin != null) {
         const daysFromD1 = dBetween(firstDoseDate, thisDate);
@@ -438,9 +456,12 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   const errs = consolidated.filter(r => r.err && !r.ok);
   const graces = consolidated.filter(r => r.grace);
   const offLabels = consolidated.filter(r => r.offLabel);
+  const advisories = consolidated.filter(r => r.advisory);
   if (errs.length) return { ok: false, err: true, results: consolidated };
   if (offLabels.length) return { ok: true, offLabel: true, results: consolidated };
   if (graces.length) return { ok: true, grace: true, results: consolidated };
+  // M3: a valid dose that still carries guidance — the series got longer.
+  if (advisories.length) return { ok: true, advisory: true, results: consolidated };
   return { ok: true };
 }
 
@@ -735,7 +756,7 @@ export function auditAll(hist, dob, risks = [], am = -1) {
       const vr = validateDose(vk, idx, dose, prev, dob, patientAgeDays, firstDoseDate, datedDoses.length, risks);
       const thisDt = doseDate(dose, dob);
       const effectiveN = thisDt ? effectiveDoseByDate[thisDt] : undefined;
-      if (!vr.ok || vr.grace || vr.offLabel) {
+      if (!vr.ok || vr.grace || vr.offLabel || vr.advisory) {
         (vr.results || []).forEach(r => {
           if (r.type === "off_label") {
             errors.push({ vk, doseNum: idx + 1, type: "off_label", severity: r.countable ? "offLabel" : "err",
@@ -787,6 +808,16 @@ export function auditAll(hist, dob, risks = [], am = -1) {
                 refUrl: withFrag, refLabel: primaryLabel,
                 refUrl2: secondaryUrl, refLabel2: secondaryLabel });
             }
+          } else if (r.advisory) {
+            // M3: valid dose, but the series changed shape because of it. "warn"
+            // (not "err") so the compliance tab shows guidance rather than a
+            // repeat instruction, and the dose keeps counting.
+            errors.push({ vk, doseNum: idx + 1, type: r.type, severity: "warn",
+              title: `${VAX_META[vk].n} \u2014 Dose ${idx + 1}: Series Needs an Extra Dose`,
+              detail: r.msg,
+              action: r.action || "No repeat is needed. See the Recommendations tab for the additional dose.",
+              refUrl: REFS[vk].url, refLabel: REFS[vk].label,
+              refUrl2: REFS.interval.url, refLabel2: REFS.interval.label });
           } else if (r.grace) {
             errors.push({ vk, doseNum: idx + 1, type: r.type, severity: "grace",
               title: `${VAX_META[vk].n} \u2014 Dose ${idx + 1} Within \u22644-Day Grace Period`,

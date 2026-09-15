@@ -62,8 +62,11 @@ describe('M2 — DosePill does not flag a correctly given high-risk MenB dose 2'
     expect(pill(container).className).toMatch(/p-err/);
   });
 
-  it('a patient with no MenB high-risk indication is unchanged (still flagged)', () => {
+  it('a patient with no MenB high-risk indication is no longer an error pill either', () => {
+    // Since M3 an early dose 2 in a healthy patient counts (CDC: give a third
+    // dose ≥4 months later), so this pill is no longer red. The 4-week floor
+    // test above is what still proves a genuinely invalid dose shows as one.
     const { container } = renderD2('2026-02-09', []);
-    expect(pill(container).className).toMatch(/p-err/);
+    expect(pill(container).className).not.toMatch(/p-err/);
   });
 });

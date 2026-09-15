@@ -92,18 +92,27 @@ describe('M2: high-risk MenB dose 2 follows the 0/1–2/6-month schedule, not th
     expect(d2Errors(mk('2026-02-09'), d1, ['asplenia'], 3)).toEqual([]);
   });
 
-  it('a patient with no MenB high-risk indication is unchanged — 6-month rule still applies', () => {
-    // Guards the M3 boundary: this test must keep failing-the-dose until M3
-    // deliberately changes what an early healthy dose 2 means.
-    const errs = d2Errors(mk('2026-02-09'), d1, []);
-    expect(errs.length).toBeGreaterThan(0);
-    expect(errs[0].type).toBe('iByTotalDoses');
+  // The two tests below separate M2 from M3. M2 is about WHO the 6-month rule
+  // applies to; M3 (shipped straight after) is about what it means when a
+  // healthy patient misses it — the dose counts and the series gains a third
+  // dose. So for a non-high-risk patient the rule must still fire, but since M3
+  // it fires as an advisory rather than as an error.
+  const d2Findings = (d2, d1_, risks) => {
+    const vr = validateDose('MenB', 1, d2, d1_, dob, null, d1_.date, 2, risks);
+    return (vr.results || []).filter(r => r.type === 'iByTotalDoses');
+  };
+
+  it('a patient with no MenB high-risk indication still gets the 6-month rule', () => {
+    const found = d2Findings(mk('2026-02-09'), d1, []);
+    expect(found).toHaveLength(1);
+    expect(found[0].advisory).toBe(true); // M3: counts, but needs a third dose
+    expect(d2Errors(mk('2026-02-09'), d1, [])).toEqual([]);
   });
 
   it('HIV alone is not a MenB high-risk indication, so the 6-month rule still applies', () => {
     // highRiskMenB() deliberately excludes HIV/immunocomp/HSCT (B1).
     expect(highRiskMenB(['hiv'])).toBe(false);
-    expect(d2Errors(mk('2026-02-09'), d1, ['hiv']).length).toBeGreaterThan(0);
+    expect(d2Findings(mk('2026-02-09'), d1, ['hiv'])).toHaveLength(1);
   });
 });
 
@@ -140,7 +149,9 @@ describe('M2: the compliance audit tab raises no finding for a correct high-risk
     expect(menbFindings(['asplenia'])).toEqual([]);
   });
 
-  it('no risk factor — the existing finding is untouched (M3 territory)', () => {
-    expect(menbFindings([]).length).toBeGreaterThan(0);
+  it('no risk factor — still reported, but as guidance rather than an error (M3)', () => {
+    const f = menbFindings([]);
+    expect(f).toHaveLength(1);
+    expect(f[0].severity).toBe('warn');
   });
 });

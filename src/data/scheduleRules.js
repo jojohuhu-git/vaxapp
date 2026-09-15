@@ -45,7 +45,22 @@ export const MIN_INT = {
   // consequence of giving it before 6 months is that dose 3 is still required,
   // which the recommendation engine already says (recommendations.js fhbpD2Min).
   // Their dose 2 is therefore governed by the unconditional 28-day floor in i[1].
-  MenB:    {minD:3650, maxD1:null, i:[null,28,112,null,null],  iByTotalDoses:{2:[null,182]}, iByTotalDosesSkipHighRiskMenB:true, d1Cross:{3:182}, note:"Min age 10y. High risk: 3-dose 0/1–2/6m, so D1→D2 ≥1 month. Healthy: 2-dose D1→D2 ≥6m (an earlier D2 needs a 3rd dose ≥4m later, it is not invalid). Bexsero and Trumenba are not interchangeable."},
+  // M3: falling short of that 6-month interval does NOT invalidate the dose. CDC,
+  // same page, shared clinical decision-making: "2-dose series at least 6 months
+  // apart (if dose 2 is administered earlier than 6 months, administer dose 3 at
+  // least 4 months after dose 2)". The remedy is an ADDITIONAL dose, not a repeat
+  // of the one given - so this rule is advisory: it changes how long the series
+  // is, not whether the dose counted. iByTotalDosesAdvisory carries the plain-
+  // English consequence shown to the clinician.
+  MenB:    {minD:3650, maxD1:null, i:[null,28,112,null,null],  iByTotalDoses:{2:[null,182]}, iByTotalDosesSkipHighRiskMenB:true,
+            iByTotalDosesAdvisory:{consequence:"This dose still counts. Because it was given less than 6 months after dose 1, the series needs a third dose at least 4 months after dose 2.",
+                                   action:"No repeat is needed. Give a third dose at least 4 months after dose 2, in the same antigen family (Bexsero/Penmenvy, or Trumenba/Penbraya)."},
+            // The D1->D3 >=6 month floor belongs to the HIGH-RISK accelerated
+            // 0/1-2/6-month series only. For a healthy patient whose dose 2 came
+            // early, CDC states one floor and no other: "administer dose 3 at
+            // least 4 months after dose 2" - measured from dose 2, not dose 1.
+            // Owner decision 2026-09-15: follow CDC's literal text there.
+            d1Cross:{3:182}, d1CrossHighRiskMenBOnly:true, note:"Min age 10y. High risk: 3-dose 0/1–2/6m, so D1→D2 ≥1 month. Healthy: 2-dose D1→D2 ≥6m (an earlier D2 needs a 3rd dose ≥4m later, it is not invalid). Bexsero and Trumenba are not interchangeable."},
   RSV:     {minD:0,    maxD1:243,  i:[null,null,null,null,null],note:"Nirsevimab: <8m first RSV season. Max age 8 months for routine."},
   COVID:   {minD:182,  maxD1:null, i:[null,28,null,null,null], note:"Min age 6m (Spikevax), 5y (Comirnaty), 12y (mNexspike/Nuvaxovid)."},
 };

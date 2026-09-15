@@ -79,12 +79,49 @@ describe('M2 five-surface — a correctly given high-risk MenB dose 2 counts eve
     expect(doseNums).toEqual([3]);
   });
 
-  it('surface 5 regression guard: dropping the dose would schedule an extra shot', () => {
-    // This is what the bug did — validatedHistory() without risks loses dose 2,
-    // and the optimal schedule then books dose 2 AND dose 3, one needless
-    // injection for a patient who was already correctly vaccinated.
-    const dropped = validatedHistory(HIST, DOB, []); // pre-M2 behaviour
-    expect(dropped.MenB).toHaveLength(1);
-    expect(menbOptimalItems(dropped).map(i => i.doseNum)).toEqual([2, 3]);
+  it('surface 5 guard: no surface books a second dose 2 for anyone', () => {
+    // The M2 bug dropped the dose, and the optimal schedule then booked dose 2
+    // AND dose 3 — one needless injection for a patient already correctly
+    // vaccinated. Neither a high-risk nor a healthy patient may show that now:
+    // M2 fixed the high-risk path, and M3 made the same early interval count for
+    // healthy patients too (CDC: add a third dose, do not repeat the second).
+    for (const risks of [RISKS, []]) {
+      const vh = validatedHistory(HIST, DOB, risks);
+      expect(vh.MenB).toHaveLength(2);
+      expect(menbOptimalItems(vh).map(i => i.doseNum)).not.toContain(2);
+    }
+  });
+});
+
+// ── M3: the same fixture, healthy patient ──────────────────────
+// M3 changed what an early dose 2 means for a patient with no MenB risk factor:
+// the dose counts and the series gains a third dose (CDC: "administer dose 3 at
+// least 4 months after dose 2"). Because that verdict also flows through
+// validatedHistory, it has to hold on every surface too.
+describe('M3 five-surface — an early MenB dose 2 in a healthy patient counts everywhere', () => {
+  const healthyVh = () => validatedHistory(HIST, DOB, []);
+
+  function optimalFor(vh) {
+    const result = buildOptimalSchedule({ am: AM, risks: [], hist: vh, dob: DOB }, {}, { today: TODAY });
+    if (!result || result.status) return [];
+    return result.flatMap(v => v.items)
+      .filter(i => i.vk === 'MenB' || i.coveredAntigens?.includes('MenB'))
+      .map(i => i.doseNum);
+  }
+
+  it('the shared validated history keeps both doses', () => {
+    expect(healthyVh().MenB).toHaveLength(2);
+  });
+
+  it('surfaces 1 and 4 (genRecs) ask for a rescue dose 3, never a second dose 2', () => {
+    const recs = genRecs(AM, healthyVh(), [], DOB, { today: TODAY }).filter(r => r.vk === 'MenB');
+    expect(recs.filter(r => r.doseNum === 2)).toHaveLength(0);
+    expect(recs.some(r => r.doseNum === 3 && /rescue/i.test(r.dose || ''))).toBe(true);
+  });
+
+  it('surface 5 (optimal schedule) plans the third dose and not a repeat second', () => {
+    const doseNums = optimalFor(healthyVh());
+    expect(doseNums).not.toContain(2);
+    expect(doseNums).toContain(3);
   });
 });

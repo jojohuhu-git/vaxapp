@@ -267,3 +267,38 @@ export function doseDate(dose, dob) {
   if (dose.mode === "age" && dose.ageDays != null && isD(dob)) return addD(dob, Number(dose.ageDays));
   return null;
 }
+
+/**
+ * M3: how many doses a MenB series actually needs for this patient.
+ *
+ * This is the single source of truth for that count. It used to be decided
+ * independently in three places — buildOptimalSchedule's seriesDoses(),
+ * dosePlan's getTotalDoses(), and the recommendation engine — and they
+ * disagreed for the one case below, so the compliance tab could call a series
+ * "Complete · 2 of 2 doses" on the same screen as an advisory saying a third
+ * dose was still needed.
+ *
+ * High risk: 3 doses (0, 1–2, 6 months).
+ *
+ * Healthy (shared clinical decision): normally 2 doses ≥6 months apart, but if
+ * dose 2 was in fact given earlier than 6 months after dose 1, the series is 3.
+ * CDC child & adolescent schedule notes, "Meningococcal serogroup B
+ * vaccination" (fetched live 2026-09-15): "2–dose series at least 6 months
+ * apart (if dose 2 is administered earlier than 6 months, administer dose 3 at
+ * least 4 months after dose 2)".
+ *
+ * @param {object} hist - full patient history {vk: [{dose}]}
+ * @param {string} dob - patient DOB (ISO string) or falsy if unknown
+ * @param {number|null} am - patient's current age in months (null if unknown)
+ * @param {boolean} isHighRisk - highRiskMenB(risks) result for this patient
+ * @returns {number} 2 or 3
+ */
+export function menBSeriesTotal(hist, dob, am, isHighRisk) {
+  if (isHighRisk) return 3;
+  const eff = menBEffectiveDoses(hist, dob, am, isHighRisk);
+  if (eff.length < 2) return 2;
+  const d1 = doseDate(eff[0], dob);
+  const d2 = doseDate(eff[1], dob);
+  const gap = (d1 && d2) ? dBetween(d1, d2) : null;
+  return (gap !== null && gap < 182) ? 3 : 2;
+}
