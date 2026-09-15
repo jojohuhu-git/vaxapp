@@ -173,3 +173,69 @@ at all (with its real date shown), or only in the Next Visit cards? The panel is
 "TODAY'S VISIT", which argues for the second — but a dose silently vanishing from the panel
 a clinician reads first is the failure mode M6 warned about, so this is a design call, not a
 mechanical fix.
+
+## N6 — an infant aged 7–11 months holding 2 of 4 MenACWY doses matches no branch
+
+**Found while doing M10 on 2026-09-15. Pre-existing, and NOT specific to the exposure
+pathways M10 added** — a medically high-risk infant is failed identically, which is why M10
+deliberately left it alone rather than widening the high-risk schedule under cover of a
+travel fix.
+
+Seed an 8-month-old who started the 4-dose infant series at 2 months and has had 2 doses
+(`asplenia` or `travel`, doses at 2 and 4 months). `genRecs` returns **no MenACWY
+recommendation at all**, though dose 3 has been due since the child was 6 months old.
+
+**Cause:** the branch chain in `recommendations.js` has a hole. The 2–6-month branch is
+gated `am >= 2 && am < 7 && men < 3`; the 7–11-month branch is gated `am >= 7 && am < 12 &&
+men < 2`. A child who is 7–11 months old *and* already has 2 doses satisfies neither. The
+12–23-month branch (`men > 0 && men < 4`) picks them up again at 12 months, so the child is
+invisible for roughly five months and then reappears.
+
+Both M10 tests pin the parity rather than the behaviour — `regression-m10-menacwy-infant-
+exposure.test.js` asserts travel and asplenia return the *same* thing here — so when this is
+fixed, both indications move together and those tests still pass.
+
+Check the optimal schedule at the same time: it plans doses 3 and 4 **both dated today** for
+this patient (see N1, which is the same out-of-order defect).
+
+## N7 — the MenACWY dose-2 interval cannot express a per-brand floor
+
+**Found while doing M10 on 2026-09-15.** Not a live defect — a deliberate, documented
+leniency that should be tightened when the mechanism exists.
+
+ACIP 2020 MMWR 69(RR-9) Table 9 gives travelers a brand-specific exemption, verbatim:
+*"MenACWY-D (aged ≥9 mos): 2 doses ≥12 wks apart (may be administered as early as ≥8 wks
+apart in travelers)"*. Table 8 (outbreak) has no such clause, and the MenACWY-CRM (Menveo)
+row has none either.
+
+`scheduleRules.js`'s `iCond` conditions support `doseNum`, `ageGte`, `riskIncludes`,
+`prevDoseAgeGte` and `prevDoseAgeLt` — there is no brand condition. M10 therefore left
+travel on the unconditional 56-day (8-week) floor for a dose 1 given at 7–23 months, rather
+than adding travel to the 84-day row: holding a traveler to 12 weeks would flag a Menactra
+dose ACIP expressly permits as INVALID and demand a repeat, which is the worse error. The
+cost is that a **Menveo** traveler's dose 2 at 8–12 weeks is accepted when its true floor is
+12 weeks. Outbreak, which has no exemption, is on the 84-day row already.
+
+Fixing it means teaching `iCond` a brand condition (`brandIncludes`), then splitting the row.
+
+## N8 — the forecast and the compliance tab print different dose counts
+
+**Found while verifying M10 in the running app on 2026-09-15. Pre-existing and shared with
+the medical high-risk pathway**, so M10 did not touch it.
+
+Seed a 4-month-old traveler (or a 4-month-old with asplenia) with no doses. Today's Visit
+reads **"MenACWY Dose 1 of 2"**. The same patient's Recommendations note says *"Dose 1 of 4
+… 4-dose Menveo series at 2, 4, 6 and 12 months"*, and once doses are recorded the
+Compliance Audit tab reads **"In progress · 2 of 4 doses"**. Two tabs, two denominators, one
+patient.
+
+**Cause:** the today panel takes its total from `dosePlan.getTotalDoses()`, which reaches
+`menACWYPrimaryTotal(givenDoses, …)` with an EMPTY dose list. With no dated dose 1 the helper
+returns its documented 2-dose fallback — correct when the age at dose 1 is genuinely unknown,
+wrong for a planner, where the patient's age *today* already settles which series they are
+starting. `genRecs` keys off the current age and answers 4.
+
+The fix is to let the planner pass the age it is planning for (the patient's age today, or
+the planned date of dose 1) instead of inferring only from history. Verify against the
+high-risk infant as well as the traveler — both are wrong in exactly the same way, and
+`ForecastTab.m10-infant-exposure.test.jsx` pins that parity.

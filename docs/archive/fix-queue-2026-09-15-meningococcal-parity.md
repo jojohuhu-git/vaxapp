@@ -2,7 +2,7 @@
 
 **Status:** in progress. Started 2026-09-15.
 
-> **M1–M9 are DONE** (2026-09-15). Work remaining starts at **M10**. Neither branch is
+> **M1–M10 are DONE** (2026-09-15). Work remaining starts at **M11**. Neither branch is
 > pushed. Latest session handoff, with commits, verified test counts and the resume steps:
 > [handoff-2026-09-15-meningococcal-parity-m9.md](handoff-2026-09-15-meningococcal-parity-m9.md).
 > vaxapp: `fix/meningococcal-parity-m1-m19` (2421 passing, 4 todo, 157 files) — M9 commit
@@ -93,9 +93,9 @@ Grouped so the shared primary-series-size helper is built once and reused.
 | 7 | M7 | vaxapp | High-risk 11–15y with no doses → 2-dose high-risk series, not routine single dose |
 | 8 | M8 | vaxapp | High-risk MenB 1-year booster must not grade as "extra dose" |
 | 9 | M9 | both | **DONE 2026-09-15** — Travel boosters: first at 3y (<7y) or 5y (≥7y), then every 5y. vaxapp `268ffd5`, MeningoVax `11c21b2`. Both repos ALSO discarded a traveler's pre-age-10 dose (4 surfaces total) — fixed. |
-| 10 | M10 | both | Infant exposure pathways (travel, outbreak) need the infant series, not 1 dose / silence |
+| 10 | M10 | both | **DONE 2026-09-15** — Infant exposure pathways get the infant series. vaxapp `3aa46c3`, MeningoVax `a7e8f70`. vaxapp's outbreak half is deferred INTO M12 (no A/C/W/Y outbreak risk factor exists there yet); the helper and `scheduleRules` already list `outbreak_acwy` so M12 inherits it. MeningoVax also needed three validator fixes (pre-age-10 rule, age-16 booster window, `seriesTotals`) that discarded the outbreak infant's own doses. Found: N6, N7, N8. |
 | 11 | M11 | vaxapp | MenB deferral in pregnancy unless overriding high-risk indication |
-| 12 | M12 | vaxapp | Restore serogroup A/C/W/Y outbreak indication |
+| 12 | M12 | vaxapp | Restore serogroup A/C/W/Y outbreak indication — **and add it with M10's infant pathway already correct**: `menACWYInfantSeriesIndicated` (stateHelpers.js) and both `iCond` rows in `scheduleRules.js` already name `outbreak_acwy`, so creating the risk factor activates the infant series. Mirror MeningoVax's outbreak booster model too: ACIP Table 8 is a one-off top-up on re-exposure, NOT a standing 3/5-year cadence. |
 | 13 | M13 | vaxapp | Healthy MenB window 276 → 288 months in `buildOptimalSchedule.js` + `aapDoseBands.js` |
 | 14 | M14 | vaxapp | Brand age floors: Menveo 1-vial ≥10y, Menactra ≥9 months |
 | 15 | M15 | vaxapp | Compliance tab must apply the pre-age-10 MenACWY rule its own engine applies |
