@@ -187,7 +187,7 @@ export const AAP_DOSE_BANDS = {
 const MENACWY_HIGH_RISK = [
   { dose: 1, recMin: 2, recMax: null, catchupMax: null, label: 'High-risk primary dose 1 (≥2 mo; or ≥24 mo, then 2 doses)' },
   { dose: 2, recMin: 2, recMax: null, catchupMax: null, label: 'High-risk primary dose 2 (≥8 wk after dose 1)' },
-  { dose: 3, recMin: 2, recMax: null, catchupMax: null, label: 'High-risk booster (every 3–5 yr while at risk)' },
+  { dose: 3, recMin: 2, recMax: null, catchupMax: null, label: 'High-risk dose 3+ (completes the infant primary series at 6 and 12 mo, or booster every 3–5 yr once the primary series is complete)' },
 ];
 
 // ── Microbiologist MenACWY bands (ACIP 2020 MMWR RR-9 Table 7) ──────────────
