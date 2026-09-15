@@ -303,3 +303,47 @@ eligibility gate (a different kind of check) and left every band untouched.
    field definition instead so the next reader is not misled the way M13 was.
 
 Either way it is one decision applied six times, never one row at a time.
+
+
+### N10 — the microbiologist revaccination branch never checks the interval (2026-09-15, found while doing M15)
+
+**vaxapp only. Pre-existing, reachable, and independent of M15** — it has nothing to do
+with the pre-age-10 rule, which is why M15 left it alone.
+
+`src/logic/recommendations.js` line ~829:
+
+```js
+} else if (am >= 24 && men > 0 && risks.includes("microbiologist")) {
+  r("MenACWY", `Revaccination — dose ${men + 1} (microbiologist, every 5 years)`, ...)
+```
+
+There is no interval check. The branch fires the moment a microbiologist has any dose, so
+the app says a revaccination is due today no matter when the last one was given. Probed on
+a 12-year-old microbiologist (`today` = 2026-09-15):
+
+| Last dose | What the app says |
+|---|---|
+| 1 year ago (age 11) | "Revaccination — dose 2 (microbiologist, every 5 years)" |
+| 4 years ago (age 8) | "Revaccination — dose 2 (microbiologist, every 5 years)" |
+| 7 years ago (age 5) | "Revaccination — dose 2 (microbiologist, every 5 years)" |
+
+Only the last of those three is actually due. The note the clinician reads says "every 5
+years" while the app ignores the five years entirely, so the text and the behaviour
+contradict each other on the same card.
+
+ACIP 2020 MMWR 69(RR-9) Table 7 is the schedule to implement. Verify it live before
+coding — do not transcribe the interval from this file.
+
+**Shape of the fix:** this is the same defect M6 fixed for the MenACWY adolescent booster
+cadence, so reuse that machinery (`menACWYBoosterIntervalDays` and the M6 booster-cadence
+check) rather than writing a third interval comparison. Check whether travel's equivalent
+branch has the same hole — travel was given a real booster clock in M9, so it probably
+does not, but confirm rather than assume.
+
+**Five surfaces:** the same unconditional branch feeds surfaces 1–4 (regimens and the
+forecast both consume `genRecs`), and `buildOptimalSchedule` plans from its own
+`seriesDoses()`, so check surface 5 separately as usual.
+
+**MeningoVax:** check the sibling before shipping. Its travel/microbiologist branch is
+shared (`recommend.js:209`, riskClass `single+boost`), so if it has the same hole the fix
+lands in both repos.

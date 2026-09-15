@@ -100,6 +100,42 @@ export const isTravelOngoingMenACWY = (risks) =>
   menacwyExposureCategory(risks) === "travel";
 
 /**
+ * M15: true when this patient's MenACWY doses belong to a RISK-BASED schedule
+ * rather than the routine adolescent one — which decides whether a dose given
+ * before the 10th birthday counts.
+ *
+ * ACIP 2020 MMWR 69(RR-9), verified live 2026-09-15:
+ *
+ *   "Children at increased risk for meningococcal disease caused by serogroups
+ *    A, C, W, or Y (Box 1) who received MenACWY at age <11 years and for whom
+ *    booster vaccination is recommended because of an ongoing increased risk
+ *    should follow the booster dose schedule (Tables 4, 5, 6, 7, 8, and 9), not
+ *    the routine adolescent schedule."
+ *
+ * Those six tables are, verbatim from the same page:
+ *   4 complement deficiency · 5 asplenia/sickle cell · 6 HIV   -> isHighRiskMenACWY
+ *   7 microbiologists                                          -> "microbiologist"
+ *   8 outbreak                                                 -> "outbreak"
+ *   9 travel                                                   -> "travel"
+ *
+ * TABLE 10 (college freshmen in residence halls and military recruits) is NOT
+ * in that list, so those patients stay on the routine adolescent rule and their
+ * pre-age-10 dose is still discarded. That omission is deliberate — do not
+ * "complete the set" by adding it.
+ *
+ * This exists so the rule lives in ONE place. It previously did not: M9 added
+ * the travel exemption and M12 the outbreak exemption, each by hand, in each
+ * surface that needed it — and microbiologists were missed in every one of
+ * them. Call this helper rather than re-deriving the list.
+ */
+export const menACWYOnRiskBasedSchedule = (risks) => {
+  const r = risks || [];
+  if (isHighRiskMenACWY(r)) return true;               // Tables 4-6
+  const cat = menacwyExposureCategory(r);
+  return cat === "microbiologist" || cat === "outbreak" || cat === "travel"; // 7-9
+};
+
+/**
  * M10: does this patient need the MenACWY INFANT series (under 24 months)?
  *
  * The infant series does not depend on WHY the infant is being vaccinated, only

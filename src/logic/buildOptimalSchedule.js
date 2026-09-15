@@ -4,7 +4,7 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
-import { isLiveVaccineContraindicated, menacwyExposureCategory, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
+import { isLiveVaccineContraindicated, menACWYOnRiskBasedSchedule, menacwyExposureCategory, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 import { hardStopExclusion } from './hardStop.js';
 
@@ -546,8 +546,11 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
     // the very table they are on — "Tables 4, 5, 6, 7, 8, and 9" — Table 8 being
     // the outbreak schedule. Counting their pre-age-10 dose as zero made this
     // surface plan dose 1 again today alongside the top-up.
-    const menOnBoosterSchedule = isTravelOngoingMenACWY(risks ?? [])
-      || menacwyExposureCategory(risks ?? []) === 'outbreak';
+    // M15: microbiologists (ACIP Table 7) belong here too and were missed when
+    // M9 and M12 added travel and outbreak by hand. The list now lives in one
+    // place -- menACWYOnRiskBasedSchedule -- which also covers the medical
+    // high-risk tables, so isHRMenMain is folded into it.
+    const menOnBoosterSchedule = menACWYOnRiskBasedSchedule(risks ?? []);
     const given  = (vk === 'MenACWY' && !isHRMenMain && !menOnBoosterSchedule)
       ? menACWYRoutineCount(ctx.hist, ctx.dob)
       : (vk === 'MenB')

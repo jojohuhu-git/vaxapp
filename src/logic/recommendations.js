@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses, menACWYRoutineCount, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYInfantSeriesIndicated, menacwyExposureCategory, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y } from './stateHelpers.js';
+import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menACWYOnRiskBasedSchedule, menBEffectiveDoses, menACWYRoutineCount, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYInfantSeriesIndicated, menacwyExposureCategory, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
@@ -683,13 +683,22 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ACIP 2020 MMWR 69(RR-9) Table 5 (increased risk, \u22652 years): 2 doses at
   // least 8 weeks apart. MeningoVax already answered this correctly, so this is
   // a vaxapp-only correction.
-  } else if (am >= 132 && am <= 144 && !isHighRiskMen && !(menTravelOngoing && men >= 1) && menRoutineGate(0)) {
+  } else if (am >= 132 && am <= 144 && !isHighRiskMen && !(menACWYOnRiskBasedSchedule(risks) && men >= 1) && menRoutineGate(0)) {
     // M9: a traveler who already has a dose is excluded here. ACIP: "Children who
     // received MenACWY at age <11 years and for whom booster vaccination is
     // recommended because of an ongoing increased risk should follow the booster
     // dose schedule (Tables 4, 5, 6, 7, 8, and 9), not the routine adolescent
     // schedule." Table 9 is the travel table. A traveler with NO doses is left to
     // the routine branch, which asks for the same single dose now.
+    //
+    // M15: the exclusion now asks menACWYOnRiskBasedSchedule() for the whole
+    // Tables 4-9 list instead of naming travel alone. Microbiologists (Table 7)
+    // and outbreak contacts (Table 8) were reaching this branch: their pre-age-10
+    // dose left menRoutine at 0, so a 12-year-old microbiologist vaccinated at 8
+    // was told to start the ROUTINE adolescent series -- the precise thing the
+    // sentence above forbids -- while their own branch further down (line ~829,
+    // "Revaccination -- microbiologist, every 5 years") never got the chance to
+    // fire. Table 10 (military/college) is not in the list and still lands here.
     r("MenACWY", "Dose 1 (routine, 11\u201312 years)", 1, "due", "Routine at 11\u201312y. Booster at 16y. Use Penbraya if also starting MenB.",
       (menb === 0 && (hr || am >= 192)) ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenB too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenB too (4C family)", menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"] : [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { bt: menb === 0 ? "Penbraya contains Trumenba (Pfizer/FHbp); Penmenvy contains Bexsero (GSK/4C). The MenB series must be completed with the same product or its matching partner \u2014 these two pairs do not interchange." : undefined, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
@@ -756,7 +765,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       `ACIP: travelers to or residents of areas where meningococcal disease is hyperendemic or epidemic who remain at risk need boosters after their ${menPrimaryTotal === 1 ? "single primary dose" : `${menPrimaryTotal}-dose primary series`}. The first booster is 3 years later if the primary series finished before age 7, otherwise 5 years, and a booster every 5 years after that for as long as the travel risk continues. This is dose ${men + 1} for this patient. If the travel risk ends, no further boosters are needed.`,
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { minInt: menTravelInt, refUrl: REFS.acip2020Table9.url, refLabel: REFS.acip2020Table9.label, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (am > 144 && am < 192 && !isHighRiskMen && !(menTravelOngoing && men >= 1) && menRoutineGate(0)) {
+  } else if (am > 144 && am < 192 && !isHighRiskMen && !(menACWYOnRiskBasedSchedule(risks) && men >= 1) && menRoutineGate(0)) {
     // 13\u201315y catch-up: Dose 1 of 2; booster at 16y because first dose given before 16y.
     r("MenACWY", "Catch-up (13\u201315 years)", 1, "catchup",
       "Give 1 dose if not yet received. Booster at 16y if first dose given before 16y.",

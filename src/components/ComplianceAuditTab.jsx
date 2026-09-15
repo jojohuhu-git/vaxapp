@@ -16,7 +16,7 @@ import { REFS } from '../data/refs.js';
 import { validatedHistory, validateDose } from '../logic/validation';
 import { classifyDose, RULES_REGISTRY } from '../logic/compliance';
 import { fmtAgeClinical, fmtIntervalClinical, fmtAm } from '../logic/ageFormat';
-import { doseAgeDays, doseDate, isHighRiskMenACWY, menBEffectiveDoses, highRiskMenB, menACWYRoutineCount, isTravelOngoingMenACWY, menacwyExposureCategory } from '../logic/stateHelpers';
+import { doseAgeDays, doseDate, isHighRiskMenACWY, menBEffectiveDoses, highRiskMenB, menACWYRoutineCount, isTravelOngoingMenACWY, menacwyExposureCategory, menACWYOnRiskBasedSchedule } from '../logic/stateHelpers';
 import { getDoseBand } from '../data/aapDoseBands';
 import { fmtDateInput, addD, todayISO } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
@@ -611,8 +611,14 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
     // 7, 8, and 9"), so their pre-age-10 dose is their primary dose. Without
     // this the tab read "In progress - 0 of 2 doses" directly above the dose it
     // had just graded ON TIME, exactly as it did for travelers before M9.
-    : vk === 'MenACWY' && !isHighRiskMenACWY(risks || []) && !isTravelOngoingMenACWY(risks || [])
-      && menacwyExposureCategory(risks || []) !== 'outbreak'
+    // M15: and a microbiologist is on ACIP Table 7, which that same sentence
+    // names. The tab read "In progress - 0 of 2 doses" above a dose it had just
+    // graded ON TIME, exactly as it did for travelers before M9 and outbreak
+    // contacts before M12. The three hand-written conditions that used to sit
+    // here are now one shared helper, so the next group cannot be missed.
+    // Military and college recruits (Table 10) are NOT covered and keep the
+    // routine rule -- that is per ACIP, not an oversight.
+    : vk === 'MenACWY' && !menACWYOnRiskBasedSchedule(risks || [])
     ? menACWYRoutineCount({ MenACWY: validDoses }, dob)
     : validCount;
 
