@@ -131,10 +131,10 @@ export const HCT_RECIPE_GROUPS = [
         vax: 'MenACWY',
         label: 'MenACWY',
         plan: 'Give from age 2 months — no upper age limit on administration. CDC/ASCO '
-          + 'source 2 doses, 2 months apart, 6 to 12 months after transplant, for ages 11 '
-          + 'through 18 or any age with a high-risk condition (asplenia, persistent '
-          + 'complement deficiency, or eculizumab/ravulizumab). No booster from the '
-          + 'transplant alone. '
+          + 'source 2 doses, 2 months apart, 6 to 12 months after transplant, for any age '
+          + 'with an additional risk factor (asplenia, persistent complement deficiency, '
+          + 'or eculizumab/ravulizumab) — the transplant alone does not trigger this '
+          + 'schedule. No booster from the transplant alone. '
           + 'Outside this group, no source states a timing, but centers often vaccinate '
           + 'more broadly.',
         refs: ['alteredImmunocompetence', 'ascoAdultCancer2024'],
