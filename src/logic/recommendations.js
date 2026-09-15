@@ -626,7 +626,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   if (menInfantSeries && am >= 2 && am < 7 && men < 3) {
     // 4-dose primary series at 2, 4, 6 months for highest-risk infants
     r("MenACWY", `Dose ${men + 1} of 4 (${menInfantWhy}, primary series)`, men + 1, "risk-based",
-      `${menInfantWho}: 3-dose primary series at 2, 4, 6 months with Menveo (MenACWY-CRM). Only Menveo is FDA-approved for infants \u22652 months. Min 4 weeks between doses. Give 4th dose (booster) at 12 months.`,
+      `${menInfantWho}: 4-dose primary series at 2, 4, 6 and 12 months with Menveo (MenACWY-CRM). Only Menveo is FDA-approved for infants \u22652 months. Min 4 weeks between the first three doses; the 12-month dose completes the primary series.`,
       ["Menveo 2-vial (MenACWY-CRM, \u22652 months \u2014 only brand approved for infants)"],
       { minInt: 28, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (menInfantSeries && am >= 7 && am < 12 && men < 2) {
@@ -652,7 +652,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       ["Menveo 2-vial (MenACWY-CRM, ≥2 months)", "MenQuadfi (MenACWY-TT, ≥2 years)"],
       { minInt: 84, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (menInfantSeries && am >= 12 && am < 24 && men > 0 && men < 4) {
-    // 12\u201323m: booster for primary-series completers (6m 3-dose or 7-11m 2-dose path).
+    // 12\u201323m: the dose that COMPLETES the primary series (6m 3-dose or 7-11m 2-dose path).
     // D6 shortcut: if D1 was 2\u20136m AND D2 was \u22657m, only 3 total doses complete the series.
     // Conservative default: if ages are unknown, use the standard 4-dose path.
     const menGiven = (hist.MenACWY || []).filter(d => d.given);
@@ -670,10 +670,10 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     // single source of truth for the count; the D6 3-dose shortcut still wins
     // where it applies.
     const totalLabel = on3DosePath ? "3" : String(menPrimaryTotal);
-    r("MenACWY", `Dose ${men + 1} of ${totalLabel} (${menInfantWhy}, 12\u201323 months booster)`, men + 1, "risk-based",
+    r("MenACWY", `Dose ${men + 1} of ${totalLabel} (${menInfantWhy}, primary series, 12\u201323 months)`, men + 1, "risk-based",
       on3DosePath
         ? "D6: Dose 2 was given at \u22657 months \u2014 series completes in 3 doses. This dose is due \u226512 weeks after dose 2 AND not before 12 months of age. Then revaccinate in 3 years (primary series completed before age 7)."
-        : `Booster dose at 12\u201323 months for ${menInfantWhoShort} who completed the primary MenACWY series. Min 12 weeks after last primary dose. Then revaccinate in 3 years (primary series completed before age 7).`,
+        : `Completes the primary MenACWY series at 12\u201323 months for ${menInfantWhoShort}. CDC counts every dose of the at-risk infant schedule as part of the primary series. Min 12 weeks after the last dose. Then revaccinate 3 years after the series is complete (primary series completed before age 7).`,
       ["Menveo 2-vial (MenACWY-CRM, \u22652 months)", "MenQuadfi (MenACWY-TT, \u22652 years)"],
       { minInt: 84, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   // M7: these two routine adolescent branches sit ABOVE the high-risk primary
