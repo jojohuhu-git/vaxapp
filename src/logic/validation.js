@@ -647,7 +647,14 @@ export function auditAll(hist, dob, risks = [], am = -1) {
       // stopping point, so no number of doses makes one extra. Before M9, travel
       // was classed 'singleDose' with the military recruits and the second dose —
       // the booster the app now asks for — was reported as not ACIP-indicated.
-      if (!isHighRiskMenACWY(risks) && exposure !== 'microbiologist' && exposure !== 'travel') {
+      // M12: an A/C/W/Y outbreak contact joins them. ACIP Table 8 gives a
+      // previously-vaccinated patient identified at risk again "a single dose if
+      // >=3 yrs since vaccination" (under 7) or ">=5 yrs" (7 or older), so a
+      // second dose is indicated and must not be reported as an extra. It is a
+      // top-up rather than a standing cadence, but either way there is no dose
+      // count at which the next one becomes un-indicated.
+      if (!isHighRiskMenACWY(risks) && exposure !== 'microbiologist' && exposure !== 'travel'
+          && exposure !== 'outbreak') {
         const isExposureSingleDose = exposure === 'singleDose';
         const d1AgeM = doseAgeMonths(doses[0], dob);
         const standardTotal = isExposureSingleDose ? 1 : (d1AgeM != null && d1AgeM >= 192) ? 1 : 2;

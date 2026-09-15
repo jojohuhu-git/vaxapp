@@ -4,7 +4,7 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
-import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
+import { isLiveVaccineContraindicated, menacwyExposureCategory, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 import { hardStopExclusion } from './hardStop.js';
 
@@ -222,6 +222,31 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
         const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose, { travel: true });
         return { totalDoses: menDates.length >= primaryTotal ? primaryTotal + 1 : primaryTotal };
       }
+      // M12: the same gap again, for the serogroup A/C/W/Y outbreak indication.
+      // Without this the patient falls through to the routine seed below, which
+      // plans their FIRST dose at age 11 — so a 5-year-old identified at risk in
+      // an outbreak today was given an optimal schedule starting in 2032, while
+      // the Recommendations tab asked for the dose now. ACIP 2020 MMWR 69(RR-9)
+      // Table 8: 1 dose from the 2nd birthday (the infant series below that,
+      // which menACWYPrimaryTotal already keys to the age at dose 1), then a
+      // single top-up if the patient is identified at risk again.
+      //
+      // Only ONE further dose is planned, never a repeating cadence: Table 8's
+      // top-up is a response to being re-exposed, not a standing countdown
+      // (owner-confirmed 2026-09-15). That is the same shape this surface uses
+      // for high-risk and travel above — plan the next dose, not the series
+      // stretching out forever.
+      if (menacwyExposureCategory(risks) === 'outbreak') {
+        const menDates = gDates(hist, 'MenACWY');
+        const ageAtMenDose = (d) => {
+          const dt = d?._date;
+          return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
+        };
+        // travel: true selects the SAME "1 dose from 24 months, infant series
+        // below it" shape Table 8 and Table 9 share verbatim.
+        const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose, { travel: true });
+        return { totalDoses: menDates.length >= primaryTotal ? primaryTotal + 1 : primaryTotal };
+      }
       // V1: routine series count excludes only doses given before the 10th birthday
       // (120mo) — see menACWYRoutineCount. isHRMen already returned above, so every
       // use of givenMen below is on the non-high-risk path.
@@ -334,7 +359,28 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
   // stateHelpers.menACWYBoosterIntervalDays, which the engine and the dose checker
   // read too, so the three surfaces cannot drift apart on it.
   const menTravelOngoing = isTravelOngoingMenACWY(ctx?.risks ?? []);
-  if (vk === 'MenACWY' && prevDate && (isHighRiskMenACWY(ctx?.risks ?? []) || menTravelOngoing)) {
+  // M12: an outbreak top-up is NOT on that cadence. ACIP Table 8 measures it
+  // from the patient's age TODAY ("Aged <7 yrs: Single dose if >=3 yrs since
+  // vaccination", ">=5 yrs" at 7 or older), where Tables 4-6 and 9 measure from
+  // the age at which the primary series was completed. Handled before the shared
+  // cadence below so it cannot pick up the wrong clock.
+  if (vk === 'MenACWY' && prevDate && menacwyExposureCategory(ctx?.risks ?? []) === 'outbreak') {
+    const amNow = ctx?.am;
+    // Only doses BEYOND the primary series are top-ups. An infant on Table 8's
+    // "2-23 mos" row is still finishing a 4-dose primary series, whose doses are
+    // 4 and 12 weeks apart — not 3 years. Same primaryTotal test the travel and
+    // high-risk cadence below uses.
+    const menDatesOb = gDates(ctx?.hist ?? {}, 'MenACWY');
+    const ageAtMenDoseOb = (d) => {
+      const dt = d?._date;
+      return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
+    };
+    const primaryTotalOb = menACWYPrimaryTotal(menDatesOb.map(dt => ({ _date: dt })), ageAtMenDoseOb, { travel: true });
+    if (doseNum > primaryTotalOb) {
+      minInt = (amNow != null && amNow < 84) ? 1095 : 1826;
+      intLabel = `MenACWY outbreak top-up=${minInt}d (age ${amNow != null && amNow < 84 ? 'under 7' : '7 or older'} today)`;
+    }
+  } else if (vk === 'MenACWY' && prevDate && (isHighRiskMenACWY(ctx?.risks ?? []) || menTravelOngoing)) {
     const menDates = gDates(ctx?.hist ?? {}, 'MenACWY');
     const ageAtMenDose = (d) => {
       const dt = d?._date;
@@ -478,7 +524,13 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
     // a traveler's dose at age 3 as zero made this surface plan dose 1 over again
     // today and then date "dose 2" three years from today — a duplicate dose, and
     // the real booster mis-dated.
-    const given  = (vk === 'MenACWY' && !isHRMenMain && !isTravelOngoingMenACWY(risks ?? []))
+    // M12: outbreak contacts join them, and the ACIP sentence quoted above names
+    // the very table they are on — "Tables 4, 5, 6, 7, 8, and 9" — Table 8 being
+    // the outbreak schedule. Counting their pre-age-10 dose as zero made this
+    // surface plan dose 1 again today alongside the top-up.
+    const menOnBoosterSchedule = isTravelOngoingMenACWY(risks ?? [])
+      || menacwyExposureCategory(risks ?? []) === 'outbreak';
+    const given  = (vk === 'MenACWY' && !isHRMenMain && !menOnBoosterSchedule)
       ? menACWYRoutineCount(ctx.hist, ctx.dob)
       : (vk === 'MenB')
       ? menBEffectiveDoses(ctx.hist, ctx.dob, ctx.am, isHRMenBMain).length

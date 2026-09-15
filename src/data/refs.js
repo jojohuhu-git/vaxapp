@@ -152,6 +152,11 @@ export const REFS = {
     url:"https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=" + encodeURIComponent("TABLE 7. Recommended vaccination schedule and intervals for microbiologists routinely exposed to isolates of Neisseria meningitidis"),
     lastVerified:"2026-08-11"
   },
+  acip2020Table8: {
+    label:"ACIP 2020 MMWR: Table 8 — schedule for persons at risk during an outbreak",
+    url:"https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=" + encodeURIComponent("TABLE 8. Recommended vaccination schedule and intervals for persons who are at risk during an outbreak"),
+    lastVerified:"2026-09-15"
+  },
   acip2020Table9: {
     label:"ACIP 2020 MMWR: Table 9 — schedule for travelers to hyperendemic/epidemic countries",
     url:"https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=" + encodeURIComponent("TABLE 9. Recommended vaccination schedule and intervals for persons who travel to or are residents of countries where meningococcal disease is hyperendemic or epidemic"),

@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses, menACWYRoutineCount, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYInfantSeriesIndicated, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y } from './stateHelpers.js';
+import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses, menACWYRoutineCount, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYInfantSeriesIndicated, menacwyExposureCategory, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
@@ -575,6 +575,19 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // high-risk and microbiologist have their own schedules and outrank travel,
   // which isTravelOngoingMenACWY already encodes.
   const menTravelOngoing = isTravelOngoingMenACWY(risks);
+  // M12: outbreak top-up bookkeeping. Table 8's threshold is the patient's age
+  // TODAY (3 years under 7, 5 years from 7), measured from the LAST dose given.
+  const menExposure = menacwyExposureCategory(risks);
+  const menOutbreakTopUpInt = am < 84 ? MENACWY_BOOSTER_3Y : 1826;
+  const menOutbreakTopUpDue = (() => {
+    if (menExposure !== "outbreak") return false;
+    const lastD = lastDate(hist, "MenACWY");
+    // With no date to measure from, offer it rather than hide it \u2014 the same
+    // conservative choice the travel and high-risk branches make.
+    if (!today || !lastD) return true;
+    return new Date(lastD + 'T00:00:00').getTime() + menOutbreakTopUpInt * 86400000
+      <= new Date(today + 'T00:00:00').getTime();
+  })();
   const menPrimaryTotal = menACWYPrimaryTotal(menacwyGivenAll, menDoseAgeM, { travel: menTravelOngoing });
   // D7: Menveo formulation depends on age \u2014 2-vial licensed \u22652 months; 1-vial licensed \u226510 years.
   const menveoLbl = am >= 120 ? "Menveo 1-vial (MenACWY-CRM, \u226510y)" : "Menveo 2-vial (MenACWY-CRM, \u22652m)";
@@ -783,6 +796,36 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       "ACIP: microbiologists with routine exposure to N. meningitidis receive 1 dose MenACWY; revaccinate every 5 years as long as occupational exposure persists.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { refUrl: REFS.acip2020Table7.url, refLabel: REFS.acip2020Table7.label, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+  } else if (am >= 24 && men === 0 && menExposure === "outbreak") {
+    // M12: serogroup A/C/W/Y outbreak. ACIP 2020 MMWR 69(RR-9) Table 8, fetched
+    // live from cdc.gov 2026-09-15: "2\u20139 yrs / \u226510 yrs \u2014 Primary vaccination:
+    // MenACWY-D or MenACWY-CRM or MenACWY-TT: 1 dose". Under 2 years the same
+    // table gives the infant series instead, which the infant branches above
+    // already handle (M10).
+    r("MenACWY", "Risk-based \u2014 serogroup A/C/W/Y outbreak (1 dose)", 1, "exposure",
+      "ACIP: people identified as being at increased risk during a serogroup A, C, W or Y outbreak receive 1 dose of MenACWY. This is an outbreak response, not an ongoing schedule \u2014 no routine booster follows it. If a medical high-risk indication also applies (asplenia, complement deficiency, HIV), use the 2-dose primary series instead.",
+      [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
+      { refUrl: REFS.acip2020Table8.url, refLabel: REFS.acip2020Table8.label, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+  } else if (am >= 24 && men > 0 && menExposure === "outbreak" && menOutbreakTopUpDue) {
+    // M12: the outbreak TOP-UP. Table 8, same fetch: "Boosters (if previously
+    // vaccinated and identified as being at increased risk): \u2022 Aged <7 yrs:
+    // Single dose if \u22653 yrs since vaccination \u2022 Aged \u22657 yrs: single dose if
+    // \u22655 yrs since vaccination."
+    //
+    // Two things make this different from every other booster in this file, and
+    // both are in the source text rather than choices made here:
+    //   1. It is a TOP-UP on re-exposure, not a standing countdown (Table 9 says
+    //      "every 5 yrs thereafter"; Table 8 says no such thing). It is offered
+    //      because the patient is recorded as at risk in an outbreak NOW.
+    //   2. The 3-vs-5-year threshold keys off the patient's age TODAY, not the
+    //      age at which the primary dose was given \u2014 "Aged <7 yrs ... if \u22653 yrs
+    //      since vaccination" sits inside Table 8's own age-group rows. Tables
+    //      4\u20136 and 9 key theirs to the primary series instead, which is why this
+    //      does not reuse menACWYBoosterIntervalDays.
+    r("MenACWY", `Serogroup A/C/W/Y outbreak \u2014 top-up dose ${men + 1}`, men + 1, "exposure",
+      `ACIP: someone identified as being at increased risk during an outbreak is given a single further dose if it has been ${am < 84 ? "3 years" : "5 years"} or more since their last one (${am < 84 ? "under age 7" : "age 7 or older"}). This tops up protection for this outbreak \u2014 it does not start a repeating schedule.`,
+      [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
+      { minInt: menOutbreakTopUpInt, refUrl: REFS.acip2020Table8.url, refLabel: REFS.acip2020Table8.label, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (am >= 24 && men > 0 && risks.includes("microbiologist")) {
     // Microbiologist revaccination: every 5 years while occupational exposure persists.
     r("MenACWY", `Revaccination \u2014 dose ${men + 1} (microbiologist, every 5 years)`, men + 1, "exposure",
@@ -792,9 +835,9 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   } else if (am >= 24 && men === 0 && risks.includes("travel")) {
     // Travel-only risk: ACIP specifies 1 dose (not a 2-dose medical primary).
     // Medical HR (asplenia, complement, HIV) is caught by earlier isHighRiskMen branches.
-    // Note: "outbreak" risk ID was removed — it was undefined; use isHighRiskMen for
-    // outbreak scenarios with medical indication. ("exposure" here is the status
-    // literal added by M3 above, not a risk ID.)
+    // ("exposure" here is the status literal added by M3 above, not a risk ID.)
+    // M12 (2026-09-15) added the serogroup A/C/W/Y outbreak indication this
+    // comment used to say had been removed — see the outbreak branches below.
     r("MenACWY", "Risk-based \u2014 international travel (1 dose)", 1, "exposure",
       "ACIP: travelers to or residents of hyperendemic areas: 1 dose MenACWY. If a medical high-risk indication also applies (asplenia, complement deficiency, HIV), use the 2-dose primary series instead.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],

@@ -384,6 +384,10 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // lumped in with military recruits as 'singleDose', so the booster the engine
   // now asks for was graded here as an extra dose that was never indicated.
   const menacwyTravel = menacwyExposure === 'travel';
+  // M12: an A/C/W/Y outbreak contact is on ACIP Table 8, not the routine
+  // adolescent schedule, so their 2nd dose is an outbreak top-up rather than a
+  // booster that missed the age-16 window, and never an extra dose.
+  const menacwyOutbreak = menacwyExposure === 'outbreak';
 
   // M6 (2026-08-11): a non-high-risk 2nd+ MenACWY dose given before the age-16
   // booster window is safely administered but does not satisfy the booster
@@ -395,7 +399,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // check; high-risk patients are unaffected (their primary series legitimately has
   // 2+ doses before 16). Mirrors MeningoVax commit 3172a0a (Change 3) and M1's
   // OFF_WINDOW+notAdolescentCount pattern just below.
-  if (vk === 'MenACWY' && doseIdx === 1 && ageMonths < 192 && !isHighRiskMenACWY(risks || []) && !menacwyMicrobiologist && !menacwyExposureSingleDose && !menacwyTravel) {
+  if (vk === 'MenACWY' && doseIdx === 1 && ageMonths < 192 && !isHighRiskMenACWY(risks || []) && !menacwyMicrobiologist && !menacwyExposureSingleDose && !menacwyTravel && !menacwyOutbreak) {
     return {
       status: 'OFF_WINDOW',
       label: `Off-window — booster still owed (given at ${ageLabel}, before the 16-year booster window). Does not count toward the routine 2-dose series — the booster is an age window (16-18 years), not just an interval from dose 1.`,
@@ -418,7 +422,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // series) instead of VALID_EXTRA. Uses the same shared
   // stateHelpers.doseAgeMonths this file already imports; high-risk
   // patients are unaffected (open-ended booster schedule, no fixed total).
-  if (vk === 'MenACWY' && doseIdx >= 1 && !isHighRiskMenACWY(risks || []) && !menacwyMicrobiologist && !menacwyExposureSingleDose && !menacwyTravel) {
+  if (vk === 'MenACWY' && doseIdx >= 1 && !isHighRiskMenACWY(risks || []) && !menacwyMicrobiologist && !menacwyExposureSingleDose && !menacwyTravel && !menacwyOutbreak) {
     const d1 = (hist?.MenACWY || []).filter(d => d.given)[0];
     const d1AgeM = d1 ? doseAgeMonths(d1, dob) : null;
     if (d1AgeM != null && d1AgeM >= 192) {
@@ -514,7 +518,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // 11–12y/16y bands. This is order-independent: it keys off the CURRENT risk list, so
   // adding sickle cell / asplenia AFTER the doses were entered re-grades correctly.
   const menacwyHighRisk = vk === 'MenACWY' && isHighRiskMenACWY(risks || []);
-  const bandOpts = { highRisk: menacwyHighRisk, microbiologist: menacwyMicrobiologist, travel: menacwyTravel };
+  const bandOpts = { highRisk: menacwyHighRisk, microbiologist: menacwyMicrobiologist, travel: menacwyTravel, outbreak: menacwyOutbreak };
 
   // M8 (2026-09-14, same F6 investigation as M7 above): MenB's standard total is
   // risk-dependent — 2 doses (healthy, 16-23y shared decision) or 3 (high-risk,

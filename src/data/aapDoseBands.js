@@ -225,6 +225,18 @@ const MENACWY_TRAVEL = [
   { dose: 2, recMin: 2, recMax: null, catchupMax: null, label: 'Travel dose 2 (infant series) or booster (3 yr if the primary series finished before age 7, otherwise 5 yr, then every 5 yr)' },
 ];
 
+// M12 (2026-09-15): serogroup A/C/W/Y outbreak participants. ACIP 2020 MMWR
+// 69(RR-9) Table 8: 1 dose from the 2nd birthday, the infant series below that,
+// and a top-up when the patient is identified at risk again (">=3 yrs since
+// vaccination" under age 7, ">=5 yrs" at 7 or older). recMin is 2 months, not
+// 24, for the same reason the travel bands use 2 - Table 8's "2-23 mos" row is
+// the infant series (see MENACWY_TRAVEL above and queue item M10).
+// Source: https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=TABLE%208
+const MENACWY_OUTBREAK = [
+  { dose: 1, recMin: 2, recMax: null, catchupMax: null, label: 'Outbreak dose 1 (serogroup A/C/W/Y; infant series from age 2 mo, 1 dose from age 2 yr)' },
+  { dose: 2, recMin: 2, recMax: null, catchupMax: null, label: 'Outbreak top-up (if identified at risk again: 3 yr under age 7, otherwise 5 yr)' },
+];
+
 /**
  * Get the dose band for a specific vaccine + 1-based dose number.
  * Returns null if no band is defined for that dose.
@@ -252,6 +264,12 @@ export function getDoseBand(vk, doseNum, opts = {}) {
   if (vk === 'MenACWY' && opts.travel) {
     return MENACWY_TRAVEL.find(b => b.dose === doseNum)
       || MENACWY_TRAVEL[MENACWY_TRAVEL.length - 1];
+  }
+  // M12: outbreak, like travel, has no closing dose number — dose 2+ maps to the
+  // top-up band.
+  if (vk === 'MenACWY' && opts.outbreak) {
+    return MENACWY_OUTBREAK.find(b => b.dose === doseNum)
+      || MENACWY_OUTBREAK[MENACWY_OUTBREAK.length - 1];
   }
   const bands = AAP_DOSE_BANDS[vk];
   if (!bands) return null;

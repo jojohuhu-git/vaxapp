@@ -57,7 +57,15 @@ export const isHighRiskMenACWY = (risks) =>
  *     open-ended, same shape as medical high-risk, but graded against the routine
  *     dose bands, not the high-risk-primary-series bands. Source: ACIP 2020 MMWR
  *     RR-9 Table 7.
- *   - 'singleDose' (military recruit or international travel): exactly 1 dose,
+ *   - 'outbreak' (serogroup A/C/W/Y outbreak participant): 1 dose from the 2nd
+ *     birthday, then a TOP-UP only when the patient is identified at risk again
+ *     — ACIP 2020 MMWR RR-9 Table 8 gives "Single dose if >=3 yrs since
+ *     vaccination" under age 7 and ">=5 yrs" at 7 or older, keyed to the
+ *     patient's age NOW, not to the age at the primary dose the way Tables 4-6
+ *     and 9 are. Unlike travel and microbiologist this is not a standing
+ *     countdown (owner-confirmed 2026-09-15), and unlike military it is not
+ *     one dose forever.
+ *   - 'singleDose' (military recruit): exactly 1 dose,
  *     ever, regardless of the age it was given — unlike the routine schedule's
  *     "given at/after 16y" terminal-dose nuance. Source: ACIP 2020 MMWR RR-9
  *     Table 9 (travel) / Table 10 (military).
@@ -72,6 +80,12 @@ export function menacwyExposureCategory(risks) {
   // M9: travel is checked BEFORE military. A patient who is both a recruit and an
   // ongoing traveler is owed the travel boosters — the more protective of the two.
   if (r.includes("travel")) return "travel";
+  // M12: an A/C/W/Y outbreak is its own category, below travel on purpose. A
+  // patient who is BOTH a traveler and an outbreak contact is owed the travel
+  // schedule: ACIP Table 9 promises boosters "every 5 yrs thereafter", while
+  // Table 8 promises nothing beyond a top-up, so travel is the more protective
+  // of the two — the same reasoning M9 used to put travel above military.
+  if (r.includes("outbreak_acwy")) return "outbreak";
   if (r.includes("military")) return "singleDose";
   return null;
 }
@@ -106,10 +120,9 @@ export const isTravelOngoingMenACWY = (risks) =>
  * ACIP gives them no infant row at all (Table 7 covers ages ">=10 yrs", Table 10
  * is recruits, and the college indication is adolescent).
  *
- * "outbreak_acwy" is listed ahead of the risk factor existing: vaxapp today has
- * only "outbreak_b" (serogroup B). Creating the A/C/W/Y outbreak indication is
- * queue item M12 - listing it here means M12 inherits the correct infant
- * pathway instead of having to re-find it.
+ * "outbreak_acwy" was listed here by M10 before the risk factor existed, so that
+ * M12 would inherit the correct infant pathway rather than have to re-find it.
+ * M12 created it (2026-09-15) and this became live with no further change.
  */
 export const menACWYInfantSeriesIndicated = (risks) =>
   isHighRiskMenACWY(risks || []) ||
