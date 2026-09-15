@@ -19,6 +19,8 @@ import { genRecs } from '../../logic/recommendations.js';
 import { buildOptimalSchedule } from '../../logic/buildOptimalSchedule.js';
 import { buildRegimens } from '../../logic/regimens.js';
 import { menACWYPrimaryTotal } from '../../logic/stateHelpers.js';
+import { getTotalDoses } from '../../logic/dosePlan.js';
+import { validatedHistory } from '../../logic/validation.js';
 
 const DOB = '2023-01-01';
 const TODAY = '2026-06-03';
@@ -79,10 +81,39 @@ describe('M4 five-surface — a completed infant series', () => {
     expect(r[0].dose).toMatch(/first booster/i);
   });
 
-  it('surface 5 plans no further primary doses (the series is genuinely finished)', () => {
-    // It also does not offer the booster — buildOptimalSchedule models no MenACWY
-    // booster phase at all. That is a pre-existing gap, unchanged by M4 and left
-    // to queue item M6; asserted here so it cannot drift unnoticed.
-    expect(optimalFor(COMPLETE_AM, COMPLETE)).toEqual([]);
+  it('surface 5 plans the booster too, and no further primary doses (M6)', () => {
+    // M4 left this surface modelling no MenACWY booster phase at all, so a child
+    // who was correctly and completely vaccinated had an empty optimal schedule
+    // while every other surface was asking for the 3-year booster. M6 closes it:
+    // exactly one booster is planned — the next one due — which is what genRecs
+    // offers above. The lifelong every-5-years cadence after it is not projected
+    // on this surface, the same way genRecs offers one dose at a time.
+    expect(optimalFor(COMPLETE_AM, COMPLETE)).toEqual([5]);
+  });
+
+  it('surface 3 (forecast chip) counts the booster in its "of N" denominator', () => {
+    // Found by driving the running app during M6. The card read "MenACWY —
+    // Dose 5 of 4": genRecs offers the booster as dose 5, but getTotalDoses
+    // stopped at the primary series, so the chip claimed a 5th dose out of 4.
+    // (Before M6 it read "Dose 6 of 5" — the same off-by-one, because the
+    // too-soon booster still counted then. An M4 leak on a surface M4 missed.)
+    const vh = validatedHistory(COMPLETE, DOB, RISKS);
+    const rec = recsFor(COMPLETE_AM, COMPLETE)[0];
+    expect(rec.doseNum).toBe(5);
+    expect(getTotalDoses('MenACWY', rec, {}, COMPLETE_AM, vh, RISKS, DOB))
+      .toBeGreaterThanOrEqual(rec.doseNum);
+  });
+
+  it('surface 3 still counts an UNFINISHED primary series as its true length', () => {
+    const vh = validatedHistory(PARTIAL, DOB, RISKS);
+    expect(getTotalDoses('MenACWY', recsFor(PARTIAL_AM, PARTIAL)[0], {}, PARTIAL_AM, vh, RISKS, DOB))
+      .toBe(4);
+  });
+
+  it('surface 5 dates that booster 3 years after the 12-month dose, not 5', () => {
+    const res = buildOptimalSchedule({ am: COMPLETE_AM, risks: RISKS, hist: COMPLETE, dob: DOB }, {}, { today: TODAY });
+    const item = res.flatMap(v => v.items).find(i => i.vk === 'MenACWY');
+    // Primary series finished 2024-01-05; 1095 days later is 2027-01-04.
+    expect(item.date).toBe('2027-01-04');
   });
 });

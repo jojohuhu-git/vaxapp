@@ -577,7 +577,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
         const fWithinMax = fRecMax === null || ageMonths <= fRecMax + 0.5;
 
         // Run validateDose for the final dose before reporting
-        const vrFinal = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses, risks);
+        const vrFinal = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses, risks, hist ? hist[vk] : null);
         if (vrFinal.err && !vrFinal.ok) {
           const firstIssue = vrFinal.results?.[0];
           return {
@@ -616,7 +616,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   }
 
   // Run validateDose to detect errors (for non-extra doses)
-  const vr = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses, risks);
+  const vr = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses, risks, hist ? hist[vk] : null);
   if (vr.err && !vr.ok) {
     const firstIssue = vr.results?.[0];
     return {

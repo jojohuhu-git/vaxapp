@@ -4,11 +4,20 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
-import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal } from './stateHelpers.js';
+import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 import { hardStopExclusion } from './hardStop.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
+
+// M6: MenACWY booster cadence, the same numbers the dose checker uses
+// (validation.js). CDC, "Meningococcal Vaccine Recommendations", fetched live
+// 2026-09-15 — people at increased risk: under 7 years, "CDC recommends
+// administering a booster dose 3 years after completion of the primary series
+// and every 5 years thereafter"; 7 years and older, "every 5 years."
+const MENACWY_BOOSTER_3Y = 1095;
+const MENACWY_BOOSTER_5Y = 1826;
+const AGE_7Y_MONTHS      = 84;
 
 // ── Date helpers ──────────────────────────────────────────────────
 const _d     = iso => new Date(iso + 'T00:00:00Z');
@@ -187,15 +196,22 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       // half-finished infant series as complete and schedule nothing, while the
       // Recommendations tab was asking for the remaining doses. The length comes
       // from menACWYPrimaryTotal(), the same helper the engine uses.
-      // (The booster phase after that series is still not modelled on this
-      // surface — that gap is queue item M6, not M4.)
+      // M6: and once that primary series IS behind them, a high-risk patient is
+      // owed a booster. This surface modelled no booster phase at all, so a child
+      // who had been correctly and completely vaccinated got an EMPTY optimal
+      // schedule while every other surface was asking for the 3-year booster —
+      // a due dose that silently disappears is worse than a visibly wrong one.
+      // Exactly one booster is planned: the next one due, which is what genRecs
+      // offers. The lifelong every-5-years cadence beyond it is not projected
+      // here, the same way genRecs offers one dose at a time.
       if (isHRMen) {
         const menDates = gDates(hist, 'MenACWY');
         const ageAtMenDose = (d) => {
           const dt = d?._date;
           return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
         };
-        return { totalDoses: menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose) };
+        const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose);
+        return { totalDoses: menDates.length >= primaryTotal ? primaryTotal + 1 : primaryTotal };
       }
       // V1: routine series count excludes only doses given before the 10th birthday
       // (120mo) — see menACWYRoutineCount. isHRMen already returned above, so every
@@ -279,6 +295,32 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
           intLabel = `MIN_INT.${vk}.iCond[${cond.ageGte ? 'ageGte=' + cond.ageGte : 'risk'}]=${cond.minInterval}d`;
         }
       }
+    }
+  }
+
+  // ── M6: MenACWY booster cadence ───────────────────────────────────
+  // MIN_INT.MenACWY.i stops at dose 2, so without this a planned booster had no
+  // interval at all and would have been dated today. Which dose is the first
+  // booster depends on the primary series length, and the first booster's clock
+  // keys off the age at the LAST primary dose — the same rule the dose checker
+  // applies in validation.js, read from the same menACWYPrimaryTotal() helper.
+  if (vk === 'MenACWY' && prevDate && isHighRiskMenACWY(ctx?.risks ?? [])) {
+    const menDates = gDates(ctx?.hist ?? {}, 'MenACWY');
+    const ageAtMenDose = (d) => {
+      const dt = d?._date;
+      return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
+    };
+    const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose);
+    if (doseNum > primaryTotal) {
+      const isFirstBooster = doseNum === primaryTotal + 1;
+      const lastPrimary    = menDates[primaryTotal - 1] || null;
+      const lastPrimaryAgeM = (lastPrimary && dob) ? diff(dob, lastPrimary) / 30.4375 : null;
+      minInt = !isFirstBooster
+        ? MENACWY_BOOSTER_5Y
+        : (lastPrimaryAgeM == null || lastPrimaryAgeM < AGE_7Y_MONTHS)
+          ? MENACWY_BOOSTER_3Y
+          : MENACWY_BOOSTER_5Y;
+      intLabel = `MenACWY booster cadence=${minInt}d (${isFirstBooster ? 'first booster' : 'every 5 years'})`;
     }
   }
 

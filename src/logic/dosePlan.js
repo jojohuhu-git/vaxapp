@@ -495,7 +495,19 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
           if (d.mode === "date" && d.date && dob) return (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
           return null;
         };
-        return Math.max(menACWYPrimaryTotal(givenDoses, ageM), givenMenACWY);
+        const primaryTotal = menACWYPrimaryTotal(givenDoses, ageM);
+        // M6: when the dose actually being offered is a BOOSTER — its number is
+        // past the end of the primary series — the denominator has to count it.
+        // M4 taught this function the primary-series length but stopped there, so
+        // a child correctly due their 3-year booster got a card reading "Dose 5
+        // of 4". Found by driving the running app, not by any test.
+        // Deliberately keyed to the dose being displayed rather than to the dose
+        // count alone: with no booster on offer, a finished primary series must
+        // still read as complete on the compliance tab, which asks this same
+        // function a different question ("is this series done?") and passes no
+        // recommendation at all.
+        if (rec?.doseNum > primaryTotal) return rec.doseNum;
+        return Math.max(primaryTotal, givenMenACWY);
       }
       return 2;
     }

@@ -65,9 +65,9 @@ const STATUS_PILL_LABEL = {
 };
 
 // ── Validation rule summary for popover ───────────────────────────────────────
-function buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks) {
+function buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks, allDoses) {
   // Run full validation and inspect results
-  const vr = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses, risks);
+  const vr = validateDose(vk, doseIdx, dose, prevDose, dob, null, firstDoseDate, totalDoses, risks, allDoses);
   const rules = [];
 
   // Min age
@@ -134,7 +134,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
   const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist, risks);
   const { status, label, extraScenario, auditFlag, notAdolescentCount } = classification;
 
-  const { vr, rules } = buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks);
+  const { vr, rules } = buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks, hist ? hist[vk] : null);
 
   const popH = showRules ? 360 : 240;
   const spaceBelow = window.innerHeight - anchorRect.bottom;

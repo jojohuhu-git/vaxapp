@@ -2,7 +2,7 @@
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
 import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO } from './utils.js';
-import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menACWYPrimaryTotal } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
 import { REFS } from '../data/refs.js';
@@ -11,6 +11,16 @@ import { fmtAgeClinical, fmtIntervalClinical } from './ageFormat.js';
 
 // M9: mirrors buildOptimalSchedule.js's HPV 5475-day (15y) + immunocomp threshold.
 const HPV_TWO_DOSE_MAX_AGE_DAYS = 5475;
+
+// M6: MenACWY booster cadence and the floor between any two doses. vaxapp's
+// engine uses 1095 days for "3 years" (recommendations.js), so the checker uses
+// the same number — a checker that rounded differently from its own engine could
+// reject a dose the app itself had just recommended. MeningoVax writes 1096 for
+// the same rule; aligning the two repos' day-count conventions is queue item M19.
+const MENACWY_BOOSTER_3Y = 1095;          // 3 years
+const MENACWY_BOOSTER_5Y = 1826;          // 5 years
+const MENACWY_ANY_DOSE_MIN_INTERVAL = 28; // 4 weeks between any two doses
+const AGE_7Y_MONTHS = 84;                 // the 3-year/5-year cadence pivot
 
 // ── Season helpers for Flu audit ─────────────────────────────────────────────
 // Flu season runs July 1 → June 30. seasonOf(iso) returns the starting year.
@@ -37,7 +47,7 @@ function seasonLabel(s) {
  * @param {number|null} totalDoses - total number of given dated doses for this vaccine (used for
  *   schedule-path-aware rules, e.g. HepB 4-dose intermediate dose relaxation)
  */
-export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = null, firstDoseDate = null, totalDoses = null, risks = []) {
+export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = null, firstDoseDate = null, totalDoses = null, risks = [], allDoses = null) {
   const spec = MIN_INT[vk];
   if (!spec) return { ok: true };
   const results = [];
@@ -249,6 +259,9 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   if (doseIdx > 0 && isD(thisDate) && isD(prevDate)) {
     // 3a. iCond — age-conditional interval overrides (data-driven from spec.iCond)
     let minInt = spec.i[doseIdx]; // i is 0-indexed: i[0]=minD, i[1]=d1d2, i[2]=d2d3...
+    // Plain-English reason appended to the interval message when the minimum did
+    // not come from the plain per-dose table (M6 booster cadence).
+    let minWhy = '';
 
     // HepB 4-dose final-dose interval: the scheduleRules has i[3]=null for HepB (because
     // the standard 3-dose schedule has no D4). In a ≥4-dose series, the final dose must
@@ -275,6 +288,67 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
         }
       }
     }
+    // ── M6: MenACWY past dose 2 ──────────────────────────────────────────────
+    // scheduleRules declares i:[null,56,null,null,null] for MenACWY: dose 2 must
+    // be 8 weeks after dose 1, and past that the checker said nothing at all. A
+    // "booster" given six months after a completed primary series was reported as
+    // fine, and so were two doses five days apart. Two rules close that gap.
+    //
+    //  • Booster cadence, for medically high-risk patients only — the exposure
+    //    pathways (travel, outbreak, military, college) are queue item M9.
+    //    CDC, "Meningococcal Vaccine Recommendations" (hcp/vaccine-recommendations),
+    //    fetched live 2026-09-15 — people at increased risk:
+    //      under 7 years: "CDC recommends administering a booster dose 3 years
+    //        after completion of the primary series and every 5 years thereafter."
+    //      7 years and older: "CDC recommends administering a booster dose every
+    //        5 years."
+    //    WHICH dose is the first booster depends on how long this patient's
+    //    primary series is, and that depends on the age at dose 1 — the M4 rule.
+    //    It is read from the shared menACWYPrimaryTotal() helper instead of being
+    //    re-derived here, so the checker cannot drift away from the engine.
+    //    Without the dose list that length is unknowable, so the cadence check
+    //    stays silent rather than guessing: it exists to catch a real error and
+    //    must never invent one.
+    //
+    //  • A 4-week floor between ANY two doses — what actually catches a duplicate.
+    //    That floor is vaxapp's own infant-series minimum (scheduleRules note, M1).
+    //
+    // Owner decision 2026-09-15: a too-soon booster does NOT count and must be
+    // repeated, the same verdict MeningoVax already gives ("This dose is too soon
+    // and does not count", validate.js). An advisory-only variant, matching the M3
+    // MenB rescue-dose channel, was considered and saved as a future to-do.
+    if (vk === "MenACWY") {
+      const datedAll = Array.isArray(allDoses)
+        ? allDoses.filter(d => d && d.given && d.mode !== "unknown")
+        : null;
+      if (datedAll && datedAll.length && isHighRiskMenACWY(risks)) {
+        const primaryTotal = menACWYPrimaryTotal(datedAll, d => doseAgeMonths(d, dob));
+        if (doseIdx >= primaryTotal) {
+          const isFirstBooster = doseIdx === primaryTotal;
+          // The first booster is measured from the LAST dose of the primary
+          // series, so that dose's age is what picks 3 years or 5. Every later
+          // booster is 5 years regardless. An unknown age falls to the shorter
+          // 3-year interval, which is the choice that cannot manufacture a
+          // rejection.
+          const lastPrimary = datedAll[primaryTotal - 1] || null;
+          const lastPrimaryAgeM = lastPrimary ? doseAgeMonths(lastPrimary, dob) : null;
+          const cadence = !isFirstBooster
+            ? MENACWY_BOOSTER_5Y
+            : (lastPrimaryAgeM == null || lastPrimaryAgeM < AGE_7Y_MONTHS)
+              ? MENACWY_BOOSTER_3Y
+              : MENACWY_BOOSTER_5Y;
+          if (minInt == null || cadence > minInt) {
+            minInt = cadence;
+            minWhy = isFirstBooster
+              ? ' (first booster after the primary series)'
+              : ' (booster — one every 5 years while the risk lasts)';
+          }
+        }
+      }
+      // The floor applies to every MenACWY pair the rules above left unconstrained.
+      if (minInt == null) minInt = MENACWY_ANY_DOSE_MIN_INTERVAL;
+    }
+
     // Legacy age-dependent overrides (kept for backward compat; iCond in scheduleRules is now authoritative)
     if (vk === "VAR" && doseIdx === 1 && ageAtDose !== null && ageAtDose >= 4745) minInt = 28;
     if (vk === "HPV" && doseIdx === 1 && ageAtDose !== null && ageAtDose >= 5475) minInt = 28;
@@ -296,7 +370,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
           }
         }
         results.push({ type: "interval", ok: false, err: true,
-          msg: `D${doseIdx + 1} only ${actualLabel} after D${doseIdx} — minimum ${minLabel}.${ageNote} Dose INVALID — must repeat.`,
+          msg: `D${doseIdx + 1} only ${actualLabel} after D${doseIdx} — minimum ${minLabel}${minWhy}.${ageNote} Dose INVALID — must repeat.`,
           _days: { actual: days, min: minInt },
           earliest: addD(prevDate, minInt) });
       } else if (days !== null && days < minInt) {
@@ -753,7 +827,7 @@ export function auditAll(hist, dob, risks = [], am = -1) {
 
     datedDoses.forEach((dose, idx) => {
       const prev = idx > 0 ? datedDoses[idx - 1] : null;
-      const vr = validateDose(vk, idx, dose, prev, dob, patientAgeDays, firstDoseDate, datedDoses.length, risks);
+      const vr = validateDose(vk, idx, dose, prev, dob, patientAgeDays, firstDoseDate, datedDoses.length, risks, datedDoses);
       const thisDt = doseDate(dose, dob);
       const effectiveN = thisDt ? effectiveDoseByDate[thisDt] : undefined;
       if (!vr.ok || vr.grace || vr.offLabel || vr.advisory) {
@@ -861,7 +935,7 @@ export function validatedHistory(hist, dob, risks = []) {
       if (!dose.given) { kept.push(dose); continue; }
       if (dose.mode === "unknown") { kept.push(dose); continue; }
       const prevKept = kept.filter(k => k.given && k.mode !== "unknown").slice(-1)[0] || null;
-      const vr = validateDose(vk, validIdx, dose, prevKept, dob, null, firstValidDate, totalGivenDated, risks);
+      const vr = validateDose(vk, validIdx, dose, prevKept, dob, null, firstValidDate, totalGivenDated, risks, kept);
       if (vr.ok) {
         if (firstValidDate === null) firstValidDate = doseDate(dose, dob);
         kept.push(dose);
