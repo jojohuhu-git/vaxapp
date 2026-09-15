@@ -4,6 +4,7 @@
 import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO } from './utils.js';
 import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menACWYPrimaryTotal, menBSeriesTotal, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
+import { brandAgeSpec } from '../data/brandRegistry.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
 import { REFS } from '../data/refs.js';
 import { isHighRiskPCV, ppsv23StandardTotal } from './pcvDoses.js';
@@ -80,9 +81,10 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
       }
       // Brand-level min age
       if (dose.brand) {
-        const bk = Object.keys(BRAND_MIN).find(k => dose.brand.startsWith(k));
-        if (bk) {
-          const bSpec = typeof BRAND_MIN[bk] === "number" ? { d: BRAND_MIN[bk] } : (BRAND_MIN[bk] || {});
+        // M14: brandAgeSpec takes the LONGEST matching key, so 'Menveo 1-vial'
+        // is not shadowed by the general 'Menveo'.
+        const bSpec = brandAgeSpec(BRAND_MIN, dose.brand);
+        if (bSpec) {
           if (bSpec.d && currentAgeDays < bSpec.d) {
             return { ok: false, err: true, results: [{ type: "min_age_impossible", ok: false, err: true,
               msg: `${dose.brand} minimum age is ${fmtAgeClinical(bSpec.d)}. Patient is currently ${fmtAgeClinical(currentAgeDays)} old — this dose could not have been validly given.`,
@@ -491,8 +493,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   const asSpec = (v) => (typeof v === "number" ? { d: v } : v || {});
 
   // 4. Brand min age
-  const bKey = Object.keys(BRAND_MIN).find(k => brand.startsWith(k));
-  const bMinSpec = bKey ? asSpec(BRAND_MIN[bKey]) : null;
+  const bMinSpec = brandAgeSpec(BRAND_MIN, brand);
   if (bMinSpec && bMinSpec.d && ageAtDose !== null && ageAtDose < bMinSpec.d - GRACE) {
     results.push({ type: "brand_min_age", ok: false, err: true,
       msg: `${brand} minimum age is ${fmtAgeClinical(bMinSpec.d)} (~${(bMinSpec.d / 365).toFixed(1)}y). Administered at age ${fmtAgeClinical(ageAtDose)}. Dose must be repeated once minimum age is reached.`,
@@ -501,8 +502,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
   }
 
   // 4b. Brand max age (e.g., ProQuad >12y, Kinrix/Quadracel >6y)
-  const bMaxKey = Object.keys(BRAND_MAX).find(k => brand.startsWith(k));
-  const bMaxSpec = bMaxKey ? asSpec(BRAND_MAX[bMaxKey]) : null;
+  const bMaxSpec = brandAgeSpec(BRAND_MAX, brand);
   if (bMaxSpec && bMaxSpec.d && ageAtDose !== null && ageAtDose > bMaxSpec.d) {
     results.push({ type: "brand_max_age", ok: false, err: true,
       msg: `${brand} maximum labeled age is ${fmtAgeClinical(bMaxSpec.d)} (~${(bMaxSpec.d / 365).toFixed(1)}y). Administered at age ${fmtAgeClinical(ageAtDose)}. Not approved for this age \u2014 dose may not be countable.`,
