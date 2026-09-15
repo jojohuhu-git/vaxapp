@@ -30,7 +30,19 @@ function fullHist() {
   return out;
 }
 
-function renderApp({ risks, tab }) {
+// Synthetic history: two DTaP doses at 2 and 4 months. Enough that the
+// Compliance Audit tab renders dose cards — and so dose numbers — rather than
+// its "no vaccination history" empty state.
+function histWithDoses() {
+  const out = fullHist();
+  out.DTaP = [
+    { given: true, mode: 'age', ageDays: 61 },
+    { given: true, mode: 'age', ageDays: 122 },
+  ];
+  return out;
+}
+
+function renderApp({ risks, tab, hist = fullHist() }) {
   let dispatch;
   function Capture() {
     dispatch = useApp().dispatch;
@@ -45,7 +57,7 @@ function renderApp({ risks, tab }) {
   act(() => {
     dispatch({
       type: 'RESTORE_STATE',
-      payload: { am: 4, dob: '', risks, cd4: null, hist: fullHist(), fcBrands: {} },
+      payload: { am: 4, dob: '', risks, cd4: null, hist, fcBrands: {} },
     });
     // RESTORE_STATE doesn't carry `tab` (mergeRestoredState has no such
     // field) — switch tabs the same way a click on TabBar does.
@@ -135,5 +147,43 @@ describe('Compliance Audit tab — partial stop', () => {
   it('shows no notice with no stop risk', () => {
     const { queryByText } = renderApp({ risks: [], tab: 'compliance' });
     expect(queryByText('Forward-looking recommendations are switched off for this patient')).toBeNull();
+  });
+
+  // Dose-numbering decision 8 (2026-09-15): this tab numbers each recorded dose
+  // by its position in the series ("Dose 1", "Dose 2", "2 of 5 doses"), counting
+  // every dose on the chart. A transplant restarts the series, so those numbers
+  // are wrong for an HSCT patient — and the notice above them says the past-dose
+  // review is "unaffected". One sentence has to say which part is unaffected
+  // (the spacing) and which is not (the numbers).
+  it('warns an HSCT patient that the dose numbers ignore the transplant restart', () => {
+    const { queryByText } = renderApp({ risks: ['hsct'], tab: 'compliance', hist: histWithDoses() });
+    expect(queryByText(/dose numbers below count every recorded dose/i)).toBeTruthy();
+    expect(queryByText(/series restarting after a transplant/i)).toBeTruthy();
+  });
+
+  // A transplant restarts the series whether or not a second stop risk is also
+  // ticked, so the caveat has to survive the combination.
+  it('still warns when hsct is combined with car_t', () => {
+    const { queryByText } = renderApp({ risks: ['hsct', 'car_t'], tab: 'compliance', hist: histWithDoses() });
+    expect(queryByText(/series restarting after a transplant/i)).toBeTruthy();
+  });
+
+  // With no history the tab renders its empty state and no dose cards, so
+  // "the dose numbers below" would point at nothing.
+  it('omits the caveat for an HSCT patient with no recorded doses', () => {
+    const { getByText, queryByText } = renderApp({ risks: ['hsct'], tab: 'compliance' });
+    expect(getByText('Forward-looking recommendations are switched off for this patient')).toBeTruthy();
+    expect(queryByText(/No vaccination history recorded/)).toBeTruthy();
+    expect(queryByText(/series restarting after a transplant/i)).toBeNull();
+  });
+
+  // The wording is transplant-specific, so it must not reach the other three
+  // stop risks, which have no transplant and no series restart.
+  it('does NOT show the transplant caveat for car_t', () => {
+    const { getByText, queryByText } = renderApp({ risks: ['car_t'], tab: 'compliance', hist: histWithDoses() });
+    // The notice itself still renders...
+    expect(getByText('Forward-looking recommendations are switched off for this patient')).toBeTruthy();
+    // ...but without the transplant sentence.
+    expect(queryByText(/series restarting after a transplant/i)).toBeNull();
   });
 });

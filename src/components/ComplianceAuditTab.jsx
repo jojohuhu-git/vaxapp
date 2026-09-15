@@ -760,11 +760,26 @@ function printComplianceAudit({ dob, am, hist, risks }) {
       <tbody>${rows}</tbody></table></div>`;
   }).join('');
 
+  // Dose-numbering decision 8 (2026-09-15). The Dose column below prints the
+  // same series positions the on-screen dose cards show, counting every
+  // recorded dose. A transplant restarts the series, so for an HSCT patient
+  // those numbers are not the patient's true positions. The on-screen notice
+  // that says so cannot travel with a printout, so the printout has to carry
+  // its own copy — otherwise this page leaves the app stating numbers it never
+  // qualifies. Same wording as ComplianceAuditStopNotice.
+  const transplantNote = (risks || []).includes('hsct')
+    ? '<p style="border:1px solid #999;padding:8px;margin:0 0 16px;font-size:11px">'
+      + '<strong>After a hematopoietic stem cell transplant.</strong> '
+      + "The dose numbers below count every recorded dose and don't account for "
+      + 'the series restarting after a transplant.</p>'
+    : '';
+
   const html = `<!DOCTYPE html><html><head><title>Compliance Audit</title>
     <style>body{font-family:Arial,sans-serif;padding:20px;font-size:12px}</style>
     </head><body>
     <h1 style="font-size:16px;margin-bottom:4px">Compliance Audit</h1>
     <p style="color:#666;margin:0 0 16px">Patient age: ${ageLabel} · DOB: ${dob || 'Not set'} · Printed: ${today}</p>
+    ${transplantNote}
     ${vaccineRows}
     </body></html>`;
 
@@ -919,11 +934,21 @@ function StatusLegend() {
   );
 }
 
-// Shown at the top of this tab (never replacing it — see hardStopped above)
-// for a CAR-T/B-cell-malignancy/B-cell-depleting-therapy patient: explains why
-// the Immunization Schedule tab is showing a stop instead of recommendations,
-// without implying this tab's own past-dose review is affected.
-function ComplianceAuditStopNotice() {
+// Shown at the top of this tab (never replacing it — see hardStopped above) for
+// any hard-stop patient (HSCT, CAR-T, B-cell malignancy, B-cell-depleting
+// therapy): explains why the Immunization Schedule tab is showing a stop
+// instead of recommendations, without implying this tab's own past-dose review
+// is affected.
+//
+// `isTransplant` adds one extra sentence for HSCT only (dose-numbering decision
+// 8, 2026-09-15). The dose cards below number each dose by its position in the
+// series — "Dose 1", "Dose 2", "2 of 5 doses" — counting every dose on the
+// chart. A transplant restarts the series, so for an HSCT patient those numbers
+// are not the patient's true series positions. Saying the review is
+// "unaffected" without that caveat overstates it: the spacing check is still
+// valid, the numbering is not. The wording is transplant-specific, so the other
+// three stop risks (no transplant, no restart) don't get it.
+function ComplianceAuditStopNotice({ isTransplant = false }) {
   return (
     <div className="hard-stop-banner">
       <div className="hard-stop-banner-title">Forward-looking recommendations are switched off for this patient</div>
@@ -931,6 +956,7 @@ function ComplianceAuditStopNotice() {
         Standard age-based immunization logic doesn't apply to this patient (see the
         Immunization Schedule tab for the full explanation). This review of doses already
         given is unaffected — whether a past dose was correctly spaced doesn't change.
+        {isTransplant && ' The dose numbers below count every recorded dose and don\'t account for the series restarting after a transplant.'}
       </p>
     </div>
   );
@@ -947,6 +973,11 @@ export default function ComplianceAuditTab({ recs: recsProp, validHist: validHis
   // notice explaining that the forward-looking tabs are switched off. See
   // docs/archive/handoff-2026-09-13-vaxapp-hct-hardstop-design-v2.md.
   const hardStopped = hardStopExclusion(risks);
+  // Plain membership, not hctRecipe.js's hsct-only check: a patient who had a
+  // transplant restarts the series whether or not another stop risk (CAR-T,
+  // B-cell) is also ticked, so the numbering caveat applies to the combination
+  // too. See ComplianceAuditStopNotice for why the sentence exists.
+  const hadTransplant = (risks || []).includes('hsct');
 
   // Accept recs/validHist from the parent's useRecs() call (avoids recomputing
   // for the whole tab); fall back to a local computation for standalone/test
@@ -979,6 +1010,8 @@ export default function ComplianceAuditTab({ recs: recsProp, validHist: validHis
   if (vaccinesWithHistory.length === 0) {
     return (
       <div>
+        {/* No caveat here: this branch renders no dose cards, so there are no
+            numbers below for the sentence to refer to. */}
         {hardStopped && <ComplianceAuditStopNotice />}
         <div style={{ padding: 24, textAlign: 'center', color: 'var(--gy3)', fontSize: 13 }}>
           No vaccination history recorded. Add doses in the Edit Patient drawer to see compliance review.
@@ -989,7 +1022,7 @@ export default function ComplianceAuditTab({ recs: recsProp, validHist: validHis
 
   return (
     <div>
-      {hardStopped && <ComplianceAuditStopNotice />}
+      {hardStopped && <ComplianceAuditStopNotice isTransplant={hadTransplant} />}
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <p style={{ margin: 0, fontSize: 11.5, color: 'var(--gy3)' }}>
