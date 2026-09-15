@@ -117,10 +117,11 @@ describe('post-HSCT meningococcal rule (settled 2026-09-13 — CDC + ASCO)', () 
   const find = vax => allItems.find(i => i.vax === vax);
   const highRiskWording = /asplenia.*complement deficiency.*eculizumab|ravulizumab/is;
 
-  it('MenACWY: states the 11-18 age band and the any-age high-risk limb', () => {
+  it('MenACWY: requires an additional risk factor at any age — the transplant alone does not qualify (ASCO 2024; supersedes IDSA 2013\'s unconditional 11-18 age band)', () => {
     const item = find('MenACWY');
-    expect(item.plan).toMatch(/11.{0,3}(through|-|to).{0,3}18/);
     expect(item.plan).toMatch(highRiskWording);
+    expect(item.plan).not.toMatch(/11.{0,3}(through|-|to).{0,3}18/);
+    expect(item.plan).toMatch(/transplant alone does not trigger/i);
   });
 
   it('MenACWY/MenB: minimum age is the real gate — no "Only if" framing that implies an upper-age exclusion from getting the vaccine at all', () => {
