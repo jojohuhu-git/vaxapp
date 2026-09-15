@@ -611,7 +611,15 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     const d1Early = d1AgeM != null && d1AgeM >= 2 && d1AgeM <= 6;
     const d2Late  = d2AgeM != null && d2AgeM >= 7;
     const on3DosePath = d1Early && d2Late;
-    const totalLabel = on3DosePath ? "3" : "4";
+    // M5: a series STARTED at 7\u201323 months is a 2-dose primary series, so this
+    // branch must not print "of 4" for a child who simply aged into the 12\u201323
+    // month window. It used to, which contradicted the 7\u201311-month branch the
+    // same child had been in a month earlier and asked for two doses CDC does not
+    // want. CDC: "Dose 1 at age 7\u201323 months: 2-dose series (dose 2 at least 12
+    // weeks after dose 1 and after age 12 months)". menACWYPrimaryTotal() is the
+    // single source of truth for the count; the D6 3-dose shortcut still wins
+    // where it applies.
+    const totalLabel = on3DosePath ? "3" : String(menPrimaryTotal);
     r("MenACWY", `Dose ${men + 1} of ${totalLabel} (infant high-risk, 12\u201323 months booster)`, men + 1, "risk-based",
       on3DosePath
         ? "D6: Dose 2 was given at \u22657 months \u2014 series completes in 3 doses. This dose is due \u226512 weeks after dose 2 AND not before 12 months of age. Then revaccinate in 3 years (primary series completed before age 7)."
