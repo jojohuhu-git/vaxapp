@@ -4,7 +4,7 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
-import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB } from './stateHelpers.js';
+import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 import { hardStopExclusion } from './hardStop.js';
 
@@ -182,7 +182,21 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
     }
 
     case 'MenACWY': {
-      if (isHRMen) return { totalDoses: 2 };
+      // M4: a high-risk primary series is not always 2 doses. A child who started
+      // as an infant has 3 or 4, and hardcoding 2 here made this surface treat a
+      // half-finished infant series as complete and schedule nothing, while the
+      // Recommendations tab was asking for the remaining doses. The length comes
+      // from menACWYPrimaryTotal(), the same helper the engine uses.
+      // (The booster phase after that series is still not modelled on this
+      // surface — that gap is queue item M6, not M4.)
+      if (isHRMen) {
+        const menDates = gDates(hist, 'MenACWY');
+        const ageAtMenDose = (d) => {
+          const dt = d?._date;
+          return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
+        };
+        return { totalDoses: menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose) };
+      }
       // V1: routine series count excludes only doses given before the 10th birthday
       // (120mo) — see menACWYRoutineCount. isHRMen already returned above, so every
       // use of givenMen below is on the non-high-risk path.

@@ -277,7 +277,7 @@ function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fc
         if (isCurr) {
           const rec = currentRecMap[vk];
           if (!rec) continue;
-          const total = getTotalDoses(vk, rec, fcBrands, am, validHist, risks);
+          const total = getTotalDoses(vk, rec, fcBrands, am, validHist, risks, dob);
           const qualifier = rec.status === 'catchup' ? ' catch-up'
             : rec.status === 'recommended' ? ' SCD' : '';
           const chip = isAnnual(vk) ? 'Annual'
@@ -288,7 +288,7 @@ function computePDFRows({ visits, allVks, dosePlan, recs, validHist, am, dob, fc
         } else if (!isPast && !proj && futureRecMap[vk]
             && firstFutureVisitForVk[vk] === visit.m && !currentRecMap[vk]) {
           const rec = futureRecMap[vk];
-          const total = getTotalDoses(vk, rec, fcBrands, am, validHist, risks);
+          const total = getTotalDoses(vk, rec, fcBrands, am, validHist, risks, dob);
           const chip = isAnnual(vk) ? 'Annual'
             : total > 1 ? `D${rec.doseNum}/${total}`
             : `D${rec.doseNum}`;
@@ -829,7 +829,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       const given = dc(validHist, vk);
       const isAnnual = vk === "Flu" || vk === "COVID";
       const totalForVk = (proj && proj.totalDoses)
-        || getTotalDoses(vk, rec || { doseNum: given + 1, dose: "" }, state.fcBrands, am, validHist, state.risks);
+        || getTotalDoses(vk, rec || { doseNum: given + 1, dose: "" }, state.fcBrands, am, validHist, state.risks, state.dob);
       const fmtDose = (n) => isAnnual ? "Annual" : (!totalForVk || totalForVk <= 1) ? `Dose ${n}` : `Dose ${n} of ${totalForVk}`;
       const hasPopover = !!(rec?.note || rec?.refUrl);
       // "card:" prefix kept even though the matrix view (which shared this
@@ -1193,7 +1193,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                   const displayBrand = resolveDropdownBrand(selectedBrand, bOpts);
                   const isExpanded = expandedRationale === rec.vk;
                   const isAnnual = rec.vk === "Flu" || rec.vk === "COVID";
-                  const totalDoses = getTotalDoses(rec.vk, rec, state.fcBrands, am, validHist, state.risks);
+                  const totalDoses = getTotalDoses(rec.vk, rec, state.fcBrands, am, validHist, state.risks, state.dob);
                   const doseChip = isAnnual ? "Annual" : `Dose ${rec.doseNum}${totalDoses > 1 ? ` of ${totalDoses}` : ""}`;
                   const statusBadgeClass = rec.status === "due" ? "today-badge-due"
                     : rec.status === "catchup" ? "today-badge-cu"

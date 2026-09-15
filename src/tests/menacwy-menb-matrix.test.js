@@ -593,11 +593,25 @@ describe('MenACWY risk-based', () => {
     expect(doses.length).toBe(0);
   });
 
-  it('19b. 6y (72m), asplenia, 4-dose infant primary (men=4) → subsequent booster minInt 1826d (5y)', () => {
-    // 4-dose infant primary series (D1–D3 primary at 2/4/6m, D4 booster at 12m).
-    // The D4 booster at 12m IS the first booster within the infant series.
-    // When assessed at 6y: men=4, isFirstBooster=(men===2)=false → subsequent booster (5y).
-    // This matches MeningoVax's ≥24m primary2 path exactly.
+  it('19b. 6y (72m), asplenia, 4-dose infant primary (men=4) → FIRST booster minInt 1095d (3y)', () => {
+    // CHANGED BY M4 (2026-09-15). This test used to expect 1826d (5 years) on the
+    // reasoning, written in its own comment, that "the D4 booster at 12m IS the
+    // first booster within the infant series", so a dose at 6y was a SUBSEQUENT
+    // booster. That model is wrong on both counts.
+    //
+    // CDC child & adolescent schedule notes, "Meningococcal serogroup A,C,W,Y
+    // vaccination", special situations, Menveo (fetched live 2026-09-15):
+    //   "Dose 1 at age 2 months: 4-dose series (additional 3 doses at age 4, 6,
+    //    and 12 months)"
+    // All four doses are the PRIMARY series — CDC does not call the 12-month
+    // dose a booster. Owner-confirmed table (meningococcal parity queue,
+    // 2026-09-15) says the same: first dose at 2 months → "4 doses — 2, 4, 6, 12
+    // months", listed as the primary series.
+    //
+    // The booster clock therefore starts at the 12-month dose, and since the
+    // primary series finished well before the 7th birthday the FIRST booster is
+    // due 3 years later (1095d), not 5. The old expectation made a high-risk
+    // child wait two extra years.
     const am = 72;
     const risks = ['asplenia'];
     const hist = { MenACWY: [
@@ -609,11 +623,16 @@ describe('MenACWY risk-based', () => {
     const r = firstRec('MenACWY', am, hist, risks);
     expect(r).not.toBeNull();
     expect(r.status).toBe('risk-based');
-    expect(r.doseNum).toBe(5); // dose 5 = first post-infant-series booster
-    // men=4 → isFirstBooster=false → subsequent booster interval (5y)
-    expect(r.minInt).toBe(1826);
+    expect(r.doseNum).toBe(5); // dose 5 = first booster after the 4-dose primary
+    // men === menPrimaryTotal (4) → this IS the first booster → 3 years
+    expect(r.minInt).toBe(1095);
+    expect(r.dose).toMatch(/first booster/i);
 
-    // Surface 5: primary series (2 doses in optimizer model) already exceeded → 0 projected
+    // Surface 5: still projects nothing here — buildOptimalSchedule models the
+    // high-risk MenACWY primary as 2 doses and treats the series as exceeded, so
+    // it never offers the booster. That is a pre-existing surface-5 gap, not
+    // something M4 introduced (it was 0 before this change too), and it is queue
+    // item M6's territory. Recorded here rather than silently left unasserted.
     const doses = optimalDosesFor('MenACWY', am, hist, risks);
     expect(doses.length).toBe(0);
   });

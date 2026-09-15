@@ -5,7 +5,7 @@ import { MIN_INT } from '../data/scheduleRules.js';
 import { FORECAST_VISITS } from '../data/forecastData.js';
 import { addD } from './utils.js';
 import { genRecs } from './recommendations.js';
-import { highRisk, highRiskMenB, menACWYGivenAtOrAfter16y, menBSeriesTotal } from './stateHelpers.js';
+import { highRisk, highRiskMenB, isHighRiskMenACWY, menACWYGivenAtOrAfter16y, menBSeriesTotal, menACWYPrimaryTotal } from './stateHelpers.js';
 import { pcvHighRiskChildPlan, isHighRiskPCV, isPCV7 } from './pcvDoses.js';
 
 /**
@@ -485,6 +485,18 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
       // loop short-circuit (startDose >= totalDoses). Undated doses are not treated
       // as ≥16y, so they conservatively keep the 2-dose booster projection.
       if (givenMenACWY >= 1 && menACWYGivenAtOrAfter16y(hist, dob)) return givenMenACWY;
+      // M4: a high-risk series begun in infancy is 3 or 4 doses, not 2. Without
+      // this the forecast printed "Dose 3 of 2" for a child the engine had
+      // correctly asked to finish their primary series.
+      if (highRisk(risks) || isHighRiskMenACWY(risks)) {
+        const givenDoses = (hist?.MenACWY || []).filter(d => d.given);
+        const ageM = (d) => {
+          if (d.mode === "age" && d.ageDays != null) return d.ageDays / 30.4375;
+          if (d.mode === "date" && d.date && dob) return (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
+          return null;
+        };
+        return Math.max(menACWYPrimaryTotal(givenDoses, ageM), givenMenACWY);
+      }
       return 2;
     }
     case "Flu": {

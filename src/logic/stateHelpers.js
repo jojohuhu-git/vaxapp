@@ -302,3 +302,45 @@ export function menBSeriesTotal(hist, dob, am, isHighRisk) {
   const gap = (d1 && d2) ? dBetween(d1, d2) : null;
   return (gap !== null && gap < 182) ? 3 : 2;
 }
+
+/**
+ * M4: how many PRIMARY MenACWY doses this patient's series has, keyed to the
+ * age at DOSE 1 — which is what decides it clinically. Used to tell a primary
+ * dose apart from a booster, and so to know when the booster clock starts.
+ *
+ * The engine used to treat two doses as a finished primary series for every
+ * high-risk patient. For a child whose series is four doses that produced two
+ * separate errors: a completed infant series was offered a "subsequent booster"
+ * five years out instead of the first booster three years out, and an
+ * UNFINISHED series (2 of 4 doses) was declared complete and given a booster
+ * three years away rather than the two doses that were already overdue.
+ *
+ * CDC child & adolescent schedule notes, "Meningococcal serogroup A,C,W,Y
+ * vaccination", special situations, Menveo (fetched live 2026-09-15):
+ *   "Dose 1 at age 2 months: 4-dose series (additional 3 doses at age 4, 6,
+ *    and 12 months)"
+ *   "Dose 1 at age 7–23 months: 2-dose series (dose 2 at least 12 weeks after
+ *    dose 1 and after age 12 months)"
+ *   "Dose 1 at age 24 months or older: 2-dose series at least 8 weeks apart"
+ *
+ * The D6 shortcut (dose 1 at 2–6 months with dose 2 at ≥7 months completing the
+ * series in 3 doses) mirrors the 12–23-month branch in recommendations.js.
+ *
+ * When the age at dose 1 is unknown this returns the 2-dose total — the
+ * pre-existing assumption — so an undated history behaves exactly as before
+ * rather than silently switching a patient onto a 4-dose series.
+ *
+ * Mirrors MeningoVax's seriesTotals.js menacwyPrimaryTotal().
+ *
+ * @param {object[]} givenDoses - the MenACWY doses that count, in date order
+ * @param {(dose: object) => number|null} doseAgeMonths - age-at-dose resolver
+ * @returns {number} number of primary doses before the booster phase begins
+ */
+export function menACWYPrimaryTotal(givenDoses, doseAgeMonths) {
+  const d1AgeM = givenDoses[0] ? doseAgeMonths(givenDoses[0]) : null;
+  if (d1AgeM == null || d1AgeM >= 24) return 2;
+  if (d1AgeM >= 7) return 2;              // 7–23 months: 2-dose series
+  const d2AgeM = givenDoses[1] ? doseAgeMonths(givenDoses[1]) : null;
+  if (d2AgeM != null && d2AgeM >= 7) return 3; // D6 shortcut
+  return 4;                                // started at 2–6 months
+}

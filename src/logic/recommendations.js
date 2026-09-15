@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses, menACWYRoutineCount } from './stateHelpers.js';
+import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses, menACWYRoutineCount, menACWYPrimaryTotal } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
@@ -566,6 +566,11 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     const a = d ? menDoseAgeM(d) : null;
     return a != null && a >= 120 && a < 132;
   })();
+  // M4: how many doses this patient's PRIMARY series has, from the age at dose 1.
+  // Everything below that asks "is the primary series finished?" must use this
+  // rather than assuming two doses, or a four-dose infant series gets graded as
+  // though doses 3 and 4 were boosters.
+  const menPrimaryTotal = menACWYPrimaryTotal(menacwyGivenAll, menDoseAgeM);
   // D7: Menveo formulation depends on age \u2014 2-vial licensed \u22652 months; 1-vial licensed \u226510 years.
   const menveoLbl = am >= 120 ? "Menveo 1-vial (MenACWY-CRM, \u226510y)" : "Menveo 2-vial (MenACWY-CRM, \u22652m)";
   if (isHighRiskMen && am >= 2 && am < 7 && men < 3) {
@@ -719,7 +724,16 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       "At 16\u201321 years with no MenACWY dose on/after the 16th birthday: a single catch-up dose is recommended (a prior dose given before age 16 does not count). When given at \u226516 years, no booster is needed. Especially recommended for first-year college students living in residence halls.",
       [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
       { refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (isHighRiskMen && am >= 24 && men >= 2) {
+  } else if (isHighRiskMen && am >= 24 && men >= 2 && men < menPrimaryTotal) {
+    // M4: a child past their 2nd birthday who started an infant series but never
+    // finished it. Before this branch existed they fell into the booster branch
+    // below, which called their unfinished series complete and offered a booster
+    // three years out while the remaining primary doses were already overdue.
+    r("MenACWY", `Dose ${men + 1} of ${menPrimaryTotal} (high-risk, completing the primary series)`, men + 1, "risk-based",
+      `This child started the high-risk MenACWY series as an infant and has had ${men} of the ${menPrimaryTotal} doses that series needs. The remaining dose${menPrimaryTotal - men !== 1 ? "s are" : " is"} due now \u2014 at least 8 weeks after the last one. The booster clock does not start until the primary series is finished.`,
+      [menveoLbl, "MenQuadfi (MenACWY-TT, \u22652y)"],
+      { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+  } else if (isHighRiskMen && am >= 24 && men >= menPrimaryTotal) {
     // Primary series complete; high-risk patients need revaccination.
     // Booster cadence per ACIP 2020 MMWR and immunize.org p2035:
     //   FIRST booster (men===2 → dose 3):
@@ -728,26 +742,30 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     //     D2 age unknown → conservative 3 years (1095d)
     //   SUBSEQUENT boosters (men>=3 → dose 4+): ALWAYS 5 years (1826d)
     const menacwyGiven = (hist.MenACWY || []).filter(d => d.given);
-    const menacwyD2 = menacwyGiven[1];
+    // M4: the cadence keys off the age at the LAST dose of the PRIMARY series —
+    // the dose the booster clock actually runs from. That is dose 2 only when the
+    // primary series is two doses; for an infant series it is dose 3 or 4, and
+    // using dose 2 there measured from the wrong dose entirely.
+    const menacwyLastPrimary = menacwyGiven[menPrimaryTotal - 1] || menacwyGiven[menacwyGiven.length - 1];
     let d2AgeM = null;
-    if (menacwyD2) {
-      d2AgeM = menacwyD2.mode === "date" && dob
-        ? (new Date(menacwyD2.date) - new Date(dob)) / (86400000 * 30.4375)
-        : (menacwyD2.mode === "age" && menacwyD2.ageDays != null ? menacwyD2.ageDays / 30.4375 : null);
+    if (menacwyLastPrimary) {
+      d2AgeM = menacwyLastPrimary.mode === "date" && dob
+        ? (new Date(menacwyLastPrimary.date) - new Date(dob)) / (86400000 * 30.4375)
+        : (menacwyLastPrimary.mode === "age" && menacwyLastPrimary.ageDays != null ? menacwyLastPrimary.ageDays / 30.4375 : null);
     }
     const d2KnownAtOrAfter7 = d2AgeM != null && d2AgeM >= 84;
-    // First booster: 3y if D2 before age 7 (or unknown), else 5y.
-    // ALL subsequent boosters: always 5 years regardless of D2 age.
-    const isFirstBooster = men === 2;
+    // First booster: 3y if the primary series finished before age 7 (or unknown),
+    // else 5y. ALL subsequent boosters: always 5 years.
+    const isFirstBooster = men === menPrimaryTotal;
     const menacwyRevaxInt = isFirstBooster
       ? (d2KnownAtOrAfter7 ? 1826 : 1095)
       : 1826;
     const menacwyRevaxNote = isFirstBooster
       ? (d2KnownAtOrAfter7
-        ? "first booster, 5 years (D2 at \u22657 years)"
+        ? "first booster, 5 years (primary series completed at \u22657 years)"
         : (d2AgeM != null
-          ? "first booster, 3 years (D2 before age 7)"
-          : "first booster, 3 years (D2 age unknown \u2014 conservative)"))
+          ? "first booster, 3 years (primary series completed before age 7)"
+          : "first booster, 3 years (age at end of primary series unknown \u2014 conservative)"))
       : "every 5 years (subsequent booster)";
     r("MenACWY", `Revaccination dose ${men + 1} (high-risk, ${menacwyRevaxNote})`, men + 1, "risk-based",
       `ACIP: high-risk patients (asplenia, complement deficiency, HIV) who completed MenACWY primary series: first booster 3 years after primary if completed before age 7 (otherwise 5 years), then every 5 years thereafter as long as risk continues.`,
