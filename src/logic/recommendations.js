@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses, menACWYRoutineCount, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y } from './stateHelpers.js';
+import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menBEffectiveDoses, menACWYRoutineCount, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYInfantSeriesIndicated, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
@@ -578,13 +578,44 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   const menPrimaryTotal = menACWYPrimaryTotal(menacwyGivenAll, menDoseAgeM, { travel: menTravelOngoing });
   // D7: Menveo formulation depends on age \u2014 2-vial licensed \u22652 months; 1-vial licensed \u226510 years.
   const menveoLbl = am >= 120 ? "Menveo 1-vial (MenACWY-CRM, \u226510y)" : "Menveo 2-vial (MenACWY-CRM, \u22652m)";
-  if (isHighRiskMen && am >= 2 && am < 7 && men < 3) {
+  // M10: the MenACWY infant series is keyed to the age at dose 1, NOT to why the
+  // infant is being vaccinated. ACIP 2020 MMWR 69(RR-9) prints the identical
+  // "2\u201323 mos" row in Table 9 (travel), Table 8 (outbreak) and Tables 4\u20136
+  // (medical high risk), fetched live from cdc.gov 2026-09-15:
+  //   "MenACWY-CRM: If first dose at age \u2022 2 mos: 4 doses at 2, 4, 6, and 12
+  //    mos \u2022 3\u20136 mos: See catch-up schedule \u2022 7\u201323 mos: 2 doses (second dose
+  //    \u226512 wks after the first dose and after the 1st birthday)"
+  // The four branches below were gated on isHighRiskMen alone, so an infant
+  // traveler matched none of them and received NO MenACWY recommendation on any
+  // surface \u2014 while the optimal schedule still planned doses, contradicting it.
+  // Only the wording below depends on which indication applies; the schedule does
+  // not. Microbiologists, recruits and college students are absent on purpose:
+  // ACIP gives them no infant row (Table 7 is "\u226510 yrs", Table 10 is recruits).
+  const menInfantSeries = menACWYInfantSeriesIndicated(risks);
+  const menInfantTravel = !isHighRiskMen && risks.includes("travel");
+  const menInfantWho = isHighRiskMen
+    ? "High-risk infants (asplenia, complement deficiency, HIV)"
+    : menInfantTravel
+      ? "Infants travelling to or living in a country where meningococcal disease is hyperendemic or epidemic"
+      : "Infants at increased risk during a serogroup A, C, W or Y outbreak";
+  const menInfantWhoKids = isHighRiskMen
+    ? "High-risk children 12\u201323 months"
+    : menInfantTravel
+      ? "Travelling children 12\u201323 months"
+      : "Children 12\u201323 months at increased risk during a serogroup A, C, W or Y outbreak";
+  const menInfantWhoShort = isHighRiskMen
+    ? "high-risk infants"
+    : menInfantTravel ? "travelling infants" : "infants at risk during an outbreak";
+  const menInfantWhy = isHighRiskMen
+    ? "infant high-risk"
+    : menInfantTravel ? "infant travel" : "infant outbreak";
+  if (menInfantSeries && am >= 2 && am < 7 && men < 3) {
     // 4-dose primary series at 2, 4, 6 months for highest-risk infants
-    r("MenACWY", `Dose ${men + 1} of 4 (infant high-risk, primary series)`, men + 1, "risk-based",
-      "High-risk infants (asplenia, complement deficiency, HIV): 3-dose primary series at 2, 4, 6 months with Menveo (MenACWY-CRM). Only Menveo is FDA-approved for infants \u22652 months. Min 4 weeks between doses. Give 4th dose (booster) at 12 months.",
+    r("MenACWY", `Dose ${men + 1} of 4 (${menInfantWhy}, primary series)`, men + 1, "risk-based",
+      `${menInfantWho}: 3-dose primary series at 2, 4, 6 months with Menveo (MenACWY-CRM). Only Menveo is FDA-approved for infants \u22652 months. Min 4 weeks between doses. Give 4th dose (booster) at 12 months.`,
       ["Menveo 2-vial (MenACWY-CRM, \u22652 months \u2014 only brand approved for infants)"],
       { minInt: 28, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (isHighRiskMen && am >= 7 && am < 12 && men < 2) {
+  } else if (menInfantSeries && am >= 7 && am < 12 && men < 2) {
     // D5 hard floor: dose 2 must be >=12 weeks after dose 1 AND given at >=12 months of age.
     // Set minInt to the later of 84 days and the days remaining to the first birthday so that
     // prevDate + minInt clears BOTH floors (degrades to 84 only when dose-1 age is unknown).
@@ -596,17 +627,17 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       if (d1AgeDays != null) d2MinInt = Math.max(84, 365 - d1AgeDays);
     }
     // Starting 7–11m: 2-dose primary (D5 fix: ≥12 weeks AND ≥12m age floor for D2), then booster
-    r("MenACWY", `Dose ${men + 1} of 2 (infant high-risk, 7\u201311 months)`, men + 1, "risk-based",
-      "High-risk infants starting MenACWY at 7\u201311 months: 2-dose primary series (dose 2 \u226512 weeks after dose 1 AND on/after the first birthday). Give the booster 12 months after completing the primary series.",
+    r("MenACWY", `Dose ${men + 1} of 2 (${menInfantWhy}, 7\u201311 months)`, men + 1, "risk-based",
+      `${menInfantWho}, starting MenACWY at 7\u201311 months: 2-dose primary series (dose 2 \u226512 weeks after dose 1 AND on/after the first birthday). Give the booster 12 months after completing the primary series.`,
       ["Menveo 2-vial (MenACWY-CRM, \u22652 months)"],
       { minInt: d2MinInt, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (isHighRiskMen && am >= 12 && am < 24 && men === 0) {
+  } else if (menInfantSeries && am >= 12 && am < 24 && men === 0) {
     // 12–23m high-risk, never vaccinated: start 2-dose primary series now (D5 fix: ≥12 weeks).
-    r("MenACWY", "Dose 1 of 2 (infant high-risk, unvaccinated 12–23 months)", 1, "risk-based",
-      "High-risk children 12–23 months with no prior MenACWY: give 2-dose primary series ≥12 weeks apart (Menveo or MenQuadfi), then revaccinate in 3 years (primary series completed before age 7).",
+    r("MenACWY", `Dose 1 of 2 (${menInfantWhy}, unvaccinated 12–23 months)`, 1, "risk-based",
+      `${menInfantWhoKids} with no prior MenACWY: give 2-dose primary series ≥12 weeks apart (Menveo or MenQuadfi), then revaccinate in 3 years (primary series completed before age 7).`,
       ["Menveo 2-vial (MenACWY-CRM, ≥2 months)", "MenQuadfi (MenACWY-TT, ≥2 years)"],
       { minInt: 84, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
-  } else if (isHighRiskMen && am >= 12 && am < 24 && men > 0 && men < 4) {
+  } else if (menInfantSeries && am >= 12 && am < 24 && men > 0 && men < 4) {
     // 12\u201323m: booster for primary-series completers (6m 3-dose or 7-11m 2-dose path).
     // D6 shortcut: if D1 was 2\u20136m AND D2 was \u22657m, only 3 total doses complete the series.
     // Conservative default: if ages are unknown, use the standard 4-dose path.
@@ -625,10 +656,10 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
     // single source of truth for the count; the D6 3-dose shortcut still wins
     // where it applies.
     const totalLabel = on3DosePath ? "3" : String(menPrimaryTotal);
-    r("MenACWY", `Dose ${men + 1} of ${totalLabel} (infant high-risk, 12\u201323 months booster)`, men + 1, "risk-based",
+    r("MenACWY", `Dose ${men + 1} of ${totalLabel} (${menInfantWhy}, 12\u201323 months booster)`, men + 1, "risk-based",
       on3DosePath
         ? "D6: Dose 2 was given at \u22657 months \u2014 series completes in 3 doses. This dose is due \u226512 weeks after dose 2 AND not before 12 months of age. Then revaccinate in 3 years (primary series completed before age 7)."
-        : "Booster dose at 12\u201323 months for high-risk infants who completed the primary MenACWY series. Min 12 weeks after last primary dose. Then revaccinate in 3 years (primary series completed before age 7).",
+        : `Booster dose at 12\u201323 months for ${menInfantWhoShort} who completed the primary MenACWY series. Min 12 weeks after last primary dose. Then revaccinate in 3 years (primary series completed before age 7).`,
       ["Menveo 2-vial (MenACWY-CRM, \u22652 months)", "MenQuadfi (MenACWY-TT, \u22652 years)"],
       { minInt: 84, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   // M7: these two routine adolescent branches sit ABOVE the high-risk primary

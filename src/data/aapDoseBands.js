@@ -212,9 +212,17 @@ const MENACWY_MICROBIOLOGIST = [
 // vaccination and every 5 yrs thereafter • Aged >=7 yrs: Single dose at 5 yrs
 // after primary vaccination and every 5 yrs thereafter".
 // Source: https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=TABLE%209
+// M10 (2026-09-15): recMin is 2 months, not 24. Table 9 covers travelers from
+// age 2 months, and its "2-23 mos" row is the same infant series Tables 4-6 give
+// medically high-risk infants (4 doses at 2, 4, 6 and 12 months when dose 1 is at
+// 2 months; 2 doses when dose 1 is at 7-23 months). With recMin at 24 an infant
+// traveler's correctly-timed dose fell outside every band, so the compliance tab
+// graded it a bare "VALID" while the identical high-risk dose graded "ON TIME".
+// Like the high-risk bands above, the real min age (2 months) and the intervals
+// are enforced by validateDose, not by the band.
 const MENACWY_TRAVEL = [
-  { dose: 1, recMin: 24, recMax: null, catchupMax: null, label: 'Travel dose 1 (hyperendemic or epidemic area)' },
-  { dose: 2, recMin: 24, recMax: null, catchupMax: null, label: 'Travel booster (3 yr if the primary dose was before age 7, otherwise 5 yr, then every 5 yr)' },
+  { dose: 1, recMin: 2, recMax: null, catchupMax: null, label: 'Travel dose 1 (hyperendemic or epidemic area; infant series from age 2 mo, 1 dose from age 2 yr)' },
+  { dose: 2, recMin: 2, recMax: null, catchupMax: null, label: 'Travel dose 2 (infant series) or booster (3 yr if the primary series finished before age 7, otherwise 5 yr, then every 5 yr)' },
 ];
 
 /**

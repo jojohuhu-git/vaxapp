@@ -25,9 +25,28 @@ export const MIN_INT = {
   // When the age at dose 1 is unknown, neither condition fires and the 8-week base
   // applies — deliberately the permissive choice, since the failure being fixed here
   // is a false rejection.
+  // M10: the infant interval rows below apply to EVERY indication that puts an
+  // infant on the MenACWY series, not only to the medical high-risk ones. ACIP
+  // 2020 MMWR 69(RR-9) prints the same "2-23 mos" row in Table 9 (travel),
+  // Table 8 (outbreak) and Tables 4-6 (medical high risk), fetched live
+  // 2026-09-15. Before M10 an infant traveler's dose 2 fell back to the
+  // unconditional 56-day interval, so a dose given at the correct 4-week infant
+  // interval was graded INVALID and silently dropped from the history.
+  //
+  // The two rows take DIFFERENT risk lists on purpose:
+  //   Row 1 (dose 1 before ~7 months, 4 weeks) is identical in all three tables.
+  //   Row 2 (dose 1 at 7-23 months, 12 weeks) deliberately omits "travel".
+  //     Table 9 alone adds a traveler exemption, verbatim: "MenACWY-D (aged >=9
+  //     mos): 2 doses >=12 wks apart (may be administered as early as >=8 wks
+  //     apart in travelers)". Table 8 has no such clause. Holding travelers to
+  //     84 days would therefore flag a Menactra dose ACIP expressly permits as
+  //     invalid and demand a repeat, so travel keeps the unconditional 56-day
+  //     floor here. That is deliberately lenient for a Menveo traveler, whose
+  //     true floor is 12 weeks; expressing it needs a per-brand condition, which
+  //     iCond does not have (see validation.js). Logged as N7.
   MenACWY: {minD:60,   maxD1:null, i:[null,56,null,null,null], iCond:[
-    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv"], prevDoseAgeLt:213, minInterval:28},
-    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv"], prevDoseAgeGte:213, prevDoseAgeLt:730, minInterval:84},
+    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv","travel","outbreak_acwy"], prevDoseAgeLt:213, minInterval:28},
+    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv","outbreak_acwy"], prevDoseAgeGte:213, prevDoseAgeLt:730, minInterval:84},
   ], note:"High-risk: ≥8 weeks D1→D2 from age 2y; infant series ≥4 weeks; a 7–23-month start needs ≥12 weeks AND the 1st birthday. Routine: 11–12y, booster 16y."},
   // M2: the 6-month dose-2 rule belongs to the HEALTHY 2-dose path only. A patient
   // with a MenB high-risk indication is on a different schedule entirely, so the

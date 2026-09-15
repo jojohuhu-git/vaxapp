@@ -85,6 +85,36 @@ export function menacwyExposureCategory(risks) {
 export const isTravelOngoingMenACWY = (risks) =>
   menacwyExposureCategory(risks) === "travel";
 
+/**
+ * M10: does this patient need the MenACWY INFANT series (under 24 months)?
+ *
+ * The infant series does not depend on WHY the infant is being vaccinated, only
+ * on the age at dose 1. ACIP 2020 MMWR 69(RR-9) prints the identical "2-23 mos"
+ * row in Table 9 (travel), Table 8 (outbreak) and Tables 4-6 (medical high
+ * risk), fetched live 2026-09-15:
+ *   "MenACWY-CRM: If first dose at age
+ *      - 2 mos: 4 doses at 2, 4, 6, and 12 mos
+ *      - 3-6 mos: See catch-up schedule
+ *      - 7-23 mos: 2 doses (second dose >=12 wks after the first dose and after
+ *        the 1st birthday)"
+ *
+ * Before M10 every infant branch in recommendations.js was gated on
+ * isHighRiskMenACWY alone, so an infant traveler matched no branch and got no
+ * recommendation on any surface.
+ *
+ * Microbiologist, military recruit and college students are deliberately absent:
+ * ACIP gives them no infant row at all (Table 7 covers ages ">=10 yrs", Table 10
+ * is recruits, and the college indication is adolescent).
+ *
+ * "outbreak_acwy" is listed ahead of the risk factor existing: vaxapp today has
+ * only "outbreak_b" (serogroup B). Creating the A/C/W/Y outbreak indication is
+ * queue item M12 - listing it here means M12 inherits the correct infant
+ * pathway instead of having to re-find it.
+ */
+export const menACWYInfantSeriesIndicated = (risks) =>
+  isHighRiskMenACWY(risks || []) ||
+  (risks || []).some(r => ["travel", "outbreak_acwy"].includes(r));
+
 /** The 3-year/5-year MenACWY booster cadence pivot, in months (the 7th birthday). */
 export const MENACWY_AGE_7Y_MONTHS = 84;
 /** First booster 3 years after the primary series (completed before age 7). */
