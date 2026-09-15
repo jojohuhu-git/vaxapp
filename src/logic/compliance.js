@@ -25,7 +25,7 @@
  */
 
 import { validateDose } from './validation.js';
-import { doseAgeDays, doseAgeMonths, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menBSeriesTotal } from './stateHelpers.js';
 import { getDoseBand } from '../data/aapDoseBands.js';
 import { fmtAgeClinical } from './ageFormat.js';
 import { REFS } from '../data/refs.js';
@@ -515,18 +515,31 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // already gets right via highRiskMenB(). STANDARD_SERIES_TOTAL.MenB=3 below used to
   // apply to EVERY patient regardless of risk, so a healthy patient's 3rd (or any
   // later) MenB dose was graded as a normal, needed part of the series — with no
-  // threshold at which it would ever be flagged, unlike MenACWY's M7 case. Unlike
-  // MenACWY's high-risk series, MenB high-risk is a fixed 3-dose total (not
-  // open-ended), so this doesn't need a null/no-fixed-total branch.
+  // threshold at which it would ever be flagged, unlike MenACWY's M7 case.
+  //
+  // M8 (2026-09-15, meningococcal parity queue): this comment used to claim MenB
+  // high-risk was "a fixed 3-dose total (not open-ended)". It is not. CDC,
+  // "Meningococcal Vaccine Recommendations", fetched live 2026-09-15 — people at
+  // increased risk aged 10+ get "A 3-dose primary series" then "Regular booster
+  // doses": "1 year after series completion" and "Every 2 to 3 years thereafter".
+  // So high-risk MenB is open-ended exactly like high-risk MenACWY, and takes the
+  // same standardTotal = null. The app was grading the 1-year booster VALID_EXTRA
+  // while its own engine was asking for it by name.
   const menBHighRisk = vk === 'MenB' && highRiskMenB(risks || []);
 
   // For Hib, use brand-aware standard total (PRP-OMP=3, PRP-T=4). For high-risk MenACWY
   // the series is open-ended (2-dose primary + lifelong boosters), so there is no fixed
   // "standard total" and later doses are boosters, not "extra" — skip the VALID_EXTRA path.
-  const standardTotal = (menacwyHighRisk || menacwyMicrobiologist)
+  const standardTotal = (menacwyHighRisk || menacwyMicrobiologist || menBHighRisk)
     ? null
     : vk === 'Hib' ? hibStandardTotal(hist)
-    : vk === 'MenB' ? (menBHighRisk ? 3 : 2)
+    // M8: the healthy MenB total is 2, or 3 when dose 2 came early and M3's
+    // rescue dose is required — menBSeriesTotal() is M3's shared source of
+    // truth for that. The age argument is only a fallback for UNDATED doses,
+    // and the `ageMonths` in scope here is the age at THIS dose rather than
+    // the patient's current age, so pass null and let undated doses count,
+    // which is what this function did before M8.
+    : vk === 'MenB' ? menBSeriesTotal(hist, dob, null, false)
     : vk === 'HPV' ? hpvStandardTotal(hist, dob, risks)
     : vk === 'IPV' ? ipvStandardTotal(hist, dob)
     : vk === 'PPSV23' ? (isHighRiskPCV(risks) ? ppsv23StandardTotal(risks) : null)

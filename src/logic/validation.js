@@ -2,7 +2,7 @@
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
 import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO } from './utils.js';
-import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menACWYPrimaryTotal } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menACWYPrimaryTotal, menBSeriesTotal } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
 import { REFS } from '../data/refs.js';
@@ -674,14 +674,29 @@ export function auditAll(hist, dob, risks = [], am = -1) {
     // Before this fix, there was NO MenB overdose check here at all — a healthy
     // patient could have any number of MenB doses with zero advisory, unlike the
     // MenACWY check just above which at least fired past a fixed threshold.
-    if (vk === "MenB") {
-      const isHighRiskMenBPatient = highRiskMenB(risks);
-      const standardTotal = isHighRiskMenBPatient ? 3 : 2;
+    // M8 (2026-09-15, meningococcal parity queue — NOT the older "M8" this block
+    // was named for): both halves of the old threshold were wrong.
+    //
+    // High-risk MenB has no total. CDC, "Meningococcal Vaccine Recommendations",
+    // fetched live 2026-09-15 — people at increased risk aged 10+ get "A 3-dose
+    // primary series" and then "Regular booster doses": "1 year after series
+    // completion" and "Every 2 to 3 years thereafter". So the app was warning
+    // about the dose its own engine had just asked for by name ("Revaccination —
+    // dose 4 (high-risk, 1 year after primary series)"). High-risk MenACWY is
+    // already modelled this way; MenB is no different.
+    //
+    // And the healthy total is not always 2: M3's rescue dose 3 is required when
+    // dose 2 came early, so a healthy patient could be told "Series Needs an
+    // Extra Dose" and "Extra Dose (series complete)" about the same dose at the
+    // same time. menBSeriesTotal() is the shared source of truth M3 added for
+    // exactly this; re-deriving the number here is what let them disagree.
+    if (vk === "MenB" && !highRiskMenB(risks)) {
+      const standardTotal = menBSeriesTotal(hist, dob, am, false);
       if (doses.length > standardTotal) {
         errors.push({ vk, type: "series_over", severity: "warn",
           title: "MenB — Extra Dose (series complete for this patient's risk level)",
-          detail: `${doses.length} MenB doses recorded. Non-high-risk patients need only 2 doses (16–23 years, shared clinical decision); high-risk patients (asplenia, complement deficiency, microbiologist exposure, or serogroup B outbreak) need 3. A dose beyond that count is not ACIP-indicated.`,
-          action: "Verify patient risk status. If no high-risk indication applies, the extra dose is not harmful but was not indicated. Add the appropriate risk factor if the patient is high-risk.",
+          detail: `${doses.length} MenB doses recorded. This patient's series is ${standardTotal} dose${standardTotal === 1 ? "" : "s"}${standardTotal === 3 ? " — 3 because dose 2 was given less than 6 months after dose 1, so a rescue dose was needed" : " (16–23 years, shared clinical decision)"}. A dose beyond that count is not ACIP-indicated for a patient with no MenB risk factor.`,
+          action: "Verify patient risk status. The extra dose is not harmful, but it was not indicated. If the patient has a MenB high-risk condition (asplenia or sickle cell, complement deficiency or a complement inhibitor, microbiologist exposure, or a serogroup B outbreak), add that risk factor — those patients get a booster 1 year after the primary series and another every 2–3 years, and none of those count as extra.",
           refUrl: REFS.MenB.url, refLabel: REFS.MenB.label,
           refUrl2: REFS.MenB.cdcUrl, refLabel2: REFS.MenB.cdcLabel });
       }
