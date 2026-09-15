@@ -640,9 +640,11 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         : (d1?.mode === "date" && dob ? Math.round((new Date(d1.date) - new Date(dob)) / 86400000) : null);
       if (d1AgeDays != null) d2MinInt = Math.max(84, 365 - d1AgeDays);
     }
-    // Starting 7–11m: 2-dose primary (D5 fix: ≥12 weeks AND ≥12m age floor for D2), then booster
+    // Starting 7–11m: 2-dose primary (D5 fix: ≥12 weeks AND ≥12m age floor for D2),
+    // then the first booster 3 years after the series completes (MMWR 69(RR-9) Table 4,
+    // aged <7 yrs). The note used to say 12 months, which is the MenB row's interval.
     r("MenACWY", `Dose ${men + 1} of 2 (${menInfantWhy}, 7\u201311 months)`, men + 1, "risk-based",
-      `${menInfantWho}, starting MenACWY at 7\u201311 months: 2-dose primary series (dose 2 \u226512 weeks after dose 1 AND on/after the first birthday). Give the booster 12 months after completing the primary series.`,
+      `${menInfantWho}, starting MenACWY at 7\u201311 months: 2-dose primary series (dose 2 \u226512 weeks after dose 1 AND on/after the first birthday). Then revaccinate 3 years after the series is complete (primary series completed before age 7), and every 5 years after that while the child remains at increased risk.`,
       ["Menveo 2-vial (MenACWY-CRM, \u22652 months)"],
       { minInt: d2MinInt, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (menInfantSeries && am >= 12 && am < 24 && men === 0) {
