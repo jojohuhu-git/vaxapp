@@ -239,3 +239,22 @@ The fix is to let the planner pass the age it is planning for (the patient's age
 the planned date of dose 1) instead of inferring only from history. Verify against the
 high-risk infant as well as the traveler — both are wrong in exactly the same way, and
 `ForecastTab.m10-infant-exposure.test.jsx` pins that parity.
+
+
+### N8 addendum (2026-09-15, found while doing M12)
+
+The same root cause bites `buildOptimalSchedule` as well as the forecast's today
+panel. With an **empty** MenACWY history, `menACWYPrimaryTotal()` cannot key the
+series length to the age at dose 1, so it returns its documented 2-dose fallback —
+and the planner then dates dose 2 on a *primary-dose* interval instead of the
+booster/top-up interval the patient is actually on.
+
+Seed a 5-year-old with `travel` and no doses: the plan plans dose 1 today and
+"dose 2" 28 days later, when a traveler's second dose is the 3-year booster.
+An `outbreak_acwy` 5-year-old behaves the same way (84 days). Both are wrong in
+the same direction, and travel has been since M9 — so M12 left it alone.
+
+The fix is the same one N8 already describes: let the planner pass the age it is
+planning for (the patient's age today, or the planned date of dose 1) rather than
+inferring only from history. Fixing N8 should fix this at the same time; check
+both surfaces and all three indications (high-risk, travel, outbreak) together.
