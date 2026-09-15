@@ -240,6 +240,22 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
     }
 
     case 'MenB': {
+      // M11: ACIP defers MenB in pregnancy unless the patient is at increased
+      // risk. ACIP 2020 MMWR 69(RR-9), "Pregnancy and Lactation", fetched live
+      // from cdc.gov 2026-09-15: "Because limited data are available for MenB
+      // vaccination during pregnancy, vaccination with MenB should be deferred
+      // unless the woman is at increased risk and, after consultation with her
+      // health care provider, the benefits of vaccination are considered to
+      // outweigh the potential risks."
+      //
+      // This surface plans doses from its own seriesDoses(), NOT from genRecs,
+      // so the deferral the engine applies does not reach it on its own: a
+      // pregnant 17-year-old was shown "Deferred in pregnancy" on the forecast
+      // while the optimal schedule below planned dose 1 for TODAY. Returning
+      // null plans nothing, matching how pregnancy already suppresses the live
+      // vaccines (isLiveVaccineContraindicated). The reason stays visible on
+      // the forecast's deferred card, which is where it is explained.
+      if (risks.includes('pregnancy') && !isHRMenB) return null;
       // M1: non-high-risk patients' pre-16 doses don't count toward the healthy
       // 2-dose series (mirrors the isHRMen pre-10 exclusion for MenACWY above).
       // M2: high-risk patients' ambiguous pre-16 doses don't count either, unless

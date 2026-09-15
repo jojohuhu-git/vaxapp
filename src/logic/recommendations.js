@@ -873,6 +873,25 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // MenB high-risk gate: ONLY asplenia/sickle_cell/complement/microbiologist/outbreak_b per ACIP 2020.
   // HIV, immunocomp, HSCT do NOT have a MenB high-risk indication (B1).
   const hrMenB = highRiskMenB(risks);
+  // M11: ACIP defers MenB in pregnancy unless the patient is at increased risk.
+  // ACIP 2020 MMWR 69(RR-9), "Pregnancy and Lactation", fetched live from
+  // cdc.gov 2026-09-15 and quoted verbatim: "Pregnant and lactating women
+  // should receive MenACWY vaccine if indicated. Because limited data are
+  // available for MenB vaccination during pregnancy, vaccination with MenB
+  // should be deferred unless the woman is at increased risk and, after
+  // consultation with her health care provider, the benefits of vaccination are
+  // considered to outweigh the potential risks."
+  //
+  // So pregnancy changes MenB two ways, and only MenB - MenACWY is untouched:
+  //   - no increased-risk indication -> defer (menbDeferPregnancy below);
+  //   - increased risk -> still offer it, but say out loud that it is a
+  //     benefit-versus-risk conversation (menbPregnancyCaveat below).
+  // Mirrors MeningoVax's shouldDeferMenB()/'deferred' status.
+  const menbPregnant = risks.includes("pregnancy");
+  const menbDeferPregnancy = menbPregnant && !hrMenB;
+  const menbPregnancyCaveat = (menbPregnant && hrMenB)
+    ? " Pregnancy: because safety data in pregnancy are limited, give MenB only after discussing it with her — it is offered here because she is at increased risk, and the decision is whether the benefit outweighs the potential risk."
+    : "";
   // M1: a MenB dose given before age 16 (192mo) to a non-high-risk patient is
   // validly given but does NOT count toward the healthy 2-dose series — MenB
   // antibody protection wanes within about a year, so a pre-16 dose provides no
@@ -884,7 +903,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   if (am >= 120) {
     if (menbCount === 0 && (hrMenB || (am >= 192 && am < 288))) {
       r("MenB", hrMenB ? "Dose 1 \u2014 risk-based (high-risk)" : "Dose 1 \u2014 shared clinical decision (preferred 16\u201323y)", 1, hrMenB ? "risk-based" : "recommended",
-        hrMenB ? "Risk-based for high-risk patients: 3-dose accelerated schedule (0, 1\u20132 months, 6 months) for BOTH antigen families. MenB-4C (Bexsero/Penmenvy) and MenB-FHbp (Trumenba/Penbraya) are NOT interchangeable \u2014 complete within one family." : "Shared clinical decision making, preferred 16\u201318y. MenB-4C (Bexsero/Penmenvy): 2 doses \u22656 months apart. MenB-FHbp (Trumenba/Penbraya): 2 doses \u22656m apart (or accelerated 3-dose). Penbraya/Penmenvy if MenACWY also starting.",
+        (hrMenB ? "Risk-based for high-risk patients: 3-dose accelerated schedule (0, 1\u20132 months, 6 months) for BOTH antigen families. MenB-4C (Bexsero/Penmenvy) and MenB-FHbp (Trumenba/Penbraya) are NOT interchangeable \u2014 complete within one family." : "Shared clinical decision making, preferred 16\u201318y. MenB-4C (Bexsero/Penmenvy): 2 doses \u22656 months apart. MenB-FHbp (Trumenba/Penbraya): 2 doses \u22656m apart (or accelerated 3-dose). Penbraya/Penmenvy if MenACWY also starting.") + menbPregnancyCaveat,
         men === 0 ? ["Penbraya (MenACWY+MenB-FHbp, \u226510y) \u2014 if starting MenACWY too (FHbp family)", "Penmenvy (MenACWY+MenB-4C, \u226510y) \u2014 if starting MenACWY too (4C family)", "Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"] : ["Bexsero (MenB-4C, 2-dose series)", "Trumenba (MenB-FHbp, 2- or 3-dose series)"],
         { bt: "Two antigen families: 4C (Bexsero, Penmenvy) and FHbp (Trumenba, Penbraya). Within a family products are interchangeable; across families they are NOT. Complete the series within one family.", refUrl: hrMenB ? REFS.MenB.cdcUrl : REFS.mm7349a3.url, refLabel: hrMenB ? REFS.MenB.cdcLabel : REFS.mm7349a3.label, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
     } else if (menbCount === 1 && (hrMenB || am >= 192)) {
@@ -969,6 +988,25 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
           mb ? [mb] : ["Bexsero (MenB-4C)", "Trumenba (MenB-FHbp)"],
           { minInt: revaxMinInt, refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
       }
+    }
+  }
+
+  // M11: with no increased-risk indication, every MenB dose above is deferred.
+  // This runs AFTER the branches rather than gating them, so the deferral can
+  // never drift out of step with the conditions that decide a dose is owed: if
+  // the engine would have said nothing (series complete, too young), there is
+  // nothing to defer and no card appears. The dose the clinician would have
+  // been offered is named in the note, so deferring is visibly a decision
+  // rather than a dose that silently vanished.
+  if (menbDeferPregnancy) {
+    const deferred = recs.filter(x => x.vk === "MenB");
+    if (deferred.length) {
+      const wouldHave = deferred[0];
+      for (let i = recs.length - 1; i >= 0; i--) if (recs[i].vk === "MenB") recs.splice(i, 1);
+      r("MenB", "Deferred in pregnancy", wouldHave.doseNum, "deferred",
+        `Safety data for MenB in pregnancy are limited, so ACIP defers it unless she is at increased risk and, after discussing it with her clinician, the benefit is judged to outweigh the potential risk. Without such an indication, wait until after the pregnancy. ${wouldHave.dose.replace(/\u2014/g, "\u2014")} would otherwise be due. MenACWY is NOT deferred \u2014 pregnant and lactating patients should receive it whenever it is indicated.`,
+        [],
+        { refUrl: REFS.MenB.cdcUrl, refLabel: REFS.MenB.cdcLabel, refUrl2: REFS.MenB.url, refLabel2: REFS.MenB.label });
     }
   }
 
