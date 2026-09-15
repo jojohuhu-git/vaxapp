@@ -1,5 +1,12 @@
 # Meningococcal parity queue — Handoff after M6–M8 (2026-09-15)
 
+> **SUPERSEDED (2026-09-15) by
+> [handoff-2026-09-15-meningococcal-parity-m9.md](handoff-2026-09-15-meningococcal-parity-m9.md).**
+> M9 is now done in BOTH repos (vaxapp `268ffd5`, MeningoVax `11c21b2`) and the queue
+> resumes at **M10**. The test counts below are stale — they are now 2421 (157 files) for
+> vaxapp and 438 (35 files) for MeningoVax. Read the newer file; this one is kept only for
+> the M6–M8 detail and the owner decisions recorded in it.
+
 Two repos, two branches, **neither pushed**, no PR open on either.
 
 | Repo | Path | Branch | Off | Tests now | Tree |
