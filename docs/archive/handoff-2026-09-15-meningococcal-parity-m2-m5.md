@@ -1,5 +1,10 @@
 # Meningococcal parity queue — Handoff after M2–M5 (2026-09-15)
 
+> **SUPERSEDED (2026-09-15).** The queue moved on: M6, M7 and M8 are now done too. Do not
+> resume from this file — its "What's NOT done" list and its test counts (2351 / 428) are
+> stale. Current handoff, with verified counts and the remaining M9–M19 queue:
+> [handoff-2026-09-15-meningococcal-parity-m6-m8.md](handoff-2026-09-15-meningococcal-parity-m6-m8.md).
+
 Two repos, two branches, **neither pushed**.
 
 | Repo | Path | Branch | Off | Tests now | Tree |
