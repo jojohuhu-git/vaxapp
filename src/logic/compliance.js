@@ -379,6 +379,11 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   const menacwyExposure = vk === 'MenACWY' ? menacwyExposureCategory(risks || []) : null;
   const menacwyMicrobiologist = menacwyExposure === 'microbiologist';
   const menacwyExposureSingleDose = menacwyExposure === 'singleDose';
+  // M9: an ongoing travel risk is its own indication — 1 primary dose, then
+  // boosters with no end (ACIP 2020 MMWR 69(RR-9) Table 9). It was previously
+  // lumped in with military recruits as 'singleDose', so the booster the engine
+  // now asks for was graded here as an extra dose that was never indicated.
+  const menacwyTravel = menacwyExposure === 'travel';
 
   // M6 (2026-08-11): a non-high-risk 2nd+ MenACWY dose given before the age-16
   // booster window is safely administered but does not satisfy the booster
@@ -390,7 +395,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // check; high-risk patients are unaffected (their primary series legitimately has
   // 2+ doses before 16). Mirrors MeningoVax commit 3172a0a (Change 3) and M1's
   // OFF_WINDOW+notAdolescentCount pattern just below.
-  if (vk === 'MenACWY' && doseIdx === 1 && ageMonths < 192 && !isHighRiskMenACWY(risks || []) && !menacwyMicrobiologist && !menacwyExposureSingleDose) {
+  if (vk === 'MenACWY' && doseIdx === 1 && ageMonths < 192 && !isHighRiskMenACWY(risks || []) && !menacwyMicrobiologist && !menacwyExposureSingleDose && !menacwyTravel) {
     return {
       status: 'OFF_WINDOW',
       label: `Off-window — booster still owed (given at ${ageLabel}, before the 16-year booster window). Does not count toward the routine 2-dose series — the booster is an age window (16-18 years), not just an interval from dose 1.`,
@@ -413,7 +418,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // series) instead of VALID_EXTRA. Uses the same shared
   // stateHelpers.doseAgeMonths this file already imports; high-risk
   // patients are unaffected (open-ended booster schedule, no fixed total).
-  if (vk === 'MenACWY' && doseIdx >= 1 && !isHighRiskMenACWY(risks || []) && !menacwyMicrobiologist && !menacwyExposureSingleDose) {
+  if (vk === 'MenACWY' && doseIdx >= 1 && !isHighRiskMenACWY(risks || []) && !menacwyMicrobiologist && !menacwyExposureSingleDose && !menacwyTravel) {
     const d1 = (hist?.MenACWY || []).filter(d => d.given)[0];
     const d1AgeM = d1 ? doseAgeMonths(d1, dob) : null;
     if (d1AgeM != null && d1AgeM >= 192) {
@@ -438,15 +443,17 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // 1st if dose 1 happened to be given at/after 16y — true for most real
   // recruits/travelers, but for the wrong reason, citing the age-16 booster rule
   // instead of the actual ACIP/DoD single-dose indication).
+  // M9: travel left this branch — a traveler who remains at risk is owed boosters
+  // (ACIP Table 9), so only military recruits reach it now (ACIP Table 10).
   if (vk === 'MenACWY' && doseIdx >= 1 && menacwyExposureSingleDose) {
-    const citation = (risks || []).includes('military') ? REFS.acip2020Table10 : REFS.acip2020Table9;
+    const citation = REFS.acip2020Table10;
     return {
       status: 'VALID_EXTRA',
-      label: `Extra dose — given at ${ageLabel}. Military recruit and international-travel MenACWY indications are a single dose, regardless of the age given; further doses are not ACIP-indicated unless a high-risk medical condition (asplenia, complement deficiency, or HIV) is also present.`,
+      label: `Extra dose — given at ${ageLabel}. A military recruit's MenACWY indication is a single dose, regardless of the age given; further doses are not ACIP-indicated unless a high-risk medical condition (asplenia, complement deficiency, or HIV) is also present.`,
       recommendedRange: null,
       extraScenario: {
         scenarioKey: 'menacwy_exposure_single_dose',
-        popoverText: 'Military recruit and international-travel MenACWY indications are a single dose, regardless of the age given. This dose was not clinically necessary but is safe.',
+        popoverText: 'A military recruit\'s MenACWY indication is a single dose, regardless of the age given. This dose was not clinically necessary but is safe.',
         citation,
       },
     };
@@ -507,7 +514,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // 11–12y/16y bands. This is order-independent: it keys off the CURRENT risk list, so
   // adding sickle cell / asplenia AFTER the doses were entered re-grades correctly.
   const menacwyHighRisk = vk === 'MenACWY' && isHighRiskMenACWY(risks || []);
-  const bandOpts = { highRisk: menacwyHighRisk, microbiologist: menacwyMicrobiologist };
+  const bandOpts = { highRisk: menacwyHighRisk, microbiologist: menacwyMicrobiologist, travel: menacwyTravel };
 
   // M8 (2026-09-14, same F6 investigation as M7 above): MenB's standard total is
   // risk-dependent — 2 doses (healthy, 16-23y shared decision) or 3 (high-risk,
@@ -530,7 +537,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // For Hib, use brand-aware standard total (PRP-OMP=3, PRP-T=4). For high-risk MenACWY
   // the series is open-ended (2-dose primary + lifelong boosters), so there is no fixed
   // "standard total" and later doses are boosters, not "extra" — skip the VALID_EXTRA path.
-  const standardTotal = (menacwyHighRisk || menacwyMicrobiologist || menBHighRisk)
+  const standardTotal = (menacwyHighRisk || menacwyMicrobiologist || menacwyTravel || menBHighRisk)
     ? null
     : vk === 'Hib' ? hibStandardTotal(hist)
     // M8: the healthy MenB total is 2, or 3 when dose 2 came early and M3's

@@ -5,7 +5,7 @@ import { MIN_INT } from '../data/scheduleRules.js';
 import { FORECAST_VISITS } from '../data/forecastData.js';
 import { addD } from './utils.js';
 import { genRecs } from './recommendations.js';
-import { highRisk, highRiskMenB, isHighRiskMenACWY, menACWYGivenAtOrAfter16y, menBSeriesTotal, menACWYPrimaryTotal } from './stateHelpers.js';
+import { highRisk, highRiskMenB, isHighRiskMenACWY, menACWYGivenAtOrAfter16y, menBSeriesTotal, menACWYPrimaryTotal, isTravelOngoingMenACWY } from './stateHelpers.js';
 import { pcvHighRiskChildPlan, isHighRiskPCV, isPCV7 } from './pcvDoses.js';
 
 /**
@@ -478,6 +478,25 @@ export function getTotalDoses(vk, rec, fcBrands, am = 0, hist = {}, risks = [], 
     }
     case "MenACWY": {
       const givenMenACWY = (hist?.MenACWY || []).filter(d => d.given).length;
+      // M9: a traveler who remains at risk is checked FIRST, because neither of
+      // the two "series is finished" shortcuts below is true for them — ACIP 2020
+      // MMWR 69(RR-9) Table 9 keeps giving boosters "every 5 yrs thereafter", and
+      // a dose at or after the 16th birthday is not terminal the way it is on the
+      // routine adolescent schedule. Their primary series is a single dose from
+      // the 2nd birthday, so dose 2 is already the first booster and the card must
+      // count it — otherwise the booster the engine is offering right now reads
+      // "Dose 2 of 2", which says the series ends here when it does not.
+      if (isTravelOngoingMenACWY(risks)) {
+        const givenDoses = (hist?.MenACWY || []).filter(d => d.given);
+        const ageM = (d) => {
+          if (d.mode === "age" && d.ageDays != null) return d.ageDays / 30.4375;
+          if (d.mode === "date" && d.date && dob) return (new Date(d.date) - new Date(dob)) / (86400000 * 30.4375);
+          return null;
+        };
+        const primaryTotal = menACWYPrimaryTotal(givenDoses, ageM, { travel: true });
+        if (rec?.doseNum > primaryTotal) return rec.doseNum;
+        return Math.max(primaryTotal, givenMenACWY);
+      }
       // First dose given at ≥16y (am≥192, no prior doses): no booster needed per ACIP
       if (am >= 192 && givenMenACWY === 0) return 1;
       // A recorded dose already administered at ≥16y is terminal — series complete,

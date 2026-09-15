@@ -2,7 +2,7 @@
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
 import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO } from './utils.js';
-import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menACWYPrimaryTotal, menBSeriesTotal } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menACWYPrimaryTotal, menBSeriesTotal, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
 import { REFS } from '../data/refs.js';
@@ -12,15 +12,13 @@ import { fmtAgeClinical, fmtIntervalClinical } from './ageFormat.js';
 // M9: mirrors buildOptimalSchedule.js's HPV 5475-day (15y) + immunocomp threshold.
 const HPV_TWO_DOSE_MAX_AGE_DAYS = 5475;
 
-// M6: MenACWY booster cadence and the floor between any two doses. vaxapp's
-// engine uses 1095 days for "3 years" (recommendations.js), so the checker uses
-// the same number — a checker that rounded differently from its own engine could
-// reject a dose the app itself had just recommended. MeningoVax writes 1096 for
-// the same rule; aligning the two repos' day-count conventions is queue item M19.
-const MENACWY_BOOSTER_3Y = 1095;          // 3 years
-const MENACWY_BOOSTER_5Y = 1826;          // 5 years
+// M6: the floor between any two MenACWY doses. The booster cadence itself moved
+// to stateHelpers.js in M9 (menACWYBoosterIntervalDays) so the checker, the engine
+// and the optimal schedule all read one copy of it — a checker that rounded
+// differently from its own engine could reject a dose the app had just
+// recommended. MeningoVax writes 1096 days where vaxapp writes 1095 for the same
+// "3 years"; aligning the two repos' day-count conventions is queue item M19.
 const MENACWY_ANY_DOSE_MIN_INTERVAL = 28; // 4 weeks between any two doses
-const AGE_7Y_MONTHS = 84;                 // the 3-year/5-year cadence pivot
 
 // ── Season helpers for Flu audit ─────────────────────────────────────────────
 // Flu season runs July 1 → June 30. seasonOf(iso) returns the starting year.
@@ -321,8 +319,13 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
       const datedAll = Array.isArray(allDoses)
         ? allDoses.filter(d => d && d.given && d.mode !== "unknown")
         : null;
-      if (datedAll && datedAll.length && isHighRiskMenACWY(risks)) {
-        const primaryTotal = menACWYPrimaryTotal(datedAll, d => doseAgeMonths(d, dob));
+      // M9: travelers who remain at risk are on the same booster cadence, from
+      // ACIP Table 9 (see menACWYBoosterIntervalDays). Their primary series is a
+      // SINGLE dose from the 2nd birthday, so dose 2 is already a booster and is
+      // checked against 3 or 5 years, not the 4-week floor.
+      const travelOngoing = isTravelOngoingMenACWY(risks);
+      if (datedAll && datedAll.length && (isHighRiskMenACWY(risks) || travelOngoing)) {
+        const primaryTotal = menACWYPrimaryTotal(datedAll, d => doseAgeMonths(d, dob), { travel: travelOngoing });
         if (doseIdx >= primaryTotal) {
           const isFirstBooster = doseIdx === primaryTotal;
           // The first booster is measured from the LAST dose of the primary
@@ -332,11 +335,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
           // rejection.
           const lastPrimary = datedAll[primaryTotal - 1] || null;
           const lastPrimaryAgeM = lastPrimary ? doseAgeMonths(lastPrimary, dob) : null;
-          const cadence = !isFirstBooster
-            ? MENACWY_BOOSTER_5Y
-            : (lastPrimaryAgeM == null || lastPrimaryAgeM < AGE_7Y_MONTHS)
-              ? MENACWY_BOOSTER_3Y
-              : MENACWY_BOOSTER_5Y;
+          const cadence = menACWYBoosterIntervalDays(isFirstBooster, lastPrimaryAgeM);
           if (minInt == null || cadence > minInt) {
             minInt = cadence;
             minWhy = isFirstBooster
@@ -643,19 +642,24 @@ export function auditAll(hist, dob, risks = [], am = -1) {
       // nuance below. Shared classification with compliance.js's M7/exposure logic —
       // see menacwyExposureCategory in stateHelpers.js.
       const exposure = menacwyExposureCategory(risks);
-      if (!isHighRiskMenACWY(risks) && exposure !== 'microbiologist') {
+      // M9: 'travel' joins 'microbiologist' as open-ended. ACIP Table 9 gives a
+      // traveler who remains at risk a booster "every 5 yrs thereafter" with no
+      // stopping point, so no number of doses makes one extra. Before M9, travel
+      // was classed 'singleDose' with the military recruits and the second dose —
+      // the booster the app now asks for — was reported as not ACIP-indicated.
+      if (!isHighRiskMenACWY(risks) && exposure !== 'microbiologist' && exposure !== 'travel') {
         const isExposureSingleDose = exposure === 'singleDose';
         const d1AgeM = doseAgeMonths(doses[0], dob);
         const standardTotal = isExposureSingleDose ? 1 : (d1AgeM != null && d1AgeM >= 192) ? 1 : 2;
         if (doses.length > standardTotal) {
           const detail = isExposureSingleDose
-            ? `${doses.length} MenACWY doses recorded. Military recruit and international-travel indications are a single dose, regardless of the age given. Doses beyond the first are not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is also present.`
+            ? `${doses.length} MenACWY doses recorded. A military recruit's indication is a single dose, regardless of the age given. Doses beyond the first are not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is also present.`
             : standardTotal === 1
             ? `${doses.length} MenACWY doses recorded. The first dose was given at or after the 16th birthday, which completes the routine series on its own — no booster is needed. Doses beyond the first are not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`
             : `${doses.length} MenACWY doses recorded. Non-high-risk patients need only 2 doses: D1 at 11–12 years and a booster at 16 years. A 3rd or later dose is not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`;
-          const exposureRefs = isExposureSingleDose
-            ? (risks.includes('military') ? REFS.acip2020Table10 : REFS.acip2020Table9)
-            : null;
+          // M9: only military recruits are 'singleDose' now, so Table 10 is the
+          // only citation this path can need.
+          const exposureRefs = isExposureSingleDose ? REFS.acip2020Table10 : null;
           errors.push({ vk, type: "series_over", severity: "warn",
             title: "MenACWY — Extra Dose (series complete for non-high-risk patient)",
             detail,

@@ -69,8 +69,57 @@ export function menacwyExposureCategory(risks) {
   const r = risks || [];
   if (isHighRiskMenACWY(r)) return null;
   if (r.includes("microbiologist")) return "microbiologist";
-  if (r.includes("military") || r.includes("travel")) return "singleDose";
+  // M9: travel is checked BEFORE military. A patient who is both a recruit and an
+  // ongoing traveler is owed the travel boosters — the more protective of the two.
+  if (r.includes("travel")) return "travel";
+  if (r.includes("military")) return "singleDose";
   return null;
+}
+
+/**
+ * M9: true when this patient's MenACWY doses are on the travel schedule — one
+ * primary dose, then boosters for as long as the travel risk lasts. Medical
+ * high-risk and microbiologist have their own, different schedules and take
+ * precedence, which menacwyExposureCategory already encodes.
+ */
+export const isTravelOngoingMenACWY = (risks) =>
+  menacwyExposureCategory(risks) === "travel";
+
+/** The 3-year/5-year MenACWY booster cadence pivot, in months (the 7th birthday). */
+export const MENACWY_AGE_7Y_MONTHS = 84;
+/** First booster 3 years after the primary series (completed before age 7). */
+export const MENACWY_BOOSTER_3Y = 1095;
+/** First booster 5 years after (completed at 7+), and every booster after that. */
+export const MENACWY_BOOSTER_5Y = 1826;
+
+/**
+ * M9: the interval before the NEXT MenACWY booster, in days.
+ *
+ * M6 put this cadence in three places at once — the engine (recommendations.js),
+ * the dose checker (validation.js) and the optimal schedule
+ * (buildOptimalSchedule.js). M9 needed it in all three again for travelers, so
+ * the rule now lives here and those three read it, rather than growing a fourth
+ * copy that could drift from the other three.
+ *
+ * ACIP 2020 MMWR 69(RR-9) Table 9 (travelers), fetched live 2026-09-15:
+ *   "Aged <7 yrs: Single dose at 3 yrs after primary vaccination and every 5 yrs
+ *    thereafter / Aged >=7 yrs: Single dose at 5 yrs after primary vaccination and
+ *    every 5 yrs thereafter"
+ * Tables 4-6 give the same cadence for the medical high-risk groups.
+ *
+ * An unknown age at the end of the primary series falls to the SHORTER 3-year
+ * interval. In the engine that offers a booster no later than it is really due;
+ * in the checker it is the choice that cannot manufacture a rejection.
+ *
+ * @param {boolean} isFirstBooster - is this the first booster after the primary series?
+ * @param {number|null} lastPrimaryAgeMonths - age at the LAST primary dose, in months
+ * @returns {number} days
+ */
+export function menACWYBoosterIntervalDays(isFirstBooster, lastPrimaryAgeMonths) {
+  if (!isFirstBooster) return MENACWY_BOOSTER_5Y;   // every 5 years thereafter
+  return (lastPrimaryAgeMonths == null || lastPrimaryAgeMonths < MENACWY_AGE_7Y_MONTHS)
+    ? MENACWY_BOOSTER_3Y
+    : MENACWY_BOOSTER_5Y;
 }
 
 /**
@@ -336,8 +385,16 @@ export function menBSeriesTotal(hist, dob, am, isHighRisk) {
  * @param {(dose: object) => number|null} doseAgeMonths - age-at-dose resolver
  * @returns {number} number of primary doses before the booster phase begins
  */
-export function menACWYPrimaryTotal(givenDoses, doseAgeMonths) {
+export function menACWYPrimaryTotal(givenDoses, doseAgeMonths, opts = {}) {
   const d1AgeM = givenDoses[0] ? doseAgeMonths(givenDoses[0]) : null;
+  // M9: a traveler's primary series is ONE dose from the 2nd birthday on, not the
+  // 2-dose medical high-risk series — ACIP 2020 MMWR 69(RR-9) Table 9, "≥2 yrs:
+  // Primary vaccination: ... 1 dose". Below 2 years Table 9 repeats the infant
+  // series verbatim from Tables 4-6, so the age branches below already cover it.
+  // With no dated dose 1 the indication cannot be told apart, so travel falls
+  // through to the pre-existing 2-dose answer rather than guessing (queue item
+  // M10 covers the infant travel pathway).
+  if (opts.travel && d1AgeM != null && d1AgeM >= 24) return 1;
   if (d1AgeM == null || d1AgeM >= 24) return 2;
   if (d1AgeM >= 7) return 2;              // 7–23 months: 2-dose series
   const d2AgeM = givenDoses[1] ? doseAgeMonths(givenDoses[1]) : null;

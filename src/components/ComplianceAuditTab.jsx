@@ -16,7 +16,7 @@ import { REFS } from '../data/refs.js';
 import { validatedHistory, validateDose } from '../logic/validation';
 import { classifyDose, RULES_REGISTRY } from '../logic/compliance';
 import { fmtAgeClinical, fmtIntervalClinical, fmtAm } from '../logic/ageFormat';
-import { doseAgeDays, doseDate, isHighRiskMenACWY, menBEffectiveDoses, highRiskMenB, menACWYRoutineCount } from '../logic/stateHelpers';
+import { doseAgeDays, doseDate, isHighRiskMenACWY, menBEffectiveDoses, highRiskMenB, menACWYRoutineCount, isTravelOngoingMenACWY } from '../logic/stateHelpers';
 import { getDoseBand } from '../data/aapDoseBands';
 import { fmtDateInput, addD, todayISO } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
@@ -600,7 +600,13 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
   // legitimately has 2+ pre-16 doses).
   const effectiveCount = vk === 'MenB'
     ? menBEffectiveDoses({ MenB: validDoses }, dob, am, highRiskMenB(risks || [])).length
-    : vk === 'MenACWY' && !isHighRiskMenACWY(risks || [])
+    // M9: travelers are excluded alongside the medically high-risk. Their doses
+    // are on ACIP Table 9, not the routine adolescent series, so a dose given
+    // before the 10th birthday is their PRIMARY dose and must count. Counting it
+    // as zero made this tab read "In progress · 0 of 2 doses" for a child whose
+    // dose was recorded right below, graded ON TIME. Same discount, same fix, as
+    // buildOptimalSchedule's given-dose count.
+    : vk === 'MenACWY' && !isHighRiskMenACWY(risks || []) && !isTravelOngoingMenACWY(risks || [])
     ? menACWYRoutineCount({ MenACWY: validDoses }, dob)
     : validCount;
 

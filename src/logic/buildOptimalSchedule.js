@@ -4,20 +4,15 @@ import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/schedule
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
-import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY } from './stateHelpers.js';
+import { isLiveVaccineContraindicated, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 import { hardStopExclusion } from './hardStop.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
 
-// M6: MenACWY booster cadence, the same numbers the dose checker uses
-// (validation.js). CDC, "Meningococcal Vaccine Recommendations", fetched live
-// 2026-09-15 — people at increased risk: under 7 years, "CDC recommends
-// administering a booster dose 3 years after completion of the primary series
-// and every 5 years thereafter"; 7 years and older, "every 5 years."
-const MENACWY_BOOSTER_3Y = 1095;
-const MENACWY_BOOSTER_5Y = 1826;
-const AGE_7Y_MONTHS      = 84;
+// M6/M9: the MenACWY booster cadence lives in stateHelpers.js
+// (menACWYBoosterIntervalDays) so this surface, the engine and the dose checker
+// all read one copy of it.
 
 // ── Date helpers ──────────────────────────────────────────────────
 const _d     = iso => new Date(iso + 'T00:00:00Z');
@@ -213,6 +208,20 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
         const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose);
         return { totalDoses: menDates.length >= primaryTotal ? primaryTotal + 1 : primaryTotal };
       }
+      // M9: the same gap, one indication over. A traveler who remains at risk is
+      // owed boosters (ACIP 2020 MMWR 69(RR-9) Table 9) and this surface planned
+      // none, so their optimal schedule came back EMPTY while the Recommendations
+      // tab asked for the booster by name. From the 2nd birthday the traveler's
+      // primary series is a single dose, so dose 2 is already the first booster.
+      if (isTravelOngoingMenACWY(risks)) {
+        const menDates = gDates(hist, 'MenACWY');
+        const ageAtMenDose = (d) => {
+          const dt = d?._date;
+          return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
+        };
+        const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose, { travel: true });
+        return { totalDoses: menDates.length >= primaryTotal ? primaryTotal + 1 : primaryTotal };
+      }
       // V1: routine series count excludes only doses given before the 10th birthday
       // (120mo) — see menACWYRoutineCount. isHRMen already returned above, so every
       // use of givenMen below is on the non-high-risk path.
@@ -304,22 +313,23 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
   // booster depends on the primary series length, and the first booster's clock
   // keys off the age at the LAST primary dose — the same rule the dose checker
   // applies in validation.js, read from the same menACWYPrimaryTotal() helper.
-  if (vk === 'MenACWY' && prevDate && isHighRiskMenACWY(ctx?.risks ?? [])) {
+  // M9: travelers are on the same cadence (ACIP Table 9), counted from a
+  // one-dose primary series. The 3-year/5-year rule itself now lives in
+  // stateHelpers.menACWYBoosterIntervalDays, which the engine and the dose checker
+  // read too, so the three surfaces cannot drift apart on it.
+  const menTravelOngoing = isTravelOngoingMenACWY(ctx?.risks ?? []);
+  if (vk === 'MenACWY' && prevDate && (isHighRiskMenACWY(ctx?.risks ?? []) || menTravelOngoing)) {
     const menDates = gDates(ctx?.hist ?? {}, 'MenACWY');
     const ageAtMenDose = (d) => {
       const dt = d?._date;
       return (dt && dob) ? diff(dob, dt) / 30.4375 : null;
     };
-    const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose);
+    const primaryTotal = menACWYPrimaryTotal(menDates.map(dt => ({ _date: dt })), ageAtMenDose, { travel: menTravelOngoing });
     if (doseNum > primaryTotal) {
       const isFirstBooster = doseNum === primaryTotal + 1;
       const lastPrimary    = menDates[primaryTotal - 1] || null;
       const lastPrimaryAgeM = (lastPrimary && dob) ? diff(dob, lastPrimary) / 30.4375 : null;
-      minInt = !isFirstBooster
-        ? MENACWY_BOOSTER_5Y
-        : (lastPrimaryAgeM == null || lastPrimaryAgeM < AGE_7Y_MONTHS)
-          ? MENACWY_BOOSTER_3Y
-          : MENACWY_BOOSTER_5Y;
+      minInt = menACWYBoosterIntervalDays(isFirstBooster, lastPrimaryAgeM);
       intLabel = `MenACWY booster cadence=${minInt}d (${isFirstBooster ? 'first booster' : 'every 5 years'})`;
     }
   }
@@ -444,7 +454,15 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
   const allDoses = [];
 
   for (const vk of VAX_ORDER) {
-    const given  = (vk === 'MenACWY' && !isHRMenMain)
+    // M9: travelers are counted like the medically high-risk — every dose counts.
+    // menACWYRoutineCount drops doses given before the 10th birthday, which is the
+    // right rule for the ROUTINE adolescent series but not for an ongoing-risk
+    // traveler: ACIP says such a patient "should follow the booster dose schedule
+    // (Tables 4, 5, 6, 7, 8, and 9), not the routine adolescent schedule". Counting
+    // a traveler's dose at age 3 as zero made this surface plan dose 1 over again
+    // today and then date "dose 2" three years from today — a duplicate dose, and
+    // the real booster mis-dated.
+    const given  = (vk === 'MenACWY' && !isHRMenMain && !isTravelOngoingMenACWY(risks ?? []))
       ? menACWYRoutineCount(ctx.hist, ctx.dob)
       : (vk === 'MenB')
       ? menBEffectiveDoses(ctx.hist, ctx.dob, ctx.am, isHRMenBMain).length

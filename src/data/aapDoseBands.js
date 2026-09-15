@@ -203,16 +203,30 @@ const MENACWY_MICROBIOLOGIST = [
   { dose: 2, recMin: 24, recMax: null, catchupMax: null, label: 'Microbiologist revaccination (every 5 yr while occupationally exposed)' },
 ];
 
+// M9 (2026-09-15): travelers to or residents of countries where meningococcal
+// disease is hyperendemic or epidemic. From the 2nd birthday this is 1 dose, then
+// boosters for as long as the travel risk lasts — open-ended, the same shape as
+// the microbiologist bands above, but graded and labelled as its own indication.
+// ACIP 2020 MMWR 69(RR-9) Table 9, fetched live 2026-09-15: "Boosters (if person
+// remains at increased risk) • Aged <7 yrs: Single dose at 3 yrs after primary
+// vaccination and every 5 yrs thereafter • Aged >=7 yrs: Single dose at 5 yrs
+// after primary vaccination and every 5 yrs thereafter".
+// Source: https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=TABLE%209
+const MENACWY_TRAVEL = [
+  { dose: 1, recMin: 24, recMax: null, catchupMax: null, label: 'Travel dose 1 (hyperendemic or epidemic area)' },
+  { dose: 2, recMin: 24, recMax: null, catchupMax: null, label: 'Travel booster (3 yr if the primary dose was before age 7, otherwise 5 yr, then every 5 yr)' },
+];
+
 /**
  * Get the dose band for a specific vaccine + 1-based dose number.
  * Returns null if no band is defined for that dose.
  * @param {string} vk - vaccine key
  * @param {number} doseNum - 1-based dose number
- * @param {{ highRisk?: boolean, microbiologist?: boolean }} [opts] - when highRisk
+ * @param {{ highRisk?: boolean, microbiologist?: boolean, travel?: boolean }} [opts] - when highRisk
  *        and vk is MenACWY, use the high-risk (medical) schedule bands instead of
  *        the routine adolescent bands; when microbiologist, use the microbiologist
  *        exposure bands instead. Doses beyond the primary series (3+, or 2+ for
- *        microbiologist) map to the booster/revaccination band. highRisk takes
+ *        microbiologist or travel) map to the booster/revaccination band. highRisk takes
  *        precedence if both are somehow set (medical high-risk supersedes exposure
  *        categories — see menacwyExposureCategory in stateHelpers.js).
  * @returns {{ dose, recMin, recMax, catchupMax, label } | null}
@@ -225,6 +239,11 @@ export function getDoseBand(vk, doseNum, opts = {}) {
   if (vk === 'MenACWY' && opts.microbiologist) {
     return MENACWY_MICROBIOLOGIST.find(b => b.dose === doseNum)
       || MENACWY_MICROBIOLOGIST[MENACWY_MICROBIOLOGIST.length - 1]; // dose 2+ → revaccination band
+  }
+  // M9: travel, like microbiologist, is open-ended — dose 2+ maps to the booster band.
+  if (vk === 'MenACWY' && opts.travel) {
+    return MENACWY_TRAVEL.find(b => b.dose === doseNum)
+      || MENACWY_TRAVEL[MENACWY_TRAVEL.length - 1];
   }
   const bands = AAP_DOSE_BANDS[vk];
   if (!bands) return null;
