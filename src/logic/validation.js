@@ -2,7 +2,7 @@
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
 import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO } from './utils.js';
-import { doseAgeDays, doseDate, GRACE, isHighRiskMenACWY } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
 import { REFS } from '../data/refs.js';
@@ -509,16 +509,31 @@ export function auditAll(hist, dob, risks = [], am = -1) {
       }
     }
 
-    // MenACWY series overdose: non-high-risk patients need at most 2 doses
+    // MenACWY series overdose: non-high-risk patients need at most 2 doses —
+    // or just 1 if dose 1 alone was given at/after the 16th birthday, which
+    // completes the routine series on its own (CDC MMWR RR-9, the same
+    // terminal-dose rule already applied by compliance.js's M6/M7 and by
+    // stateHelpers.menACWYGivenAtOrAfter16y, the shared source of truth for
+    // genRecs/buildOptimalSchedule/dosePlan). Before this fix, a patient
+    // whose D1 was given at 16y+ was only flagged once a 3rd dose existed —
+    // an unnecessary D2 alone (2 total doses) triggered no advisory at all,
+    // and a 3rd dose's advisory wrongly implied D1+D2 were both indicated.
     if (vk === "MenACWY") {
       const isHighRiskMen = isHighRiskMenACWY(risks);
-      if (!isHighRiskMen && doses.length > 2) {
-        errors.push({ vk, type: "series_over", severity: "warn",
-          title: "MenACWY — Extra Dose (series complete for non-high-risk patient)",
-          detail: `${doses.length} MenACWY doses recorded. Non-high-risk patients need only 2 doses: D1 at 11–12 years and a booster at 16 years. A 3rd or later dose is not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`,
-          action: "Verify patient risk status. If no high-risk indication applies, the extra dose is not harmful but was not indicated. Add the appropriate risk factor if the patient is high-risk; those patients require revaccination every 3–5 years.",
-          refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label,
-          refUrl2: REFS.MenACWY.cdcUrl, refLabel2: REFS.MenACWY.cdcLabel });
+      if (!isHighRiskMen && doses.length > 1) {
+        const d1AgeM = doseAgeMonths(doses[0], dob);
+        const standardTotal = (d1AgeM != null && d1AgeM >= 192) ? 1 : 2;
+        if (doses.length > standardTotal) {
+          const detail = standardTotal === 1
+            ? `${doses.length} MenACWY doses recorded. The first dose was given at or after the 16th birthday, which completes the routine series on its own — no booster is needed. Doses beyond the first are not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`
+            : `${doses.length} MenACWY doses recorded. Non-high-risk patients need only 2 doses: D1 at 11–12 years and a booster at 16 years. A 3rd or later dose is not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`;
+          errors.push({ vk, type: "series_over", severity: "warn",
+            title: "MenACWY — Extra Dose (series complete for non-high-risk patient)",
+            detail,
+            action: "Verify patient risk status. If no high-risk indication applies, the extra dose is not harmful but was not indicated. Add the appropriate risk factor if the patient is high-risk; those patients require revaccination every 3–5 years.",
+            refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label,
+            refUrl2: REFS.MenACWY.cdcUrl, refLabel2: REFS.MenACWY.cdcLabel });
+        }
       }
     }
 

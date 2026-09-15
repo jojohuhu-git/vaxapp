@@ -25,7 +25,7 @@
  */
 
 import { validateDose } from './validation.js';
-import { doseAgeDays, isHighRiskMenACWY, highRiskMenB } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, isHighRiskMenACWY, highRiskMenB } from './stateHelpers.js';
 import { getDoseBand } from '../data/aapDoseBands.js';
 import { fmtAgeClinical } from './ageFormat.js';
 import { REFS } from '../data/refs.js';
@@ -334,6 +334,35 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
       auditFlag: null,
       notAdolescentCount: true,
     };
+  }
+
+  // M7 (2026-09-14, F6 port from MeningoVax's dose-counter fix): M6 above
+  // covers a 2nd+ dose given BEFORE the 16y booster window. This is the
+  // mirror case — dose 1 given AT/AFTER the 16th birthday is terminal on its
+  // own (same CDC MMWR RR-9 quote as M6: "Adolescents who receive a first
+  // dose after their 16th birthday do not need a booster dose"), so a
+  // non-high-risk patient's 2nd+ dose is never a legitimate part of the
+  // routine series in that case — it's an extra dose. Before this fix,
+  // STANDARD_SERIES_TOTAL.MenACWY=2 below didn't know about the terminal
+  // rule, so this later dose was graded VALID (implying a real 2-dose
+  // series) instead of VALID_EXTRA. Uses the same shared
+  // stateHelpers.doseAgeMonths this file already imports; high-risk
+  // patients are unaffected (open-ended booster schedule, no fixed total).
+  if (vk === 'MenACWY' && doseIdx >= 1 && !isHighRiskMenACWY(risks || [])) {
+    const d1 = (hist?.MenACWY || []).filter(d => d.given)[0];
+    const d1AgeM = d1 ? doseAgeMonths(d1, dob) : null;
+    if (d1AgeM != null && d1AgeM >= 192) {
+      return {
+        status: 'VALID_EXTRA',
+        label: `Extra dose — given at ${ageLabel}. The first dose was already given at or after the 16-year booster window, which completes the routine series on its own — no further dose is needed. Per ACIP, extra doses are safe and do not require repeating.`,
+        recommendedRange: null,
+        extraScenario: {
+          scenarioKey: 'menacwy_terminal_d1',
+          popoverText: 'Dose 1 was given at or after age 16, so it satisfies the routine MenACWY series by itself. This dose was not clinically necessary but is safe.',
+          citation: REFS.bestPracticesSpacing,
+        },
+      };
+    }
   }
 
   // M1: a MenB dose given before age 16 (192mo) to a non-high-risk patient is

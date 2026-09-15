@@ -448,3 +448,37 @@ describe('M6: early 2nd MenACWY dose before the 16y booster window does not coun
     expect(row.textContent).toMatch(/Complete/);
   });
 });
+
+// ── M7: dose(s) after a terminal (≥16y) dose 1 are extra, not a real 2nd dose ────
+describe('M7: MenACWY dose(s) after a terminal (≥16y) dose 1 show as extra', () => {
+  it('reported case: 82yo HSCT patient with 3 MenACWY doses — 2nd AND 3rd cards read VALID · EXTRA', () => {
+    const dob = '1944-02-01';
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2024-04-05' },
+        { given: true, mode: 'date', date: '2024-07-05' },
+        { given: true, mode: 'date', date: '2024-10-04' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 82 * 12 + 7, risks: ['hsct'] });
+    const cards = container.querySelectorAll('[data-testid^="dose-card-MenACWY-"]');
+    expect(cards.length).toBe(3);
+    expect(cards[0].textContent).not.toMatch(/VALID · EXTRA/);
+    expect(cards[1].textContent).toMatch(/VALID · EXTRA/);
+    expect(cards[2].textContent).toMatch(/VALID · EXTRA/);
+  });
+
+  it('the series header counts both extras, not just the 3rd dose', () => {
+    const dob = '1944-02-01';
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2024-04-05' },
+        { given: true, mode: 'date', date: '2024-07-05' },
+        { given: true, mode: 'date', date: '2024-10-04' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 82 * 12 + 7, risks: ['hsct'] });
+    const row = container.querySelector('[data-testid="vaccine-row-MenACWY"]');
+    expect(row.textContent).toMatch(/2 extra/);
+  });
+});
