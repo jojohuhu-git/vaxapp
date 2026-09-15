@@ -2,11 +2,14 @@
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
 import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO } from './utils.js';
-import { doseAgeDays, doseDate, GRACE, isHighRiskMenACWY } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
 import { REFS } from '../data/refs.js';
 import { fmtAgeClinical, fmtIntervalClinical } from './ageFormat.js';
+
+// M9: mirrors buildOptimalSchedule.js's HPV 5475-day (15y) + immunocomp threshold.
+const HPV_TWO_DOSE_MAX_AGE_DAYS = 5475;
 
 // ── Season helpers for Flu audit ─────────────────────────────────────────────
 // Flu season runs July 1 → June 30. seasonOf(iso) returns the starting year.
@@ -509,16 +512,70 @@ export function auditAll(hist, dob, risks = [], am = -1) {
       }
     }
 
-    // MenACWY series overdose: non-high-risk patients need at most 2 doses
+    // MenACWY series overdose: non-high-risk patients need at most 2 doses —
+    // or just 1 if dose 1 alone was given at/after the 16th birthday, which
+    // completes the routine series on its own (CDC MMWR RR-9, the same
+    // terminal-dose rule already applied by compliance.js's M6/M7 and by
+    // stateHelpers.menACWYGivenAtOrAfter16y, the shared source of truth for
+    // genRecs/buildOptimalSchedule/dosePlan). Before this fix, a patient
+    // whose D1 was given at 16y+ was only flagged once a 3rd dose existed —
+    // an unnecessary D2 alone (2 total doses) triggered no advisory at all,
+    // and a 3rd dose's advisory wrongly implied D1+D2 were both indicated.
     if (vk === "MenACWY") {
       const isHighRiskMen = isHighRiskMenACWY(risks);
-      if (!isHighRiskMen && doses.length > 2) {
+      if (!isHighRiskMen && doses.length > 1) {
+        const d1AgeM = doseAgeMonths(doses[0], dob);
+        const standardTotal = (d1AgeM != null && d1AgeM >= 192) ? 1 : 2;
+        if (doses.length > standardTotal) {
+          const detail = standardTotal === 1
+            ? `${doses.length} MenACWY doses recorded. The first dose was given at or after the 16th birthday, which completes the routine series on its own — no booster is needed. Doses beyond the first are not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`
+            : `${doses.length} MenACWY doses recorded. Non-high-risk patients need only 2 doses: D1 at 11–12 years and a booster at 16 years. A 3rd or later dose is not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`;
+          errors.push({ vk, type: "series_over", severity: "warn",
+            title: "MenACWY — Extra Dose (series complete for non-high-risk patient)",
+            detail,
+            action: "Verify patient risk status. If no high-risk indication applies, the extra dose is not harmful but was not indicated. Add the appropriate risk factor if the patient is high-risk; those patients require revaccination every 3–5 years.",
+            refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label,
+            refUrl2: REFS.MenACWY.cdcUrl, refLabel2: REFS.MenACWY.cdcLabel });
+        }
+      }
+    }
+
+    // M8 (2026-09-14, same F6 investigation as M7 above): MenB series overdose.
+    // Healthy (non-high-risk) patients need only 2 doses (16-23y shared decision);
+    // high-risk patients need 3 (accelerated schedule) — mirrors highRiskMenB(), the
+    // same risk gate buildOptimalSchedule.js's seriesDoses() already uses correctly.
+    // Before this fix, there was NO MenB overdose check here at all — a healthy
+    // patient could have any number of MenB doses with zero advisory, unlike the
+    // MenACWY check just above which at least fired past a fixed threshold.
+    if (vk === "MenB") {
+      const isHighRiskMenBPatient = highRiskMenB(risks);
+      const standardTotal = isHighRiskMenBPatient ? 3 : 2;
+      if (doses.length > standardTotal) {
         errors.push({ vk, type: "series_over", severity: "warn",
-          title: "MenACWY — Extra Dose (series complete for non-high-risk patient)",
-          detail: `${doses.length} MenACWY doses recorded. Non-high-risk patients need only 2 doses: D1 at 11–12 years and a booster at 16 years. A 3rd or later dose is not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`,
-          action: "Verify patient risk status. If no high-risk indication applies, the extra dose is not harmful but was not indicated. Add the appropriate risk factor if the patient is high-risk; those patients require revaccination every 3–5 years.",
-          refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label,
-          refUrl2: REFS.MenACWY.cdcUrl, refLabel2: REFS.MenACWY.cdcLabel });
+          title: "MenB — Extra Dose (series complete for this patient's risk level)",
+          detail: `${doses.length} MenB doses recorded. Non-high-risk patients need only 2 doses (16–23 years, shared clinical decision); high-risk patients (asplenia, complement deficiency, microbiologist exposure, or serogroup B outbreak) need 3. A dose beyond that count is not ACIP-indicated.`,
+          action: "Verify patient risk status. If no high-risk indication applies, the extra dose is not harmful but was not indicated. Add the appropriate risk factor if the patient is high-risk.",
+          refUrl: REFS.MenB.url, refLabel: REFS.MenB.label,
+          refUrl2: REFS.MenB.cdcUrl, refLabel2: REFS.MenB.cdcLabel });
+      }
+    }
+
+    // M9 (2026-09-14, same F6 investigation as M7/M8): HPV series overdose. The
+    // standard total is 2 doses if dose 1 was given before age 15 (5475 days) and
+    // the patient is not immunocompromised, else 3 — mirrors
+    // buildOptimalSchedule.js's seriesDoses() HPV case exactly. Before this fix,
+    // there was no HPV overdose check here at all.
+    if (vk === "HPV" && doses.length > 0) {
+      const isImmunocomp = risks.some(r => ["hiv", "immunocomp"].includes(r));
+      const d1AgeDays = doseAgeDays(doses[0], dob);
+      const standardTotal = (d1AgeDays != null && d1AgeDays < HPV_TWO_DOSE_MAX_AGE_DAYS && !isImmunocomp) ? 2 : 3;
+      if (doses.length > standardTotal) {
+        errors.push({ vk, type: "series_over", severity: "warn",
+          title: "HPV — Extra Dose (series complete for this patient's schedule)",
+          detail: `${doses.length} HPV doses recorded. A patient who received dose 1 before age 15 and is not immunocompromised needs only 2 doses; otherwise 3 doses are needed. A dose beyond that count is not ACIP-indicated.`,
+          action: "Verify the age at dose 1 and immunocompromised status. If the 2-dose criteria are met, the extra dose is not harmful but was not indicated.",
+          refUrl: REFS.HPV.url, refLabel: REFS.HPV.label,
+          refUrl2: REFS.HPV.cdcUrl, refLabel2: REFS.HPV.cdcLabel });
       }
     }
 

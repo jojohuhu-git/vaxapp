@@ -25,7 +25,7 @@
  */
 
 import { validateDose } from './validation.js';
-import { doseAgeDays, isHighRiskMenACWY, highRiskMenB } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, isHighRiskMenACWY, highRiskMenB } from './stateHelpers.js';
 import { getDoseBand } from '../data/aapDoseBands.js';
 import { fmtAgeClinical } from './ageFormat.js';
 import { REFS } from '../data/refs.js';
@@ -169,9 +169,10 @@ const STANDARD_SERIES_TOTAL = {
   VAR: 2,
   HepA: 2,
   Tdap: 1,
-  HPV: 3,
+  // HPV intentionally omitted — use hpvStandardTotal(hist, dob, risks), which
+  // depends on dose-1 age and immunocompromised status (M9).
   MenACWY: 2,
-  MenB: 3,
+  // MenB intentionally omitted — use (menBHighRisk ? 3 : 2), risk-dependent (M8).
   Flu: 1,
   PPSV23: 2,
   RSV: 2,
@@ -209,6 +210,31 @@ function hibStandardTotal(hist) {
   // 3-dose standard ONLY when both D1 and D2 are PedvaxHIB
   const bothPrimaryPedvaxHIB = d1Brand.startsWith('PedvaxHIB') && d2Brand.startsWith('PedvaxHIB');
   return bothPrimaryPedvaxHIB ? 3 : 4;
+}
+
+/**
+ * M9 (2026-09-14, same F6 investigation as M7/M8): HPV's standard total depends on
+ * the age of dose 1 and immunocompromised status — 2 doses if dose 1 was given
+ * before age 15 (5475 days) AND the patient is not immunocompromised, else 3.
+ * Mirrors buildOptimalSchedule.js's seriesDoses() HPV case exactly (same 5475-day
+ * threshold, same 'hiv'/'immunocomp' risk check) — that function is the existing,
+ * already-correct source of truth this was drifting from.
+ *
+ * Before this fix, STANDARD_SERIES_TOTAL.HPV=3 applied unconditionally, so a
+ * patient who started before 15 (true total 2) and received an unnecessary 3rd
+ * dose saw it graded ON_TIME — not just unflagged, but labeled as the expected,
+ * on-schedule dose of a "3-dose schedule."
+ *
+ * @param {object|null} hist - full patient history {vk: [{dose}]}
+ * @param {string|null} dob - patient date of birth (ISO string)
+ * @param {string[]} risks - patient risk factor ids
+ * @returns {number} 2 or 3
+ */
+function hpvStandardTotal(hist, dob, risks) {
+  const isImmunocomp = (risks || []).some(r => ['hiv', 'immunocomp'].includes(r));
+  const d1 = (hist?.HPV || []).filter(d => d.given)[0];
+  const d1AgeDays = d1 ? doseAgeDays(d1, dob) : null;
+  return (d1AgeDays != null && d1AgeDays < 5475 && !isImmunocomp) ? 2 : 3;
 }
 
 /**
@@ -336,6 +362,35 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
     };
   }
 
+  // M7 (2026-09-14, F6 port from MeningoVax's dose-counter fix): M6 above
+  // covers a 2nd+ dose given BEFORE the 16y booster window. This is the
+  // mirror case — dose 1 given AT/AFTER the 16th birthday is terminal on its
+  // own (same CDC MMWR RR-9 quote as M6: "Adolescents who receive a first
+  // dose after their 16th birthday do not need a booster dose"), so a
+  // non-high-risk patient's 2nd+ dose is never a legitimate part of the
+  // routine series in that case — it's an extra dose. Before this fix,
+  // STANDARD_SERIES_TOTAL.MenACWY=2 below didn't know about the terminal
+  // rule, so this later dose was graded VALID (implying a real 2-dose
+  // series) instead of VALID_EXTRA. Uses the same shared
+  // stateHelpers.doseAgeMonths this file already imports; high-risk
+  // patients are unaffected (open-ended booster schedule, no fixed total).
+  if (vk === 'MenACWY' && doseIdx >= 1 && !isHighRiskMenACWY(risks || [])) {
+    const d1 = (hist?.MenACWY || []).filter(d => d.given)[0];
+    const d1AgeM = d1 ? doseAgeMonths(d1, dob) : null;
+    if (d1AgeM != null && d1AgeM >= 192) {
+      return {
+        status: 'VALID_EXTRA',
+        label: `Extra dose — given at ${ageLabel}. The first dose was already given at or after the 16-year booster window, which completes the routine series on its own — no further dose is needed. Per ACIP, extra doses are safe and do not require repeating.`,
+        recommendedRange: null,
+        extraScenario: {
+          scenarioKey: 'menacwy_terminal_d1',
+          popoverText: 'Dose 1 was given at or after age 16, so it satisfies the routine MenACWY series by itself. This dose was not clinically necessary but is safe.',
+          citation: REFS.bestPracticesSpacing,
+        },
+      };
+    }
+  }
+
   // M1: a MenB dose given before age 16 (192mo) to a non-high-risk patient is
   // validly administered but does NOT count toward the healthy 2-dose series —
   // MenB antibody protection wanes within about a year, so a pre-16 dose is not
@@ -393,12 +448,26 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   const menacwyHighRisk = vk === 'MenACWY' && isHighRiskMenACWY(risks || []);
   const bandOpts = { highRisk: menacwyHighRisk };
 
+  // M8 (2026-09-14, same F6 investigation as M7 above): MenB's standard total is
+  // risk-dependent — 2 doses (healthy, 16-23y shared decision) or 3 (high-risk,
+  // accelerated schedule) — same distinction buildOptimalSchedule.js's seriesDoses()
+  // already gets right via highRiskMenB(). STANDARD_SERIES_TOTAL.MenB=3 below used to
+  // apply to EVERY patient regardless of risk, so a healthy patient's 3rd (or any
+  // later) MenB dose was graded as a normal, needed part of the series — with no
+  // threshold at which it would ever be flagged, unlike MenACWY's M7 case. Unlike
+  // MenACWY's high-risk series, MenB high-risk is a fixed 3-dose total (not
+  // open-ended), so this doesn't need a null/no-fixed-total branch.
+  const menBHighRisk = vk === 'MenB' && highRiskMenB(risks || []);
+
   // For Hib, use brand-aware standard total (PRP-OMP=3, PRP-T=4). For high-risk MenACWY
   // the series is open-ended (2-dose primary + lifelong boosters), so there is no fixed
   // "standard total" and later doses are boosters, not "extra" — skip the VALID_EXTRA path.
   const standardTotal = menacwyHighRisk
     ? null
-    : (vk === 'Hib' ? hibStandardTotal(hist) : STANDARD_SERIES_TOTAL[vk]);
+    : vk === 'Hib' ? hibStandardTotal(hist)
+    : vk === 'MenB' ? (menBHighRisk ? 3 : 2)
+    : vk === 'HPV' ? hpvStandardTotal(hist, dob, risks)
+    : STANDARD_SERIES_TOTAL[vk];
   if (standardTotal != null && totalDoses != null && totalDoses > standardTotal) {
     const extraSet = extraDoseIndices(vk, totalDoses, standardTotal, hist);
     if (extraSet.has(doseIdx)) {

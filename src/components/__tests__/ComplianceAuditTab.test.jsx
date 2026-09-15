@@ -448,3 +448,89 @@ describe('M6: early 2nd MenACWY dose before the 16y booster window does not coun
     expect(row.textContent).toMatch(/Complete/);
   });
 });
+
+// ── M7: dose(s) after a terminal (≥16y) dose 1 are extra, not a real 2nd dose ────
+describe('M7: MenACWY dose(s) after a terminal (≥16y) dose 1 show as extra', () => {
+  it('reported case: 82yo HSCT patient with 3 MenACWY doses — 2nd AND 3rd cards read VALID · EXTRA', () => {
+    const dob = '1944-02-01';
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2024-04-05' },
+        { given: true, mode: 'date', date: '2024-07-05' },
+        { given: true, mode: 'date', date: '2024-10-04' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 82 * 12 + 7, risks: ['hsct'] });
+    const cards = container.querySelectorAll('[data-testid^="dose-card-MenACWY-"]');
+    expect(cards.length).toBe(3);
+    expect(cards[0].textContent).not.toMatch(/VALID · EXTRA/);
+    expect(cards[1].textContent).toMatch(/VALID · EXTRA/);
+    expect(cards[2].textContent).toMatch(/VALID · EXTRA/);
+  });
+
+  it('the series header counts both extras, not just the 3rd dose', () => {
+    const dob = '1944-02-01';
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2024-04-05' },
+        { given: true, mode: 'date', date: '2024-07-05' },
+        { given: true, mode: 'date', date: '2024-10-04' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 82 * 12 + 7, risks: ['hsct'] });
+    const row = container.querySelector('[data-testid="vaccine-row-MenACWY"]');
+    expect(row.textContent).toMatch(/2 extra/);
+  });
+});
+
+// ── M8: healthy patient's 3rd+ MenB dose reads as extra, not a real 3rd dose ─────
+describe('M8: healthy-patient MenB dose(s) beyond 2 show as extra', () => {
+  it('a healthy adult with 3 well-spaced MenB doses — 3rd card reads VALID · EXTRA', () => {
+    const dob = '2000-01-01';
+    const hist = {
+      MenB: [
+        { given: true, mode: 'date', date: '2024-01-01' },
+        { given: true, mode: 'date', date: '2024-08-01' },
+        { given: true, mode: 'date', date: '2025-06-01' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 312 });
+    const cards = container.querySelectorAll('[data-testid^="dose-card-MenB-"]');
+    expect(cards.length).toBe(3);
+    expect(cards[1].textContent).not.toMatch(/VALID · EXTRA/);
+    expect(cards[2].textContent).toMatch(/VALID · EXTRA/);
+  });
+
+  it('a high-risk (asplenia) adult with the same 3 doses shows no extra — legitimate 3-dose series', () => {
+    const dob = '2000-01-01';
+    const hist = {
+      MenB: [
+        { given: true, mode: 'date', date: '2024-01-01' },
+        { given: true, mode: 'date', date: '2024-02-01' },
+        { given: true, mode: 'date', date: '2024-03-01' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 312, risks: ['asplenia'] });
+    const row = container.querySelector('[data-testid="vaccine-row-MenB"]');
+    expect(row.textContent).not.toMatch(/extra/i);
+  });
+});
+
+// ── M9: an unnecessary HPV dose beyond the age-appropriate total shows as extra ──
+describe('M9: HPV dose(s) beyond the dose-1-age-dependent total show as extra', () => {
+  it('dose 1 before 15y, not immunocompromised — 3rd card reads VALID · EXTRA, not ON_TIME', () => {
+    const dob = '2013-01-01';
+    const hist = {
+      HPV: [
+        { given: true, mode: 'date', date: '2025-01-01' },
+        { given: true, mode: 'date', date: '2025-07-01' },
+        { given: true, mode: 'date', date: '2026-01-01' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 156 });
+    const cards = container.querySelectorAll('[data-testid^="dose-card-HPV-"]');
+    expect(cards.length).toBe(3);
+    expect(cards[1].textContent).not.toMatch(/VALID · EXTRA/);
+    expect(cards[2].textContent).toMatch(/VALID · EXTRA/);
+  });
+});
