@@ -885,7 +885,11 @@ describe('MenB shared decision (non-risk, 16–23y)', () => {
   it('28. 24y (288m), no history → no MenB rec (beyond 16–23y shared decision window)', () => {
     const am = 288;
 
-    // Surface 1: no rec — engine now gates non-risk D1 at am <= 276 (23y11m)
+    // Surface 1: no rec. M13 2026-09-15 — this used to say the engine gates
+    // non-risk D1 at "am <= 276 (23y11m)". Both halves were wrong: 276 months is
+    // 23y0m, not 23y11m, and what actually stops a 24-year-old here is the
+    // pediatric cap (recommendations.js:40 returns [] at am >= 228), not any
+    // MenB-specific bound.
     const r = firstRec('MenB', am);
     expect(r).toBeNull();
 
@@ -895,16 +899,23 @@ describe('MenB shared decision (non-risk, 16–23y)', () => {
     // Surface 4: no catch-up
     expect(recsFor('MenB', am).filter(r => r.status === 'catchup')).toHaveLength(0);
 
-    // Surface 5: seriesDoses returns null for non-risk am > 276 with no doses → 0
+    // Surface 5: 0 doses. Same story — buildOptimalSchedule returns [] at
+    // am >= 228 (line 492) before seriesDoses() runs, so its own non-risk gate
+    // (am >= 288 since M13) is not what produces this.
     const doses = optimalDosesFor('MenB', am);
     expect(doses.length).toBe(0);
   });
 
   it('28b. 24y (288m), no history → NO MenB rec (upper age gate now enforced)', () => {
-    // BUG: Surface 1 — recommendations.js MenB section has `if (menb === 0 && (hr || am >= 192))`
-    // with no upper age bound for the non-risk path. ACIP shared clinical decision: ages 16–23y.
-    // The fix: change gate to `if (menb === 0 && (hr || (am >= 192 && am <= 276)))`.
-    // Also affects Surface 5: buildOptimalSchedule.seriesDoses has no upper bound either.
+    // Surface 1 — recommendations.js MenB has `if (menb === 0 && (hr || am >= 192))`
+    // with no MenB-specific upper age bound on the non-risk path; the pediatric
+    // cap at am >= 228 is what makes this assertion pass.
+    // M13 2026-09-15: the old note here proposed bounding it at `am <= 276`.
+    // That is the wrong number — CDC's shared-decision window is "age 16-23
+    // years", written inclusively, so it ends at the 24th birthday (288m), not
+    // on the 23rd (276m). buildOptimalSchedule's gate was corrected to 288;
+    // adding one here would be dead code behind the same 228 cap, so it was
+    // deliberately left alone.
     const am = 288;
     const r = firstRec('MenB', am);
     expect(r).toBeNull();

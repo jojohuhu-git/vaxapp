@@ -258,3 +258,48 @@ The fix is the same one N8 already describes: let the planner pass the age it is
 planning for (the patient's age today, or the planned date of dose 1) rather than
 inferring only from history. Fixing N8 should fix this at the same time; check
 both surfaces and all three indications (high-risk, travel, outbreak) together.
+
+
+### N9 — do year-labelled dose bands mean the start or the end of the last year? (2026-09-15, found while doing M13)
+
+**Not meningococcal-specific, and not urgent — but it decides a compliance-tab grade
+for six bands across five vaccines.**
+
+`src/data/aapDoseBands.js` documents its field as
+`recMax — end of recommended window (months, inclusive)`. The data does not do that.
+Every year-labelled band sets `recMax` to the **start** of the last named year:
+
+| Label | Vaccines | recMax | End-of-year would be |
+|---|---|---|---|
+| `4–6 yr` | DTaP D5, IPV D4, MMR D2, VAR D2 | 72 (6.0y) | 83 |
+| `11–12 yr` | MenACWY D1, HPV D1 | 144 (12.0y) | 155 |
+| `16–23 yr` | MenB D1 | 276 (23.0y) | 287 |
+
+The file can express end-of-year when it wants to — DTaP D5 carries `catchupMax: 83`,
+which is 6y11m — so these look deliberate rather than like six identical slips.
+
+The consequence: the compliance tab grades a DTaP dose 5 given at 6y6m as OUTSIDE the
+recommended window, even though CDC writes that band as "4 through 6 years" and means it
+inclusively. Same for an MMR dose 2 at 6y6m, an HPV dose 1 at 12y6m, and a MenACWY dose 1
+at 12y6m. These are all genuinely *on time* by the CDC wording and currently read as
+not-on-time.
+
+**Owner decision 2026-09-15 (made during M13):** do NOT change MenB's row alone. M13 was
+queued as "MenB recMax 276 → 288"; doing that would have made MenB the only row in the
+file where `recMax` means end-of-year, so a late MenB dose would grade OK while an equally
+late DTaP dose graded not-OK. M13 therefore fixed only `buildOptimalSchedule.js`'s
+eligibility gate (a different kind of check) and left every band untouched.
+`src/data/__tests__/regression-m13-menb-shared-decision-window.test.js` pins that.
+
+**What this item has to settle**, before any code moves:
+1. Which reading does the owner want — the label's plain English ("4 through 6 years"
+   includes 6y11m) or the current data (the recommended window closes on the 6th
+   birthday)? Verify against the AAP schedule graphic live, not from memory: the AAP bars
+   are drawn across a year column, which argues for end-of-year.
+2. If end-of-year wins, move ALL SIX bands together and fix the header comment, then
+   re-verify the compliance tab for each of the five vaccines — this changes real grades
+   on a surface clinicians read.
+3. If start-of-year wins, the header's `inclusive` wording is what's wrong; correct the
+   field definition instead so the next reader is not misled the way M13 was.
+
+Either way it is one decision applied six times, never one row at a time.

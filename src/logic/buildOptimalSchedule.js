@@ -289,7 +289,8 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       const givenMenB = effMenB.length;
       // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
       // accelerated series for BOTH antigen families (4C and FHbp), starting at 10y.
-      // Healthy: 2-dose shared-decision series, 16–23y (192–276m).
+      // Healthy: 2-dose shared-decision series, 16–23y (192m through 287m,
+      // i.e. up to but not including the 24th birthday at 288m — see M13 below).
       // SCOPE LIMIT: the optimizer does not model HR MenACWY/MenB ongoing
       // revaccination after primary series completion. That needs interval-based
       // scheduling logic beyond seriesDoses(); the Full Forecast (genRecs) handles
@@ -307,8 +308,25 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
         return { totalDoses: 3 };
       }
       if (am < 192) return { totalDoses: 2, seedAgeMonths: 192 }; // routine seed at 16y
-      // Don't start a new series after 23y for non-risk patients.
-      if (am > 276 && givenMenB === 0) return null;
+      // Don't start a new series for non-risk patients once they are past 23.
+      // M13: this said `am > 276`, which cut eligibility off on the patient's
+      // 23rd BIRTHDAY. CDC's child & adolescent schedule notes (verified live
+      // 2026-09-15) say "Adolescents not at increased risk age 16-23 years
+      // (preferred age 16-18 years)... based on shared clinical decision-making",
+      // and that page writes age bands inclusively ("Age 13-15 years" for
+      // MenACWY catch-up covers a 15y11m-old). So eligibility runs through
+      // 23y11m and ends at the 24th birthday = 288 months.
+      //
+      // This is an eligibility GATE, not a recommended-window band, which is why
+      // it moved while the MenB row in aapDoseBands.js deliberately did not --
+      // see regression-m13-menb-shared-decision-window.test.js.
+      //
+      // Unreachable today, and knowingly so: buildOptimalSchedule returns []
+      // at `am >= 228` (19y) before seriesDoses() is ever called, so no live
+      // patient reaches 276 months here. Corrected anyway because raising the
+      // pediatric age cap (deferred queue item 11) would otherwise silently
+      // deny the series to every 23-year-old.
+      if (am >= 288 && givenMenB === 0) return null;
       // Healthy patient whose dose 2 came early needs 3 doses, not 2 —
       // menBSeriesTotal() is the one place that rule lives.
       return { totalDoses: menBSeriesTotal(hist, dob, am, isHRMenB) };
