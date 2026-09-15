@@ -1,3 +1,10 @@
+> **SUPERSEDED 2026-09-15** — consumed by the session that shipped PR #158 and wrote
+> the vaxapp plan. Do **not** resume this queue. Its item 3 (the HSCT banner sentence)
+> is **done and deployed**, and its P1 vaxapp item is now **planned** in
+> `plan-2026-09-15-vaxapp-dose-numbering.md`. Start from
+> `handoff-2026-09-15-vaxapp-hsct-caveat-and-numbering-plan.md` instead. The PneumoVax
+> P2 item below is still open and is carried forward in that newer handoff.
+
 # Dose numbering — handoff after shipping MeningoVax + PneumoVax (2026-09-15)
 
 **Scope spans three repos.** This is a new project, not a continuation of the
