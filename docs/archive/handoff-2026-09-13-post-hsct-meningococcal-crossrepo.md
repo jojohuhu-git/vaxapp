@@ -1,5 +1,20 @@
 # Cross-repo — Post-HSCT meningococcal fix + PneumoVax adult pneumococcal change (2026-09-13)
 
+> **Superseded on one point (resolved 2026-09-14).** The work described here shipped and
+> this record is accurate except for line ~96's "11–18 / 16–23 bands — those were right."
+> An owner-reported age-82 case raised the question of whether the post-HCT 2-dose MenACWY
+> schedule applies above age 18. You read the ASCO source live and confirmed it does not
+> depend on age at all — a transplant recipient needs an *additional risk factor*
+> (asplenia, complement deficiency, or eculizumab/ravulizumab), regardless of age; the
+> 11–18 ceiling traced to an older (2013) guideline the current advisory doesn't actually
+> cite. Fixed in vaxapp
+> [PR #151](https://github.com/jojohuhu-git/vaxapp/pull/151) and MeningoVax
+> [PR #13](https://github.com/jojohuhu-git/MeningoVax/pull/13), both merged 2026-09-14/15.
+> MenB's 16–23-or-high-risk structure on the same panel was already correct and is
+> unchanged. Full context:
+> `~/Downloads/MeningoVax-main/docs/archive/handoff-2026-09-14-dose-counter-structural-fix.md`
+> (section "P1").
+
 **This is the canonical handoff for three repos.** It was written after the owner
 verified the clinical sources live and settled every open decision. Nothing here needs
 re-deriving — build it.
