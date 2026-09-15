@@ -39,6 +39,24 @@ export function isHighRiskPCV(risks) {
   return (risks || []).some((r) => PCV_HR_RISKS.includes(r));
 }
 
+// The immunocompromising subset of PCV_HR_RISKS gets a 2-dose PPSV23 series
+// (2nd dose ≥5y after the 1st, ongoing revaccination); the rest of PCV_HR_RISKS
+// (anatomic/chronic-disease risks: cochlear, chronic heart/lung/kidney, diabetes,
+// chronic liver) gets 1 dose. Source: CDC Child/Adolescent Immunization Schedule
+// — Pneumococcal notes, #note-pneumo (same source as PCV_HR_RISKS above).
+export const PPSV23_TWO_DOSE_RISKS = ['asplenia', 'sickle_cell', 'immunocomp', 'hiv', 'chronic_kidney_dialysis'];
+
+/**
+ * PPSV23 standard total dose count for a high-risk patient: 2 if any
+ * PPSV23_TWO_DOSE_RISKS risk is present, else 1. Callers should gate this on
+ * isHighRiskPCV(risks) first — a patient with no high-risk indication at all
+ * isn't on this pathway (this app is pediatric-only; the adult ≥65 routine
+ * pathway is out of scope — see MainPanel's age gate).
+ */
+export function ppsv23StandardTotal(risks) {
+  return (risks || []).some((r) => PPSV23_TWO_DOSE_RISKS.includes(r)) ? 2 : 1;
+}
+
 const MS_PER_MONTH = 1000 * 60 * 60 * 24 * 30.4375;
 
 // Age (in months) at which a dose was administered. Supports both age-mode doses

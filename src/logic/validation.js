@@ -2,10 +2,11 @@
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
 import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO } from './utils.js';
-import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
 import { REFS } from '../data/refs.js';
+import { isHighRiskPCV, ppsv23StandardTotal } from './pcvDoses.js';
 import { fmtAgeClinical, fmtIntervalClinical } from './ageFormat.js';
 
 // M9: mirrors buildOptimalSchedule.js's HPV 5475-day (15y) + immunocomp threshold.
@@ -521,20 +522,33 @@ export function auditAll(hist, dob, risks = [], am = -1) {
     // whose D1 was given at 16y+ was only flagged once a 3rd dose existed —
     // an unnecessary D2 alone (2 total doses) triggered no advisory at all,
     // and a 3rd dose's advisory wrongly implied D1+D2 were both indicated.
-    if (vk === "MenACWY") {
-      const isHighRiskMen = isHighRiskMenACWY(risks);
-      if (!isHighRiskMen && doses.length > 1) {
+    if (vk === "MenACWY" && doses.length > 1) {
+      // F6b (2026-09-14): microbiologists are open-ended (1 dose + revaccinate every
+      // 5y while occupationally exposed, ACIP 2020 MMWR RR-9 Table 7) — never "extra."
+      // Military/travel indications are exactly 1 dose, ever, regardless of the age
+      // given (Table 9/10) — unlike the routine schedule's age-16 terminal-dose
+      // nuance below. Shared classification with compliance.js's M7/exposure logic —
+      // see menacwyExposureCategory in stateHelpers.js.
+      const exposure = menacwyExposureCategory(risks);
+      if (!isHighRiskMenACWY(risks) && exposure !== 'microbiologist') {
+        const isExposureSingleDose = exposure === 'singleDose';
         const d1AgeM = doseAgeMonths(doses[0], dob);
-        const standardTotal = (d1AgeM != null && d1AgeM >= 192) ? 1 : 2;
+        const standardTotal = isExposureSingleDose ? 1 : (d1AgeM != null && d1AgeM >= 192) ? 1 : 2;
         if (doses.length > standardTotal) {
-          const detail = standardTotal === 1
+          const detail = isExposureSingleDose
+            ? `${doses.length} MenACWY doses recorded. Military recruit and international-travel indications are a single dose, regardless of the age given. Doses beyond the first are not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is also present.`
+            : standardTotal === 1
             ? `${doses.length} MenACWY doses recorded. The first dose was given at or after the 16th birthday, which completes the routine series on its own — no booster is needed. Doses beyond the first are not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`
             : `${doses.length} MenACWY doses recorded. Non-high-risk patients need only 2 doses: D1 at 11–12 years and a booster at 16 years. A 3rd or later dose is not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is present.`;
+          const exposureRefs = isExposureSingleDose
+            ? (risks.includes('military') ? REFS.acip2020Table10 : REFS.acip2020Table9)
+            : null;
           errors.push({ vk, type: "series_over", severity: "warn",
             title: "MenACWY — Extra Dose (series complete for non-high-risk patient)",
             detail,
             action: "Verify patient risk status. If no high-risk indication applies, the extra dose is not harmful but was not indicated. Add the appropriate risk factor if the patient is high-risk; those patients require revaccination every 3–5 years.",
-            refUrl: REFS.MenACWY.url, refLabel: REFS.MenACWY.label,
+            refUrl: exposureRefs ? exposureRefs.url : REFS.MenACWY.url,
+            refLabel: exposureRefs ? exposureRefs.label : REFS.MenACWY.label,
             refUrl2: REFS.MenACWY.cdcUrl, refLabel2: REFS.MenACWY.cdcLabel });
         }
       }
@@ -576,6 +590,55 @@ export function auditAll(hist, dob, risks = [], am = -1) {
           action: "Verify the age at dose 1 and immunocompromised status. If the 2-dose criteria are met, the extra dose is not harmful but was not indicated.",
           refUrl: REFS.HPV.url, refLabel: REFS.HPV.label,
           refUrl2: REFS.HPV.cdcUrl, refLabel2: REFS.HPV.cdcLabel });
+      }
+    }
+
+    // F6c (2026-09-14, same investigation as F6b): IPV series overdose. Standard
+    // total is 4 doses (routine pediatric: 2mo/4mo/6-18mo/4-6y booster) UNLESS
+    // dose 1 was given at/after age 18 (216mo), meaning the series was never
+    // started as a child — then it's 3 (ACIP adult catch-up: 0, ≥4wk, ≥6mo, no
+    // ≥4y-minimum final-dose requirement). Keyed off dose 1's age, not the
+    // patient's current age: buildOptimalSchedule.js/recommendations.js use
+    // current age (`am >= 216 ? 3 : 4`), which is correct for THEIR forward-
+    // looking "how many more doses are needed" question, but would be wrong
+    // here — a child who completed the normal 4-dose series would have their
+    // legitimate 4th dose flagged "extra" the moment they turn 18, even though
+    // nothing about their already-complete series changed. Before this fix,
+    // there was no IPV overdose check here at all.
+    if (vk === "IPV" && doses.length > 0) {
+      const d1AgeM = doseAgeMonths(doses[0], dob);
+      const standardTotal = (d1AgeM != null && d1AgeM >= 216) ? 3 : 4;
+      if (doses.length > standardTotal) {
+        errors.push({ vk, type: "series_over", severity: "warn",
+          title: "IPV — Extra Dose (series complete for this patient's schedule)",
+          detail: `${doses.length} IPV doses recorded. A patient whose first dose was given at or after 18 years needs only 3 doses (adult catch-up schedule); a patient who started before 18 needs 4 (routine pediatric schedule). A dose beyond that count is not ACIP-indicated.`,
+          action: "Verify the age at dose 1. If the 3-dose adult-catch-up criteria are met, the extra dose is not harmful but was not indicated.",
+          refUrl: REFS.IPV.url, refLabel: REFS.IPV.label,
+          refUrl2: REFS.IPV.cdcUrl, refLabel2: REFS.IPV.cdcLabel });
+      }
+    }
+
+    // F6d (2026-09-14, same investigation as F6b/F6c): PPSV23 series overdose.
+    // Standard total is risk-dependent — 2 doses for the immunocompromising
+    // subset (asplenia, sickle cell, immunocomp, HIV, chronic kidney/dialysis),
+    // else 1 — mirrors buildOptimalSchedule.js's seriesDoses() PPSV23 case
+    // exactly (both now delegate to pcvDoses.js's ppsv23StandardTotal, the
+    // shared source of truth, so the two can't independently drift). Gated on
+    // isHighRiskPCV: a patient with no high-risk indication on file isn't on
+    // this pathway at all — see ppsv23AuditFlag above for that separate "was
+    // this indicated" check. Before this fix, there was no PPSV23 overdose
+    // check here at all — a patient in the 1-dose risk category (e.g. diabetes
+    // alone, no immunocompromising condition) could get an unindicated 2nd
+    // dose with no advisory.
+    if (vk === "PPSV23" && doses.length > 0 && isHighRiskPCV(risks)) {
+      const standardTotal = ppsv23StandardTotal(risks);
+      if (doses.length > standardTotal) {
+        errors.push({ vk, type: "series_over", severity: "warn",
+          title: "PPSV23 — Extra Dose (series complete for this patient's risk level)",
+          detail: `${doses.length} PPSV23 doses recorded. Patients with an immunocompromising condition (asplenia, sickle cell, immunocompromised, HIV, or chronic kidney disease on dialysis) need 2 doses; other high-risk conditions need only 1. A dose beyond that count is not ACIP-indicated.`,
+          action: "Verify the patient's specific risk condition. If the 1-dose criteria apply, the extra dose is not harmful but was not indicated.",
+          refUrl: REFS.PPSV23.url, refLabel: REFS.PPSV23.label,
+          refUrl2: REFS.PPSV23.cdcUrl, refLabel2: REFS.PPSV23.cdcLabel });
       }
     }
 

@@ -49,6 +49,31 @@ export const isHighRiskMenACWY = (risks) =>
   risks.some(r => ["asplenia", "sickle_cell", "complement", "hiv"].includes(r));
 
 /**
+ * MenACWY exposure-category classification — distinct from both medical high-risk
+ * (isHighRiskMenACWY, above) and the routine adolescent schedule. Neither exposure
+ * category uses the routine age-16 booster gate. Returns null for medical high-risk
+ * or the plain routine/catch-up case (no special handling needed there).
+ *   - 'microbiologist': 1 dose + revaccinate every 5y while occupationally exposed —
+ *     open-ended, same shape as medical high-risk, but graded against the routine
+ *     dose bands, not the high-risk-primary-series bands. Source: ACIP 2020 MMWR
+ *     RR-9 Table 7.
+ *   - 'singleDose' (military recruit or international travel): exactly 1 dose,
+ *     ever, regardless of the age it was given — unlike the routine schedule's
+ *     "given at/after 16y" terminal-dose nuance. Source: ACIP 2020 MMWR RR-9
+ *     Table 9 (travel) / Table 10 (military).
+ * Single source of truth for compliance.js and validation.js so the two can't
+ * independently drift on which doses are legitimately open-ended vs. extra —
+ * same reasoning as MeningoVax's dose-counter fix (shared seriesTotals.js there).
+ */
+export function menacwyExposureCategory(risks) {
+  const r = risks || [];
+  if (isHighRiskMenACWY(r)) return null;
+  if (r.includes("microbiologist")) return "microbiologist";
+  if (r.includes("military") || r.includes("travel")) return "singleDose";
+  return null;
+}
+
+/**
  * True if a given MenACWY dose was administered at or after the 16th birthday
  * (192 months). Per ACIP/immunize.org, such a dose is terminal — no adolescent
  * booster is required. Doses whose age cannot be determined (no date+dob, no

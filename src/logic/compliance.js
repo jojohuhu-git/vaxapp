@@ -25,11 +25,11 @@
  */
 
 import { validateDose } from './validation.js';
-import { doseAgeDays, doseAgeMonths, isHighRiskMenACWY, highRiskMenB } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory } from './stateHelpers.js';
 import { getDoseBand } from '../data/aapDoseBands.js';
 import { fmtAgeClinical } from './ageFormat.js';
 import { REFS } from '../data/refs.js';
-import { PCV_HR_RISKS } from './pcvDoses.js';
+import { PCV_HR_RISKS, isHighRiskPCV, ppsv23StandardTotal } from './pcvDoses.js';
 
 // PPSV23 is indicated for high-risk patients of any age, or routinely at 65+.
 // A dose given below 65 with no qualifying risk factor on file is not necessarily
@@ -164,7 +164,8 @@ const STANDARD_SERIES_TOTAL = {
   // PRP-OMP family (PedvaxHIB, Vaxelis): standard = 3
   // PRP-T family (ActHIB, Hiberix, Pentacel) or unknown: standard = 4
   PCV: 4,
-  IPV: 4,
+  // IPV intentionally omitted — use ipvStandardTotal(hist, dob), which depends
+  // on the age dose 1 was given (F6c).
   MMR: 2,
   VAR: 2,
   HepA: 2,
@@ -174,7 +175,8 @@ const STANDARD_SERIES_TOTAL = {
   MenACWY: 2,
   // MenB intentionally omitted — use (menBHighRisk ? 3 : 2), risk-dependent (M8).
   Flu: 1,
-  PPSV23: 2,
+  // PPSV23 intentionally omitted — use ppsv23StandardTotal(risks), gated on
+  // isHighRiskPCV(risks), which depends on which high-risk category applies (F6d).
   RSV: 2,
   COVID: 1,
 };
@@ -235,6 +237,33 @@ function hpvStandardTotal(hist, dob, risks) {
   const d1 = (hist?.HPV || []).filter(d => d.given)[0];
   const d1AgeDays = d1 ? doseAgeDays(d1, dob) : null;
   return (d1AgeDays != null && d1AgeDays < 5475 && !isImmunocomp) ? 2 : 3;
+}
+
+/**
+ * F6c (2026-09-14, same investigation as F6b): IPV's standard total depends on
+ * whether the series was started as a child (4-dose routine schedule: 2mo, 4mo,
+ * 6-18mo, 4-6y booster) or started fresh as an adult (3-dose catch-up: 0, ≥4wk,
+ * ≥6mo, per ACIP's adult schedule — no ≥4y-minimum final-dose requirement).
+ * Mirrors buildOptimalSchedule.js's seriesDoses() and recommendations.js's IPV
+ * catch-up branch (both `am >= 216 ? 3 : 4`), but keyed off the age dose 1 was
+ * given, NOT the patient's current age — those two call sites only ever compute
+ * a FORWARD total for a still-incomplete series, where "current age" correctly
+ * selects which protocol to follow going forward. This function instead AUDITS
+ * already-recorded doses, where using current age would wrongly flag a normal
+ * child's legitimate 4th (4-6y booster) dose as "extra" the moment they turn 18,
+ * even though nothing about that already-complete pediatric series changed.
+ * Keying off dose-1's age avoids that: a patient who started at 2 months keeps
+ * a 4-dose total for life; only a patient whose first-ever dose was given at/
+ * after 18y (216mo) — i.e., who never had a pediatric series — gets 3.
+ *
+ * @param {object|null} hist - full patient history {vk: [{dose}]}
+ * @param {string|null} dob - patient date of birth (ISO string)
+ * @returns {number} 3 or 4
+ */
+function ipvStandardTotal(hist, dob) {
+  const d1 = (hist?.IPV || []).filter(d => d.given)[0];
+  const d1AgeM = d1 ? doseAgeMonths(d1, dob) : null;
+  return (d1AgeM != null && d1AgeM >= 216) ? 3 : 4;
 }
 
 /**
@@ -341,6 +370,16 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   const ageMonths = ageDays / 30.4375;
   const ageLabel = fmtAgeClinical(ageDays);
 
+  // F6b (2026-09-14): MenACWY exposure categories (military/travel/microbiologist)
+  // are distinct from both medical high-risk and the routine adolescent schedule,
+  // and neither uses the routine age-16 booster gate M6/M7 below apply to. See
+  // menacwyExposureCategory in stateHelpers.js for the shared classification (the
+  // same shared-source-of-truth pattern as MeningoVax's dose-counter fix, so this
+  // file and validation.js can't independently drift).
+  const menacwyExposure = vk === 'MenACWY' ? menacwyExposureCategory(risks || []) : null;
+  const menacwyMicrobiologist = menacwyExposure === 'microbiologist';
+  const menacwyExposureSingleDose = menacwyExposure === 'singleDose';
+
   // M6 (2026-08-11): a non-high-risk 2nd+ MenACWY dose given before the age-16
   // booster window is safely administered but does not satisfy the booster
   // requirement — the booster is an AGE window, not just an interval from dose 1.
@@ -351,7 +390,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // check; high-risk patients are unaffected (their primary series legitimately has
   // 2+ doses before 16). Mirrors MeningoVax commit 3172a0a (Change 3) and M1's
   // OFF_WINDOW+notAdolescentCount pattern just below.
-  if (vk === 'MenACWY' && doseIdx === 1 && ageMonths < 192 && !isHighRiskMenACWY(risks || [])) {
+  if (vk === 'MenACWY' && doseIdx === 1 && ageMonths < 192 && !isHighRiskMenACWY(risks || []) && !menacwyMicrobiologist && !menacwyExposureSingleDose) {
     return {
       status: 'OFF_WINDOW',
       label: `Off-window — booster still owed (given at ${ageLabel}, before the 16-year booster window). Does not count toward the routine 2-dose series — the booster is an age window (16-18 years), not just an interval from dose 1.`,
@@ -374,7 +413,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // series) instead of VALID_EXTRA. Uses the same shared
   // stateHelpers.doseAgeMonths this file already imports; high-risk
   // patients are unaffected (open-ended booster schedule, no fixed total).
-  if (vk === 'MenACWY' && doseIdx >= 1 && !isHighRiskMenACWY(risks || [])) {
+  if (vk === 'MenACWY' && doseIdx >= 1 && !isHighRiskMenACWY(risks || []) && !menacwyMicrobiologist && !menacwyExposureSingleDose) {
     const d1 = (hist?.MenACWY || []).filter(d => d.given)[0];
     const d1AgeM = d1 ? doseAgeMonths(d1, dob) : null;
     if (d1AgeM != null && d1AgeM >= 192) {
@@ -389,6 +428,28 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
         },
       };
     }
+  }
+
+  // F6b (2026-09-14): military/travel exposure indications are exactly 1 dose,
+  // ever — unlike the routine schedule's "given at/after 16y" nuance (M7 above),
+  // this doesn't depend on the age dose 1 was given. Before this fix, these
+  // patients fell into the routine STANDARD_SERIES_TOTAL.MenACWY=2 path below,
+  // which only flagged a dose as extra past the 2nd (or, coincidentally, past the
+  // 1st if dose 1 happened to be given at/after 16y — true for most real
+  // recruits/travelers, but for the wrong reason, citing the age-16 booster rule
+  // instead of the actual ACIP/DoD single-dose indication).
+  if (vk === 'MenACWY' && doseIdx >= 1 && menacwyExposureSingleDose) {
+    const citation = (risks || []).includes('military') ? REFS.acip2020Table10 : REFS.acip2020Table9;
+    return {
+      status: 'VALID_EXTRA',
+      label: `Extra dose — given at ${ageLabel}. Military recruit and international-travel MenACWY indications are a single dose, regardless of the age given; further doses are not ACIP-indicated unless a high-risk medical condition (asplenia, complement deficiency, or HIV) is also present.`,
+      recommendedRange: null,
+      extraScenario: {
+        scenarioKey: 'menacwy_exposure_single_dose',
+        popoverText: 'Military recruit and international-travel MenACWY indications are a single dose, regardless of the age given. This dose was not clinically necessary but is safe.',
+        citation,
+      },
+    };
   }
 
   // M1: a MenB dose given before age 16 (192mo) to a non-high-risk patient is
@@ -446,7 +507,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // 11–12y/16y bands. This is order-independent: it keys off the CURRENT risk list, so
   // adding sickle cell / asplenia AFTER the doses were entered re-grades correctly.
   const menacwyHighRisk = vk === 'MenACWY' && isHighRiskMenACWY(risks || []);
-  const bandOpts = { highRisk: menacwyHighRisk };
+  const bandOpts = { highRisk: menacwyHighRisk, microbiologist: menacwyMicrobiologist };
 
   // M8 (2026-09-14, same F6 investigation as M7 above): MenB's standard total is
   // risk-dependent — 2 doses (healthy, 16-23y shared decision) or 3 (high-risk,
@@ -462,11 +523,13 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // For Hib, use brand-aware standard total (PRP-OMP=3, PRP-T=4). For high-risk MenACWY
   // the series is open-ended (2-dose primary + lifelong boosters), so there is no fixed
   // "standard total" and later doses are boosters, not "extra" — skip the VALID_EXTRA path.
-  const standardTotal = menacwyHighRisk
+  const standardTotal = (menacwyHighRisk || menacwyMicrobiologist)
     ? null
     : vk === 'Hib' ? hibStandardTotal(hist)
     : vk === 'MenB' ? (menBHighRisk ? 3 : 2)
     : vk === 'HPV' ? hpvStandardTotal(hist, dob, risks)
+    : vk === 'IPV' ? ipvStandardTotal(hist, dob)
+    : vk === 'PPSV23' ? (isHighRiskPCV(risks) ? ppsv23StandardTotal(risks) : null)
     : STANDARD_SERIES_TOTAL[vk];
   if (standardTotal != null && totalDoses != null && totalDoses > standardTotal) {
     const extraSet = extraDoseIndices(vk, totalDoses, standardTotal, hist);

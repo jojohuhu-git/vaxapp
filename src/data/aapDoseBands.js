@@ -190,20 +190,41 @@ const MENACWY_HIGH_RISK = [
   { dose: 3, recMin: 2, recMax: null, catchupMax: null, label: 'High-risk booster (every 3–5 yr while at risk)' },
 ];
 
+// ── Microbiologist MenACWY bands (ACIP 2020 MMWR RR-9 Table 7) ──────────────
+// Occupational exposure (routine handling of N. meningitidis isolates): 1 dose,
+// then revaccinate every 5 years for as long as the exposure persists — open-
+// ended like medical high-risk, but graded against these bands (not the
+// high-risk-primary-series ones, which have a different min-age/interval shape
+// meant for infants). recMin=24 mirrors recommendations.js's "am >= 24" gate on
+// the microbiologist branches.
+// Source: https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=TABLE%207
+const MENACWY_MICROBIOLOGIST = [
+  { dose: 1, recMin: 24, recMax: null, catchupMax: null, label: 'Microbiologist dose 1 (routine N. meningitidis exposure)' },
+  { dose: 2, recMin: 24, recMax: null, catchupMax: null, label: 'Microbiologist revaccination (every 5 yr while occupationally exposed)' },
+];
+
 /**
  * Get the dose band for a specific vaccine + 1-based dose number.
  * Returns null if no band is defined for that dose.
  * @param {string} vk - vaccine key
  * @param {number} doseNum - 1-based dose number
- * @param {{ highRisk?: boolean }} [opts] - when highRisk and vk is MenACWY, use the
- *        high-risk (medical) schedule bands instead of the routine adolescent bands.
- *        Doses beyond the primary series (3+) map to the booster band.
+ * @param {{ highRisk?: boolean, microbiologist?: boolean }} [opts] - when highRisk
+ *        and vk is MenACWY, use the high-risk (medical) schedule bands instead of
+ *        the routine adolescent bands; when microbiologist, use the microbiologist
+ *        exposure bands instead. Doses beyond the primary series (3+, or 2+ for
+ *        microbiologist) map to the booster/revaccination band. highRisk takes
+ *        precedence if both are somehow set (medical high-risk supersedes exposure
+ *        categories — see menacwyExposureCategory in stateHelpers.js).
  * @returns {{ dose, recMin, recMax, catchupMax, label } | null}
  */
 export function getDoseBand(vk, doseNum, opts = {}) {
   if (vk === 'MenACWY' && opts.highRisk) {
     return MENACWY_HIGH_RISK.find(b => b.dose === doseNum)
       || MENACWY_HIGH_RISK[MENACWY_HIGH_RISK.length - 1]; // dose 3+ → booster band
+  }
+  if (vk === 'MenACWY' && opts.microbiologist) {
+    return MENACWY_MICROBIOLOGIST.find(b => b.dose === doseNum)
+      || MENACWY_MICROBIOLOGIST[MENACWY_MICROBIOLOGIST.length - 1]; // dose 2+ → revaccination band
   }
   const bands = AAP_DOSE_BANDS[vk];
   if (!bands) return null;

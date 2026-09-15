@@ -534,3 +534,116 @@ describe('M9: HPV dose(s) beyond the dose-1-age-dependent total show as extra', 
     expect(cards[2].textContent).toMatch(/VALID · EXTRA/);
   });
 });
+
+// ── F6b: MenACWY exposure categories are not the routine 2-dose schedule ────────
+describe('F6b: microbiologist MenACWY revaccination is open-ended, not flagged extra', () => {
+  it('4 revaccination doses (5y apart) — none of the cards read VALID · EXTRA', () => {
+    const dob = '1980-01-01';
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2020-01-01' },
+        { given: true, mode: 'date', date: '2025-01-01' },
+        { given: true, mode: 'date', date: '2030-01-01' },
+        { given: true, mode: 'date', date: '2035-01-01' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 55 * 12, risks: ['microbiologist'] });
+    const cards = container.querySelectorAll('[data-testid^="dose-card-MenACWY-"]');
+    expect(cards.length).toBe(4);
+    cards.forEach(c => expect(c.textContent).not.toMatch(/VALID · EXTRA/));
+  });
+
+  it('the SAME 4-dose pattern with no risk factor still shows extras (regression safety net)', () => {
+    const dob = '1980-01-01';
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2020-01-01' },
+        { given: true, mode: 'date', date: '2025-01-01' },
+        { given: true, mode: 'date', date: '2030-01-01' },
+        { given: true, mode: 'date', date: '2035-01-01' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 55 * 12, risks: [] });
+    const row = container.querySelector('[data-testid="vaccine-row-MenACWY"]');
+    expect(row.textContent).toMatch(/extra/i);
+  });
+});
+
+describe('F6b: military/travel MenACWY exposure is exactly 1 dose regardless of age at dose 1', () => {
+  it('dose 1 at 15y (military) — the 2nd dose card reads VALID · EXTRA, not a routine on-time booster', () => {
+    const dob = '2000-01-01';
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2015-01-01' }, // 15y
+        { given: true, mode: 'date', date: '2016-01-15' }, // ~16y — routine booster window
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 16 * 12 + 1, risks: ['military'] });
+    const cards = container.querySelectorAll('[data-testid^="dose-card-MenACWY-"]');
+    expect(cards.length).toBe(2);
+    expect(cards[1].textContent).toMatch(/VALID · EXTRA/);
+  });
+});
+
+describe('F6c: IPV adult-catchup total (3 doses) vs. pediatric total (4 doses)', () => {
+  it('a child who completes the normal 4-dose series is NOT flagged extra after turning 18', () => {
+    const dob = '2008-06-01'; // turns 18 on 2026-06-01
+    const hist = {
+      IPV: [
+        { given: true, mode: 'date', date: '2008-08-01' },
+        { given: true, mode: 'date', date: '2008-10-01' },
+        { given: true, mode: 'date', date: '2009-06-01' },
+        { given: true, mode: 'date', date: '2013-06-01' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 18 * 12 + 3 });
+    const cards = container.querySelectorAll('[data-testid^="dose-card-IPV-"]');
+    expect(cards.length).toBe(4);
+    cards.forEach(c => expect(c.textContent).not.toMatch(/VALID · EXTRA/));
+  });
+
+  it('a 4th dose on an adult-started (dose 1 at ≥18y) series reads VALID · EXTRA', () => {
+    const dob = '2000-01-01';
+    const hist = {
+      IPV: [
+        { given: true, mode: 'date', date: '2020-01-01' }, // 20y
+        { given: true, mode: 'date', date: '2020-02-01' },
+        { given: true, mode: 'date', date: '2020-08-01' },
+        { given: true, mode: 'date', date: '2021-01-01' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 21 * 12 });
+    const cards = container.querySelectorAll('[data-testid^="dose-card-IPV-"]');
+    expect(cards.length).toBe(4);
+    expect(cards[3].textContent).toMatch(/VALID · EXTRA/);
+  });
+});
+
+describe('F6d: PPSV23 risk-dependent total (2-dose immunocompromising vs. 1-dose other high-risk)', () => {
+  it('a diabetes-only patient\'s unindicated 2nd dose reads VALID · EXTRA', () => {
+    const dob = '2015-01-01';
+    const hist = {
+      PPSV23: [
+        { given: true, mode: 'date', date: '2023-01-01' },
+        { given: true, mode: 'date', date: '2024-01-01' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 9 * 12, risks: ['diabetes'] });
+    const cards = container.querySelectorAll('[data-testid^="dose-card-PPSV23-"]');
+    expect(cards.length).toBe(2);
+    expect(cards[1].textContent).toMatch(/VALID · EXTRA/);
+  });
+
+  it('the SAME 2-dose history for an asplenia (2-dose) patient is NOT flagged extra', () => {
+    const dob = '2015-01-01';
+    const hist = {
+      PPSV23: [
+        { given: true, mode: 'date', date: '2023-01-01' },
+        { given: true, mode: 'date', date: '2024-01-01' },
+      ],
+    };
+    const { container } = renderAudit({ hist, dob, am: 9 * 12, risks: ['asplenia'] });
+    const row = container.querySelector('[data-testid="vaccine-row-PPSV23"]');
+    expect(row.textContent).not.toMatch(/extra/i);
+  });
+});
