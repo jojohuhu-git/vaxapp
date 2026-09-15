@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-09-15)** — the queue described below has moved on. M13–M19 were all
+> completed later the same day, which finishes the M1–M19 parity queue entirely. Do not
+> resume from this file: its "What's NOT done" table and its test counts (2470 / 471) are
+> both stale. Start from
+> [handoff-2026-09-15-meningococcal-parity-m13-m19.md](handoff-2026-09-15-meningococcal-parity-m13-m19.md).
+
 # Meningococcal parity queue — Handoff after M10–M12 (2026-09-15)
 
 Two repos, two branches, **neither pushed**, no PR open on either (`gh pr list` returned
