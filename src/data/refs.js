@@ -136,6 +136,17 @@ export const REFS = {
   // (military/microbiologist/travel/college) cite their own specific ACIP 2020 MMWR
   // table instead of the generic child-adolescent-notes schedule page. Verified live
   // 2026-08-11 — each table title matched on the live-rendered CDC page.
+  // M1 (2026-09-15): the high-risk MenACWY primary-series interval had NO citation
+  // at all — scheduleRules.js carried only a bare code comment, and it was wrong.
+  // Tables 4 (complement deficiency), 5 (asplenia/sickle cell) and 6 (HIV) use
+  // identical wording, so one ref serves all three. Fetched live 2026-09-15.
+  acip2020HighRiskPrimary: {
+    label:"ACIP 2020 MMWR: high-risk MenACWY primary series — 2 doses ≥8 weeks apart from age 2 years; infant series 4 weeks; 7–23 month start ≥12 weeks and after the 1st birthday",
+    url:"https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=" + encodeURIComponent("TABLE 5. Recommended vaccination schedule and intervals for persons with anatomic and functional asplenia"),
+    quote:"2 doses ≥8 wks apart",
+    quoteInfant:"If first dose at age • 2 mos: 4 doses at 2, 4, 6, and 12 mos • 3–6 mos: See catch-up schedule • 7–23 mos: 2 doses (second dose ≥12 wks after the first dose and after the 1st birthday)",
+    lastVerified:"2026-09-15"
+  },
   acip2020Table7: {
     label:"ACIP 2020 MMWR: Table 7 — schedule for microbiologists routinely exposed to N. meningitidis",
     url:"https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=" + encodeURIComponent("TABLE 7. Recommended vaccination schedule and intervals for microbiologists routinely exposed to isolates of Neisseria meningitidis"),

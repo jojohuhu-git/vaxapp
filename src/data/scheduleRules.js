@@ -15,7 +15,20 @@ export const MIN_INT = {
   Tdap:    {minD:2555, maxD1:null, i:[null,28,180,null,null],note:"Min age 7y (Adacel) or 10y (Boostrix). Routine adolescent: single Tdap at 11–12y. Catch-up ≥7y unvaccinated: 3-dose primary (Tdap → Td/Tdap 4w → Td/Tdap 6mo). If first catch-up dose at 7–9y, also give routine 11–12y Tdap (4 total). Decennial Td/Tdap booster every 10y after primary."},
   Td:      {minD:2555, maxD1:null, i:[null,28,180,null,null],note:"Min age 7 years. Used in tetanus catch-up series (doses 2–3) and decennial booster. D1→D2 min 4 weeks; D2→D3 min 6 months."},
   HPV:     {minD:3285, maxD1:null, i:[null,152,84,null,null],  iByTotalDoses:{2:[null,152],3:[null,28,84]}, d1Cross:{3:152}, note:"Min age 9 years. 2-dose (<15y): D1→D2 ≥152d (5 months). 3-dose (≥15y/immunocomp): D1→D2 ≥28d, D2→D3 ≥84d, D1→D3 ≥152d."},
-  MenACWY: {minD:60,   maxD1:null, i:[null,56,null,null,null], iCond:[{doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv"], minInterval:84}], note:"High-risk: min 3 months (84d) D1→D2 (Menveo). Routine: 11–12y, booster 16y."},
+  // M1: the dose-2 minimum depends on the age at DOSE 1, not a single flat number.
+  // ACIP 2020 MMWR 69(9) Tables 4/5/6 (identical wording in all three):
+  //   dose 1 at 2–6 mos  → 4 doses at 2, 4, 6, 12 mos, ≥4 weeks apart
+  //   dose 1 at 7–23 mos → 2 doses, second ≥12 weeks after the first AND after the 1st birthday
+  //   dose 1 at ≥2 yrs   → "2 doses ≥8 wks apart"  ← the base i[1]=56 below
+  // The old flat 84d applied the 7–23-month infant rule to every high-risk patient at
+  // every age, so a correctly spaced dose was reported "INVALID — must repeat".
+  // When the age at dose 1 is unknown, neither condition fires and the 8-week base
+  // applies — deliberately the permissive choice, since the failure being fixed here
+  // is a false rejection.
+  MenACWY: {minD:60,   maxD1:null, i:[null,56,null,null,null], iCond:[
+    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv"], prevDoseAgeLt:213, minInterval:28},
+    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv"], prevDoseAgeGte:213, prevDoseAgeLt:730, minInterval:84},
+  ], note:"High-risk: ≥8 weeks D1→D2 from age 2y; infant series ≥4 weeks; a 7–23-month start needs ≥12 weeks AND the 1st birthday. Routine: 11–12y, booster 16y."},
   MenB:    {minD:3650, maxD1:null, i:[null,28,112,null,null],  iByTotalDoses:{2:[null,182]},             d1Cross:{3:182}, note:"Min age 10y. Bexsero D1→D2 ≥1m; Trumenba standard 2-dose D1→D2 ≥6m; accelerated 3-dose D1→D2 28d, D2→D3 4m, D1→D3 ≥6m."},
   RSV:     {minD:0,    maxD1:243,  i:[null,null,null,null,null],note:"Nirsevimab: <8m first RSV season. Max age 8 months for routine."},
   COVID:   {minD:182,  maxD1:null, i:[null,28,null,null,null], note:"Min age 6m (Spikevax), 5y (Comirnaty), 12y (mNexspike/Nuvaxovid)."},

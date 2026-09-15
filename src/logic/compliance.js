@@ -749,7 +749,7 @@ export const RULES_REGISTRY = {
   'HPV.d1Cross':  { description: 'Minimum 5 months from Dose 1', citation: REFS.HPV },
   // MenACWY
   'MenACWY.minAge':   { description: 'Minimum age 2 months (high-risk) or 11 years', citation: REFS.MenACWY },
-  'MenACWY.interval': { description: 'Minimum 8-week interval', citation: REFS.bestPracticesSpacing },
+  'MenACWY.interval': { description: 'High risk: minimum 8 weeks between doses 1 and 2 from age 2 years; 4 weeks within the infant series; 12 weeks and past the first birthday if the series started at 7–23 months', citation: REFS.acip2020HighRiskPrimary },
   // MenB
   'MenB.minAge':   { description: 'Minimum age 10 years', citation: REFS.MenB },
   'MenB.interval': { description: 'Per product schedule: 1–6 months', citation: REFS.bestPracticesSpacing },

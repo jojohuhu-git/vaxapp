@@ -49,8 +49,12 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
   // Shape: { oldCombo, peerCandidates: [{vk, index, currentBrand}] } | null
   const [clearOffer, setClearOffer] = useState(null);
 
-  // Re-validate whenever localDose changes
-  const vr = validateDose(vk, doseIdx, localDose, prevDose, dob);
+  // Re-validate whenever localDose changes. M1: risks must be passed here too —
+  // the high-risk MenACWY dose-2 interval is risk-conditional, so without it a
+  // correctly spaced high-risk dose was drawn as an interval error in this popover
+  // even once the audit tab had it right. MenACWY is the only vaccine whose interval
+  // rules read risks, so this cannot change any other vaccine's verdict.
+  const vr = validateDose(vk, doseIdx, localDose, prevDose, dob, null, null, null, risks || []);
 
   // Compliance classification (for dot color + popover label). risks must be
   // passed — without it every dose classifies as if the patient had no risk
@@ -657,7 +661,8 @@ export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob
   const [anchorRect, setAnchorRect] = useState(null);
   const di = dispatchIndex != null ? dispatchIndex : index;
 
-  const vr = validateDose(vk, index, dose, prevDose, dob);
+  // M1: risks drives the pill's red/error state for high-risk MenACWY intervals.
+  const vr = validateDose(vk, index, dose, prevDose, dob, null, null, null, risks || []);
   const pillClass = dose.mode === "unknown"
     ? "dpill p-unknown"
     : vr.err

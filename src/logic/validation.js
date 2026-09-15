@@ -257,11 +257,21 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
       minInt = 56; // ≥8 weeks D(n-1)→D(n) for the final dose in a 4-dose schedule
     }
     if (Array.isArray(spec.iCond)) {
+      // prevDoseAgeGte/prevDoseAgeLt key a condition to how old the patient was at the
+      // PREVIOUS dose, which for dose 2 is the age the series started at. ACIP's
+      // meningococcal intervals are written that way (M1). When that age can't be
+      // determined — date-mode doses with no DOB — such a condition does not fire and
+      // the unconditional spec.i interval stands.
+      const prevDoseAge = doseAgeDays(prevDose, dob);
       for (const cond of spec.iCond) {
         if (cond.doseNum === doseIdx + 1) {
           const ageOk = !cond.ageGte || (ageAtDose !== null && ageAtDose >= cond.ageGte);
           const riskOk = !cond.riskIncludes || cond.riskIncludes.some(r => risks.includes(r));
-          if (ageOk && riskOk) minInt = cond.minInterval;
+          const needsPrevAge = cond.prevDoseAgeGte != null || cond.prevDoseAgeLt != null;
+          const prevAgeOk = !needsPrevAge || (prevDoseAge !== null
+            && (cond.prevDoseAgeGte == null || prevDoseAge >= cond.prevDoseAgeGte)
+            && (cond.prevDoseAgeLt == null || prevDoseAge < cond.prevDoseAgeLt));
+          if (ageOk && riskOk && prevAgeOk) minInt = cond.minInterval;
         }
       }
     }
