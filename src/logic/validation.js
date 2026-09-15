@@ -2,7 +2,7 @@
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
 import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO } from './utils.js';
-import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menACWYPrimaryTotal, menBSeriesTotal, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menACWYPrimaryTotal, menBSeriesTotal, isTravelOngoingMenACWY, menACWYBoosterIntervalDays, advancingDoseCount } from './stateHelpers.js';
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { brandAgeSpec } from '../data/brandRegistry.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
@@ -658,7 +658,13 @@ export function auditAll(hist, dob, risks = [], am = -1) {
         const isExposureSingleDose = exposure === 'singleDose';
         const d1AgeM = doseAgeMonths(doses[0], dob);
         const standardTotal = isExposureSingleDose ? 1 : (d1AgeM != null && d1AgeM >= 192) ? 1 : 2;
-        if (doses.length > standardTotal) {
+        // Count the doses that ADVANCE the routine series, not every dose on
+        // file. A dose given at 13–15 years does not satisfy the 16-year
+        // booster (CDC: "Age 13–15 years: 1 dose now and booster at age 16–18
+        // years"), so a patient with doses at 11, 14 and 16 has had two
+        // advancing doses, not three, and owes nothing extra.
+        const advancingTotal = advancingDoseCount(vk, hist, dob, risks, doses.length);
+        if (advancingTotal > standardTotal) {
           const detail = isExposureSingleDose
             ? `${doses.length} MenACWY doses recorded. A military recruit's indication is a single dose, regardless of the age given. Doses beyond the first are not ACIP-indicated unless a high-risk condition (asplenia, complement deficiency, or HIV) is also present.`
             : standardTotal === 1

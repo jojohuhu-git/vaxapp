@@ -25,7 +25,7 @@
  */
 
 import { validateDose } from './validation.js';
-import { doseAgeDays, doseAgeMonths, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menBSeriesTotal } from './stateHelpers.js';
+import { doseAgeDays, doseAgeMonths, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menBSeriesTotal, advancingDoseCount } from './stateHelpers.js';
 import { getDoseBand } from '../data/aapDoseBands.js';
 import { fmtAgeClinical } from './ageFormat.js';
 import { REFS } from '../data/refs.js';
@@ -555,7 +555,13 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
     : vk === 'IPV' ? ipvStandardTotal(hist, dob)
     : vk === 'PPSV23' ? (isHighRiskPCV(risks) ? ppsv23StandardTotal(risks) : null)
     : STANDARD_SERIES_TOTAL[vk];
-  if (standardTotal != null && totalDoses != null && totalDoses > standardTotal) {
+  // Compare the standard total against the doses that actually ADVANCE the
+  // series, not the raw number recorded. A dose that does not count (M1, M2,
+  // M6) used to push this count one ahead of reality, so the dose that
+  // genuinely COMPLETED the series was graded as a surplus one — see
+  // advancingDoseCount() for the live-verified MenACWY case.
+  const advancingTotal = advancingDoseCount(vk, hist, dob, risks, totalDoses);
+  if (standardTotal != null && advancingTotal != null && advancingTotal > standardTotal) {
     const extraSet = extraDoseIndices(vk, totalDoses, standardTotal, hist);
     if (extraSet.has(doseIdx)) {
       // This is an intermediate extra dose — classify as VALID_EXTRA before validateDose.

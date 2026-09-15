@@ -62,29 +62,31 @@ describe('D1 — counting doses', () => {
     expect(pos[1].seriesIndex).toBeNull();
   });
 
-  // ── DEFECT FOUND BY THIS TEST, 2026-09-15 — NOT YET FIXED ──────────────────
+  // ── Regression: the age-16 booster is not an "extra" dose ─────────────────
   //
-  // The third dose above is the routine age-16 booster. Because the age-14 dose
-  // is OFF_WINDOW and does not advance the series, that booster is the patient's
-  // second COUNTING dose — "Dose 2 of 2", the dose that completes the series.
+  // Found by this test file on 2026-09-15, and fixed in the same session.
   //
-  // classifyDose instead grades it VALID_EXTRA, because it compares the RAW
-  // number of recorded doses (3) against the expected total (2). That is the
-  // same chart-position-vs-series-position mistake this project exists to fix,
-  // one layer below the label.
+  // The third dose below is the routine age-16 booster. The age-14 dose does
+  // not advance the routine series, so the booster is the patient's SECOND
+  // advancing dose — the one that completes the series.
   //
-  // Verified in the running app on 2026-09-15 (DOB 01/15/2008; MenACWY at
-  // 01/15/2019, 01/15/2022, 01/15/2024). The Compliance tab renders:
-  //   header   "MENACWY  In progress · 2 of 3 doses"
-  //   card 3   "DOSE 3 · 01/15/2024 (16 years) · VALID · EXTRA"
-  //   advisory "MenACWY: Extra Dose (series complete for non-high-risk patient)"
-  // So the tab says "in progress" and "series complete" at once, and calls a
-  // required booster an extra dose.
+  // Both the grading (compliance.js) and the advisory (validation.js) used to
+  // compare the RAW number of recorded doses against the expected total, so a
+  // patient with three records looked like they had one too many. The app
+  // graded the required booster "VALID · EXTRA" and raised an advisory saying
+  // the series was already complete, while the header still said "In progress".
   //
-  // Fixing it changes clinical grading, so it needs an owner decision and a
-  // live-verified source. Until then these tests pin what the app ACTUALLY
-  // does, so nobody mistakes the current output for intended behaviour.
-  it('DEFECT: grades the real age-16 booster as an extra dose', () => {
+  // CDC child & adolescent schedule notes, fetched live 2026-09-15:
+  //   "Age 13–15 years: 1 dose now and booster at age 16–18 years
+  //    (minimum interval: 8 weeks)."
+  // A dose at 13–15 years does not satisfy the booster, so the 16-year dose is
+  // required rather than surplus.
+  //
+  // This is the third time this same defect has been fixed — see
+  // regression-m8-menb-highrisk-booster-not-extra.test.js and
+  // regression-m9-menacwy-travel-boosters.test.js. All three now share
+  // advancingDoseCount().
+  it('counts the real age-16 booster as the dose that completes the series', () => {
     const dob = '2008-01-15';
     const hist = {
       MenACWY: [
@@ -94,12 +96,27 @@ describe('D1 — counting doses', () => {
       ],
     };
     const pos = seriesPositions('MenACWY', hist, dob, 17 * 12, [], { expectedTotal: 2 });
-    expect(pos[2].status).toBe('VALID_EXTRA');
-    expect(pos[2].counts).toBe(false);
-    expect(pos[2].seriesIndex).toBeNull();
+
+    expect(pos[2].status).not.toBe('VALID_EXTRA');
+    expect(pos[2].counts).toBe(true);
+    // The whole point: it is Dose 2, under the Boosters heading — not "Dose 3",
+    // and not an extra dose.
+    expect(pos[2].seriesIndex).toBe(2);
+    expect(pos[2].phase).toBe('booster');
+    expect(pos.map((p) => p.seriesIndex)).toEqual([1, null, 2]);
   });
 
-  it.todo('the age-16 booster after an off-window dose should be Dose 2 of 2');
+  it('still says the patient has had two advancing doses, matching the header', () => {
+    const dob = '2008-01-15';
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2019-01-15', brand: 'Menveo' },
+        { given: true, mode: 'date', date: '2022-01-15', brand: 'Menveo' },
+        { given: true, mode: 'date', date: '2024-01-15', brand: 'Menveo' },
+      ],
+    };
+    expect(countingDoseTotal('MenACWY', hist, dob, 17 * 12, [], { expectedTotal: 2 })).toBe(2);
+  });
 
   it('carries the series total onto every dose, so "N of M" can be printed', () => {
     const dob = '2008-01-15';
