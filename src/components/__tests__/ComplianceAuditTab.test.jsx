@@ -647,3 +647,70 @@ describe('F6d: PPSV23 risk-dependent total (2-dose immunocompromising vs. 1-dose
     expect(row.textContent).not.toMatch(/extra/i);
   });
 });
+
+// ── Printed audit: transplant numbering caveat (dose-numbering decision 8) ─────
+// The printed Dose column carries the same series positions as the on-screen
+// dose cards, counting every recorded dose. A transplant restarts the series,
+// so those numbers are wrong for an HSCT patient — and a printout leaves the
+// app, so the on-screen notice cannot travel with it. The page has to carry its
+// own copy of the caveat.
+describe('printed compliance audit — HSCT numbering caveat', () => {
+  // Captures the HTML handed to the print window instead of opening one.
+  function capturePrintedHtml({ hist, dob, am, risks }) {
+    let written = '';
+    const fakeWin = {
+      document: {
+        write: (h) => { written += h; },
+        close: () => {},
+      },
+      print: () => {},
+    };
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakeWin);
+    const { getByText } = renderAudit({ hist, dob, am, risks });
+    act(() => {
+      fireEvent.click(getByText('Print Compliance Audit'));
+    });
+    openSpy.mockRestore();
+    return written;
+  }
+
+  const dob = '2020-01-15';
+  // Two DTaP doses, so the printout has numbered rows to qualify.
+  const hist = {
+    DTaP: [
+      { given: true, mode: 'date', date: '2020-03-20' },
+      { given: true, mode: 'date', date: '2020-07-20' },
+    ],
+  };
+
+  it('prints the caveat for a transplant patient', () => {
+    const html = capturePrintedHtml({ hist, dob, am: 80, risks: ['hsct'] });
+    // The numbers it is qualifying are actually on the page...
+    expect(html).toMatch(/Dose 1/);
+    // ...and so is the qualification.
+    expect(html).toMatch(/count every recorded dose/i);
+    expect(html).toMatch(/series restarting after a transplant/i);
+  });
+
+  it('places the caveat above the dose tables, not after them', () => {
+    const html = capturePrintedHtml({ hist, dob, am: 80, risks: ['hsct'] });
+    const caveatAt = html.indexOf('series restarting after a transplant');
+    const firstDoseAt = html.indexOf('Dose 1');
+    // Guard against passing vacuously: indexOf returns -1 when absent, which
+    // would satisfy the ordering check on its own.
+    expect(caveatAt).toBeGreaterThan(-1);
+    expect(firstDoseAt).toBeGreaterThan(-1);
+    expect(caveatAt).toBeLessThan(firstDoseAt);
+  });
+
+  it('omits the caveat when there is no transplant', () => {
+    const html = capturePrintedHtml({ hist, dob, am: 80, risks: [] });
+    expect(html).toMatch(/Dose 1/);
+    expect(html).not.toMatch(/series restarting after a transplant/i);
+  });
+
+  it('omits the caveat for a non-transplant stop risk (car_t)', () => {
+    const html = capturePrintedHtml({ hist, dob, am: 80, risks: ['car_t'] });
+    expect(html).not.toMatch(/series restarting after a transplant/i);
+  });
+});
