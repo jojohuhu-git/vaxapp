@@ -6,10 +6,12 @@ owner decision 2026-09-15. Main queue:
 Handoff that produced these:
 [handoff-2026-09-15-meningococcal-parity-m6-m8.md](handoff-2026-09-15-meningococcal-parity-m6-m8.md).
 
-These four are **not** among the original 22 divergences. N1–N3 were found while doing
+These five are **not** among the original 22 divergences. N1–N3 were found while doing
 M6–M8; each was reproduced against the running code on 2026-09-15 and confirmed
 pre-existing by checking out the prior commit, so none is fallout from M6–M8. N4 is an
-owner request made the same day.
+owner request made the same day. **N5 was found while verifying M9 in the running app on
+2026-09-15** and is also pre-existing — it affects every open-ended booster schedule, not
+just travel, and needs an owner design decision before anyone codes it.
 
 ## Ground rules (same as the main queue)
 
@@ -142,3 +144,32 @@ over — confirm before coding:** too soon → the dose does not count and must 
 rather than an advisory. A fixture already exercising this case lives in
 `src/logic/__tests__/regression-m8-menb-risk-dependent-total.test.js` (the high-risk 4-dose
 history, where dose 4 is one month after dose 3).
+
+## N5 — "Today's Visit" lists a booster that is not due for years
+
+**Found while verifying M9 in the running app on 2026-09-15. Pre-existing, NOT caused by
+M9** — confirmed by seeding the medically high-risk equivalent, which behaves the same way
+and has since M6.
+
+Seed a 4-year-old whose MenACWY primary series finished six months ago. Their next booster
+is genuinely due in 2029. Today's Visit panel lists it anyway:
+
+- traveler (`travel`, one dose six months ago): `EXPOSURE MenACWY Dose 2 of 2`
+- asplenia (`asplenia`, two doses, series complete): `MenACWY Dose 3 of 3`
+
+**Cause:** `ForecastTab.jsx`'s today panel renders `recs.filter(rec => !givenTodayVks.has(rec.vk))`
+— every recommendation `genRecs` emits, with no check on whether `minInt` has actually
+elapsed since `prevDate`. The engine deliberately emits the NEXT dose with its interval
+attached and leaves the date arithmetic to the surface; the Next-Visit cards below do that
+arithmetic correctly, so the same dose is simultaneously drawn as "due today" above and
+correctly dated below.
+
+Affects every open-ended booster schedule, not just meningococcal: high-risk MenACWY,
+microbiologist revaccination, high-risk MenB, and now travel. A clinician reading Today's
+Visit would give a booster years early.
+
+**Owner decision needed before coding:** does a not-yet-due booster belong in Today's Visit
+at all (with its real date shown), or only in the Next Visit cards? The panel is headed
+"TODAY'S VISIT", which argues for the second — but a dose silently vanishing from the panel
+a clinician reads first is the failure mode M6 warned about, so this is a design call, not a
+mechanical fix.

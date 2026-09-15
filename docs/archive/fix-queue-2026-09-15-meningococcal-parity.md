@@ -2,13 +2,14 @@
 
 **Status:** in progress. Started 2026-09-15.
 
-> **M1–M8 are DONE** (2026-09-15). Latest session handoff, with commits, verified test
-> counts and the resume steps:
-> [handoff-2026-09-15-meningococcal-parity-m6-m8.md](handoff-2026-09-15-meningococcal-parity-m6-m8.md).
-> Work remaining starts at **M9**. Neither branch is pushed.
-> vaxapp: `fix/meningococcal-parity-m1-m19` (2402 passing, 155 files).
-> MeningoVax: `fix/m4-booster-clock-primary-series` (428 passing) — untouched by M6–M8,
-> each verified against its source as already correct.
+> **M1–M9 are DONE** (2026-09-15). Work remaining starts at **M10**. Neither branch is
+> pushed. Latest session handoff, with commits, verified test counts and the resume steps:
+> [handoff-2026-09-15-meningococcal-parity-m9.md](handoff-2026-09-15-meningococcal-parity-m9.md).
+> vaxapp: `fix/meningococcal-parity-m1-m19` (2421 passing, 4 todo, 157 files) — M9 commit
+> `268ffd5`.
+> MeningoVax: `fix/m4-booster-clock-primary-series` (438 passing, 35 files) — M9 commit
+> `11c21b2`. M9 was a real fix in BOTH repos; M6–M8 were vaxapp-only, each verified against
+> MeningoVax's source as already correct.
 >
 > **M6 owner decision (2026-09-15):** a too-soon MenACWY booster does NOT count and must
 > be repeated, matching MeningoVax. The advisory-only variant (M3's MenB channel) was
@@ -91,7 +92,7 @@ Grouped so the shared primary-series-size helper is built once and reused.
 | 6 | M6 | vaxapp | Add MenACWY booster-cadence check + baseline 4-week any-dose interval |
 | 7 | M7 | vaxapp | High-risk 11–15y with no doses → 2-dose high-risk series, not routine single dose |
 | 8 | M8 | vaxapp | High-risk MenB 1-year booster must not grade as "extra dose" |
-| 9 | M9 | both | Travel boosters: first at 3y (<7y) or 5y (≥7y), then every 5y |
+| 9 | M9 | both | **DONE 2026-09-15** — Travel boosters: first at 3y (<7y) or 5y (≥7y), then every 5y. vaxapp `268ffd5`, MeningoVax `11c21b2`. Both repos ALSO discarded a traveler's pre-age-10 dose (4 surfaces total) — fixed. |
 | 10 | M10 | both | Infant exposure pathways (travel, outbreak) need the infant series, not 1 dose / silence |
 | 11 | M11 | vaxapp | MenB deferral in pregnancy unless overriding high-risk indication |
 | 12 | M12 | vaxapp | Restore serogroup A/C/W/Y outbreak indication |
