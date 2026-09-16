@@ -480,17 +480,42 @@ function DoseCard({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses,
         }}
         title="Click for compliance detail"
       >
-        {/* Dose number / smart label */}
-        <div style={{
+        {/*
+          Dose number, or — when the dose takes no number — the short reason why.
+          A number is a label and keeps the small-caps label treatment. A reason is
+          a sentence, and setting a sentence in letter-spaced 10px capitals is both
+          a shout and harder to read than the sentence it is.
+        */}
+        <div style={smartLabel.counts ? {
           fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
           letterSpacing: '.5px', color: 'var(--gy3)',
+          whiteSpace: 'normal', wordBreak: 'break-word',
+        } : {
+          fontSize: 11, fontWeight: 500, color: 'var(--gy3)',
+          lineHeight: 1.35,
           whiteSpace: 'normal', wordBreak: 'break-word',
         }}>
           {smartLabel.label}
         </div>
 
-        {/* Date */}
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gy2)' }}>
+        {/*
+          Date. Struck through when a repeat is owed — owner decision 6, where
+          strikethrough is the primary signal and the dimming only supports it,
+          because grey alone disappears in print and for colour-blind readers.
+          `struck` is deliberately narrower than "does not count": a valid extra
+          dose and a dose with no recorded date owe nothing, so neither is struck.
+
+          The dimmed colour is --gy3, not the lighter --gy4. Measured against this
+          card's amber background, --gy4 gives a contrast ratio of 1.67:1, which
+          is below even the 3:1 large-text floor — that would hide the date rather
+          than dim it, and decision 4 says the date stays. --gy3 measures 3.12:1
+          and matches the reason text directly above it.
+        */}
+        <div style={{
+          fontSize: 12, fontWeight: 600,
+          color: smartLabel.struck ? 'var(--gy3)' : 'var(--gy2)',
+          textDecoration: smartLabel.struck ? 'line-through' : 'none',
+        }}>
           {dateLabel}
         </div>
 
@@ -788,7 +813,10 @@ function printComplianceAudit({ dob, am, hist, risks, recs, fcBrands, validHist 
       const dateLabel = doseDateLabel(dose, dob);
       const ageLabel2 = doseAgeLabel(dose, dob);
       const smartLbl = labelForDose(vk, i, dose, hist, dob, null, risks || [], { position: printPositions[i] });
-      return `<tr><td>${smartLbl.label}</td><td>${dateLabel}</td><td>${ageLabel2 || '—'}</td><td>${STATUS_PILL_LABEL[classification.status] || classification.status}</td></tr>`;
+      // Decision 6 names print as the reason strikethrough leads and grey only
+      // supports: a grey row prints as a black row.
+      const struckStyle = smartLbl.struck ? ' style="text-decoration:line-through;color:#666"' : '';
+      return `<tr><td>${smartLbl.label}</td><td${struckStyle}>${dateLabel}</td><td${struckStyle}>${ageLabel2 || '—'}</td><td>${STATUS_PILL_LABEL[classification.status] || classification.status}</td></tr>`;
     }).join('');
     return `<div style="margin-bottom:16px"><h3 style="margin:0 0 6px;text-transform:uppercase;font-size:12px">${meta?.n || vk}</h3>
       <table border="1" cellpadding="4" style="border-collapse:collapse;font-size:11px;width:100%">
