@@ -1,7 +1,10 @@
 # Plan — dose numbering in vaxapp (PediVax)
 
-**Status: PLANNED, not started.** Written 2026-09-15 after MeningoVax and PneumoVax
-shipped the same feature. Nothing in this file has been built yet.
+**Status: STEPS 1-2 SHIPPED (2026-09-15), steps 3-7 not started.** The three open
+decisions in §6 are all ANSWERED - see
+[`handoff-2026-09-15-series-position-steps-1-2.md`](handoff-2026-09-15-series-position-steps-1-2.md)
+and memory `project_dose_numbering_decisions.md`. Do not re-ask them. Two clinical bugs
+not described in this plan were found and fixed in the same pass (PR #160).
 
 This plan exists because the handoff said to plan vaxapp before writing any code. It is
 the survey and the proposed order of work, plus the questions that need owner answers
