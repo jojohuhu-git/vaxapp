@@ -1,12 +1,17 @@
 import { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, useRecs } from '../context/AppContext';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData';
 import { sortDosesByDate } from '../logic/utils';
 import { isHighRiskMenACWY } from '../logic/stateHelpers';
+import { getTotalDoses } from '../logic/dosePlan';
+import { seriesPositions } from '../logic/seriesPosition';
 import DosePill from './DosePill';
 
 export default function HistoryTable() {
   const { state } = useApp();
+  // Shared, memoized — the same computation the Compliance tab reads, so a dose
+  // cannot be numbered one way here and another way there.
+  const { effectiveAm, recs, validHist } = useRecs();
   const isHighRiskMen = isHighRiskMenACWY(state.risks);
   const [showAll, setShowAll] = useState(false);
 
@@ -52,6 +57,30 @@ export default function HistoryTable() {
             // M6: the pill needs the whole series, in date order, to work out where
             // the primary series ends and the MenACWY booster cadence begins.
             const sortedDoses = sorted.map(s => s.dose);
+
+            // Series positions for this vaccine, one pass per row.
+            let expectedTotal = null;
+            try {
+              expectedTotal = getTotalDoses(
+                vk, (recs || []).find(r => r.vk === vk) || null, state.fcBrands || {},
+                effectiveAm, state.hist, state.risks, state.dob
+              );
+            } catch {
+              expectedTotal = null;
+            }
+            const positions = seriesPositions(vk, state.hist, state.dob, effectiveAm, state.risks, {
+              expectedTotal, validHist,
+            });
+            // The pills are shown in date order, but seriesPositions walks the
+            // history in the order it is stored. Map one to the other by the
+            // dose's original row, so a patient whose doses were entered out of
+            // order still gets the right number on the right pill.
+            const givenIdxByRaw = [];
+            let givenSeen = 0;
+            rawDoses.forEach((d, idx) => {
+              givenIdxByRaw[idx] = d.given ? givenSeen++ : null;
+            });
+
             return (
               <tr key={vk}>
                 <td style={{ whiteSpace: "nowrap" }}>
@@ -76,6 +105,9 @@ export default function HistoryTable() {
                           totalDoses={totalGivenDated}
                           risks={state.risks}
                           allDoses={sortedDoses}
+                          position={givenIdxByRaw[originalIndex] != null
+                            ? positions[givenIdxByRaw[originalIndex]]
+                            : null}
                         />
                       );
                     })}

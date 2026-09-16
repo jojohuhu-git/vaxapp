@@ -21,9 +21,13 @@ describe('the header/card contradiction', () => {
   const hist = { MenB: [{ given: true, mode: 'date', date: '2023-01-20', brand: 'Bexsero' }] };
 
   it('confirms the old chart-position label was the thing that was wrong', () => {
-    // Reproduced live and in node on 2026-09-15: the raw label says "Dose 1"...
-    expect(labelForDose('MenB', 0, hist.MenB[0], hist, dob, 14 * 12, []).label).toBe('Dose 1');
-    // ...while the header's effective count says the patient has had none.
+    // Reproduced live and in node on 2026-09-15: the raw label said "Dose 1"
+    // while the header's effective count said the patient had had none. Step 3
+    // repointed labelForDose at this module, so the label agrees with the
+    // header now — the assertion below is what the contradiction turned into.
+    expect(labelForDose('MenB', 0, hist.MenB[0], hist, dob, 14 * 12, []).label)
+      .toBe(NO_NUMBER_REASON.OFF_WINDOW);
+    // ...and the header's effective count still says the patient has had none.
     const vh = validatedHistory(hist, dob, []);
     const eff = menBEffectiveDoses({ MenB: (vh.MenB || []).filter((d) => d.given) }, dob, 17 * 12, false);
     expect(eff.length).toBe(0);
@@ -236,13 +240,16 @@ describe('phase', () => {
   });
 });
 
-// ── Nothing is wired up yet ──────────────────────────────────────────────────
-describe('step 1 is wired to nothing', () => {
-  it('leaves the existing chart-position label untouched for now', () => {
-    // Step 3 repoints labelForDose at this module. Until then the old label
-    // still stands, and this test is the tripwire that says so out loud.
+// ── Now wired up ─────────────────────────────────────────────────
+describe('step 3 connected this module to the dose labels', () => {
+  it('no longer numbers a dose by the row it happens to sit on', () => {
+    // This was the tripwire that said "step 1 is wired to nothing". Step 3
+    // wired it, so it now asserts the opposite. Deeper coverage of the new
+    // labels lives in labelForDose.series-position.test.js.
     const dob = '2009-01-20';
     const hist = { MenB: [{ given: true, mode: 'date', date: '2023-01-20', brand: 'Bexsero' }] };
-    expect(labelForDose('MenB', 0, hist.MenB[0], hist, dob, 14 * 12, []).label).toBe('Dose 1');
+    const r = labelForDose('MenB', 0, hist.MenB[0], hist, dob, 14 * 12, []);
+    expect(r.label).not.toBe('Dose 1');
+    expect(r.counts).toBe(false);
   });
 });

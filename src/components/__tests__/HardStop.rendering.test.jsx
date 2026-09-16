@@ -157,7 +157,7 @@ describe('Compliance Audit tab — partial stop', () => {
   // (the spacing) and which is not (the numbers).
   it('warns an HSCT patient that the dose numbers ignore the transplant restart', () => {
     const { queryByText } = renderApp({ risks: ['hsct'], tab: 'compliance', hist: histWithDoses() });
-    expect(queryByText(/dose numbers below count every recorded dose/i)).toBeTruthy();
+    expect(queryByText(/dose numbers below show each dose's place in the series/i)).toBeTruthy();
     expect(queryByText(/series restarting after a transplant/i)).toBeTruthy();
   });
 

@@ -407,6 +407,13 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
       extraScenario: null,
       auditFlag: null,
       notAdolescentCount: true,
+      // Owner-settled 2026-09-15. This dose does not advance the series, but no
+      // repeat OF THIS DOSE is owed — the 16-year booster is, and it was always
+      // going to be due. Every other OFF_WINDOW source (both MenB branches) does
+      // owe a genuine repeat. The flag lets the short card label say which,
+      // instead of the label having to guess from the vaccine key — so a future
+      // vaccine that grows the same shape gets the right words for free.
+      boosterOwed: true,
     };
   }
 

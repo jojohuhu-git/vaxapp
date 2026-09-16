@@ -688,7 +688,7 @@ describe('printed compliance audit — HSCT numbering caveat', () => {
     // The numbers it is qualifying are actually on the page...
     expect(html).toMatch(/Dose 1/);
     // ...and so is the qualification.
-    expect(html).toMatch(/count every recorded dose/i);
+    expect(html).toMatch(/show each dose's place in the series/i);
     expect(html).toMatch(/series restarting after a transplant/i);
   });
 

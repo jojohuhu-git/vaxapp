@@ -27,7 +27,7 @@ const editableStyle = {
   paddingBottom: 1,
 };
 
-function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDose, dob, anchorRect, onClose, risks, allDoses }) {
+function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDose, dob, anchorRect, onClose, risks, allDoses, position }) {
   const { state, dispatch } = useApp();
 
   // Local draft of editable fields — mirrors the dose but tracks uncommitted changes
@@ -120,8 +120,11 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
   const statusBorder = vr.err ? 'var(--rmd)' : vr.grace ? 'var(--amd)' : 'var(--gmd)';
   const statusText  = vr.err ? 'Invalid' : vr.grace ? 'Grace period' : vr.unknown ? 'Timing unknown' : 'Valid';
 
-  // Smart label for annual vaccines (Flu/COVID)
-  const smartLabel = labelForDose(vk, doseIdx, localDose, state.hist, dob, null, risks || []);
+  // The dose's place in the series (season label for Flu/COVID). `position` comes
+  // from HistoryTable, which computes a whole vaccine's positions in one pass;
+  // null means this dose is not recorded as given, so it has no series position
+  // and falls back to its row number.
+  const smartLabel = labelForDose(vk, doseIdx, localDose, state.hist, dob, null, risks || [], { position });
 
   // Date display label for the current localDose.
   // When DOB is set, age-mode doses show their computed date (DOB + ageDays).
@@ -655,7 +658,7 @@ function DoseDetailPopover({ vk, doseIdx, dispatchIdx, dose: initialDose, prevDo
 }
 
 /* eslint-disable react/prop-types */
-export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob, isExtra, totalDoses, risks, allDoses }) {
+export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob, isExtra, totalDoses, risks, allDoses, position }) {
   const { dispatch } = useApp();
   const [showDetail, setShowDetail] = useState(false);
   const [anchorRect, setAnchorRect] = useState(null);
@@ -746,6 +749,7 @@ export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob
           dob={dob}
           risks={risks}
           allDoses={allDoses}
+          position={position}
           anchorRect={anchorRect}
           onClose={() => setShowDetail(false)}
         />

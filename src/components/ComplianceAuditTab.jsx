@@ -20,6 +20,7 @@ import { doseAgeDays, doseDate, isHighRiskMenACWY, menBEffectiveDoses, highRiskM
 import { getDoseBand } from '../data/aapDoseBands';
 import { fmtDateInput, addD, todayISO } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
+import { seriesPositions } from '../logic/seriesPosition';
 import { genRecs } from '../logic/recommendations';
 import { hardStopExclusion } from '../logic/hardStop';
 import { labelForDose } from '../logic/annualLabel';
@@ -120,7 +121,7 @@ function buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, total
 }
 
 // ── DoseCompliancePopover ──────────────────────────────────────────────────────
-function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, hist, anchorRect, onClose, risks }) {
+function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, hist, anchorRect, onClose, risks, position }) {
   const [showRules, setShowRules] = useState(false);
 
   useEffect(() => {
@@ -132,7 +133,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
   const ageDays = doseAgeDays(dose, dob);
   const band = getDoseBand(vk, doseIdx + 1, { highRisk: vk === 'MenACWY' && isHighRiskMenACWY(risks || []) });
   const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist, risks);
-  const { status, label, extraScenario, auditFlag, notAdolescentCount } = classification;
+  const { status, label, extraScenario, auditFlag, notAdolescentCount, boosterOwed } = classification;
 
   const { vr, rules } = buildRuleSummary(vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, risks, hist ? hist[vk] : null);
 
@@ -148,8 +149,8 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
   const pillStyle = STATUS_PILL_STYLE[status] || STATUS_PILL_STYLE.UNKNOWN;
   const pillLabel = STATUS_PILL_LABEL[status] || status;
 
-  // Smart label for annual vaccines
-  const smartLabel = labelForDose(vk, doseIdx, dose, hist, dob, null, risks || []);
+  // Series position — the same entry the card behind this popover is showing.
+  const smartLabel = labelForDose(vk, doseIdx, dose, hist, dob, null, risks || [], { position });
 
   // "Why VALID/EXTRA" explanation
   let whyText = null;
@@ -293,7 +294,15 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
           }}>
             <div style={{ fontWeight: 600, marginBottom: 3, color: 'var(--gy2)' }}>
               {status === 'VALID_EXTRA' ? 'Why VALID (extra dose):' :
-               status === 'OFF_WINDOW' ? 'Why off-window — repeat owed:' :
+               // Two different truths share the OFF_WINDOW status: usually a repeat
+               // of this dose is owed, but for a pre-16 MenACWY dose it is the
+               // scheduled booster instead. Saying "repeat owed" here put the
+               // wrong words directly above a paragraph that says "booster still
+               // owed" — and above the card label, which the owner settled on
+               // 2026-09-15. See compliance.js's boosterOwed flag.
+               status === 'OFF_WINDOW'
+                 ? `Why ${boosterOwed ? 'the booster is still owed' : 'off-window — repeat owed'}:`
+                 :
                status === 'VALID' ? 'Why VALID:' :
                status === 'INVALID' ? 'Reason:' :
                status === 'PENDING' ? 'Needs input:' : 'Note:'}
@@ -430,7 +439,7 @@ function DoseCompliancePopover({ vk, doseIdx, dose, prevDose, dob, firstDoseDate
 }
 
 // ── DoseCard ───────────────────────────────────────────────────────────────────
-function DoseCard({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, hist, risks }) {
+function DoseCard({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses, hist, risks, position }) {
   const [anchorRect, setAnchorRect] = useState(null);
 
   const classification = classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose, firstDoseDate, hist, risks);
@@ -442,8 +451,10 @@ function DoseCard({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses,
   const dateLabel = doseDateLabel(dose, dob);
   const ageLabel = doseAgeLabel(dose, dob);
 
-  // Smart label for annual vaccines (Flu/COVID)
-  const smartLabel = labelForDose(vk, doseIdx, dose, hist, dob, null, risks || []);
+  // Series position, computed once for the whole vaccine row by VaccineRow. The
+  // card and the header above it therefore cannot disagree about how many doses
+  // this patient has had — which is exactly what they used to do.
+  const smartLabel = labelForDose(vk, doseIdx, dose, hist, dob, null, risks || [], { position });
 
   function handleCardClick(e) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -530,6 +541,7 @@ function DoseCard({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses,
           totalDoses={totalDoses}
           hist={hist}
           risks={risks}
+          position={position}
           anchorRect={anchorRect}
           onClose={() => setAnchorRect(null)}
         />
@@ -650,6 +662,12 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
     headerText = `${validCount} dose${validCount !== 1 ? 's' : ''} recorded`;
   }
 
+  // One pass for the whole row. Every dose card below reads its number from
+  // this, so the cards and the header above them are the same computation —
+  // the defect this fixes was the two disagreeing on one screen (a header
+  // reading "0 of 2 doses" above a card reading "DOSE 1").
+  const positions = seriesPositions(vk, hist, dob, am, risks, { expectedTotal, validHist });
+
   const cdcRef = REFS[vk];
   // firstDoseDate for d1Cross checks should be the first VALID dose's date
   // (the effective D1), not the raw D1 which may have been dropped by validatedHistory.
@@ -731,6 +749,7 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
             totalDoses={totalCount}
             hist={hist}
             risks={risks}
+            position={positions[i]}
           />
         ))}
       </div>
@@ -739,7 +758,7 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
 }
 
 // ── Print function ─────────────────────────────────────────────────────────────
-function printComplianceAudit({ dob, am, hist, risks }) {
+function printComplianceAudit({ dob, am, hist, risks, recs, fcBrands, validHist }) {
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const ageLabel = fmtAm(am);
 
@@ -747,11 +766,28 @@ function printComplianceAudit({ dob, am, hist, risks }) {
     const doses = (hist[vk] || []).filter(d => d.given);
     if (doses.length === 0) return '';
     const meta = VAX_META[vk];
+    // Same two computations VaccineRow does on screen. Without them the printout
+    // would number doses by their row while the screen numbered them by their
+    // place in the series — and a printout leaves the app, so a wrong number on
+    // it can never be corrected.
+    let printExpectedTotal = null;
+    try {
+      printExpectedTotal = getTotalDoses(
+        vk, (recs || []).find(r => r.vk === vk) || null, fcBrands || {},
+        am, hist, risks || [], dob
+      );
+    } catch {
+      printExpectedTotal = null;
+    }
+    const printPositions = seriesPositions(vk, hist, dob, am, risks || [], {
+      expectedTotal: printExpectedTotal,
+      validHist,
+    });
     const rows = doses.map((dose, i) => {
       const classification = classifyDose(vk, i, dose, doses.length, dob, i > 0 ? doses[i-1] : null, doses[0]?.date, hist, risks || []);
       const dateLabel = doseDateLabel(dose, dob);
       const ageLabel2 = doseAgeLabel(dose, dob);
-      const smartLbl = labelForDose(vk, i, dose, hist, dob, null, risks || []);
+      const smartLbl = labelForDose(vk, i, dose, hist, dob, null, risks || [], { position: printPositions[i] });
       return `<tr><td>${smartLbl.label}</td><td>${dateLabel}</td><td>${ageLabel2 || '—'}</td><td>${STATUS_PILL_LABEL[classification.status] || classification.status}</td></tr>`;
     }).join('');
     return `<div style="margin-bottom:16px"><h3 style="margin:0 0 6px;text-transform:uppercase;font-size:12px">${meta?.n || vk}</h3>
@@ -760,9 +796,12 @@ function printComplianceAudit({ dob, am, hist, risks }) {
       <tbody>${rows}</tbody></table></div>`;
   }).join('');
 
-  // Dose-numbering decision 8 (2026-09-15). The Dose column below prints the
-  // same series positions the on-screen dose cards show, counting every
-  // recorded dose. A transplant restarts the series, so for an HSCT patient
+  // Dose-numbering decision 8 (2026-09-15), reworded in step 3. The Dose column
+  // below prints the same series positions the on-screen dose cards show. Until
+  // step 3 those positions counted every recorded dose, and this sentence said
+  // so; they now count only the doses that advance the series, so the sentence
+  // had to stop claiming otherwise. What it is there to say is unchanged:
+  // a transplant restarts the series, so for an HSCT patient
   // those numbers are not the patient's true positions. The on-screen notice
   // that says so cannot travel with a printout, so the printout has to carry
   // its own copy — otherwise this page leaves the app stating numbers it never
@@ -770,8 +809,8 @@ function printComplianceAudit({ dob, am, hist, risks }) {
   const transplantNote = (risks || []).includes('hsct')
     ? '<p style="border:1px solid #999;padding:8px;margin:0 0 16px;font-size:11px">'
       + '<strong>After a hematopoietic stem cell transplant.</strong> '
-      + "The dose numbers below count every recorded dose and don't account for "
-      + 'the series restarting after a transplant.</p>'
+      + "The dose numbers below show each dose's place in the series and don't "
+      + 'account for the series restarting after a transplant.</p>'
     : '';
 
   const html = `<!DOCTYPE html><html><head><title>Compliance Audit</title>
@@ -956,7 +995,7 @@ function ComplianceAuditStopNotice({ isTransplant = false }) {
         Standard age-based immunization logic doesn't apply to this patient (see the
         Immunization Schedule tab for the full explanation). This review of doses already
         given is unaffected — whether a past dose was correctly spaced doesn't change.
-        {isTransplant && ' The dose numbers below count every recorded dose and don\'t account for the series restarting after a transplant.'}
+        {isTransplant && ' The dose numbers below show each dose\'s place in the series and don\'t account for the series restarting after a transplant.'}
       </p>
     </div>
   );
@@ -1029,7 +1068,7 @@ export default function ComplianceAuditTab({ recs: recsProp, validHist: validHis
           Per-dose schedule compliance review. Click any dose card for validation detail.
         </p>
         <button
-          onClick={() => printComplianceAudit({ dob, am, hist, risks })}
+          onClick={() => printComplianceAudit({ dob, am, hist, risks, recs, fcBrands: fcBrands || {}, validHist })}
           style={{
             fontSize: 11.5, padding: '5px 12px',
             background: 'var(--wh)', color: 'var(--gy2)',
