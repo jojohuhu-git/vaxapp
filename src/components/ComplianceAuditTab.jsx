@@ -575,6 +575,44 @@ function DoseCard({ vk, doseIdx, dose, prevDose, dob, firstDoseDate, totalDoses,
   );
 }
 
+/**
+ * Split a vaccine's recorded doses into the sections the Compliance tab draws:
+ * a "Primary series" grid, then a "Boosters" grid (owner decision D3, 2026-09-15).
+ *
+ * Two rules do most of the work here:
+ *
+ *  - A vaccine whose schedule draws NO primary/booster line gets ONE unlabelled
+ *    section. Ten of the eighteen are like this (see data/seriesPhases.js), and
+ *    printing "Primary series" over them would be a clinical claim with nothing
+ *    to cite.
+ *
+ *  - A dose that takes no number belongs to neither phase, so it does not open a
+ *    section of its own — it stays in date order inside whichever section is
+ *    already open. Moving it would reorder the dates, and a third heading was not
+ *    what D3 asked for. MeningoVax handles the same case the same way
+ *    (RecCard.jsx, doseRowsWithGroups).
+ *
+ * @returns {Array<{ phase: 'primary'|'booster'|null, label: string|null,
+ *                   items: Array<{ dose: object, i: number }> }>}
+ */
+export function doseSections(givenDoses, positions) {
+  const sections = [];
+  let open = null;   // the phase whose section is currently being filled
+  givenDoses.forEach((dose, i) => {
+    const phase = positions[i]?.phase ?? null;
+    if (sections.length === 0 || (phase !== null && phase !== open)) {
+      sections.push({
+        phase,
+        label: phase === 'primary' ? 'Primary series' : phase === 'booster' ? 'Boosters' : null,
+        items: [],
+      });
+      open = phase;
+    }
+    sections[sections.length - 1].items.push({ dose, i });
+  });
+  return sections;
+}
+
 // ── VaccineRow ─────────────────────────────────────────────────────────────────
 function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist }) {
   const meta = VAX_META[vk];
@@ -756,28 +794,45 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
         )}
       </div>
 
-      {/* Dose cards grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
-        gap: 8,
-      }}>
-        {givenDoses.map((dose, i) => (
-          <DoseCard
-            key={i}
-            vk={vk}
-            doseIdx={i}
-            dose={dose}
-            prevDose={effectivePrevByRawIdx[i]}
-            dob={dob}
-            firstDoseDate={firstDoseDate}
-            totalDoses={totalCount}
-            hist={hist}
-            risks={risks}
-            position={positions[i]}
-          />
-        ))}
-      </div>
+      {/* Dose cards, in one grid per phase — see doseSections() above */}
+      {doseSections(givenDoses, positions).map((section, si) => (
+        <div key={section.label || `s${si}`} style={si > 0 ? { marginTop: 12 } : undefined}>
+          {section.label && (
+            <div
+              data-testid={`dose-group-${vk}-${section.phase}`}
+              style={{
+                fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: '.07em', color: 'var(--gy3)',
+                paddingBottom: 4, marginBottom: 8,
+                borderBottom: '1px solid var(--gy5)',
+              }}
+            >
+              {section.label}
+            </div>
+          )}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+            gap: 8,
+          }}>
+            {section.items.map(({ dose, i }) => (
+              <DoseCard
+                key={i}
+                vk={vk}
+                doseIdx={i}
+                dose={dose}
+                prevDose={effectivePrevByRawIdx[i]}
+                dob={dob}
+                firstDoseDate={firstDoseDate}
+                totalDoses={totalCount}
+                hist={hist}
+                risks={risks}
+                position={positions[i]}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -808,6 +863,13 @@ function printComplianceAudit({ dob, am, hist, risks, recs, fcBrands, validHist 
       expectedTotal: printExpectedTotal,
       validHist,
     });
+    // The printout carries the same phase headings the screen shows. Leaving
+    // them off screen-only would mean the paper and the screen describe the same
+    // patient differently — and the paper is the copy that leaves the app.
+    const sections = doseSections(doses, printPositions);
+    const headingRowFor = (section) => section.label
+      ? `<tr><td colspan="4" style="font-weight:bold;text-transform:uppercase;font-size:10px;letter-spacing:.07em;background:#f2f2f2">${section.label}</td></tr>`
+      : '';
     const rows = doses.map((dose, i) => {
       const classification = classifyDose(vk, i, dose, doses.length, dob, i > 0 ? doses[i-1] : null, doses[0]?.date, hist, risks || []);
       const dateLabel = doseDateLabel(dose, dob);
@@ -817,11 +879,14 @@ function printComplianceAudit({ dob, am, hist, risks, recs, fcBrands, validHist 
       // supports: a grey row prints as a black row.
       const struckStyle = smartLbl.struck ? ' style="text-decoration:line-through;color:#666"' : '';
       return `<tr><td>${smartLbl.label}</td><td${struckStyle}>${dateLabel}</td><td${struckStyle}>${ageLabel2 || '—'}</td><td>${STATUS_PILL_LABEL[classification.status] || classification.status}</td></tr>`;
-    }).join('');
+    });
+    const body = sections
+      .map((section) => headingRowFor(section) + section.items.map(({ i }) => rows[i]).join(''))
+      .join('');
     return `<div style="margin-bottom:16px"><h3 style="margin:0 0 6px;text-transform:uppercase;font-size:12px">${meta?.n || vk}</h3>
       <table border="1" cellpadding="4" style="border-collapse:collapse;font-size:11px;width:100%">
       <thead><tr><th>Dose</th><th>Date</th><th>Age</th><th>Status</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`;
+      <tbody>${body}</tbody></table></div>`;
   }).join('');
 
   // Dose-numbering decision 8 (2026-09-15), reworded in step 3. The Dose column

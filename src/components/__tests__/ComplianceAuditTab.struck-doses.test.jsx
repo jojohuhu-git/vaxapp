@@ -57,7 +57,7 @@ const REPEAT_OWED = {
 
 // Doses at 11, 16 and 18. The third is a valid extra — acceptable, nothing owed.
 const EXTRA = {
-  dob: '2006-01-20', am: 248,
+  dob: '2006-01-20', am: 247,
   hist: { MenACWY: [
     { given: true, mode: 'date', date: '2017-01-20', brand: 'Menactra' },
     { given: true, mode: 'date', date: '2022-01-20', brand: 'Menactra' },
@@ -68,7 +68,7 @@ const EXTRA = {
 // A dose with no date at all — it cannot be placed in the series, but nothing
 // about it is wrong.
 const NO_DATE = {
-  dob: '2024-01-15', am: 30,
+  dob: '2024-01-15', am: 32,
   hist: { HepB: [
     { given: true, mode: 'date', date: '2024-01-15', brand: '' },
     { given: true, mode: 'unknown', date: '', brand: '' },

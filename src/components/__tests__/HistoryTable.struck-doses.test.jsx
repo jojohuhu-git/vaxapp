@@ -57,7 +57,7 @@ describe('a pre-16 MenB dose in a healthy patient', () => {
 describe('doses that owe nothing', () => {
   it('leaves a counting dose alone', () => {
     const { container } = renderHistory({
-      dob: '2024-01-15', am: 20,
+      dob: '2024-01-15', am: 32,
       hist: { HepB: [{ given: true, mode: 'date', date: '2024-01-15', brand: '' }] },
     });
     expect(dateSpan(container.querySelector('.dpill')).style.textDecoration).not.toBe('line-through');
@@ -65,7 +65,7 @@ describe('doses that owe nothing', () => {
 
   it('leaves a valid extra dose alone — nothing is owed for it', () => {
     const { container } = renderHistory({
-      dob: '2006-01-20', am: 248,
+      dob: '2006-01-20', am: 247,
       hist: { MenACWY: [
         { given: true, mode: 'date', date: '2017-01-20', brand: 'Menactra' },
         { given: true, mode: 'date', date: '2022-01-20', brand: 'Menactra' },
