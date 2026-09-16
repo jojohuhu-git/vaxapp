@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useApp, useRecs } from '../context/AppContext';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData';
 import { sortDosesByDate } from '../logic/utils';
-import { getTotalDoses } from '../logic/dosePlan';
+import { getTotalDoses, printableSeriesTotal } from '../logic/dosePlan';
 import { seriesPositions } from '../logic/seriesPosition';
+import { advancingDoseCount } from '../logic/stateHelpers';
 import DosePill from './DosePill';
 
 export default function HistoryTable() {
@@ -66,6 +67,18 @@ export default function HistoryTable() {
             } catch {
               expectedTotal = null;
             }
+            // N4: past the primary series of an open-ended schedule (a patient
+            // at increased risk keeps getting meningococcal boosters for as
+            // long as the risk lasts) there is no total to print, and
+            // getTotalDoses answers with the dose number it was handed. Same
+            // call the compliance tab makes, so a dose cannot be numbered one
+            // way here and another way there.
+            expectedTotal = printableSeriesTotal(
+              vk, expectedTotal,
+              advancingDoseCount(vk, state.hist, state.dob, state.risks || [],
+                sortedDoses.length, effectiveAm),
+              { risks: state.risks || [], hist: state.hist, dob: state.dob },
+            );
             const positions = seriesPositions(vk, state.hist, state.dob, effectiveAm, state.risks, {
               expectedTotal, validHist,
             });

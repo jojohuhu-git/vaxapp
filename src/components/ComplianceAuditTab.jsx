@@ -19,7 +19,7 @@ import { fmtAgeClinical, fmtIntervalClinical, fmtAm } from '../logic/ageFormat';
 import { doseAgeDays, doseDate, isHighRiskMenACWY, highRiskMenB, isTravelOngoingMenACWY, advancingDoseCount } from '../logic/stateHelpers';
 import { getDoseBand } from '../data/aapDoseBands';
 import { fmtDateInput, addD, todayISO } from '../logic/utils';
-import { getTotalDoses } from '../logic/dosePlan';
+import { getTotalDoses, printableSeriesTotal } from '../logic/dosePlan';
 import { seriesPositions } from '../logic/seriesPosition';
 import { genRecs } from '../logic/recommendations';
 import { hardStopExclusion } from '../logic/hardStop';
@@ -677,6 +677,12 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
     vk, { [vk]: validDoses }, dob, risks || [], validCount, am
   );
 
+  // N4: some schedules never finish, so past the primary series there is no
+  // total to print. printableSeriesTotal draws that line; the History table's
+  // pills ask it the same question so the two surfaces cannot disagree.
+  expectedTotal = printableSeriesTotal(vk, expectedTotal, effectiveCount,
+    { risks: risks || [], hist, dob });
+
   // Count extra doses: doses beyond the standard series total that are VALID_EXTRA
   // Use effectivePrevByRawIdx for correct interval computation.
   const extraCount = totalCount - validCount >= 0
@@ -839,6 +845,17 @@ function printComplianceAudit({ dob, am, hist, risks, recs, fcBrands, validHist 
     } catch {
       printExpectedTotal = null;
     }
+    // N4: and the same open-ended rule the screen applies. A patient at
+    // increased risk keeps getting meningococcal boosters for as long as the
+    // risk lasts, so past the primary series there is no total — printing one
+    // on paper is the version that cannot be corrected later.
+    const printValidDoses = (validHist?.[vk] || []).filter(d => d.given);
+    printExpectedTotal = printableSeriesTotal(
+      vk, printExpectedTotal,
+      advancingDoseCount(vk, { [vk]: printValidDoses }, dob, risks || [],
+        printValidDoses.length, am),
+      { risks: risks || [], hist, dob },
+    );
     const printPositions = seriesPositions(vk, hist, dob, am, risks || [], {
       expectedTotal: printExpectedTotal,
       validHist,

@@ -7,7 +7,7 @@ import { VAX_META, COMBO_COVERS, VAX_KEYS, VBR } from '../data/vaccineData';
 import { genRecs } from '../logic/recommendations';
 import { orderedBrandsForVisit, buildVisitTimeline, applyScheduledEarly } from '../logic/forecastLogic';
 import { dc } from '../logic/stateHelpers';
-import { computeDosePlan, fmtProjection, fmtEarliestDate, getTotalDoses } from '../logic/dosePlan';
+import { computeDosePlan, fmtProjection, fmtEarliestDate, getTotalDoses, doseChipLabel, compactDoseChipLabel } from '../logic/dosePlan';
 import { validatedHistory, auditAll } from '../logic/validation';
 import { classifyDose } from '../logic/compliance';
 import { addD, todayISO } from '../logic/utils';
@@ -461,7 +461,7 @@ function ComboWhyButton({ comboName, offeredHere, doseKey, openKey, setOpenKey }
   );
 }
 
-function OptDoseRow({ dose, doseKey, openKey, setOpenKey, allFlatDoses }) {
+function OptDoseRow({ dose, doseKey, openKey, setOpenKey, allFlatDoses, chipCtx }) {
   const explanation = explainOptConstraint(dose, allFlatDoses);
   const whyBtn = <OptWhyButton doseKey={doseKey} openKey={openKey} setOpenKey={setOpenKey} explanation={explanation} />;
   if (dose._combo) {
@@ -477,14 +477,14 @@ function OptDoseRow({ dose, doseKey, openKey, setOpenKey, allFlatDoses }) {
   return (
     <DoseRow
       vk={dose.vk}
-      chipText={`D${dose.doseNum}/${dose.totalDoses}`}
+      chipText={compactDoseChipLabel(dose.vk, dose.doseNum, dose.totalDoses, chipCtx || {})}
       brandText={brandShort}
       right={whyBtn}
     />
   );
 }
 
-function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses, dob }) {
+function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses, dob, chipCtx }) {
   // Age label matches the Routine Schedule card list's format (age first,
   // ISO date + injection count on the right) rather than "Visit N" — the two
   // views should read the same way even though they come from independent
@@ -500,7 +500,7 @@ function OptVisitCard({ visit, idx, openKey, setOpenKey, allFlatDoses, dob }) {
       countLabel={`${visit.items.length} injection${visit.items.length !== 1 ? 's' : ''}`}
     >
       {visit.items.map((d, i) => (
-        <OptDoseRow key={i} dose={d} doseKey={`${idx}-${i}`} openKey={openKey} setOpenKey={setOpenKey} allFlatDoses={allFlatDoses} />
+        <OptDoseRow key={i} dose={d} doseKey={`${idx}-${i}`} openKey={openKey} setOpenKey={setOpenKey} allFlatDoses={allFlatDoses} chipCtx={chipCtx} />
       ))}
     </VisitCardShell>
   );
@@ -532,6 +532,11 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
   // Filter history to countable doses only (drops invalid/uncountable doses
   // like a Kinrix IPV at 2 months) so the projection advances correctly.
   const validHist = validHistProp ?? validatedHistory(state.hist, state.dob, state.risks ?? []);
+
+  // N4: what every dose chip on this tab needs to know before it prints a
+  // total — some schedules (meningococcal boosters at increased risk) never
+  // finish, so no "of N" is true for them. See doseChipLabel in dosePlan.js.
+  const chipCtx = { risks: state.risks ?? [], hist: validHist, dob: state.dob || null };
 
   // Patient object for optimal schedule engine
   const today = todayISO();
@@ -751,8 +756,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         const proj = dosePlan[visit.earlyFcKey];
         const info = scheduledEarliest.get(visit.earlyFcKey);
         if (!proj || !info) continue;
-        const isAnnual = vk === "Flu" || vk === "COVID";
-        const chipText = isAnnual ? "Annual" : proj.totalDoses > 1 ? `Dose ${proj.doseNum} of ${proj.totalDoses}` : `Dose ${proj.doseNum}`;
+        const chipText = doseChipLabel(vk, proj.doseNum, proj.totalDoses, chipCtx);
         const bOpts = orderedBrandsForVisit(vk, proj.doseNum, info.ageM, [vk], undefined, "", { [vk]: proj.doseNum });
         const displayBrand = resolveDropdownBrand(state.fcBrands[visit.earlyFcKey] || "", bOpts);
         items.push({
@@ -778,12 +782,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
         const { fcKey: origFcKey, info } = visit._earlyDoses[vk];
         const origProj = dosePlan[origFcKey];
         if (!origProj) continue;
-        const isAnnualMv = vk === "Flu" || vk === "COVID";
-        const chipText = isAnnualMv
-          ? "Annual"
-          : origProj.totalDoses > 1
-            ? `Dose ${origProj.doseNum} of ${origProj.totalDoses}`
-            : `Dose ${origProj.doseNum}`;
+        const chipText = doseChipLabel(vk, origProj.doseNum, origProj.totalDoses, chipCtx);
         const movedDate = info.date && state.dob ? fmtDateShort(info.date) : `~${fmtAm(info.ageM)}`;
         items.push({ vk, chipText, chipClass: "fch fch-proj", fcKey: origFcKey, dateLabel: `✓ ${movedDate}`, dateEarly: true });
         continue;
@@ -827,10 +826,9 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
       if (!isStd && !proj && !rec) continue;
 
       const given = dc(validHist, vk);
-      const isAnnual = vk === "Flu" || vk === "COVID";
       const totalForVk = (proj && proj.totalDoses)
         || getTotalDoses(vk, rec || { doseNum: given + 1, dose: "" }, state.fcBrands, am, validHist, state.risks, state.dob);
-      const fmtDose = (n) => isAnnual ? "Annual" : (!totalForVk || totalForVk <= 1) ? `Dose ${n}` : `Dose ${n} of ${totalForVk}`;
+      const fmtDose = (n) => doseChipLabel(vk, n, totalForVk, chipCtx);
       const hasPopover = !!(rec?.note || rec?.refUrl);
       // "card:" prefix kept even though the matrix view (which shared this
       // fcKey) is no longer mounted — harmless, and matches the key scheme
@@ -1204,12 +1202,11 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                   const bOpts = todayBOptsByVk[rec.vk] || [];
                   const displayBrand = resolveDropdownBrand(selectedBrand, bOpts);
                   const isExpanded = expandedRationale === rec.vk;
-                  const isAnnual = rec.vk === "Flu" || rec.vk === "COVID";
                   const totalDoses = getTotalDoses(rec.vk, rec, state.fcBrands, am, validHist, state.risks, state.dob);
                   // M11: a deferred row is not "Dose 1 of 2" — nothing is being
                   // given. Show the engine's own label ("Deferred in pregnancy").
                   const doseChip = rec.status === "deferred" ? rec.dose
-                    : isAnnual ? "Annual" : `Dose ${rec.doseNum}${totalDoses > 1 ? ` of ${totalDoses}` : ""}`;
+                    : doseChipLabel(rec.vk, rec.doseNum, totalDoses, chipCtx);
                   const statusBadgeClass = rec.status === "due" ? "today-badge-due"
                     : rec.status === "catchup" ? "today-badge-cu"
                     : rec.status === "deferred" ? "today-badge-def"
@@ -1411,7 +1408,7 @@ export default function ForecastTab({ recs, validHist: validHistProp }) {
                 </div>
               )}
               {optResult.map((visit, i) => (
-                <OptVisitCard key={visit.date || visit.label || i} visit={visit} idx={i} openKey={whyOpenKey} setOpenKey={setWhyOpenKey} allFlatDoses={allFlat} dob={optDob} />
+                <OptVisitCard key={visit.date || visit.label || i} visit={visit} idx={i} openKey={whyOpenKey} setOpenKey={setWhyOpenKey} allFlatDoses={allFlat} dob={optDob} chipCtx={chipCtx} />
               ))}
               <div className="fct-opt-footnote">
                 Each dose lands on its earliest legal date. Click Why? to see the spacing or age rule.

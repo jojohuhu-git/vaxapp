@@ -8,6 +8,7 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { fmtAm } from '../logic/ageFormat';
 import { todayISO } from '../logic/utils';
+import { compactDoseChipLabel } from '../logic/dosePlan';
 import { ShotListPage } from './ShotListPDF';
 
 const styles = StyleSheet.create({
@@ -193,7 +194,7 @@ function RoutineBody({ am, dob, risks, rows }) {
   );
 }
 
-function VisitItems({ items }) {
+function VisitItems({ items, chipCtx }) {
   return (
     <>
       {items.map((it, i) => {
@@ -203,7 +204,7 @@ function VisitItems({ items }) {
               <Text style={styles.comboName}>{it.comboName}</Text>
               <Text style={styles.comboCovers}>
                 covers {it.coveredAntigens.join(' + ')} (
-                {it.coveredDoses.map(d => `${d.vk} D${d.doseNum}/${d.totalDoses}`).join(', ')})
+                {it.coveredDoses.map(d => `${d.vk} ${compactDoseChipLabel(d.vk, d.doseNum, d.totalDoses, chipCtx)}`).join(', ')})
               </Text>
             </View>
           );
@@ -212,7 +213,7 @@ function VisitItems({ items }) {
         return (
           <View key={i} style={styles.doseRow} wrap={false}>
             <Text style={styles.doseVk}>{it.vk}</Text>
-            <Text style={styles.doseNum}>D{it.doseNum}/{it.totalDoses}</Text>
+            <Text style={styles.doseNum}>{compactDoseChipLabel(it.vk, it.doseNum, it.totalDoses, chipCtx)}</Text>
             <Text style={styles.doseBrand}>{brandShort}</Text>
           </View>
         );
@@ -222,6 +223,9 @@ function VisitItems({ items }) {
 }
 
 function OptimizerBody({ patient, mode, visits }) {
+  // N4: what the dose chips need before printing a total — some meningococcal
+  // schedules never finish. See compactDoseChipLabel in dosePlan.js.
+  const chipCtx = { risks: patient.risks || [], hist: patient.hist || {}, dob: patient.dob || null };
   const totalDoses = visits.reduce((s, v) => s + v.items.reduce((s2, it) => s2 + (it._combo ? it.coveredDoses.length : 1), 0), 0);
   const totalInjections = visits.reduce((s, v) => s + v.items.length, 0);
   const lastVisitDate = visits.at(-1)?.date;
@@ -262,7 +266,7 @@ function OptimizerBody({ patient, mode, visits }) {
             </Text>
           </View>
           <View style={styles.visitBox}>
-            <VisitItems items={v.items} />
+            <VisitItems items={v.items} chipCtx={chipCtx} />
           </View>
         </View>
       ))}

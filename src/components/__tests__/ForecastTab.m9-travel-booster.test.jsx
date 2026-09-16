@@ -42,7 +42,13 @@ describe('M9 — the travel booster is drawn on the forecast', () => {
     const { container } = renderForecast(TRAVELER);
     const row = getTodayRowByVk(container, 'MenACWY');
     expect(row).not.toBeNull();                       // was: no MenACWY row at all
-    expect(row.textContent).toMatch(/Dose 2/);
+    // N4 (2026-09-15) changed this chip from "Dose 2 of 2" to "Booster". A
+    // traveler who remains at risk keeps getting boosters "every 5 yrs
+    // thereafter" (Table 9, quoted above), so "of 2" named an end the schedule
+    // does not have. The dose number is not lost — the "Why" panel still says
+    // "This is dose 2 for this patient", asserted in the next test.
+    expect(row.textContent).toMatch(/Booster/);
+    expect(row.textContent).not.toMatch(/of 2/);
     expect(row.textContent).toMatch(/Exposure/);      // not "Routine" / "Catch-up"
   });
 

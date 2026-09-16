@@ -29,7 +29,13 @@
  *   ACIP MMWR calls the 4–6 year dose a booster.
  */
 
-import { highRiskMenB, menACWYOnRiskBasedSchedule } from '../logic/stateHelpers.js';
+import {
+  highRiskMenB,
+  menACWYOnRiskBasedSchedule,
+  menACWYPrimaryTotal,
+  menacwyExposureCategory,
+  doseAgeMonths,
+} from '../logic/stateHelpers.js';
 import { isHighRiskPCV } from '../logic/pcvDoses.js';
 
 const CDC_CHILD_NOTES = 'https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html';
@@ -39,6 +45,13 @@ const MMWR_IPV = 'https://www.cdc.gov/mmwr/preview/mmwrhtml/mm5830a3.htm';
 
 /** When every fetched source treats the whole series as primary. */
 const NO_SPLIT = null;
+
+/**
+ * Age in months of each recorded dose, for the entries whose primary/booster
+ * line depends on how old the patient was when the series began.
+ */
+const doseAgeMonthsFor = (dob) => (d) => doseAgeMonths(d, dob);
+const givenDosesOf = (hist, vk) => (hist?.[vk] || []).filter((d) => d.given);
 
 /**
  * primaryTotal is either a number, null (no split — all counting doses are
@@ -174,10 +187,33 @@ export const SERIES_PHASES = {
 
   MenACWY: {
     // Routine adolescent: the 11–12y dose is primary, the 16y dose is the booster.
-    // Risk-based schedules (ACIP Tables 7–9: asplenia, complement deficiency,
-    // HIV, travel, microbiologist, outbreak) run their whole series as primary
-    // with ongoing boosters afterwards, and their total is open-ended.
-    primaryTotal: ({ risks }) => (menACWYOnRiskBasedSchedule(risks || []) ? null : 1),
+    //
+    // Risk-based schedules (ACIP Tables 4–9: complement deficiency, asplenia,
+    // HIV, microbiologist, outbreak, travel) draw the same line, and this entry
+    // used to deny it — it returned null, meaning "no documented split", so the
+    // compliance tab printed no "Primary series" / "Boosters" headings for
+    // exactly the patients who have both phases. Every one of those tables has
+    // a "Primary vaccination" row and a separate "Boosters (if person remains
+    // at increased risk)" row, and the rest of the app already acts on it:
+    // recommendations.js has one branch for "completing the primary series" and
+    // another for "Revaccination". menACWYPrimaryTotal() is where that line
+    // lives, so ask it rather than keeping a second opinion here.
+    //
+    // With no recorded doses the indication cannot be told apart, and
+    // menACWYPrimaryTotal falls through to its own conservative 2-dose answer.
+    primaryTotal: ({ risks, hist, dob }) => {
+      const r = risks || [];
+      if (!menACWYOnRiskBasedSchedule(r)) return 1;
+      return menACWYPrimaryTotal(
+        givenDosesOf(hist, 'MenACWY'),
+        doseAgeMonthsFor(dob),
+        { travel: menacwyExposureCategory(r) === 'travel' },
+      );
+    },
+    // Boosters continue for as long as the risk does — see OPEN_ENDED below.
+    // The outbreak indication is deliberately NOT in that set.
+    openEnded: ({ risks }) => menACWYOnRiskBasedSchedule(risks || [])
+      && menacwyExposureCategory(risks || []) !== 'outbreak',
     quote: '2-dose series at age 11–12 years; 16 years. ... Age 13–15 years: 1 dose now '
       + 'and booster at age 16–18 years (minimum interval: 8 weeks).',
     note: 'The catch-up sentence is load-bearing: a dose given at 13–15 years does NOT '
@@ -190,6 +226,12 @@ export const SERIES_PHASES = {
     // Healthy adolescents: a 2-dose series, both primary, no booster.
     // At-risk: a 3-dose primary series followed by ongoing boosters.
     primaryTotal: ({ risks }) => (highRiskMenB(risks || []) ? 3 : NO_SPLIT),
+    // At increased risk the 3-dose series is followed by boosters that never
+    // stop: CDC, Meningococcal Vaccine Recommendations, fetched live
+    // 2026-09-15 — "Regular booster doses • 1 year after series completion
+    // • Every 2 to 3 years thereafter". A healthy adolescent's 2-dose series
+    // simply ends, so it keeps its total.
+    openEnded: ({ risks }) => highRiskMenB(risks || []),
     quote: 'Adolescents not at increased risk age 16–23 years (preferred age 16–18 years) '
       + 'based on shared clinical decision-making. Bexsero or Trumenba (use same brand for '
       + 'all doses): 2–dose series at least 6 months apart. ... [At-risk] Bexsero or '
@@ -226,6 +268,44 @@ export function primaryTotalFor(vk, { risks = [], hist = null, dob = null } = {}
   if (!entry) return null;
   const pt = entry.primaryTotal;
   return typeof pt === 'function' ? pt({ risks, hist, dob }) : pt;
+}
+
+/**
+ * Does this patient's schedule for this vaccine ever finish?
+ *
+ * Most series do: five DTaP doses, two MMR, a routine MenACWY primary dose and
+ * its 16-year booster. Those have a truthful total, and every surface prints
+ * it. A few do not. Once a patient at increased risk finishes their
+ * meningococcal primary series, ACIP keeps giving boosters for as long as the
+ * risk lasts, so there is no Nth dose to count towards and any "of N" the app
+ * prints is invented. That is N4: an asplenic 8-year-old's card read
+ * "Dose 6 of 6" directly above the app's own sentence saying boosters continue
+ * "every 5 years thereafter as long as risk continues".
+ *
+ * Sources, fetched live 2026-09-15:
+ *   CDC, Meningococcal Vaccine Recommendations —
+ *   https://www.cdc.gov/meningococcal/hcp/vaccine-recommendations/index.html
+ *     MenACWY at increased risk, under 7: "a booster dose 3 years after
+ *       completion of the primary series and every 5 years thereafter"
+ *     MenACWY at increased risk, age 7+: "every 5 years"
+ *     MenB at increased risk: "Regular booster doses • 1 year after series
+ *       completion • Every 2 to 3 years thereafter"
+ *   ACIP 2020 MMWR 69(RR-9) Table 9 (travel) and Table 7 (microbiologists),
+ *     quoted in full in aapDoseBands.js: boosters "every 5 yrs thereafter" /
+ *     "every 5 yr while occupationally exposed".
+ *
+ * The outbreak indication (Table 8) is deliberately excluded. It gives a
+ * one-off top-up on re-exposure — "Single dose if ≥3 yrs since vaccination" —
+ * and says nothing about continuing every 5 years, so an outbreak patient's
+ * series is not open-ended and keeps its total.
+ *
+ * @returns {boolean} true when no honest denominator exists for this patient
+ */
+export function seriesIsOpenEnded(vk, ctx = {}) {
+  const entry = SERIES_PHASES[vk];
+  if (!entry?.openEnded) return false;
+  const { risks = [], hist = null, dob = null } = ctx;
+  return Boolean(entry.openEnded({ risks, hist, dob }));
 }
 
 /**
