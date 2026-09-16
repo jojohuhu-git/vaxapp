@@ -61,6 +61,15 @@ const TRUE_EXTRA = {
   hist: { MenACWY: doses(['2017-01-20', '2022-01-20', '2024-01-20'], 'Menactra') },
 };
 
+// N4: an open-ended schedule. Asplenic, the high-risk infant series at 2/4/6/12
+// months, then the 3-year booster. Four primary doses and a booster that is the
+// first of many, so the last card carries no total — the case where screen and
+// paper are most likely to drift, because each computes the total separately.
+const OPEN_ENDED = {
+  dob: '2018-01-01', am: 104, risks: ['asplenia'],
+  hist: { MenACWY: doses(['2018-03-05', '2018-05-05', '2018-07-05', '2019-01-05', '2022-01-05']) },
+};
+
 const pills = (container) => [...container.querySelectorAll('.dpill')];
 
 describe('the History table no longer calls a dose extra because of where it sits', () => {
@@ -108,6 +117,7 @@ describe('screen and paper say the same thing', () => {
       hist: { HepB: doses(['2019-01-15', '2019-03-15', '2019-10-15']) } }, 'HepB'],
     ['an adolescent with a non-counting dose', ADOLESCENT, 'MenACWY'],
     ['an adolescent with a genuine extra', TRUE_EXTRA, 'MenACWY'],
+    ['a patient whose boosters never end', OPEN_ENDED, 'MenACWY'],
   ];
 
   for (const [name, patient, vk] of PATIENTS) {
@@ -135,6 +145,7 @@ describe('the pill popover and the dose card give the same answer', () => {
     ['a dose that advances nothing', ADOLESCENT, 'MenACWY', 1],
     ['the booster after it', ADOLESCENT, 'MenACWY', 2],
     ['a genuine extra', TRUE_EXTRA, 'MenACWY', 2],
+    ['a booster with no total to count towards', OPEN_ENDED, 'MenACWY', 4],
   ];
 
   for (const [name, patient, vk, i] of cases) {

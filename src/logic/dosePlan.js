@@ -8,6 +8,7 @@ import { genRecs } from './recommendations.js';
 import { highRisk, highRiskMenB, isHighRiskMenACWY, menACWYGivenAtOrAfter16y, menBSeriesTotal, menACWYPrimaryTotal, isTravelOngoingMenACWY } from './stateHelpers.js';
 import { pcvHighRiskChildPlan, isHighRiskPCV, isPCV7 } from './pcvDoses.js';
 import { advancingDoseCount } from './stateHelpers.js';
+import { seriesIsOpenEnded, phaseFor, primaryTotalFor } from '../data/seriesPhases.js';
 
 /**
  * Standard routine ages (months) for each dose by vaccine key.
@@ -378,6 +379,90 @@ export function computeDosePlan(am, dob, currentRecs, fcBrands, hist = {}, risks
   }
 
   return plan;
+}
+
+/**
+ * The same judgement as doseChipLabel, in the compact form the optimal schedule
+ * and the printed schedule use ("D2/4" rather than "Dose 2 of 4").
+ *
+ * N4 reaches both: an asplenic 12-year-old whose primary series finished at age
+ * 2 was planned "MenACWY D3/3", and a traveler with one dose on record
+ * "MenACWY D2/2" — each naming an end to a schedule that keeps giving boosters
+ * for as long as the risk lasts. The PDF matters most, because it leaves the
+ * app and is what ends up in a chart.
+ */
+export function compactDoseChipLabel(vk, doseNum, totalDoses, ctx = {}) {
+  const label = doseChipLabel(vk, doseNum, totalDoses, ctx);
+  if (label === "Booster" || label === "Annual") return label;
+  return totalDoses > 1 ? `D${doseNum}/${totalDoses}` : `D${doseNum}`;
+}
+
+/**
+ * The series total to PRINT for a patient's recorded doses, or null for "don't
+ * print one".
+ *
+ * getTotalDoses answers a different question — "how many doses is this series?"
+ * — and it has to answer something, because the forecast uses its answer to
+ * decide when to stop projecting. Past the primary series of an open-ended
+ * schedule there is no true answer, and what it returns is the dose number it
+ * was handed, which reads back as a total: "In progress · 5 of 6 doses" above
+ * cards numbered "Dose 1 of 6" … "Dose 5 of 6" (N4, asplenic 8-year-old).
+ *
+ * Doses still within the primary series keep their total. That one is real and
+ * load-bearing — an asplenic child who has had both primary doses must read
+ * "Complete · 2 of 2 doses", which is what a clinician opens the tab for.
+ *
+ * Both surfaces that number recorded doses (the compliance tab and the History
+ * table's pills) call this, so they cannot drift apart.
+ *
+ * @param {number} countedDoses - recorded doses that advance the series
+ * @param {object} ctx - { risks, hist, dob }
+ */
+export function printableSeriesTotal(vk, expectedTotal, countedDoses, ctx = {}) {
+  if (expectedTotal == null) return null;
+  if (!seriesIsOpenEnded(vk, ctx)) return expectedTotal;
+  const primaryTotal = primaryTotalFor(vk, ctx);
+  if (primaryTotal == null) return expectedTotal;
+  // Past the primary series every further dose is a booster, and boosters have
+  // nothing to be "of".
+  if (countedDoses > primaryTotal) return null;
+  // Still within it — but the total must not swallow the booster on offer. A
+  // high-risk child who has finished a 2-dose primary series read "In progress
+  // · 2 of 3 doses" over cards numbered "Dose 1 of 3" and "Dose 2 of 3": the 3
+  // was the booster being recommended today, folded into a series that ends at
+  // 2. Capping at the primary total makes those cards read "Dose 2 of 2" under
+  // the "Primary series" heading they already sit beneath, and the header
+  // "Complete · 2 of 2 doses" — which is true, and is what a clinician opens
+  // the tab to find out.
+  return Math.min(expectedTotal, primaryTotal);
+}
+
+/**
+ * What a forecast or recommendation card's dose chip should say.
+ *
+ * Normally this is "Dose 3 of 5" — the position and the length of the series.
+ * N4: that breaks down once a patient at increased risk finishes their
+ * meningococcal primary series, because ACIP keeps giving them boosters for as
+ * long as the risk lasts. There is no last dose to count towards, so
+ * getTotalDoses has no true answer and returns the dose number it was handed,
+ * which prints back as a total: an asplenic 8-year-old's card read
+ * "Dose 6 of 6" two lines above the app's own sentence saying boosters
+ * continue "every 5 years thereafter as long as risk continues".
+ *
+ * Owner decision 2026-09-15: such a dose reads "Booster". It says the useful
+ * thing (this is a booster, not an unfinished series) and claims nothing that
+ * cannot be true. Doses still INSIDE the primary series keep their total — that
+ * one is real, and "Dose 2 of 4" is exactly what a clinician mid-series needs.
+ *
+ * Which schedules never end, and the sources for each, are in seriesPhases.js.
+ *
+ * @param {object} ctx - { risks, hist, dob } for the patient
+ */
+export function doseChipLabel(vk, doseNum, totalDoses, ctx = {}) {
+  if (vk === "Flu" || vk === "COVID") return "Annual";
+  if (doseNum == null) return "";
+  if (seriesIsOpenEnded(vk, ctx) && phaseFor(vk, doseNum, ctx) === "booster") return "Booster";
+  return (!totalDoses || totalDoses <= 1) ? `Dose ${doseNum}` : `Dose ${doseNum} of ${totalDoses}`;
 }
 
 /** Get total doses in series for a vaccine, accounting for brand/age/risk */

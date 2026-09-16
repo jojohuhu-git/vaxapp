@@ -77,8 +77,19 @@ describe('vaccines with a documented booster', () => {
     expect(phaseFor('MenACWY', 2, { risks: [] })).toBe('booster');
   });
 
-  it('MenACWY: a risk-based schedule has no split — its whole series is primary', () => {
-    expect(primaryTotalFor('MenACWY', { risks: ['asplenia'] })).toBeNull();
+  // Corrected by N4 (2026-09-15). This used to assert that a risk-based
+  // schedule "has no split — its whole series is primary", which was wrong:
+  // ACIP Tables 4–9 each print a "Primary vaccination" row and a separate
+  // "Boosters (if person remains at increased risk)" row. Believing there was
+  // no split meant the compliance tab printed no "Primary series" / "Boosters"
+  // headings for the very patients who have both phases. Where the line falls
+  // depends on the age the series began, so the answer now comes from
+  // menACWYPrimaryTotal(); with no doses on record it falls through to that
+  // function's conservative 2-dose answer. Cases with real doses are pinned in
+  // seriesPhases.openEnded.test.js.
+  it('MenACWY: a risk-based schedule has a primary phase, then ongoing boosters', () => {
+    expect(primaryTotalFor('MenACWY', { risks: ['asplenia'] })).toBe(2);
+    expect(phaseFor('MenACWY', 3, { risks: ['asplenia'] })).toBe('booster');
   });
 
   it('MenB: healthy adolescents have no booster; at-risk have 3 primary then boosters', () => {
