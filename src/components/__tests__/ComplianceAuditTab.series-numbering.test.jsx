@@ -194,7 +194,7 @@ describe('the header and the cards always agree', () => {
   // tripwire if anyone splits them again.
   const FIXTURES = [
     ['a complete infant HepB series', {
-      dob: '2024-01-15', am: 20,
+      dob: '2024-01-15', am: 32,
       hist: { HepB: [
         { given: true, mode: 'date', date: '2024-01-15', brand: '' },
         { given: true, mode: 'date', date: '2024-03-15', brand: '' },
@@ -202,7 +202,7 @@ describe('the header and the cards always agree', () => {
       ] },
     }, 'HepB'],
     ['a part-done DTaP series', {
-      dob: '2024-01-15', am: 20,
+      dob: '2024-01-15', am: 32,
       hist: { DTaP: [
         { given: true, mode: 'date', date: '2024-03-15', brand: '' },
         { given: true, mode: 'date', date: '2024-05-15', brand: '' },
@@ -221,7 +221,7 @@ describe('the header and the cards always agree', () => {
       hist: { MenB: [{ given: true, mode: 'date', date: '2023-01-20', brand: 'Bexsero' }] },
     }, 'MenB'],
     ['an IPV series', {
-      dob: '2024-01-15', am: 20,
+      dob: '2024-01-15', am: 32,
       hist: { IPV: [
         { given: true, mode: 'date', date: '2024-03-15', brand: '' },
         { given: true, mode: 'date', date: '2024-05-15', brand: '' },
