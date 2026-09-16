@@ -45,16 +45,22 @@ import { primaryTotalFor, phaseFor } from '../data/seriesPhases.js';
  * Short reasons shown on a dose that consumes no number. Kept here, together,
  * so the four surfaces cannot drift into four different phrasings.
  *
- * Wording is owner-settled except INVALID, which was not covered by the D1
- * decision and is this module's own call — flagged in the step 1 commit.
+ * All wording here is owner-settled (D1, 2026-09-15; INVALID and BOOSTER_OWED
+ * answered separately on the same day after step 1 flagged them).
  */
 export const NO_NUMBER_REASON = {
   OFF_WINDOW: 'Off-window — repeat owed',
+  // Same OFF_WINDOW status, different truth: the dose does not count, but the
+  // thing that is owed is the scheduled booster, not a repeat of this dose.
+  // vaxapp's long popover already drew this line; the short label now matches
+  // it. Chosen by the owner over MeningoVax's full sentence, which wraps to
+  // several lines on a 110px dose card.
+  BOOSTER_OWED: "Doesn't count — 16-year booster still due",
   PCV7: 'Older PCV7 product — a current pneumococcal dose is still needed',
   UNKNOWN: "No date recorded — can't be placed in the series",
   PENDING: 'Needs input',
   VALID_EXTRA: 'Extra dose',
-  INVALID: 'Not valid — a repeat is needed',
+  INVALID: 'Not valid — dose must be repeated',
 };
 
 /**
@@ -70,6 +76,18 @@ const COUNTING_STATUSES = new Set(['ON_TIME', 'VALID']);
  * Deliberately narrower than "does not count" — see the header note.
  */
 const STRUCK_STATUSES = new Set(['OFF_WINDOW', 'INVALID']);
+
+/**
+ * The short reason shown on a dose that consumes no number.
+ *
+ * Keyed off the classification's status, except that OFF_WINDOW covers two
+ * clinically different situations and `boosterOwed` separates them — see the
+ * flag's note in compliance.js.
+ */
+function reasonFor(cls) {
+  if (cls.status === 'OFF_WINDOW' && cls.boosterOwed) return NO_NUMBER_REASON.BOOSTER_OWED;
+  return NO_NUMBER_REASON[cls.status] || null;
+}
 
 /**
  * Compute the series position of every recorded dose of one vaccine.
@@ -156,7 +174,7 @@ export function seriesPositions(vk, hist, dob, am, risks = [], opts = {}) {
       // the primary series and it is not a booster.
       phase: counts ? phaseFor(vk, counted, phaseCtx) : null,
       struck: !counts && STRUCK_STATUSES.has(cls.status),
-      reason: counts ? null : (NO_NUMBER_REASON[cls.status] || null),
+      reason: counts ? null : reasonFor(cls),
       status: cls.status,
     };
   });
