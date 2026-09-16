@@ -174,3 +174,46 @@ describe('the compact label the printed schedule shares with the optimizer', () 
     expect(compactDoseChipLabel('DTaP', 5, 5, ctx)).toBe('D5/5');
   });
 });
+
+// ── The boundary case, found by driving the app rather than by a test ──────
+//
+// A high-risk child who has just FINISHED the primary series is the hardest
+// case, because the booster being recommended today is the thing that inflates
+// the total. An asplenic 8y8m child with a complete 2-dose primary series read:
+//
+//   In progress · 2 of 3 doses
+//   PRIMARY SERIES   DOSE 1 OF 3   DOSE 2 OF 3
+//
+// Three wrong things at once: the series is 2 doses not 3, it is complete not
+// in progress, and the 3 was the first booster — which the heading directly
+// above the cards calls a different phase.
+
+const PRIMARY_JUST_FINISHED = {
+  am: monthsSince('2018-01-01'),
+  dob: '2018-01-01',
+  risks: ['asplenia'],
+  hist: { MenACWY: doses(['2020-01-01', '2020-03-01']) },
+};
+
+describe('a high-risk patient who has just finished the primary series', () => {
+  it('reads complete, and against the length of the series that actually ended', () => {
+    const { container } = renderAudit(PRIMARY_JUST_FINISHED);
+    const text = container.textContent;
+    expect(text).toMatch(/Complete · 2 of 2 doses/);
+    expect(text).not.toMatch(/of 3 doses/);
+  });
+
+  it('does not number the primary doses as though the booster were one of them', () => {
+    const { container } = renderAudit(PRIMARY_JUST_FINISHED);
+    const cards = [...container.querySelectorAll('[data-testid^="dose-card-MenACWY-"]')]
+      .map(c => c.firstChild.textContent);
+    expect(cards).toEqual(['Dose 1 of 2', 'Dose 2 of 2']);
+  });
+
+  it('still offers the booster — the total shrank, the recommendation did not', () => {
+    const { container } = renderForecast(PRIMARY_JUST_FINISHED);
+    const row = getTodayRowByVk(container, 'MenACWY');
+    expect(row).not.toBeNull();
+    expect(row.textContent).toMatch(/Booster/);
+  });
+});

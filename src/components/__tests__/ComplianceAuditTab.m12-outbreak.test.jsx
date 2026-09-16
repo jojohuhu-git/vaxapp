@@ -61,9 +61,18 @@ describe('M12 (UI): an outbreak contact\'s own dose is counted', () => {
     expect(container.textContent).toMatch(/ON TIME/);
   });
 
-  it('parity: a traveler with the same history reads the same way', () => {
+  it('parity: a traveler\'s dose is counted too', () => {
     const { container } = renderAudit({ ...PATIENT, risks: ['travel'] });
-    expect(container.textContent).toMatch(/1 of 2 doses/);
+    // The point of this test is that the dose COUNTS — it used to read "0 of".
+    //
+    // N4 (2026-09-15) changed the denominator from 2 to 1, and the 1 is right:
+    // ACIP 2020 MMWR 69(RR-9) Table 9 gives a traveler aged >=2 years a primary
+    // series of ONE dose, then boosters every 5 years. The old "1 of 2" was the
+    // booster being offered today, folded into a primary series that ends at 1.
+    // An outbreak contact still reads "1 of 2" because their series is not
+    // open-ended and genuinely has a second dose to come.
+    expect(container.textContent).toMatch(/Complete · 1 of 1 doses/);
+    expect(container.textContent).not.toMatch(/0 of/);
   });
 
   it('control: a healthy child still loses the pre-age-10 dose from the count', () => {

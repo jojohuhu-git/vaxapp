@@ -54,11 +54,21 @@ describe("M15 (UI): a microbiologist's own pre-age-10 dose is counted", () => {
     expect(container.textContent).toMatch(/ON TIME/);
   });
 
-  it('parity: travel and outbreak contacts read the same way', () => {
-    for (const risk of ['travel', 'outbreak_acwy']) {
+  it('parity: travel and outbreak contacts have their dose counted too', () => {
+    // All three exposure categories count the pre-age-10 dose, which is what
+    // M15 was about. N4 (2026-09-15) split the denominators apart, because the
+    // three primary series are genuinely different lengths:
+    //   outbreak     — 2, and the series ends there (ACIP Table 8 is a one-off
+    //                  top-up on re-exposure, not a standing countdown)
+    //   travel       — 1 from the 2nd birthday (Table 9), then open-ended
+    //                  boosters, so the total stops at the primary series
+    // A microbiologist (the case above) keeps "1 of 2".
+    for (const [risk, expected] of [['travel', /Complete · 1 of 1 doses/],
+                                    ['outbreak_acwy', /1 of 2 doses/]]) {
       cleanup();
       const { container } = renderAudit({ ...PATIENT, risks: [risk] });
-      expect(container.textContent).toMatch(/1 of 2 doses/);
+      expect(container.textContent, risk).toMatch(expected);
+      expect(container.textContent, risk).not.toMatch(/0 of/);
     }
   });
 

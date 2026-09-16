@@ -422,7 +422,19 @@ export function printableSeriesTotal(vk, expectedTotal, countedDoses, ctx = {}) 
   if (expectedTotal == null) return null;
   if (!seriesIsOpenEnded(vk, ctx)) return expectedTotal;
   const primaryTotal = primaryTotalFor(vk, ctx);
-  return (primaryTotal != null && countedDoses > primaryTotal) ? null : expectedTotal;
+  if (primaryTotal == null) return expectedTotal;
+  // Past the primary series every further dose is a booster, and boosters have
+  // nothing to be "of".
+  if (countedDoses > primaryTotal) return null;
+  // Still within it — but the total must not swallow the booster on offer. A
+  // high-risk child who has finished a 2-dose primary series read "In progress
+  // · 2 of 3 doses" over cards numbered "Dose 1 of 3" and "Dose 2 of 3": the 3
+  // was the booster being recommended today, folded into a series that ends at
+  // 2. Capping at the primary total makes those cards read "Dose 2 of 2" under
+  // the "Primary series" heading they already sit beneath, and the header
+  // "Complete · 2 of 2 doses" — which is true, and is what a clinician opens
+  // the tab to find out.
+  return Math.min(expectedTotal, primaryTotal);
 }
 
 /**
