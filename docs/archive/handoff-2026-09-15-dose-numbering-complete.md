@@ -1,3 +1,11 @@
+> **SUPERSEDED 2026-09-15** by
+> [`handoff-2026-09-15-n4-open-ended-booster.md`](handoff-2026-09-15-n4-open-ended-booster.md).
+> The dose-numbering project described below really is finished — but the baseline and the
+> open-questions list here are now stale. The "already running" HepB task chip turned out to
+> be a real bug and merged as #168; the baseline is **2726 passing / 189 files**, not 2679 /
+> 185; and N4 of the meningococcal follow-up queue has since been done (PR #170). Read the
+> newer file for what is actually open.
+
 # vaxapp (PediVax) — Handoff after finishing the dose-numbering project (2026-09-15)
 
 Repo: `~/Downloads/vaxapp-main`. Live: https://jojohuhu-git.github.io/vaxapp/

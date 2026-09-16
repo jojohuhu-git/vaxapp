@@ -28,12 +28,20 @@ just travel, and needs an owner design decision before anyone codes it.
 
 ## Suggested order
 
-N4 first (owner-requested, and it is the one a clinician sees every day), then N2 (small,
-and it undoes M1 on surface 5), then N1 (needs source work), then N3.
+~~N4 first (owner-requested, and it is the one a clinician sees every day)~~ — **N4 is DONE
+(2026-09-15, PR #170, merged `b41e338`). Do not start it.** Next suggested: N2 (small, and
+it undoes M1 on surface 5), then N1 (needs source work), then N3.
 
 ---
 
-## N4 — make it obvious which doses are the primary series and which are boosters
+## N4 — DONE 2026-09-15 (PR #170) — make it obvious which doses are the primary series and which are boosters
+
+> **COMPLETE. Do not re-implement.** Shipped in two parts: the "Primary series" /
+> "Boosters" grouping came with the dose-numbering project (#165), and the invented
+> denominator was removed in [#170](https://github.com/jojohuhu-git/vaxapp/pull/170).
+> Owner chose the chip wording **"Booster"**. The open decision this item flagged is
+> therefore settled. See `handoff-2026-09-15-n4-open-ended-booster.md`. The description
+> below is kept as the record of what was wrong.
 
 **Owner request, 2026-09-15:** "I want it to be clear which doses are the booster and which
 are part of the original series (similar to what meningovax does)."
