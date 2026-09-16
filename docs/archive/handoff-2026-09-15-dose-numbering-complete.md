@@ -2,11 +2,10 @@
 
 Repo: `~/Downloads/vaxapp-main`. Live: https://jojohuhu-git.github.io/vaxapp/
 
-Branch: `refactor/step7a-advancing-doses`, off `main`. Pushed, PR
-[#167](https://github.com/jojohuhu-git/vaxapp/pull/167) open — vaxapp's rule is
-branch → PR → `gh pr merge --squash`; `main` is protected and requires the `test` check.
-Working tree clean at `e9bdc1a`, apart from the one pre-existing `.claude/launch.json`
-edit that predates this session and was left alone.
+Branch: `main` at `d1492d2` — every code PR from this session is merged and deployed.
+Working tree clean apart from the one pre-existing `.claude/launch.json` edit that
+predates this session and was left alone. vaxapp's rule is branch → PR →
+`gh pr merge --squash`; `main` is protected and requires the `test` check.
 
 Baseline at session start was **2601 passing, 4 todo, 178 files**, re-run and confirmed
 before any work. Now **2679 passing, 4 todo, 185 files, all green.**
@@ -27,7 +26,7 @@ Steps 1–2 shipped before this session. Steps 3–7 shipped in it. The plan
 | 4 | Strikethrough + short reason on doses that take no number | [#164](https://github.com/jojohuhu-git/vaxapp/pull/164) | merged `b2731cb` |
 | 5 | "Primary series" / "Boosters" — two stacked grids (D3) | [#165](https://github.com/jojohuhu-git/vaxapp/pull/165) | merged `68d6982` |
 | 6 | Print/DosePill parity sweep | [#166](https://github.com/jojohuhu-git/vaxapp/pull/166) | merged `94ea9b1` |
-| 7 | One shared answer to "which doses advance the series" | [#167](https://github.com/jojohuhu-git/vaxapp/pull/167) | **OPEN — check `gh pr view 167`** |
+| 7 | One shared answer to "which doses advance the series" | [#167](https://github.com/jojohuhu-git/vaxapp/pull/167) | merged `d1492d2` |
 
 **Three bugs were found by doing the work, each with a failing test first:**
 
@@ -88,25 +87,22 @@ approval — ask which item first.
 
 ## Why this is a good stopping point
 
-The plan it was resuming is complete, and four of its five PRs are merged, deployed and
-verified on the live site. #167 is a single self-contained refactor whose local suite is
-green. Nothing is mid-edit, and the three open questions are all decisions rather than
-work in progress.
+The plan it was resuming is complete, and all five of its PRs are merged and deployed.
+Nothing is mid-edit, and the three open questions are all decisions rather than work in
+progress.
 
 ---
 
 ## Resuming
 
 1. `cd ~/Downloads/vaxapp-main && git checkout main && git pull`.
-2. **Check #167 first** — `gh pr view 167`. If it is still open and green, merge it
-   (`gh pr merge 167 --squash`), then confirm the Pages deploy (`gh run list --limit 3`).
-3. Run the suite — confirm **2679 passing, 4 todo, 185 files** before any new work.
-4. **Do not re-ask D1/D2/D3 or the two wording items.** All are settled, in
+2. Run the suite — confirm **2679 passing, 4 todo, 185 files** before any new work.
+3. **Do not re-ask D1/D2/D3 or the two wording items.** All are settled, in
    `project_dose_numbering_decisions.md` and in the PR bodies above.
-5. Ask the owner which of the three open questions (and which N-item) to take first.
-6. Per item: reproduce → failing test with a synthetic fixture → fix → full suite green →
+4. Ask the owner which of the three open questions (and which N-item) to take first.
+5. Per item: reproduce → failing test with a synthetic fixture → fix → full suite green →
    verify in the running app → one commit per item.
-7. **Push/merge policy:** vaxapp is branch → PR → `gh pr merge --squash`.
+6. **Push/merge policy:** vaxapp is branch → PR → `gh pr merge --squash`.
    **MeningoVax and PneumoVax are different** — open the PR and *stop*; the owner batches
    those merges herself.
 
