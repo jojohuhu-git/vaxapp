@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useApp, useRecs } from '../context/AppContext';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData';
 import { sortDosesByDate } from '../logic/utils';
-import { isHighRiskMenACWY } from '../logic/stateHelpers';
 import { getTotalDoses } from '../logic/dosePlan';
 import { seriesPositions } from '../logic/seriesPosition';
 import DosePill from './DosePill';
@@ -12,7 +11,6 @@ export default function HistoryTable() {
   // Shared, memoized — the same computation the Compliance tab reads, so a dose
   // cannot be numbered one way here and another way there.
   const { effectiveAm, recs, validHist } = useRecs();
-  const isHighRiskMen = isHighRiskMenACWY(state.risks);
   const [showAll, setShowAll] = useState(false);
 
   const visibleKeys = showAll
@@ -101,7 +99,19 @@ export default function HistoryTable() {
                           dose={dose}
                           prevDose={prev}
                           dob={state.dob}
-                          isExtra={vk === "MenACWY" && !isHighRiskMen && i >= 2}
+                          // Whether a dose is a surplus one is a fact about the
+                          // series, not about which row it landed on. This used
+                          // to read `vk === "MenACWY" && !isHighRiskMen && i >= 2`
+                          // — a raw row count, the same defect the dose numbers
+                          // themselves had. For a healthy adolescent dosed at 11,
+                          // 14 and 16 it put the amber extra-dose tint on the
+                          // REQUIRED 16-year booster, which the Compliance tab
+                          // grades ON TIME and numbers "Dose 2 of 2", and left the
+                          // 14-year dose — the one that actually advances nothing
+                          // — looking ordinary. classifyDose already knows which
+                          // is which, and already accounts for high risk, so the
+                          // hand-written MenACWY rule is gone rather than fixed.
+                          isExtra={positions[givenIdxByRaw[originalIndex]]?.status === 'VALID_EXTRA'}
                           totalDoses={totalGivenDated}
                           risks={state.risks}
                           allDoses={sortedDoses}
