@@ -3,8 +3,8 @@
 import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
-import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
-import { MENACWY_AGE_7Y_MONTHS, MENACWY_BOOSTER_3Y, MENACWY_BOOSTER_5Y, isLiveVaccineContraindicated, menACWYOnRiskBasedSchedule, menacwyExposureCategory, menACWYGivenAtOrAfter16y, menACWYRoutineCount, menBEffectiveDoses, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
+import { pcvHighRiskChildPlan, hasBoosterDose, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
+import { advancingDoseCount, advancingDoses, MENACWY_AGE_7Y_MONTHS, MENACWY_BOOSTER_3Y, MENACWY_BOOSTER_5Y, isLiveVaccineContraindicated, menacwyExposureCategory, menACWYGivenAtOrAfter16y, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
 import { todayISO, addD, dBetween } from './utils.js';
 import { hardStopExclusion } from './hardStop.js';
 
@@ -124,7 +124,7 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       }
       if (am < 24) {
         // H5: even with 4 given doses, if no dose was at ≥12m the booster is still owed.
-        const givenPCV = (hist.PCV || []).filter(d => d.given && !isPCV7(d)).length;
+        const givenPCV = advancingDoseCount('PCV', hist, dob, risks);
         if (givenPCV >= 4 && !hasBoosterDose(hist.PCV, dob)) {
           return { totalDoses: givenPCV + 1 }; // schedules the missing booster
         }
@@ -133,7 +133,7 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       // Healthy 24–59m unvaccinated: CDC Table 2 catch-up = 1 dose. genRecs
       // emits this but buildOptimalSchedule used to skip it. Bug fix 2026-05-07.
       if (am < 60) {
-        const givenPCV = (hist.PCV || []).filter(d => d.given && !isPCV7(d)).length;
+        const givenPCV = advancingDoseCount('PCV', hist, dob, risks);
         return givenPCV === 0 ? { totalDoses: 1 } : null;
       }
       return null;
@@ -250,7 +250,7 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       // V1: routine series count excludes only doses given before the 10th birthday
       // (120mo) — see menACWYRoutineCount. isHRMen already returned above, so every
       // use of givenMen below is on the non-high-risk path.
-      const givenMen = menACWYRoutineCount(hist, dob);
+      const givenMen = advancingDoseCount('MenACWY', hist, dob, risks);
       if (am < 132) return { totalDoses: 2, seedAgeMonths: 132 }; // routine seed at 11-12y
       // Non-risk, beyond 22y (264m) with no doses: no routine indication.
       if (am > 264 && givenMen === 0) return null;
@@ -285,7 +285,7 @@ function seriesDoses(vk, { am, risks, hist, dob, today, cd4 }, fcBrands) {
       // 2-dose series (mirrors the isHRMen pre-10 exclusion for MenACWY above).
       // M2: high-risk patients' ambiguous pre-16 doses don't count either, unless
       // the provider confirmed the patient was already high-risk on that date.
-      const effMenB = menBEffectiveDoses(hist, dob, am, isHRMenB);
+      const effMenB = advancingDoses('MenB', hist, dob, risks, am);
       const givenMenB = effMenB.length;
       // High-risk (asplenia, complement, microbiologist, serogroup-B outbreak): 3-dose
       // accelerated series for BOTH antigen families (4C and FHbp), starting at 10y.
@@ -525,14 +525,9 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
                      'MMR', 'VAR', 'HepA', 'Flu', 'HPV', 'MenACWY', 'MenB', 'COVID'];
   const priority  = Object.fromEntries(VAX_ORDER.map((k, i) => [k, i]));
 
-  // V1: high-risk MenACWY patients keep the raw dose count (their primary-series
-  // doses may legitimately be pre-10 and still count); only the non-high-risk
-  // routine/catch-up path excludes confirmed pre-10 doses. Mirrors the isHRMen
-  // set in seriesDoses() above.
-  const isHRMenMain = (risks ?? []).some(r => ['asplenia', 'sickle_cell', 'complement', 'hiv'].includes(r));
-  // M1: MenB high-risk set (asplenia, sickle cell, complement, microbiologist,
-  // outbreak_b) — mirrors isHRMenB inside seriesDoses() above.
-  const isHRMenBMain = (risks ?? []).some(r => ['asplenia', 'sickle_cell', 'complement', 'microbiologist', 'outbreak_b'].includes(r));
+  // The two risk-set copies that used to live here (isHRMenMain, isHRMenBMain)
+  // are gone: advancingDoses() reads the same sets from stateHelpers, so they no
+  // longer need restating — which is the point of the consolidation.
 
   const reviews  = [];
   const allDoses = [];
@@ -551,15 +546,11 @@ export function buildOptimalSchedule(patient, fcBrands = {}, opts = {}) {
     // the outbreak schedule. Counting their pre-age-10 dose as zero made this
     // surface plan dose 1 again today alongside the top-up.
     // M15: microbiologists (ACIP Table 7) belong here too and were missed when
-    // M9 and M12 added travel and outbreak by hand. The list now lives in one
-    // place -- menACWYOnRiskBasedSchedule -- which also covers the medical
-    // high-risk tables, so isHRMenMain is folded into it.
-    const menOnBoosterSchedule = menACWYOnRiskBasedSchedule(risks ?? []);
-    const given  = (vk === 'MenACWY' && !isHRMenMain && !menOnBoosterSchedule)
-      ? menACWYRoutineCount(ctx.hist, ctx.dob)
-      : (vk === 'MenB')
-      ? menBEffectiveDoses(ctx.hist, ctx.dob, ctx.am, isHRMenBMain).length
-      : dc(ctx.hist, vk);
+    // How many recorded doses actually move this series forward. Three rules
+    // decide that (pre-16 MenB, pre-16 MenACWY on the routine schedule, obsolete
+    // PCV7) and they are all inside advancingDoses() now, rather than restated
+    // here as a three-way conditional.
+    const given = advancingDoses(vk, ctx.hist, ctx.dob, risks ?? [], ctx.am).length;
     const series = seriesDoses(vk, ctx, fcBrands);
 
     if (!series) continue;

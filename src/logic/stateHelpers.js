@@ -2,6 +2,7 @@
 // ║  STATE HELPERS — parameterized (no global S)                 ║
 // ╚══════════════════════════════════════════════════════════════╝
 import { isD, dBetween, addD } from './utils.js';
+import { isPCV7 } from './pcvDoses.js';
 
 /** Count of given doses for vaccine key. */
 export const dc = (hist, vk) => (hist[vk] || []).filter(d => d.given).length;
@@ -245,7 +246,7 @@ export function menACWYGivenAtOrAfter16y(hist, dob) {
  * using the raw dose count for high-risk patients (whose primary-series doses may
  * legitimately be pre-10 and pre-16, and still count).
  */
-export function menACWYRoutineCount(hist, dob) {
+export function menACWYRoutineDoses(hist, dob) {
   const given = (hist?.MenACWY || []).filter(d => d.given);
   const ageOf = (d) => {
     if (d.ageDays != null) return Number(d.ageDays) / 30.4375;
@@ -254,8 +255,12 @@ export function menACWYRoutineCount(hist, dob) {
   };
   return given
     .filter(d => { const a = ageOf(d); return a == null || a >= 120; })
-    .filter((d, i) => { if (i === 0) return true; const a = ageOf(d); return a == null || a >= 192; })
-    .length;
+    .filter((d, i) => { if (i === 0) return true; const a = ageOf(d); return a == null || a >= 192; });
+}
+
+/** How many of them there are. The original shape of this helper. */
+export function menACWYRoutineCount(hist, dob) {
+  return menACWYRoutineDoses(hist, dob).length;
 }
 
 /** Age of a dose in months, from ageDays or date+dob. Null if undeterminable. */
@@ -531,18 +536,60 @@ export function menACWYPrimaryTotal(givenDoses, doseAgeMonths, opts = {}) {
  *   number of given doses in `hist`.
  * @returns {number|null}
  */
-export function advancingDoseCount(vk, hist, dob, risks = [], rawTotal = undefined) {
+export function advancingDoseCount(vk, hist, dob, risks = [], rawTotal = undefined, am = null) {
   const given = (hist?.[vk] || []).filter((d) => d.given);
   const fallback = rawTotal === undefined ? given.length : rawTotal;
   if (given.length === 0) return fallback;
+  // Every other vaccine keeps the caller's own count. That matters: callers do
+  // not all mean the same thing by "recorded doses" (DosePill counts only dated
+  // ones), and overwriting their number would change what they were asking.
+  if (!HAS_NON_COUNTING_DOSES.has(vk)) return fallback;
+  return advancingDoses(vk, hist, dob, risks, am).length;
+}
+
+/** The vaccines where some recorded dose can fail to advance the series. */
+const HAS_NON_COUNTING_DOSES = new Set(['MenB', 'MenACWY', 'PCV']);
+
+/**
+ * WHICH recorded doses of a vaccine actually advance the series — the single
+ * place that question is answered.
+ *
+ * Three separate rules used to be written out by hand wherever they were needed,
+ * a total of six call sites across the recommendation engine and the optimal
+ * schedule. They agreed with each other, but only because somebody kept them in
+ * step: the same omission has been found and fixed three times (high-risk MenB,
+ * travelling MenACWY, then the MenACWY booster in PR #160). One function is what
+ * stops a fourth.
+ *
+ * @param {string} vk - vaccine key
+ * @param {object} hist - full patient history
+ * @param {string|null} dob - ISO date of birth
+ * @param {string[]} [risks] - patient risk factors
+ * @param {number|null} [am] - the patient's age in months NOW. Only an undated
+ *   dose needs it, and only for MenB: a dose with no date recorded could have
+ *   been given at 16 or later if the patient is old enough, and cannot have been
+ *   if they are not. Passing null means "unknown", which counts the dose — the
+ *   conservative direction, and the same convention menBEffectiveDoses already
+ *   uses. Pass the real age wherever you have it.
+ * @returns {object[]} the advancing doses, in recorded order
+ */
+export function advancingDoses(vk, hist, dob, risks = [], am = null) {
+  const given = (hist?.[vk] || []).filter((d) => d.given);
+  if (given.length === 0) return [];
 
   if (vk === 'MenB') {
-    return menBEffectiveDoses({ MenB: given }, dob, null, highRiskMenB(risks || [])).length;
+    return menBEffectiveDoses({ MenB: given }, dob, am, highRiskMenB(risks || []));
   }
   // Risk-based MenACWY schedules (ACIP Tables 7–9) keep every dose: a dose
   // given before age 10 is their PRIMARY dose, not a premature booster.
   if (vk === 'MenACWY' && !menACWYOnRiskBasedSchedule(risks || [])) {
-    return menACWYRoutineCount({ MenACWY: given }, dob);
+    return menACWYRoutineDoses({ MenACWY: given }, dob);
   }
-  return fallback;
+  // PCV7 (Prevnar 7) is the one non-meningococcal case, and it is a product
+  // rather than a mistiming: the dose was given correctly, but the seven
+  // serotypes it covered are no longer the series being counted.
+  if (vk === 'PCV') {
+    return given.filter((d) => !isPCV7(d));
+  }
+  return given;
 }

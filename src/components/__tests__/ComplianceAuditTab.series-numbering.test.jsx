@@ -147,6 +147,37 @@ describe('the popover behind a non-counting MenACWY dose', () => {
   });
 });
 
+// ── The one vaccine the header still counted the old way ───────────────
+describe('a PCV series containing an obsolete PCV7 dose', () => {
+  // Found live on 2026-09-15 while consolidating the dose counts (step 7). The
+  // header special-cased MenB and MenACWY and fell back to "every valid dose"
+  // for everything else — so it counted the PCV7 dose, while the cards below it
+  // correctly did not. Header read "3 of 4 doses" above cards numbered 1 and 2.
+  const PATIENT = {
+    dob: '2025-07-15', am: 14,
+    hist: { PCV: [
+      { given: true, mode: 'date', date: '2025-09-15', brand: 'Prevnar 7' },
+      { given: true, mode: 'date', date: '2025-11-15', brand: 'Prevnar 20' },
+      { given: true, mode: 'date', date: '2026-01-15', brand: 'Prevnar 20' },
+    ] },
+  };
+
+  it('does not count the obsolete dose in the header', () => {
+    const { container } = renderAudit(PATIENT);
+    expect(rowText(container, 'PCV')).toMatch(/2 of 4 doses/);
+    expect(rowText(container, 'PCV')).not.toMatch(/3 of 4 doses/);
+  });
+
+  it('and the cards agree with it', () => {
+    const { container } = renderAudit(PATIENT);
+    expect(cardLabels(container, 'PCV')).toEqual([
+      'Older PCV7 product \u2014 a current pneumococcal dose is still needed',
+      'Dose 1 of 4',
+      'Dose 2 of 4',
+    ]);
+  });
+});
+
 // ── The printout, which leaves the app and cannot be corrected later ────────
 describe('the printed compliance audit', () => {
   // Captures the HTML handed to the print window instead of opening one.

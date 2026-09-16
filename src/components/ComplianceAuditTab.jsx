@@ -16,7 +16,7 @@ import { REFS } from '../data/refs.js';
 import { validatedHistory, validateDose } from '../logic/validation';
 import { classifyDose, RULES_REGISTRY } from '../logic/compliance';
 import { fmtAgeClinical, fmtIntervalClinical, fmtAm } from '../logic/ageFormat';
-import { doseAgeDays, doseDate, isHighRiskMenACWY, menBEffectiveDoses, highRiskMenB, menACWYRoutineCount, isTravelOngoingMenACWY, menacwyExposureCategory, menACWYOnRiskBasedSchedule } from '../logic/stateHelpers';
+import { doseAgeDays, doseDate, isHighRiskMenACWY, highRiskMenB, isTravelOngoingMenACWY, advancingDoseCount } from '../logic/stateHelpers';
 import { getDoseBand } from '../data/aapDoseBands';
 import { fmtDateInput, addD, todayISO } from '../logic/utils';
 import { getTotalDoses } from '../logic/dosePlan';
@@ -657,45 +657,25 @@ function VaccineRow({ vk, doses, dob, hist, recs, fcBrands, am, risks, validHist
     expectedTotal = null;
   }
 
-  // M1: for non-high-risk MenB, a dose given before age 16 is valid (passes
-  // validateDose's interval/age checks above) but does NOT count toward the
-  // healthy 2-dose series completion — mirrors stateHelpers.menBEffectiveDoses()
-  // and MeningoVax's P0-1 fix (764f03a). Without this, a healthy patient with a
-  // dose at 10 and a dose at 16 was shown "Complete" after only 1 real dose.
-  // M2: for high-risk-now MenB, an ambiguous pre-16 dose without a confirmed
-  // 'yes' risk-at-dose answer likewise doesn't count — mirrors MeningoVax's M2
-  // (commit 981682c). Without this, "Complete" could show before the prompt
-  // in the History tab is even answered.
-  // M6: for non-high-risk MenACWY, a 2nd+ dose given before the age-16 booster
-  // window is valid (passes validateDose's checks above) but does NOT count toward
-  // the routine 2-dose series completion — mirrors stateHelpers.menACWYRoutineCount()
-  // and MeningoVax's Change 3 (commit 3172a0a). Without this, a healthy patient with
-  // a dose at 11 and an early dose at 14 was shown "Complete" with the true 16y
-  // booster still owed. High-risk patients keep the raw count (their primary series
-  // legitimately has 2+ pre-16 doses).
-  const effectiveCount = vk === 'MenB'
-    ? menBEffectiveDoses({ MenB: validDoses }, dob, am, highRiskMenB(risks || [])).length
-    // M9: travelers are excluded alongside the medically high-risk. Their doses
-    // are on ACIP Table 9, not the routine adolescent series, so a dose given
-    // before the 10th birthday is their PRIMARY dose and must count. Counting it
-    // as zero made this tab read "In progress · 0 of 2 doses" for a child whose
-    // dose was recorded right below, graded ON TIME. Same discount, same fix, as
-    // buildOptimalSchedule's given-dose count.
-    // M12: an A/C/W/Y outbreak contact is excluded for the same reason — they
-    // are on ACIP Table 8, which that same ACIP sentence names ("Tables 4, 5, 6,
-    // 7, 8, and 9"), so their pre-age-10 dose is their primary dose. Without
-    // this the tab read "In progress - 0 of 2 doses" directly above the dose it
-    // had just graded ON TIME, exactly as it did for travelers before M9.
-    // M15: and a microbiologist is on ACIP Table 7, which that same sentence
-    // names. The tab read "In progress - 0 of 2 doses" above a dose it had just
-    // graded ON TIME, exactly as it did for travelers before M9 and outbreak
-    // contacts before M12. The three hand-written conditions that used to sit
-    // here are now one shared helper, so the next group cannot be missed.
-    // Military and college recruits (Table 10) are NOT covered and keep the
-    // routine rule -- that is per ACIP, not an oversight.
-    : vk === 'MenACWY' && !menACWYOnRiskBasedSchedule(risks || [])
-    ? menACWYRoutineCount({ MenACWY: validDoses }, dob)
-    : validCount;
+  // How many recorded doses actually advance the series. Three rules decide
+  // that — a pre-16 MenB dose in a healthy patient (M1/M2), a pre-16 second
+  // MenACWY dose on the routine schedule (M6), and an obsolete PCV7 product —
+  // and they all live in stateHelpers.advancingDoses() now.
+  //
+  // This used to name MenB and MenACWY explicitly and fall back to "every valid
+  // dose" for everything else, which meant it counted PCV7 doses the cards
+  // below it did not. Reproduced live 2026-09-15 with a 14-month-old whose PCV7
+  // dose was followed by two current ones: the header read "In progress · 3 of
+  // 4 doses" directly above cards numbered "Dose 1 of 4" and "Dose 2 of 4" —
+  // the same header/card contradiction this project began with, surviving in
+  // the one vaccine nobody had named here.
+  //
+  // validDoses, not hist: a dose dropped by validatedHistory was never in this
+  // count, and passing validCount as the fallback keeps every other vaccine
+  // answering exactly what it answered before.
+  const effectiveCount = advancingDoseCount(
+    vk, { [vk]: validDoses }, dob, risks || [], validCount, am
+  );
 
   // Count extra doses: doses beyond the standard series total that are VALID_EXTRA
   // Use effectivePrevByRawIdx for correct interval computation.

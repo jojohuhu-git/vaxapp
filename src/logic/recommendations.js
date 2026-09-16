@@ -1,9 +1,9 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menACWYOnRiskBasedSchedule, menBEffectiveDoses, menACWYRoutineCount, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYInfantSeriesIndicated, menacwyExposureCategory, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y, MENACWY_BOOSTER_5Y, MENACWY_AGE_7Y_MONTHS } from './stateHelpers.js';
+import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menACWYOnRiskBasedSchedule, menACWYRoutineCount, advancingDoseCount, advancingDoses, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYInfantSeriesIndicated, menacwyExposureCategory, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y, MENACWY_BOOSTER_5Y, MENACWY_AGE_7Y_MONTHS } from './stateHelpers.js';
 import { isD, dBetween } from './utils.js';
-import { pcvHighRiskChildPlan, hasBoosterDose, isPCV7 } from './pcvDoses.js';
+import { pcvHighRiskChildPlan, hasBoosterDose } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
 import { hardStopExclusion } from './hardStop.js';
 
@@ -196,7 +196,9 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // ── PCV (conjugate: PCV13/PCV15/PCV20) ───────────────────────
   // PPSV23 is now tracked separately under hist["PPSV23"] — dc(hist,"PCV") counts
   // only conjugate doses, preventing PPSV23 from masking an incomplete PCV series.
-  const pcv = (hist.PCV || []).filter(d => d.given && !isPCV7(d)).length;
+  // PCV7 doses are dropped by the shared helper, not by a filter written out
+  // here — see stateHelpers.advancingDoses().
+  const pcv = advancingDoseCount("PCV", hist, dob, risks);
   const ppsv23 = dc(hist, "PPSV23");
   const isHighRiskPCV = risks.some(x => ["asplenia", "sickle_cell", "hiv", "immunocomp", "cochlear", "chronic_heart", "chronic_lung", "chronic_kidney", "chronic_kidney_dialysis", "diabetes", "chronic_liver"].includes(x));
   // PCV20 = series complete after 1 dose (no PPSV23 needed). PCV15/PCV13 require PPSV23 follow-up.
@@ -972,7 +974,7 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   // protection at 16. High-risk patients keep every dose (their primary series
   // legitimately starts at 10y). Mirrors V1's MenACWY pre-age-10 exclusion
   // (menRoutine above) and MeningoVax's P0-1 fix (commit 764f03a).
-  const menbEffective = menBEffectiveDoses(hist, dob, am, hrMenB);
+  const menbEffective = advancingDoses('MenB', hist, dob, risks, am);
   const menbCount = menbEffective.length;
   if (am >= 120) {
     if (menbCount === 0 && (hrMenB || (am >= 192 && am < 288))) {
