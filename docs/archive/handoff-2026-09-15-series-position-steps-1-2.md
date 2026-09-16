@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-09-15).** The queue below is DONE: steps 3-7 all shipped in the
+> session that resumed this file. See
+> [`handoff-2026-09-15-dose-numbering-complete.md`](handoff-2026-09-15-dose-numbering-complete.md)
+> for the current state, the three open owner questions, and what to pick up next.
+> Do not resume the queue in this file.
+
 # vaxapp (PediVax) — Handoff after shipping series-position steps 1–2 and two clinical fixes (2026-09-15)
 
 Repo: `~/Downloads/vaxapp-main`. Live: https://jojohuhu-git.github.io/vaxapp/

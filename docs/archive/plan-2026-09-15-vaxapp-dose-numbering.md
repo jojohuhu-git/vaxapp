@@ -1,6 +1,11 @@
 # Plan — dose numbering in vaxapp (PediVax)
 
-**Status: STEPS 1-2 SHIPPED (2026-09-15), steps 3-7 not started.** The three open
+**Status: COMPLETE (2026-09-15). All seven steps shipped** — steps 1-2 in PR #160,
+steps 3-7 in PRs #163, #164, #165, #166 and #167. See
+[`handoff-2026-09-15-dose-numbering-complete.md`](handoff-2026-09-15-dose-numbering-complete.md).
+Nothing in this plan is outstanding; it is kept as the record of why the work was done.
+
+**(Original status line, for context:) STEPS 1-2 SHIPPED (2026-09-15), steps 3-7 not started.** The three open
 decisions in §6 are all ANSWERED - see
 [`handoff-2026-09-15-series-position-steps-1-2.md`](handoff-2026-09-15-series-position-steps-1-2.md)
 and memory `project_dose_numbering_decisions.md`. Do not re-ask them. Two clinical bugs
