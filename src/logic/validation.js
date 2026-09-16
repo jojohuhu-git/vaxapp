@@ -857,13 +857,26 @@ export function auditAll(hist, dob, risks = [], am = -1) {
     // Get D1 date for d1Cross checks
     const firstDoseDate = datedDoses.length > 0 ? doseDate(datedDoses[0], dob) : null;
 
+    // HepB: index at which surplus extra doses start, once the 3-dose series has
+    // already finished. Timing rules do not apply to a dose the series did not
+    // need — see hepBSeriesFinishedAtStandardPosition. Brand and off-label checks
+    // still do: giving the wrong product for the patient's age is a real finding
+    // whether or not the dose was necessary.
+    const hepBExtraFromIdx =
+      vk === "HepB" && datedDoses.length > HEPB_STANDARD_TOTAL
+        && hepBSeriesFinishedAtStandardPosition(datedDoses.filter(d => d.given), dob, risks)
+        ? HEPB_STANDARD_TOTAL
+        : null;
+    const TIMING_TYPES = new Set(["interval", "min_age", "d1Cross", "iByTotalDoses"]);
+
     datedDoses.forEach((dose, idx) => {
       const prev = idx > 0 ? datedDoses[idx - 1] : null;
       const vr = validateDose(vk, idx, dose, prev, dob, patientAgeDays, firstDoseDate, datedDoses.length, risks, datedDoses);
       const thisDt = doseDate(dose, dob);
       const effectiveN = thisDt ? effectiveDoseByDate[thisDt] : undefined;
+      const isSurplusExtra = hepBExtraFromIdx !== null && idx >= hepBExtraFromIdx;
       if (!vr.ok || vr.grace || vr.offLabel || vr.advisory) {
-        (vr.results || []).forEach(r => {
+        (vr.results || []).filter(r => !(isSurplusExtra && TIMING_TYPES.has(r.type))).forEach(r => {
           if (r.type === "off_label") {
             errors.push({ vk, doseNum: idx + 1, type: "off_label", severity: r.countable ? "offLabel" : "err",
               title: `${VAX_META[vk].n} \u2014 Dose ${idx + 1} Off-Label Use (${dose.brand || ""})`,
@@ -952,6 +965,70 @@ export function auditAll(hist, dob, risks = [], am = -1) {
  * @param {string} dob - patient date of birth (ISO string)
  * @param {string[]} risks - patient risk-factor ids
  */
+/**
+ * HEPB ONLY — did the 3-dose series already finish before the extra dose(s)?
+ *
+ * A 4th hepatitis B dose has two quite different meanings, and the difference
+ * decides whether anything is owed:
+ *
+ *   Combination-vaccine schedule (birth dose + Pediarix/Vaxelis at 2/4/6 months).
+ *     The 4-month dose is below the 24-week minimum age for a final dose, so it
+ *     cannot end the series. The series genuinely runs to the 4th dose, and the
+ *     4th dose has to meet the final-dose rules.
+ *
+ *   A complete series plus one more dose (0/2/9 months, then another).
+ *     The 9-month dose already cleared every final-dose rule, so the child was
+ *     finished. The later dose is surplus — safe, but not part of the series,
+ *     and not something the final-dose rules should be measured against.
+ *
+ * This answers which of the two a record is, by asking the ordinary validator
+ * whether the 3rd dose would have been a valid final dose had the record stopped
+ * there. Passing `totalDoses = 3` is what makes that a real question: the 4-dose
+ * relaxation below keys off `totalDoses >= 4`, so a 3 puts the validator back
+ * into strict final-dose mode. It also means this never re-enters itself.
+ *
+ * Returns false whenever the answer cannot be computed (no DOB, an undated dose,
+ * fewer than 3 doses). False preserves the previous behaviour, so an unknown
+ * never silently changes a grade.
+ *
+ * Sources, fetched live 2026-09-15:
+ *   CDC child & adolescent schedule notes, Hepatitis B — "Final (3rd or 4th)
+ *     dose: age 6-18 months (minimum age 24 weeks)";
+ *     https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html
+ *   CDC General Best Practices, Timing and Spacing of Immunobiologics — "An
+ *     extra dose of many live-virus vaccines and Hib or hepatitis B vaccine has
+ *     not been found to be harmful";
+ *     https://www.cdc.gov/vaccines/hcp/imz-best-practices/timing-spacing-immunobiologics.html
+ *
+ * @param {object[]} doses - given, dated doses for HepB, in date order
+ * @param {string|null} dob
+ * @param {string[]} risks
+ * @returns {boolean}
+ */
+export const HEPB_STANDARD_TOTAL = 3;
+
+export function hepBSeriesFinishedAtStandardPosition(doses, dob, risks = []) {
+  if (!dob) return false;
+  const upTo = (doses || []).slice(0, HEPB_STANDARD_TOTAL);
+  if (upTo.length < HEPB_STANDARD_TOTAL) return false;
+  if (upTo.some(d => !d.given || d.mode === "unknown" || doseAgeDays(d, dob) == null)) return false;
+
+  const finalIdx = HEPB_STANDARD_TOTAL - 1;
+  const vr = validateDose(
+    "HepB",
+    finalIdx,
+    upTo[finalIdx],
+    upTo[finalIdx - 1],
+    dob,
+    null,
+    doseDate(upTo[0], dob),
+    HEPB_STANDARD_TOTAL, // load-bearing: grade it as a final dose, not an intermediate one
+    risks || [],
+    upTo
+  );
+  return vr.ok === true && !vr.err;
+}
+
 export function validatedHistory(hist, dob, risks = []) {
   const out = {};
   for (const vk of VAX_KEYS) {
@@ -963,9 +1040,34 @@ export function validatedHistory(hist, dob, risks = []) {
     let firstValidDate = null; // tracks D1 date for d1Cross checks (HepB ≥112d, HPV ≥152d, MenB ≥182d)
     // Total given-and-dated dose count for schedule-path-aware validation (e.g. HepB 4-dose)
     const totalGivenDated = doses.filter(d => d.given && d.mode !== "unknown").length;
+
+    // HepB: if the 3-dose series already finished, every dose after it is a
+    // surplus extra. Those are safe and nothing is owed for them (CDC General
+    // Best Practices, quoted above), so they must not be run through the
+    // final-dose rules and reported as doses that "must be repeated". Before
+    // this, a child with a complete series at 0/2/9 months plus one harmless
+    // duplicate was shown "In progress - 3 valid - 1 invalid" on the Compliance
+    // tab, directly above a dose card the same tab had graded VALID - EXTRA.
+    // Index into the given-and-dated sequence, not the raw array.
+    const hepBExtraFromSeqIdx =
+      vk === "HepB" && totalGivenDated > HEPB_STANDARD_TOTAL
+        && hepBSeriesFinishedAtStandardPosition(
+          doses.filter(d => d.given && d.mode !== "unknown"), dob, risks
+        )
+        ? HEPB_STANDARD_TOTAL
+        : null;
+    let seqIdx = -1;
+
     for (const dose of doses) {
       if (!dose.given) { kept.push(dose); continue; }
       if (dose.mode === "unknown") { kept.push(dose); continue; }
+      seqIdx++;
+      if (hepBExtraFromSeqIdx !== null && seqIdx >= hepBExtraFromSeqIdx) {
+        // A surplus extra: kept so it is not counted as an invalid dose, but it
+        // does not advance validIdx — it is not part of the series.
+        kept.push(dose);
+        continue;
+      }
       const prevKept = kept.filter(k => k.given && k.mode !== "unknown").slice(-1)[0] || null;
       const vr = validateDose(vk, validIdx, dose, prevKept, dob, null, firstValidDate, totalGivenDated, risks, kept);
       if (vr.ok) {

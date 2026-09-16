@@ -24,7 +24,7 @@
  *                  answered whether the patient was already high-risk on that date — M2.
  */
 
-import { validateDose } from './validation.js';
+import { validateDose, hepBSeriesFinishedAtStandardPosition } from './validation.js';
 import { doseAgeDays, doseAgeMonths, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menBSeriesTotal, advancingDoseCount } from './stateHelpers.js';
 import { getDoseBand } from '../data/aapDoseBands.js';
 import { fmtAgeClinical } from './ageFormat.js';
@@ -267,6 +267,57 @@ function ipvStandardTotal(hist, dob) {
 }
 
 /**
+ * Did the series already finish at its standard final position, without needing
+ * the doses recorded after it?
+ *
+ * Asks the ordinary validator one narrow question: if this patient's record had
+ * stopped at the standard number of doses, would that dose have been a valid
+ * final dose? Passing `totalDoses = standardTotal` is what makes it a real
+ * question — validateDose applies the strict final-dose rules (for HepB, the
+ * 24-week minimum age and the interval floors) at that position rather than the
+ * relaxed intermediate-dose rules it uses when it knows more doses follow.
+ *
+ * A "no" is the combination-vaccine case: the dose at that position could not
+ * end the series (a HepB dose at 4 months is below the 24-week floor), so the
+ * series legitimately ran on and the surplus dose is an interior one.
+ *
+ * Returns false whenever the answer cannot be computed — no DOB, an undated
+ * dose, a missing dose. False preserves the previous behaviour, so an unknown
+ * never silently changes a grade.
+ *
+ * @param {string} vk
+ * @param {number} standardTotal - the routine number of doses for this series
+ * @param {object|null} hist - full patient history
+ * @param {string|null} dob
+ * @param {string[]} risks
+ * @returns {boolean}
+ */
+function seriesFinishedAtStandardPosition(vk, standardTotal, hist, dob, risks) {
+  // HepB only, deliberately — and the reason is not "that is where the bug was
+  // reported", it is that the question is only answerable for HepB.
+  //
+  // The trick relies on HepB's final-dose strictness being a function of the
+  // DOSE COUNT: validation.js relaxes the 24-week floor for intermediate doses
+  // only when `totalDoses >= 4`, so asking with a 3 genuinely puts the validator
+  // back into strict final-dose mode.
+  //
+  // Hib does not work that way. Its 12-month booster floor at dose 3 is waived
+  // by BRAND (a Vaxelis dose 3 is a third primary dose, not a booster — see the
+  // Hib block in validation.js), and brand does not change with the dose count.
+  // So for a PedvaxHIB 2/4mo + Vaxelis 6/15mo record the validator calls the
+  // 6-month dose valid, this would wrongly conclude the series ended there, and
+  // the 15-month booster would be graded the extra one. That is the opposite of
+  // correct, and compliance.scenarios.test.js pins it.
+  //
+  // IPV is simply unverified: its 5-dose shape may well have the same latent
+  // problem as HepB, but confirming that needs its own live source check and its
+  // own fixtures. Both stay on the positional rule until someone does that work.
+  if (vk !== 'HepB' || standardTotal !== 3) return false;
+  const doses = (hist?.[vk] || []).filter((d) => d.given && d.mode !== 'unknown');
+  return hepBSeriesFinishedAtStandardPosition(doses, dob, risks);
+}
+
+/**
  * For an extended series (totalDoses > standardTotal), determine which dose
  * indices are the "extra" intermediate doses vs the legitimate final dose.
  *
@@ -281,8 +332,49 @@ function ipvStandardTotal(hist, dob) {
  *     - Same pattern: second-to-last is extra, last is final
  *   Generic fallback: extras are the last (totalDoses - standardTotal) doses EXCEPT
  *     the very last dose, which is treated as the legitimate final.
- *     Exception: if scenario === 'generic_combo' and totalDoses - standardTotal === 1,
- *     the last dose is both the extra AND the final (use last position as extra).
+ *
+ * WHICH DOSE IS THE EXTRA ONE — the second-to-last, or the last?
+ * (investigated 2026-09-15; the answer is "it depends", and here is the test)
+ *
+ *   Every case above assumes the combination-vaccine shape, where the surplus
+ *   dose sits in the middle and the last dose is the one that finishes the
+ *   series. That assumption was baked in positionally, and it is wrong whenever
+ *   the earlier doses already finished the series by themselves.
+ *
+ *   Reported: a 4-dose HepB record at 0 / 2 / 9 / 17 months graded the 9-month
+ *   dose "extra" and the 17-month dose "on time". But 0 / 2 / 9 is a complete,
+ *   valid 3-dose series — the 9-month dose clears every final-dose rule (>=24
+ *   weeks of age, >=16 weeks after dose 1, >=8 weeks after dose 2). The dose the
+ *   child did not need is the one at 17 months.
+ *
+ *   The same positional assumption had a sharper edge. For 0 / 2 / 9 / 9.5
+ *   months — a complete series plus one harmless duplicate — the app voided the
+ *   9-month dose's credit, applied the final-dose interval rules to the
+ *   duplicate, failed it, and reported "must repeat" at 2 of 3 doses. That tells
+ *   a clinician a fully immunised child still owes a hepatitis B injection.
+ *
+ *   So: ask whether the series was already finished, instead of assuming it was
+ *   not. If the dose sitting at the standard final position passes every rule
+ *   for a final dose, the series ended there and the LAST dose is the extra.
+ *   Otherwise the series had to run on, and the second-to-last dose is the
+ *   extra — which is exactly the combination-vaccine case, preserved unchanged
+ *   (a 4-month dose is below the 24-week floor, so it can never end the series).
+ *
+ *   Sources, fetched live 2026-09-15:
+ *     CDC child & adolescent schedule notes, Hepatitis B —
+ *       "Administration of 4 doses is permitted when a combination vaccine
+ *        containing HepB is used after the birth dose."
+ *       "Final (3rd or 4th) dose: age 6-18 months (minimum age 24 weeks)"
+ *       https://www.cdc.gov/vaccines/hcp/imz-schedules/child-adolescent-notes.html
+ *     CDC General Best Practices, Timing and Spacing of Immunobiologics —
+ *       "An extra dose of many live-virus vaccines and Hib or hepatitis B
+ *        vaccine has not been found to be harmful."
+ *       https://www.cdc.gov/vaccines/hcp/imz-best-practices/timing-spacing-immunobiologics.html
+ *     The schedule notes' "when 4 doses are administered, substitute 'dose 4'
+ *     for 'dose 3' in these calculations" is a rule for checking minimum
+ *     INTERVALS in the combination-vaccine schedule it introduces. It does not
+ *     say an earlier dose that already finished the series stops counting, and
+ *     it was previously read here as if it did.
  *
  * Returns a Set of extra dose indices.
  *
@@ -290,14 +382,26 @@ function ipvStandardTotal(hist, dob) {
  * @param {number} totalDoses - total given doses for this vaccine
  * @param {number} standardTotal - STANDARD_SERIES_TOTAL[vk]
  * @param {object|null} hist - full patient history
+ * @param {string|null} dob - patient DOB, needed to ask whether the series already finished
+ * @param {string[]} risks - patient risk factors, passed through to validateDose
  * @returns {Set<number>}
  */
-function extraDoseIndices(vk, totalDoses, standardTotal, hist) {
+function extraDoseIndices(vk, totalDoses, standardTotal, hist, dob = null, risks = []) {
   // For Hib, standardTotal is brand-aware and may have been computed outside
   // this function. Recompute here using hist to stay consistent.
   const effectiveStandard = vk === 'Hib' ? hibStandardTotal(hist) : standardTotal;
   const extraCount = totalDoses - effectiveStandard;
   if (extraCount <= 0) return new Set();
+
+  // Exactly one dose beyond the standard total is the case worth reasoning about
+  // — it is the combination-vaccine shape, and the shape of a single duplicate.
+  // If the dose at the standard final position already finished the series, the
+  // surplus dose is the LAST one, not the one before it. See the long note above.
+  // Two or more extras is rare enough that the positional fallback still stands;
+  // changing it would need its own fixture set and its own clinical review.
+  if (extraCount === 1 && seriesFinishedAtStandardPosition(vk, effectiveStandard, hist, dob, risks)) {
+    return new Set([totalDoses - 1]);
+  }
 
   const scenario = hist ? detectExtraScenario(vk, totalDoses - 1, hist) : null;
 
@@ -569,7 +673,7 @@ export function classifyDose(vk, doseIdx, dose, totalDoses, dob, prevDose = null
   // advancingDoseCount() for the live-verified MenACWY case.
   const advancingTotal = advancingDoseCount(vk, hist, dob, risks, totalDoses);
   if (standardTotal != null && advancingTotal != null && advancingTotal > standardTotal) {
-    const extraSet = extraDoseIndices(vk, totalDoses, standardTotal, hist);
+    const extraSet = extraDoseIndices(vk, totalDoses, standardTotal, hist, dob, risks);
     if (extraSet.has(doseIdx)) {
       // This is an intermediate extra dose — classify as VALID_EXTRA before validateDose.
       // Named combo scenarios override schedule-rule min-age violations for this index.
