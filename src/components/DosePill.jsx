@@ -725,7 +725,14 @@ export default function DosePill({ vk, index, dispatchIndex, dose, prevDose, dob
         }}
         title={compliance.label}
       />
-      <span>{dateLabel}</span>
+      {/*
+        Struck through when this dose owes a repeat — the same signal the
+        Compliance tab's dose card shows, on the surface a clinician is looking at
+        while they type the history in. `position` comes from HistoryTable; it is
+        null for a dose that is not recorded as given. The pill's own tint is what
+        supports the strike here, so the date keeps its colour.
+      */}
+      <span style={position?.struck ? { textDecoration: 'line-through' } : undefined}>{dateLabel}</span>
       {dose.brand && (
         <span style={{ fontSize: 10, color: "#666", padding: "0 2px" }}>{dose.brand}</span>
       )}
