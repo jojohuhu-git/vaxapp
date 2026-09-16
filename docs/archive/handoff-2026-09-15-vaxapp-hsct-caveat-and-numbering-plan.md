@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-09-15)** — replaced by
+> [`handoff-2026-09-15-series-position-steps-1-2.md`](handoff-2026-09-15-series-position-steps-1-2.md).
+> The three questions this file says are blocking have all been **answered** by the
+> owner; steps 1 and 2 of the numbering plan are **shipped and merged** (PRs #160, #161).
+> Do not resume from this file.
+
 # vaxapp (PediVax) — Handoff after shipping the HSCT caveat and planning the numbering project (2026-09-15)
 
 Repo: `~/Downloads/vaxapp-main`. Live: https://jojohuhu-git.github.io/vaxapp/
