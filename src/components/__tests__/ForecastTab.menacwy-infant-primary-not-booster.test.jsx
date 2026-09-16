@@ -19,10 +19,24 @@ afterEach(cleanup);
 
 // Dates are derived from today so the fixture cannot rot: the patient is always
 // exactly 12 months old, with MenACWY doses at 2, 4 and 6 months of age.
-const iso = (d) => d.toISOString().slice(0, 10);
+//
+// These MUST be built from the LOCAL date, not the UTC one. toISOString()
+// converts to UTC, so for anyone west of Greenwich every run after local
+// evening lands on TOMORROW's UTC date: the date of birth moved a day later
+// than intended, the patient came out one day short of 12 months old, and the
+// engine correctly withheld a dose that is not due yet. The row vanished and
+// all five tests here failed — on a fixture whose own comment promised it
+// could not rot.
+//
+// Seen 2026-09-15 at 17:21 PDT, which is 00:21 on 2026-09-16 UTC.
+const iso = (d) => [
+  d.getFullYear(),
+  String(d.getMonth() + 1).padStart(2, '0'),
+  String(d.getDate()).padStart(2, '0'),
+].join('-');
 const monthsAgo = (n) => {
   const d = new Date();
-  d.setUTCMonth(d.getUTCMonth() - n);
+  d.setMonth(d.getMonth() - n);
   return iso(d);
 };
 const mk = (date) => ({ given: true, mode: 'date', date, brand: '' });
