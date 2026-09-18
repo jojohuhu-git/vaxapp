@@ -134,21 +134,27 @@ describe('D5: 7–11m and 12–23m high-risk MenACWY D2 interval ≥12 weeks (wa
     expect(r.note).toMatch(/12 months|7.*11|infant|high-risk/i);
   });
 
-  it('minInt NOT changed for 2–6m primary series (stays ≥4 weeks)', () => {
+  // CORRECTED 2026-09-17: written to check that the D5 fix (12 weeks for the
+  // 7-23-month band) did not leak into the 2-6-month band. That guard still
+  // matters and still passes — the band keeps its OWN interval, which turned
+  // out to be 8 weeks, not the 4 this test was pinning. See
+  // regression-menacwy-infant-8week-interval.test.js for the CDC wording.
+  it('the 2–6m primary series keeps its own interval, and it is 8 weeks', () => {
     const r = firstRec('MenACWY', 3, {}, ['asplenia']);
     expect(r).not.toBeNull();
-    expect(r.minInt).toBe(28); // 4 weeks — unchanged
+    expect(r.minInt).toBe(56);       // 8 weeks
+    expect(r.minInt).not.toBe(84);   // the D5 12-week rule must not leak in
   });
 });
 
 // ── D6: 3-dose shortcut ──────────────────────────────────────────────────────
 
 describe('D6: 3-dose shortcut when high-risk infant D2 was given at ≥7m', () => {
-  it('4m asplenia, D1 given at 2m, D2 given at 7m → D3 label says "of 3", not "of 4"', () => {
-    // D1 at age 2m (ageDays ~61), D2 at age 7m (~213d)
+  it('4m asplenia, D1 given at 3m, D2 given at 7m → D3 label says "of 3", not "of 4"', () => {
+    // D1 at age 3m (ageDays ~91), D2 at age 7m (~213d)
     const hist = {
       MenACWY: [
-        { given: true, mode: 'age', ageDays: 61 },   // ~2m
+        { given: true, mode: 'age', ageDays: 95 },   // ~3.1m
         { given: true, mode: 'age', ageDays: 215 },  // ~7.1m (≥7m; 213d is exactly 6.995m due to 30.4375 divisor)
       ],
     };
@@ -158,10 +164,30 @@ describe('D6: 3-dose shortcut when high-risk infant D2 was given at ≥7m', () =
     expect(r.dose || '').toMatch(/of 3|3 of 3|3-dose/i);
   });
 
-  it('4m asplenia, D1 at 2m, D2 at 4m (NOT ≥7m) → still 4-dose path', () => {
+  // V2 (2026-09-18, meningo parity queue): CDC gives a dose 1 at 2 months a
+  // FLAT 4-dose series, no "or" about it — the shortcut is the 3-6 month row
+  // only ("Dose 1 at age 2 months: 4-dose series" vs "Dose 1 at age 3-6
+  // months: 3- or 4-dose series", cdc.gov child-adolescent-notes.html, fetched
+  // live 2026-09-15). menACWYPrimaryTotal() used to apply the shortcut from
+  // d1AgeM>=2, so a 2-month start whose dose 2 landed at 7+ months was wrongly
+  // offered a 3-dose series — the same bug MeningoVax found and fixed first.
+  it('4m asplenia, D1 given at 2m, D2 given at 7m → still "of 4" (2-month start has no shortcut)', () => {
     const hist = {
       MenACWY: [
-        { given: true, mode: 'age', ageDays: 61 },  // ~2m
+        { given: true, mode: 'age', ageDays: 61 },   // ~2m
+        { given: true, mode: 'age', ageDays: 215 },  // ~7.1m (≥7m) — does NOT trigger the shortcut from a 2m start
+      ],
+    };
+    const r = firstRec('MenACWY', 13, hist, ['asplenia']);
+    expect(r).not.toBeNull();
+    expect(r.dose || '').toMatch(/of 4/);
+    expect(r.dose || '').not.toMatch(/of 3/);
+  });
+
+  it('4m asplenia, D1 at 3m, D2 at 4m (NOT ≥7m) → still 4-dose path', () => {
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'age', ageDays: 95 },  // ~3.1m
         { given: true, mode: 'age', ageDays: 122 }, // ~4m (NOT ≥7m)
       ],
     };
@@ -172,11 +198,11 @@ describe('D6: 3-dose shortcut when high-risk infant D2 was given at ≥7m', () =
     }
   });
 
-  it('Surface 5 (optimal): D6 path produces 3 total MenACWY doses when D2 was at ≥7m', () => {
-    // If D1 at 2m, D2 at 7m, patient now at 6m — buildOptimalSchedule should plan 1 more dose
+  it('Surface 5 (optimal): D6 path produces 3 total MenACWY doses when D1 was 3-6m and D2 was at ≥7m', () => {
+    // If D1 at 3m, D2 at 7m, patient now at 6m — buildOptimalSchedule should plan 1 more dose
     const hist = {
       MenACWY: [
-        { given: true, mode: 'age', ageDays: 61 },  // ~2m
+        { given: true, mode: 'age', ageDays: 95 },  // ~3.1m
         { given: true, mode: 'age', ageDays: 215 }, // ~7.1m (≥7m with divisor tolerance)
       ],
     };
@@ -186,6 +212,25 @@ describe('D6: 3-dose shortcut when high-risk infant D2 was given at ≥7m', () =
     const menDoses = schedule.flatMap(v => v.items).filter(d => d.vk === 'MenACWY');
     // 1 more dose needed (D3 of 3 on shortcut path)
     expect(menDoses.length).toBeLessThanOrEqual(1);
+  });
+
+  it('Surface 5 (optimal): a 2-month start still needs 2 more doses, not 1 (no shortcut)', () => {
+    // dob is needed here (unlike the other Surface 5 case above) — the infant
+    // interval/floor logic that decides whether a dose is "the final one" only
+    // runs when d1Date is resolvable, which age-mode doses with no dob cannot do.
+    const dob = '2024-01-01';
+    const hist = {
+      MenACWY: [
+        { given: true, mode: 'date', date: '2024-03-01' },  // ~2m
+        { given: true, mode: 'date', date: '2024-08-01' },  // ~7m
+      ],
+    };
+    const schedule = buildOptimalSchedule(
+      { am: 14, dob, risks: ['asplenia'], hist }, {}, { today: '2025-03-01', mode: 'fewestVisits' }
+    );
+    const menDoses = schedule.flatMap(v => v.items).filter(d => d.vk === 'MenACWY');
+    expect(menDoses).toHaveLength(2);
+    expect(menDoses.every(d => d.totalDoses === 4)).toBe(true);
   });
 });
 

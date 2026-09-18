@@ -147,8 +147,15 @@ describe('M12 — the other surfaces, not just the Recommendations tab', () => {
 
   it('it dates a top-up that is not due yet 3 years from the last dose', () => {
     const plan = optimal(72, '2020-09-15', ['outbreak_acwy'], { MenACWY: [mk('2024-09-15')] });
-    // M19 (2026-09-15): 3 years is 1096 days (averaged calendar years), was 1095.
-    expect(plan).toEqual([{ n: 2, d: '2027-09-16' }]);
+    // V1 (2026-09-18): this fixture is fixture rot, not a corrected behavior —
+    // 2024-09-15 to 2027-09-15 is a real, exact 3-calendar-year span with no
+    // 29 February inside it, so the true anniversary is 2027-09-15. The old
+    // expectation (2027-09-16) encoded the same averaged-day bug the
+    // production code had (M19's 1096-day constant); both were wrong in the
+    // same direction, which is why they agreed. Fixed onto calendar months
+    // (MENACWY_BOOSTER_3Y_MONTHS in stateHelpers.js) — see the V1 regression
+    // test for the full writeup.
+    expect(plan).toEqual([{ n: 2, d: '2027-09-15' }]);
   });
 
   it('an infant outbreak contact is still planned on infant intervals, not 3 years', () => {

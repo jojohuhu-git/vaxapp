@@ -24,6 +24,34 @@ export const addD = (d, n) => {
 /** Validate that s is a valid ISO date (YYYY-MM-DD). */
 export const isD = s => !!(s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s)));
 
+// V1: a real 3-year span is 1095 days in the 3 years out of 4 that don't
+// contain a 29 February, and 1096 only when one does — so comparing a booster
+// against a fixed day count voids an on-time dose given on its exact
+// anniversary most of the time. addCalendarMonths/calendarIntervalElapsed
+// compare real calendar dates instead. Ported from MeningoVax's dateUtils.js
+// (commit 9390eea) — week-based minimums (4/8/12 weeks) are exact day counts
+// and are NOT part of this; they keep using addD/dBetween above.
+
+/** The same day-of-month `months` (a whole number, rounded) later, clamped to
+ *  the last day when the target month is shorter (31 Jan + 1 month = 28/29 Feb). */
+export function addCalendarMonths(iso, months) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const targetIdx = (m - 1) + Math.round(months); // 0-based month index from year 0
+  const ty = y + Math.floor(targetIdx / 12);
+  const tm = ((targetIdx % 12) + 12) % 12; // 0-based month in ty
+  const daysInTargetMonth = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
+  const td = Math.min(d, daysInTargetMonth);
+  return `${String(ty).padStart(4, '0')}-${String(tm + 1).padStart(2, '0')}-${String(td).padStart(2, '0')}`;
+}
+
+/** True if `months` whole calendar months have passed from sinceISO by refISO.
+ *  The anniversary itself counts as elapsed. ISO date strings compare
+ *  correctly with >=, so no parsing is needed here. */
+export function calendarIntervalElapsed(sinceISO, months, refISO) {
+  if (!sinceISO) return true;
+  return refISO >= addCalendarMonths(sinceISO, months);
+}
+
 /** Today's date as a local-timezone ISO string (YYYY-MM-DD).
  *  `new Date().toISOString()` returns the *UTC* calendar date, which is a day
  *  ahead of local in every US timezone during evening hours (e.g. 8pm ET is

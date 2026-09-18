@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  STATE HELPERS — parameterized (no global S)                 ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { isD, dBetween, addD } from './utils.js';
+import { isD, dBetween, addD, addCalendarMonths, calendarIntervalElapsed } from './utils.js';
 import { isPCV7 } from './pcvDoses.js';
 
 /** Count of given doses for vaccine key. */
@@ -208,6 +208,38 @@ export function menACWYBoosterIntervalDays(isFirstBooster, lastPrimaryAgeMonths)
   return (lastPrimaryAgeMonths == null || lastPrimaryAgeMonths < MENACWY_AGE_7Y_MONTHS)
     ? MENACWY_BOOSTER_3Y
     : MENACWY_BOOSTER_5Y;
+}
+
+// V1 (2026-09-18): the day counts above (1096/1826) are an AVERAGED
+// approximation of "3 years"/"5 years" and only equal the real calendar span
+// in years that contain a 29 February inside the window — 3 years out of 4
+// for the 3-year cadence. Comparing a booster given on its exact anniversary
+// against the averaged count voids it as too soon in the common case and
+// pushes displayed due-dates a day late. These two are for the sites that do
+// real date math (due dates, eligibility, the too-soon check); the day
+// constants above stay in use only as the `minInt` metadata field shown in
+// the UI. Same shape as MENACWY_BOOSTER_3Y/5Y, in months instead of days.
+export const MENACWY_BOOSTER_3Y_MONTHS = 36;
+export const MENACWY_BOOSTER_5Y_MONTHS = 60;
+
+/** Same rule as menACWYBoosterIntervalDays, in months. */
+export function menACWYBoosterIntervalMonths(isFirstBooster, lastPrimaryAgeMonths) {
+  if (!isFirstBooster) return MENACWY_BOOSTER_5Y_MONTHS;
+  return (lastPrimaryAgeMonths == null || lastPrimaryAgeMonths < MENACWY_AGE_7Y_MONTHS)
+    ? MENACWY_BOOSTER_3Y_MONTHS
+    : MENACWY_BOOSTER_5Y_MONTHS;
+}
+
+/**
+ * Is a MenACWY booster cadence satisfied by CALENDAR date, with the standard
+ * 4-day grace applied by moving the later date forward (not by subtracting
+ * days from the month count — the same reason this moved onto the calendar
+ * in the first place)? Ported from MeningoVax's calendarIntervalMeetsMinimum
+ * (P0-5, commit 9390eea).
+ */
+export function menACWYBoosterCadenceMeetsMinimum(sinceISO, months, refISO) {
+  if (!sinceISO || !refISO) return true;
+  return calendarIntervalElapsed(sinceISO, months, addD(refISO, GRACE));
 }
 
 /**
@@ -489,9 +521,17 @@ export function menACWYPrimaryTotal(givenDoses, doseAgeMonths, opts = {}) {
   if (opts.travel && d1AgeM != null && d1AgeM >= 24) return 1;
   if (d1AgeM == null || d1AgeM >= 24) return 2;
   if (d1AgeM >= 7) return 2;              // 7–23 months: 2-dose series
-  const d2AgeM = givenDoses[1] ? doseAgeMonths(givenDoses[1]) : null;
-  if (d2AgeM != null && d2AgeM >= 7) return 3; // D6 shortcut
-  return 4;                                // started at 2–6 months
+  // V2 (2026-09-18): the D6 shortcut is CDC's "dose 1 at 3-6 months" row only
+  // — "dose 1 at age 2 months" is a flat 4-dose series with no "or" about it
+  // (fetched live 2026-09-15, cdc.gov child-adolescent-notes.html, quoted in
+  // full in the parity queue). d1AgeM<3 used to fall into the shortcut check
+  // below along with 3-6 months, so a 2-month start whose dose 2 landed at
+  // 7+ months was wrongly offered a 3-dose series.
+  if (d1AgeM >= 3) {
+    const d2AgeM = givenDoses[1] ? doseAgeMonths(givenDoses[1]) : null;
+    if (d2AgeM != null && d2AgeM >= 7) return 3; // D6 shortcut (3–6 month start only)
+  }
+  return 4;                                // started at 2 months, or 3–6 months without the shortcut
 }
 
 /**

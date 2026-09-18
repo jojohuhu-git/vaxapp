@@ -15,16 +15,24 @@
 //
 // So the minimum interval before dose 2 depends on how old the patient was at
 // DOSE 1, not on a single flat number:
-//   dose 1 at 2–6 months   → 4 weeks between primary doses
+//   dose 1 at 2–6 months   → 8 weeks between primary doses  [CORRECTED 2026-09-17]
 //   dose 1 at 7–23 months  → 12 weeks (plus the 1st-birthday floor)
 //   dose 1 at ≥2 years     → 8 weeks
 //
 // The 12-week figure vaxapp was applying everywhere is real ACIP text, but it
 // belongs only to the 7–23-month infant series and to Menactra given in infancy.
 //
-// Sibling repo: MeningoVax already had this right in both halves
-// (validate.js:93 MENACWY_HR_ADULT_MIN_INTERVAL = 8 weeks,
-//  validate.js:95 MENACWY_HR_INFANT_MIN_INTERVAL = 4 weeks).
+// Sibling repo: MeningoVax already had the >=2y half right
+// (validate.js:93 MENACWY_HR_ADULT_MIN_INTERVAL = 8 weeks).
+//
+// CORRECTION 2026-09-17: the infant half quoted here as confirmation
+// (MENACWY_HR_INFANT_MIN_INTERVAL = 4 weeks) was ITSELF WRONG, in both repos.
+// CDC requires 8 weeks inside the infant series. MeningoVax corrected it in its
+// PR #28 and vaxapp follows here. Reading the sibling repo's constant as
+// independent evidence is what made one wrong number look twice-confirmed --
+// a grep across two repos is still only one belief if both were copied from the
+// same place. The 4-week figure is ACIP's floor for REPEATING AN INVALID DOSE,
+// which in the 2020 MMWR appears in the MenB section.
 
 import { describe, it, expect } from 'vitest';
 import { validateDose } from '../validation.js';
@@ -49,11 +57,24 @@ describe('M1: high-risk MenACWY dose-2 minimum interval is keyed to age at dose 
     expect(intervalError(d2, d1, dob, ['asplenia'])).toBeUndefined();
   });
 
-  it('infant series started at 2 months, dose 2 four weeks later → valid', () => {
+  // CORRECTED 2026-09-17. This case asserted that a 4-week gap inside the
+  // infant series is valid, and cited MeningoVax's copy of the same wrong
+  // number as evidence (see this file's header). Both repos were wrong: CDC
+  // requires 8 weeks. MeningoVax fixed it in its PR #28; this is vaxapp's half.
+  // M1's real subject — that the interval is keyed to the AGE AT DOSE 1 rather
+  // than one flat number — is untouched and still proven by the cases around it.
+  it('infant series started at 2 months, dose 2 eight weeks later → valid', () => {
+    const dob = '2025-01-01';
+    const d1 = { mode: 'date', date: '2025-03-05', given: true }; // ~2.1 months
+    const d2 = { mode: 'date', date: '2025-04-30', given: true }; // +56d
+    expect(intervalError(d2, d1, dob, ['complement'])).toBeUndefined();
+  });
+
+  it('infant series started at 2 months, dose 2 only four weeks later → flagged', () => {
     const dob = '2025-01-01';
     const d1 = { mode: 'date', date: '2025-03-05', given: true }; // ~2.1 months
     const d2 = { mode: 'date', date: '2025-04-02', given: true }; // +28d
-    expect(intervalError(d2, d1, dob, ['complement'])).toBeUndefined();
+    expect(intervalError(d2, d1, dob, ['complement'])).toBeDefined();
   });
 
   it('series started at 8 months: dose 2 at 8 weeks is still too soon (12 weeks required)', () => {

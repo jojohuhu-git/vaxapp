@@ -559,7 +559,7 @@ describe('MenACWY risk-based', () => {
   // Scenario 19 — MenACWY HR booster cadence, age-keyed (ACIP 2020 + immunize.org p2035)
   // Rule:
   //   isFirstBooster = (men === 2) — primary series is 2-dose for ≥24m high-risk patients.
-  //   First booster: 3y (1095d) if D2 age < 7y (84m) or unknown; 5y (1826d) if D2 age ≥ 7y.
+  //   First booster: 3y (1096d) if D2 age < 7y (84m) or unknown; 5y (1826d) if D2 age ≥ 7y.
   //   Subsequent boosters (men >= 3): always 5y (1826d) regardless of D2 age.
   //
   //   For the 4-dose infant high-risk series (D1/D2/D3 primary at 2/4/6m + D4 booster at 12m):
@@ -569,8 +569,8 @@ describe('MenACWY risk-based', () => {
   //
   //   See describe('MenACWY high-risk booster cadence — regression') below for full dated-dose
   //   coverage of all D2-age branches (Cases A/A2/B/B2/C/C2).
-  it('19a. 6y (72m), asplenia, 2-dose primary with D2 at ~27m (<7y) → first booster minInt 1095d (3y)', () => {
-    // D2 at 27m < 84m → isFirstBooster=true, d2KnownAtOrAfter7=false → 1095d
+  it('19a. 6y (72m), asplenia, 2-dose primary with D2 at ~27m (<7y) → first booster minInt 1096d (3y)', () => {
+    // D2 at 27m < 84m → isFirstBooster=true, d2KnownAtOrAfter7=false → 1096d
     const am = 72;
     const risks = ['asplenia'];
     const hist = { MenACWY: [
@@ -582,7 +582,7 @@ describe('MenACWY risk-based', () => {
     expect(r.status).toBe('risk-based');
     expect(r.doseNum).toBe(3);
     // First booster, D2 known <7y → 3 years
-    expect(r.minInt).toBe(1095);
+    expect(r.minInt).toBe(1096);
 
     // Surface 2
     expect(regimenCoversVk('MenACWY', am, hist, risks)).toBe(true);
@@ -593,7 +593,7 @@ describe('MenACWY risk-based', () => {
     expect(doses.length).toBe(0);
   });
 
-  it('19b. 6y (72m), asplenia, 4-dose infant primary (men=4) → FIRST booster minInt 1095d (3y)', () => {
+  it('19b. 6y (72m), asplenia, 4-dose infant primary (men=4) → FIRST booster minInt 1096d (3y)', () => {
     // CHANGED BY M4 (2026-09-15). This test used to expect 1826d (5 years) on the
     // reasoning, written in its own comment, that "the D4 booster at 12m IS the
     // first booster within the infant series", so a dose at 6y was a SUBSEQUENT
@@ -610,7 +610,7 @@ describe('MenACWY risk-based', () => {
     //
     // The booster clock therefore starts at the 12-month dose, and since the
     // primary series finished well before the 7th birthday the FIRST booster is
-    // due 3 years later (1095d), not 5. The old expectation made a high-risk
+    // due 3 years later (1096d), not 5. The old expectation made a high-risk
     // child wait two extra years.
     const am = 72;
     const risks = ['asplenia'];
@@ -625,7 +625,7 @@ describe('MenACWY risk-based', () => {
     expect(r.status).toBe('risk-based');
     expect(r.doseNum).toBe(5); // dose 5 = first booster after the 4-dose primary
     // men === menPrimaryTotal (4) → this IS the first booster → 3 years
-    expect(r.minInt).toBe(1095);
+    expect(r.minInt).toBe(1096);
     expect(r.dose).toMatch(/first booster/i);
 
     // Surface 5: still projects nothing here — buildOptimalSchedule models the
@@ -649,8 +649,8 @@ describe('MenACWY risk-based', () => {
     expect(r).not.toBeNull();
     expect(r.status).toBe('risk-based');
     expect(r.doseNum).toBe(3);
-    // minInt should be 1095 (3 years) per engine (every 3–5 years)
-    expect(r.minInt).toBe(1095);
+    // minInt should be 1096 (3 years) per engine (every 3–5 years)
+    expect(r.minInt).toBe(1096);
 
     // Surface 2
     expect(regimenCoversVk('MenACWY', am, hist, risks)).toBe(true);
@@ -1351,10 +1351,15 @@ describe('MenABCWY combo (Penbraya / Penmenvy)', () => {
 // MenACWY high-risk booster cadence — regression tests
 // Rule (ACIP 2020 MMWR / immunize.org p2035):
 //   First booster (dose 3, men===2):
-//     D2 completed at <7y (84m) → 3 years (1095d)
+//     D2 completed at <7y (84m) → 3 years (1096d)
 //     D2 completed at ≥7y (84m) → 5 years (1826d)
-//     D2 age unknown             → 3 years conservative (1095d)
+//     D2 age unknown             → 3 years conservative (1096d)
 //   Subsequent boosters (dose 4+, men>=3): ALWAYS 5 years (1826d)
+// V2 hardening (2026-09-18): this branch hand-rolled its own literal 1095/1826
+// instead of the shared menACWYBoosterIntervalDays(), so it alone kept the
+// pre-M19 "3 years" value (1095d) after M19 renamed the other two call sites'
+// literal to the named MENACWY_BOOSTER_3Y (1096d). Fixed to read the shared
+// helper; these fixtures now expect 1096, matching the rest of the engine.
 // ═══════════════════════════════════════════════════════════════════
 
 describe('MenACWY high-risk booster cadence — regression', () => {
@@ -1370,7 +1375,7 @@ describe('MenACWY high-risk booster cadence — regression', () => {
     return d.toISOString().slice(0, 10);
   }
 
-  it('Case A: primary completed <7y — first booster (men===2) minInt 1095d', () => {
+  it('Case A: primary completed <7y — first booster (men===2) minInt 1096d', () => {
     // Patient now 10y (120m). DOB = 10y ago.
     // D1 at age 4y (48m), D2 at age 5y (60m) — both before age 7.
     const today = '2026-06-04';
@@ -1390,7 +1395,7 @@ describe('MenACWY high-risk booster cadence — regression', () => {
     expect(r.doseNum).toBe(3);
     expect(r.status).toBe('risk-based');
     // First booster, D2 <7y → 3 years
-    expect(r.minInt).toBe(1095);
+    expect(r.minInt).toBe(1096);
     expect(r.dose).toMatch(/first booster.*3 year|3 year.*first booster/i);
   });
 
@@ -1466,7 +1471,7 @@ describe('MenACWY high-risk booster cadence — regression', () => {
     expect(r.dose).toMatch(/every 5 year|5 year.*subsequent/i);
   });
 
-  it('Case C: D2 age unknown — first booster (men===2) conservative 1095d', () => {
+  it('Case C: D2 age unknown — first booster (men===2) conservative 1096d', () => {
     // D2 has no date and no ageDays → cannot determine age → conservative 3y
     const am = 144; // 12y
     const risks = ['asplenia'];
@@ -1480,7 +1485,7 @@ describe('MenACWY high-risk booster cadence — regression', () => {
     const r = firstRec('MenACWY', am, hist, risks);
     expect(r).not.toBeNull();
     expect(r.doseNum).toBe(3);
-    expect(r.minInt).toBe(1095);
+    expect(r.minInt).toBe(1096);
     expect(r.dose).toMatch(/conservative|unknown/i);
   });
 

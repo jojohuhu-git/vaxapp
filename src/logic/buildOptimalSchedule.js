@@ -1,11 +1,13 @@
 // buildOptimalSchedule.js — deterministic catch-up schedule optimizer (v2).
 // All 9 table-gap items resolved; returns Visit[] for fully-computable schedules.
-import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
+import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES, MENACWY_INFANT_EARLY_GAP,
+         MENACWY_INFANT_FINAL_GAP, MENACWY_INFANT_FINAL_MIN_AGE_DAYS,
+         MENACWY_INFANT_START_MAX_AGE_DAYS } from '../data/scheduleRules.js';
 import { COMBOS } from '../data/vaccineData.js';
 import { comboFitsDose } from './brandRules.js';
 import { pcvHighRiskChildPlan, hasBoosterDose, pcvBands, ppsv23StandardTotal } from './pcvDoses.js';
-import { advancingDoseCount, advancingDoses, MENACWY_AGE_7Y_MONTHS, MENACWY_BOOSTER_3Y, MENACWY_BOOSTER_5Y, isLiveVaccineContraindicated, menacwyExposureCategory, menACWYGivenAtOrAfter16y, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays } from './stateHelpers.js';
-import { todayISO, addD, dBetween } from './utils.js';
+import { advancingDoseCount, advancingDoses, MENACWY_AGE_7Y_MONTHS, MENACWY_BOOSTER_3Y, MENACWY_BOOSTER_5Y, MENACWY_BOOSTER_3Y_MONTHS, MENACWY_BOOSTER_5Y_MONTHS, isLiveVaccineContraindicated, menacwyExposureCategory, menACWYGivenAtOrAfter16y, menBSeriesTotal, highRiskMenB, menACWYPrimaryTotal, isHighRiskMenACWY, isTravelOngoingMenACWY, menACWYBoosterIntervalDays, menACWYBoosterIntervalMonths } from './stateHelpers.js';
+import { todayISO, addD, dBetween, addCalendarMonths } from './utils.js';
 import { hardStopExclusion } from './hardStop.js';
 
 const CLUSTER_WINDOW = 14; // days — doses within this window share a visit
@@ -350,6 +352,12 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
   let intLabel   = rule.iByTotalDoses?.[totalDoses]?.[doseNum - 1] != null
     ? `MIN_INT.${vk}.iByTotalDoses[${totalDoses}][${doseNum - 1}]=${minInt}d`
     : `MIN_INT.${vk}.i[${doseNum - 1}]=${minInt}d`;
+  // V1: set only by the two MenACWY booster-cadence branches below. When set,
+  // the candidate date below is computed by calendar months, not addD(minInt)
+  // — a fixed day count lands a day after the real anniversary in the years
+  // that don't contain a 29 February. Every other candidate here is an exact
+  // week-based day count and is unaffected.
+  let calendarMonths = null;
 
   // Conditional interval overrides (age-based or risk-based, data-driven from spec.iCond)
   if (rule.iCond && prevDate) {
@@ -358,7 +366,19 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
         const candidateShort = latest(today, addD(prevDate, cond.minInterval));
         const ageOk = !cond.ageGte || diff(dob, candidateShort) >= cond.ageGte;
         const riskOk = !cond.riskIncludes || (ctx?.risks && cond.riskIncludes.some(r => ctx.risks.includes(r)));
-        if (ageOk && riskOk) {
+        // This surface used to ignore prevDoseAgeLt/prevDoseAgeGte entirely,
+        // while validation.js honoured them. Both MenACWY rows therefore
+        // matched every at-risk patient and the LAST one won, so the optimizer
+        // applied the 7-23-month rule (12 weeks) to 2-month-olds and to
+        // 3-year-olds alike. Reading the conditions here is what makes one row
+        // of data mean the same thing on both surfaces.
+        const prevAgeDays = (dob && prevDate) ? diff(dob, prevDate) : null;
+        const prevAgeOk =
+          (cond.prevDoseAgeLt == null && cond.prevDoseAgeGte == null) ||
+          (prevAgeDays != null &&
+            (cond.prevDoseAgeLt == null || prevAgeDays < cond.prevDoseAgeLt) &&
+            (cond.prevDoseAgeGte == null || prevAgeDays >= cond.prevDoseAgeGte));
+        if (ageOk && riskOk && prevAgeOk) {
           minInt   = cond.minInterval;
           intLabel = `MIN_INT.${vk}.iCond[${cond.ageGte ? 'ageGte=' + cond.ageGte : 'risk'}]=${cond.minInterval}d`;
         }
@@ -400,7 +420,8 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
       // stateHelpers moved to 1096. Use the shared constants so the two
       // cannot drift apart again.
       minInt = (amNow != null && amNow < MENACWY_AGE_7Y_MONTHS) ? MENACWY_BOOSTER_3Y : MENACWY_BOOSTER_5Y;
-      intLabel = `MenACWY outbreak top-up=${minInt}d (age ${amNow != null && amNow < 84 ? 'under 7' : '7 or older'} today)`;
+      calendarMonths = (amNow != null && amNow < MENACWY_AGE_7Y_MONTHS) ? MENACWY_BOOSTER_3Y_MONTHS : MENACWY_BOOSTER_5Y_MONTHS;
+      intLabel = `MenACWY outbreak top-up=${calendarMonths}mo (age ${amNow != null && amNow < 84 ? 'under 7' : '7 or older'} today)`;
     }
   } else if (vk === 'MenACWY' && prevDate && (isHighRiskMenACWY(ctx?.risks ?? []) || menTravelOngoing)) {
     const menDates = gDates(ctx?.hist ?? {}, 'MenACWY');
@@ -414,12 +435,61 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
       const lastPrimary    = menDates[primaryTotal - 1] || null;
       const lastPrimaryAgeM = (lastPrimary && dob) ? diff(dob, lastPrimary) / 30.4375 : null;
       minInt = menACWYBoosterIntervalDays(isFirstBooster, lastPrimaryAgeM);
-      intLabel = `MenACWY booster cadence=${minInt}d (${isFirstBooster ? 'first booster' : 'every 5 years'})`;
+      calendarMonths = menACWYBoosterIntervalMonths(isFirstBooster, lastPrimaryAgeM);
+      intLabel = `MenACWY booster cadence=${calendarMonths}mo (${isFirstBooster ? 'first booster' : 'every 5 years'})`;
+    }
+  }
+
+  // ── The MenACWY infant primary series ─────────────────────────────
+  // MIN_INT.MenACWY.i stops at dose 2 and iCond carries only dose-2 rows, so
+  // doses 3 and 4 of an infant series had NO interval at all on this surface.
+  // "No interval" silently means "today". Observed on this surface at commit
+  // 5388d67 for a 4-month-old with asplenia and one dose given at 2 months:
+  //
+  //     dose 3 of 4  on 2026-09-15   <- today
+  //     dose 4 of 4  on 2026-09-15   <- today, clustered into the SAME visit
+  //     dose 2 of 4  on 2026-10-13   <- planned AFTER doses 3 and 4
+  //
+  // Two MenACWY doses at one visit, the series out of order, and the last dose
+  // of a 4-dose series offered to a 4-month-old who may not have it before his
+  // first birthday. Surface 5 is the documented leak point; this is what a leak
+  // looks like when a rule is expressed only for the doses someone remembered.
+  //
+  // The interval is derived from the dose's POSITION IN THE SERIES rather than
+  // typed per dose number, because the position is the only thing that differs
+  // between the start bands: every early dose is 8 weeks, and the final dose is
+  // 12 weeks and not before the first birthday, whether the series is 2, 3 or 4
+  // doses long. menACWYPrimaryTotal() is the same helper the engine and the
+  // dose checker use, so the three cannot disagree about which dose is last.
+  const menInfantDob = dob;
+  let menInfantAgeFloor = null;
+  if (vk === 'MenACWY' && doseNum >= 2 && menInfantDob && d1Date) {
+    const d1AgeDaysInf = diff(menInfantDob, d1Date);
+    if (d1AgeDaysInf != null && d1AgeDaysInf < MENACWY_INFANT_START_MAX_AGE_DAYS) {
+      const menDatesInf = gDates(ctx?.hist ?? {}, 'MenACWY');
+      const ageAtMenDoseInf = (d) => {
+        const dt = d?._date;
+        return (dt && menInfantDob) ? diff(menInfantDob, dt) / 30.4375 : null;
+      };
+      const primaryTotalInf = menACWYPrimaryTotal(
+        menDatesInf.map(dt => ({ _date: dt })), ageAtMenDoseInf, { travel: menTravelOngoing });
+      if (doseNum <= primaryTotalInf) {
+        const isFinalPrimaryInf = doseNum === primaryTotalInf;
+        minInt = isFinalPrimaryInf ? MENACWY_INFANT_FINAL_GAP : MENACWY_INFANT_EARLY_GAP;
+        intLabel = `MenACWY infant primary=${minInt}d (dose ${doseNum} of ${primaryTotalInf}`
+          + `${isFinalPrimaryInf ? ', final' : ''})`;
+        // "and after age 12 months" — the interval and the age floor are one
+        // rule and have to be answered together, or the app advertises a date
+        // before the birthday and invites a dose that does not count.
+        if (isFinalPrimaryInf) menInfantAgeFloor = addD(menInfantDob, MENACWY_INFANT_FINAL_MIN_AGE_DAYS);
+      }
     }
   }
 
   // ── Build candidates ──────────────────────────────────────────────
   const cands = [{ date: today, label: 'today' }];
+  if (menInfantAgeFloor)
+    cands.push({ date: menInfantAgeFloor, label: 'MenACWY infant final dose: first birthday' });
 
   // Future-gap seed: series not yet at its routine/high-risk start age.
   // seriesDoses() computes totalDoses as if the series starts at this
@@ -435,7 +505,7 @@ function doseEarliestDate(vk, doseNum, prevDate, d1Date, brand, dob, today, tota
 
   // Minimum interval from previous dose
   if (minInt != null && prevDate)
-    cands.push({ date: addD(prevDate, minInt), label: intLabel });
+    cands.push({ date: calendarMonths != null ? addCalendarMonths(prevDate, calendarMonths) : addD(prevDate, minInt), label: intLabel });
 
   // Cross-dose constraint from D1 (e.g. HepB D3 ≥112d from D1, MenB D3 ≥182d from D1, HPV D3 ≥152d from D1)
   // M3: MenB's D1→D3 floor belongs to the high-risk accelerated 0/1–2/6-month
