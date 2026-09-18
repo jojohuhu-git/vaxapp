@@ -46,7 +46,7 @@ describe('M10 — an infant traveler is offered the infant series', () => {
     const recs = recsFor(4, '2026-05-15', ['travel'], { MenACWY: [] });
     expect(recs.length).toBeGreaterThan(0);          // was: 0 — no recommendation at all
     expect(recs[0].doseNum).toBe(1);
-    expect(recs[0].minInt).toBe(28);                 // infant doses are ≥4 weeks apart
+    expect(recs[0].minInt).toBe(56);                 // CORRECTED 2026-09-17: ≥8 weeks, not 4
   });
 
   it('a 6-month-old traveler with 2 of 4 infant doses is offered dose 3', () => {

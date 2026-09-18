@@ -1,8 +1,8 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  RECOMMENDATION ENGINE — full catch-up at any age            ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menACWYOnRiskBasedSchedule, menACWYRoutineCount, advancingDoseCount, advancingDoses, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYInfantSeriesIndicated, menacwyExposureCategory, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y, MENACWY_BOOSTER_5Y, MENACWY_AGE_7Y_MONTHS } from './stateHelpers.js';
-import { isD, dBetween } from './utils.js';
+import { dc, lastDate, anyBrand, highRisk, highRiskMenB, isHighRiskMenACWY, menACWYOnRiskBasedSchedule, menACWYRoutineCount, advancingDoseCount, advancingDoses, menACWYPrimaryTotal, isTravelOngoingMenACWY, menACWYInfantSeriesIndicated, menacwyExposureCategory, menACWYBoosterIntervalDays, MENACWY_BOOSTER_3Y, MENACWY_BOOSTER_5Y, MENACWY_BOOSTER_3Y_MONTHS, MENACWY_BOOSTER_5Y_MONTHS, MENACWY_AGE_7Y_MONTHS } from './stateHelpers.js';
+import { isD, dBetween, calendarIntervalElapsed, todayISO } from './utils.js';
 import { pcvHighRiskChildPlan, hasBoosterDose } from './pcvDoses.js';
 import { REFS } from '../data/refs.js';
 import { hardStopExclusion } from './hardStop.js';
@@ -582,14 +582,17 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   const menExposure = menacwyExposureCategory(risks);
   // M19: 1826 was a literal beside a named constant. Both named now.
   const menOutbreakTopUpInt = am < MENACWY_AGE_7Y_MONTHS ? MENACWY_BOOSTER_3Y : MENACWY_BOOSTER_5Y;
+  // V1: the "due" gate itself has to compare real calendar dates, not the
+  // averaged day count above (kept only as the minInt metadata field on the
+  // rec) \u2014 see MENACWY_BOOSTER_3Y_MONTHS's comment in stateHelpers.js.
+  const menOutbreakTopUpMonths = am < MENACWY_AGE_7Y_MONTHS ? MENACWY_BOOSTER_3Y_MONTHS : MENACWY_BOOSTER_5Y_MONTHS;
   const menOutbreakTopUpDue = (() => {
     if (menExposure !== "outbreak") return false;
     const lastD = lastDate(hist, "MenACWY");
     // With no date to measure from, offer it rather than hide it \u2014 the same
     // conservative choice the travel and high-risk branches make.
     if (!today || !lastD) return true;
-    return new Date(lastD + 'T00:00:00').getTime() + menOutbreakTopUpInt * 86400000
-      <= new Date(today + 'T00:00:00').getTime();
+    return calendarIntervalElapsed(lastD, menOutbreakTopUpMonths, today);
   })();
   const menPrimaryTotal = menACWYPrimaryTotal(menacwyGivenAll, menDoseAgeM, { travel: menTravelOngoing });
   // D7: Menveo formulation depends on age \u2014 2-vial licensed \u22652 months; 1-vial licensed \u226510 years.
@@ -628,9 +631,9 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   if (menInfantSeries && am >= 2 && am < 7 && men < 3) {
     // 4-dose primary series at 2, 4, 6 months for highest-risk infants
     r("MenACWY", `Dose ${men + 1} of 4 (${menInfantWhy}, primary series)`, men + 1, "risk-based",
-      `${menInfantWho}: 4-dose primary series at 2, 4, 6 and 12 months with Menveo (MenACWY-CRM). Only Menveo is FDA-approved for infants \u22652 months. Min 4 weeks between the first three doses; the 12-month dose completes the primary series.`,
+      `${menInfantWho}: 4-dose primary series at 2, 4, 6 and 12 months with Menveo (MenACWY-CRM). Only Menveo is FDA-approved for infants \u22652 months. Min 8 weeks between the first three doses; the final dose is given at 12 months or later, at least 12 weeks after the dose before it.`,
       ["Menveo 2-vial (MenACWY-CRM, \u22652 months \u2014 only brand approved for infants)"],
-      { minInt: 28, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
+      { minInt: 56, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (menInfantSeries && am >= 7 && am < 12 && men < 2) {
     // D5 hard floor: dose 2 must be >=12 weeks after dose 1 AND given at >=12 months of age.
     // Set minInt to the later of 84 days and the days remaining to the first birthday so that
@@ -657,23 +660,22 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
       { minInt: 84, refUrl: REFS.MenACWY.cdcUrl, refLabel: REFS.MenACWY.cdcLabel, refUrl2: REFS.MenACWY.url, refLabel2: REFS.MenACWY.label });
   } else if (menInfantSeries && am >= 12 && am < 24 && men > 0 && men < 4) {
     // 12\u201323m: the dose that COMPLETES the primary series (6m 3-dose or 7-11m 2-dose path).
-    // D6 shortcut: if D1 was 2\u20136m AND D2 was \u22657m, only 3 total doses complete the series.
+    // D6 shortcut: if D1 was 3\u20136m AND D2 was \u22657m, only 3 total doses complete the series.
     // Conservative default: if ages are unknown, use the standard 4-dose path.
-    const menGiven = (hist.MenACWY || []).filter(d => d.given);
-    const d1AgeM = menGiven[0] ? menDoseAgeM(menGiven[0]) : null;
-    const d2AgeM = menGiven[1] ? menDoseAgeM(menGiven[1]) : null;
-    const d1Early = d1AgeM != null && d1AgeM >= 2 && d1AgeM <= 6;
-    const d2Late  = d2AgeM != null && d2AgeM >= 7;
-    const on3DosePath = d1Early && d2Late;
     // M5: a series STARTED at 7\u201323 months is a 2-dose primary series, so this
     // branch must not print "of 4" for a child who simply aged into the 12\u201323
     // month window. It used to, which contradicted the 7\u201311-month branch the
     // same child had been in a month earlier and asked for two doses CDC does not
     // want. CDC: "Dose 1 at age 7\u201323 months: 2-dose series (dose 2 at least 12
-    // weeks after dose 1 and after age 12 months)". menACWYPrimaryTotal() is the
-    // single source of truth for the count; the D6 3-dose shortcut still wins
-    // where it applies.
-    const totalLabel = on3DosePath ? "3" : String(menPrimaryTotal);
+    // weeks after dose 1 and after age 12 months)".
+    // V2 (2026-09-18): this used to re-derive the D6 shortcut by hand
+    // (d1AgeM 2\u20136 && d2AgeM \u22657), which drifted from menACWYPrimaryTotal()'s
+    // own bounds \u2014 that function was fixed to require d1AgeM\u22653 (CDC gives a
+    // 2-month start a flat 4-dose series, no shortcut), but this copy still
+    // allowed 2. Reading menPrimaryTotal directly, already computed above,
+    // removes the second copy instead of re-fixing it in two places.
+    const on3DosePath = menPrimaryTotal === 3;
+    const totalLabel = String(menPrimaryTotal);
     r("MenACWY", `Dose ${men + 1} of ${totalLabel} (${menInfantWhy}, primary series, 12\u201323 months)`, men + 1, "risk-based",
       on3DosePath
         ? "D6: Dose 2 was given at \u22657 months \u2014 series completes in 3 doses. This dose is due \u226512 weeks after dose 2 AND not before 12 months of age. Then revaccinate in 3 years (primary series completed before age 7)."
@@ -917,13 +919,18 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
         ? (new Date(menacwyLastPrimary.date) - new Date(dob)) / (86400000 * 30.4375)
         : (menacwyLastPrimary.mode === "age" && menacwyLastPrimary.ageDays != null ? menacwyLastPrimary.ageDays / 30.4375 : null);
     }
-    const d2KnownAtOrAfter7 = d2AgeM != null && d2AgeM >= 84;
     // First booster: 3y if the primary series finished before age 7 (or unknown),
     // else 5y. ALL subsequent boosters: always 5 years.
     const isFirstBooster = men === menPrimaryTotal;
-    const menacwyRevaxInt = isFirstBooster
-      ? (d2KnownAtOrAfter7 ? 1826 : 1095)
-      : 1826;
+    // V1 hardening (2026-09-18): this used to hand-roll the cadence as raw
+    // literals (1826, and 1095 for "3 years") instead of the shared
+    // menACWYBoosterIntervalDays() — M19 renamed the OTHER two call sites'
+    // literal 1095 to the named MENACWY_BOOSTER_3Y (1096) but missed this one,
+    // so this branch alone still disagreed with the rest of the engine about
+    // how many days "3 years" is, and its minInt never benefited from V1's
+    // calendar-based isEligibleNow check below.
+    const menacwyRevaxInt = menACWYBoosterIntervalDays(isFirstBooster, d2AgeM);
+    const d2KnownAtOrAfter7 = d2AgeM != null && d2AgeM >= MENACWY_AGE_7Y_MONTHS;
     const menacwyRevaxNote = isFirstBooster
       ? (d2KnownAtOrAfter7
         ? "first booster, 5 years (primary series completed at \u22657 years)"
@@ -1117,6 +1124,14 @@ export function genRecs(am, hist, risks, dob, opts = {}) {
   function isEligibleNow(rc) {
     if (!["due", "catchup", "risk-based", "recommended"].includes(rc.status)) return false;
     if (!rc.minInt || !rc.prevDate) return true;
+    // V1: the MenACWY 3y/5y booster cadence has to be checked by calendar
+    // date, not this averaged day count — see MENACWY_BOOSTER_3Y_MONTHS in
+    // stateHelpers.js. Every other minInt here is a week-based floor, which
+    // is an exact day count and keeps using the day math below.
+    if (rc.minInt === MENACWY_BOOSTER_3Y || rc.minInt === MENACWY_BOOSTER_5Y) {
+      const months = rc.minInt === MENACWY_BOOSTER_3Y ? MENACWY_BOOSTER_3Y_MONTHS : MENACWY_BOOSTER_5Y_MONTHS;
+      return calendarIntervalElapsed(rc.prevDate, months, today || todayISO());
+    }
     const prev = new Date(rc.prevDate + 'T00:00:00').getTime();
     return prev + rc.minInt * 86400000 <= todayMs;
   }

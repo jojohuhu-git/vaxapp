@@ -77,7 +77,7 @@ describe('M4 five-surface — a completed infant series', () => {
     const r = recsFor(COMPLETE_AM, COMPLETE);
     expect(r).toHaveLength(1);
     expect(r[0].doseNum).toBe(5);
-    expect(r[0].minInt).toBe(1095);
+    expect(r[0].minInt).toBe(1096);
     expect(r[0].dose).toMatch(/first booster/i);
   });
 

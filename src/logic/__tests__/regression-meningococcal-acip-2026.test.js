@@ -52,15 +52,20 @@ describe('B3 — MenB high-risk is a 3-dose series for both antigen families', (
 });
 
 describe('B4 — MenACWY high-risk booster cadence keyed to age at dose 2', () => {
+  // V2 hardening (2026-09-18): this branch used to hand-roll the cadence as a
+  // raw 1095/1826 literal instead of the shared menACWYBoosterIntervalDays(),
+  // so it alone kept the pre-M19 "3 years" value (1095d). Fixed to read the
+  // shared helper; expectations below are now 1096, matching the rest of the
+  // engine.
   const dob = '2014-01-01';
-  it('D2 given before age 7 → revax every 3 years (1095d)', () => {
+  it('D2 given before age 7 → revax every 3 years (1096d)', () => {
     const hist = { MenACWY: [
       { given: true, mode: 'date', date: '2018-06-01' },          // ~4.4y
       { given: true, mode: 'date', date: '2018-09-01' },          // ~4.7y (<7y)
     ]};
     const r = first('MenACWY', 144, hist, ['asplenia'], dob);
     expect(r.doseNum).toBe(3);
-    expect(r.minInt).toBe(1095);
+    expect(r.minInt).toBe(1096);
   });
   it('D2 given at ≥7y → revax every 5 years (1826d)', () => {
     const hist = { MenACWY: [
@@ -71,10 +76,10 @@ describe('B4 — MenACWY high-risk booster cadence keyed to age at dose 2', () =
     expect(r.doseNum).toBe(3);
     expect(r.minInt).toBe(1826);
   });
-  it('D2 age unknown → conservative 3 years (1095d)', () => {
+  it('D2 age unknown → conservative 3 years (1096d)', () => {
     const hist = { MenACWY: [{ given: true }, { given: true }] };
     const r = first('MenACWY', 144, hist, ['asplenia']);
-    expect(r.minInt).toBe(1095);
+    expect(r.minInt).toBe(1096);
   });
 });
 

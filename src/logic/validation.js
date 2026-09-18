@@ -1,9 +1,9 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  VALIDATION ENGINE                                           ║
 // ╚══════════════════════════════════════════════════════════════╝
-import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO } from './utils.js';
-import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menACWYPrimaryTotal, menBSeriesTotal, isTravelOngoingMenACWY, menACWYBoosterIntervalDays, advancingDoseCount } from './stateHelpers.js';
-import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES } from '../data/scheduleRules.js';
+import { isD, dBetween, addD, fmtD, sortDosesByDate, todayISO, calendarIntervalElapsed } from './utils.js';
+import { doseAgeDays, doseAgeMonths, doseDate, GRACE, isHighRiskMenACWY, highRiskMenB, menacwyExposureCategory, menACWYPrimaryTotal, menBSeriesTotal, isTravelOngoingMenACWY, menACWYBoosterIntervalDays, menACWYBoosterIntervalMonths, menACWYBoosterCadenceMeetsMinimum, advancingDoseCount } from './stateHelpers.js';
+import { MIN_INT, BRAND_MIN, BRAND_MAX, OFF_LABEL_RULES, MENACWY_INFANT_EARLY_GAP, MENACWY_INFANT_FINAL_GAP, MENACWY_INFANT_FINAL_MIN_AGE_DAYS, MENACWY_INFANT_START_MAX_AGE_DAYS } from '../data/scheduleRules.js';
 import { brandAgeSpec } from '../data/brandRegistry.js';
 import { VAX_KEYS, VAX_META } from '../data/vaccineData.js';
 import { REFS } from '../data/refs.js';
@@ -17,8 +17,10 @@ const HPV_TWO_DOSE_MAX_AGE_DAYS = 5475;
 // to stateHelpers.js in M9 (menACWYBoosterIntervalDays) so the checker, the engine
 // and the optimal schedule all read one copy of it — a checker that rounded
 // differently from its own engine could reject a dose the app had just
-// recommended. MeningoVax writes 1096 days where vaxapp writes 1095 for the same
-// "3 years"; aligning the two repos' day-count conventions is queue item M19.
+// recommended. M19 aligned vaxapp's day count with MeningoVax's (1096, not
+// 1095) for "3 years"; V1 (2026-09-18) found that averaged day count itself
+// voids an on-time booster given on its exact anniversary and moved the
+// too-soon check onto calendar months (menACWYBoosterCadenceMeetsMinimum).
 const MENACWY_ANY_DOSE_MIN_INTERVAL = 28; // 4 weeks between any two doses
 
 // ── Season helpers for Flu audit ─────────────────────────────────────────────
@@ -262,6 +264,16 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
     // Plain-English reason appended to the interval message when the minimum did
     // not come from the plain per-dose table (M6 booster cadence).
     let minWhy = '';
+    // V1: set only by the MenACWY booster-cadence branch below. When set, the
+    // too-soon check further down compares real calendar months instead of
+    // minInt's averaged day count, which otherwise voids an on-time booster
+    // given on its exact 3- or 5-year anniversary (see MENACWY_BOOSTER_3Y_MONTHS
+    // in stateHelpers.js).
+    let menBoosterCadenceMonths = null;
+    // V2: set only when this dose is the FINAL dose of a MenACWY infant primary
+    // series (2-, 3-, or 4-dose). Checked separately below (age is not a day
+    // count) — see the block that sets it, further down.
+    let menInfantFinalAgeFloorDays = null;
 
     // HepB 4-dose final-dose interval: the scheduleRules has i[3]=null for HepB (because
     // the standard 3-dose schedule has no D4). In a ≥4-dose series, the final dose must
@@ -321,6 +333,33 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
       const datedAll = Array.isArray(allDoses)
         ? allDoses.filter(d => d && d.given && d.mode !== "unknown")
         : null;
+      // V2: the infant primary series' own interval AND age floor, for EVERY
+      // start band (2-, 3-, or 4-dose) and every position in it — not just the
+      // doseNum:2 case scheduleRules.js's iCond expresses. iCond has no row at
+      // all for doseNum 3 or 4, so before this a dose 3 or 4 given the day
+      // after the one before it fell through to the unconditional 4-week floor
+      // below and was graded valid. And no MenACWY dose anywhere enforced CDC's
+      // "and after age 12 months" half of the final-dose rule — a 2-dose
+      // series' dose 2 given at 12 weeks but at 10 months old was graded valid
+      // too. Reuses menACWYPrimaryTotal so this cannot drift from
+      // buildOptimalSchedule.js's own version of the same rule
+      // (MENACWY_INFANT_EARLY_GAP/FINAL_GAP/FINAL_MIN_AGE_DAYS, scheduleRules.js).
+      const d1AgeMForInfant = datedAll && datedAll[0] ? doseAgeMonths(datedAll[0], dob) : null;
+      if (datedAll && datedAll.length && d1AgeMForInfant != null
+          && d1AgeMForInfant < (MENACWY_INFANT_START_MAX_AGE_DAYS / 30.4375)) {
+        const infantPrimaryTotal = menACWYPrimaryTotal(datedAll, d => doseAgeMonths(d, dob), {});
+        if (doseIdx < infantPrimaryTotal) {
+          const isFinalInfantDose = doseIdx === infantPrimaryTotal - 1;
+          const infantGap = isFinalInfantDose ? MENACWY_INFANT_FINAL_GAP : MENACWY_INFANT_EARLY_GAP;
+          if (minInt == null || infantGap > minInt) {
+            minInt = infantGap;
+            minWhy = isFinalInfantDose
+              ? ' (final dose of the infant series — also needs the 1st birthday, checked separately)'
+              : ' (infant series)';
+          }
+          if (isFinalInfantDose) menInfantFinalAgeFloorDays = MENACWY_INFANT_FINAL_MIN_AGE_DAYS;
+        }
+      }
       // M9: travelers who remain at risk are on the same booster cadence, from
       // ACIP Table 9 (see menACWYBoosterIntervalDays). Their primary series is a
       // SINGLE dose from the 2nd birthday, so dose 2 is already a booster and is
@@ -340,6 +379,7 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
           const cadence = menACWYBoosterIntervalDays(isFirstBooster, lastPrimaryAgeM);
           if (minInt == null || cadence > minInt) {
             minInt = cadence;
+            menBoosterCadenceMonths = menACWYBoosterIntervalMonths(isFirstBooster, lastPrimaryAgeM);
             minWhy = isFirstBooster
               ? ' (first booster after the primary series)'
               : ' (booster — one every 5 years while the risk lasts)';
@@ -356,7 +396,17 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
 
     if (minInt) {
       const days = dBetween(prevDate, thisDate);
-      if (days !== null && days < minInt - GRACE) {
+      // V1: the MenACWY booster cadence is checked by calendar date, not this
+      // averaged day count -- a fixed 1096/1826-day floor rejects a booster
+      // given on its real anniversary in years without a 29 February inside
+      // the window (see MENACWY_BOOSTER_3Y_MONTHS in stateHelpers.js).
+      const tooSoon = menBoosterCadenceMonths != null
+        ? (days !== null && !menACWYBoosterCadenceMeetsMinimum(prevDate, menBoosterCadenceMonths, thisDate))
+        : (days !== null && days < minInt - GRACE);
+      const withinGraceOnly = !tooSoon && (menBoosterCadenceMonths != null
+        ? (days !== null && !calendarIntervalElapsed(prevDate, menBoosterCadenceMonths, thisDate))
+        : (days !== null && days < minInt));
+      if (tooSoon) {
         const actualLabel = fmtIntervalClinical(days);
         const minLabel = fmtIntervalClinical(minInt);
         // Also report whether min-age was satisfied (Change 2)
@@ -374,11 +424,24 @@ export function validateDose(vk, doseIdx, dose, prevDose, dob, patientAgeDays = 
           msg: `D${doseIdx + 1} only ${actualLabel} after D${doseIdx} — minimum ${minLabel}${minWhy}.${ageNote} Dose INVALID — must repeat.`,
           _days: { actual: days, min: minInt },
           earliest: addD(prevDate, minInt) });
-      } else if (days !== null && days < minInt) {
+      } else if (withinGraceOnly) {
         results.push({ type: "interval", ok: true, grace: true,
           msg: `D${doseIdx + 1} given ${minInt - days}d short of min interval (${fmtIntervalClinical(minInt)}) \u2014 \u22644-day grace applies. May count as valid.`,
           earliest: null });
       }
+    }
+
+    // V2: the "and after age 12 months" half of the infant final-dose rule --
+    // an interval check alone can't catch a series that finishes early (e.g.
+    // dose 1 at 2mo, dose 2 at 6mo: 4 months apart clears the interval floor
+    // but the child is not yet 12 months old). Independent of tooSoon above,
+    // which only knows about the gap since the previous dose.
+    if (menInfantFinalAgeFloorDays != null && ageAtDose !== null
+        && ageAtDose < menInfantFinalAgeFloorDays - GRACE) {
+      results.push({ type: "interval", ok: false, err: true,
+        msg: `D${doseIdx + 1} given at ${fmtAgeClinical(ageAtDose)} \u2014 the final dose of the infant MenACWY series must also be at or after the 1st birthday (${fmtAgeClinical(menInfantFinalAgeFloorDays)}). Dose INVALID \u2014 must repeat.`,
+        _days: { actual: ageAtDose, min: menInfantFinalAgeFloorDays },
+        earliest: isD(dob) ? addD(dob, menInfantFinalAgeFloorDays) : null });
     }
 
     // 3b. iByTotalDoses — series-path interval (HPV 2-dose, MenB 2-dose)

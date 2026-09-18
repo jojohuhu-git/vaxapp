@@ -141,7 +141,7 @@ export const REFS = {
   // Tables 4 (complement deficiency), 5 (asplenia/sickle cell) and 6 (HIV) use
   // identical wording, so one ref serves all three. Fetched live 2026-09-15.
   acip2020HighRiskPrimary: {
-    label:"ACIP 2020 MMWR: high-risk MenACWY primary series — 2 doses ≥8 weeks apart from age 2 years; infant series 4 weeks; 7–23 month start ≥12 weeks and after the 1st birthday",
+    label:"ACIP 2020 MMWR: high-risk MenACWY primary series — 2 doses ≥8 weeks apart from age 2 years; infant series 8 weeks; 7–23 month start ≥12 weeks and after the 1st birthday",
     url:"https://www.cdc.gov/mmwr/volumes/69/rr/rr6909a1.htm#:~:text=" + encodeURIComponent("TABLE 5. Recommended vaccination schedule and intervals for persons with anatomic and functional asplenia"),
     quote:"2 doses ≥8 wks apart",
     quoteInfant:"If first dose at age • 2 mos: 4 doses at 2, 4, 6, and 12 mos • 3–6 mos: See catch-up schedule • 7–23 mos: 2 doses (second dose ≥12 wks after the first dose and after the 1st birthday)",

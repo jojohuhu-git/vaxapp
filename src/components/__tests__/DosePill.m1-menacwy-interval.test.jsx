@@ -27,10 +27,16 @@ function pill(container) {
 }
 
 describe('M1 — DosePill does not flag a correctly spaced high-risk MenACWY dose', () => {
-  it('infant series started at ~2 months: dose 2 four weeks later is not an error pill', () => {
+  // CORRECTED 2026-09-17: this case used to use a 4-week gap and assert it was
+  // accepted. Four weeks was the wrong number — CDC requires 8 weeks inside the
+  // infant series (see regression-menacwy-infant-8week-interval.test.js for the
+  // verbatim source). M1's point was that a CORRECTLY spaced dose must not be
+  // flagged, and that point is unchanged; only the spacing that counts as
+  // correct has been fixed. The 4-week case now belongs to the too-soon tests.
+  it('infant series started at ~2 months: dose 2 eight weeks later is not an error pill', () => {
     const dob = '2025-01-01';
     const d1 = { given: true, mode: 'date', date: '2025-03-05', brand: '' }; // ~2.1 months
-    const d2 = { given: true, mode: 'date', date: '2025-04-02', brand: '' }; // +28d
+    const d2 = { given: true, mode: 'date', date: '2025-04-30', brand: '' }; // +56d
     const { container } = render(
       <Wrapper>
         <DosePill vk="MenACWY" index={1} dose={d2} prevDose={d1} dob={dob} risks={['asplenia']} />

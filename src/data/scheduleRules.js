@@ -1,4 +1,39 @@
 import { buildBRAND_MIN, buildBRAND_MAX } from './brandRegistry.js';
+// The MenACWY infant primary series, as three numbers in one place.
+//
+// Ported from MeningoVax's src/logic/intervals.js (its PR #28). The lesson
+// that module was built to teach: this interval used to be hand-typed as
+// "4 weeks" in the rule data, in the engine's minInt, and a THIRD time as
+// English prose inside the card sentence — so fixing the constant alone
+// would have left the sentence still lying to the clinician. Ask for the
+// number here and interpolate it; never restate it in words.
+//
+// CDC child & adolescent immunization schedule notes, "Meningococcal
+// serogroup A,C,W,Y vaccination", Special situations, Menveo, fetched live
+// 2026-09-17:
+//   "Dose 1 at age 3-6 months: 3- or 4- dose series (dose 2 [and dose 3 if
+//    applicable] at least 8 weeks after previous dose until a dose is
+//    received at age 7 months or older, followed by an additional dose at
+//    least 12 weeks later and after age 12 months)"
+//   "Dose 1 at age 7-23 months: 2-dose series (dose 2 at least 12 weeks
+//    after dose 1 and after age 12 months)"
+//
+// OWNER DECISIONS (2026-09-17, settled in MeningoVax, applied here for
+// parity - do not re-derive):
+//  1. The 2-month start gets the same 8-week early gap. CDC prints that
+//     schedule ("2, 4, 6, and 12 months") but states no minimum interval
+//     for it; the printed schedule is itself 8 weeks apart and the adjacent
+//     band requires 8 weeks explicitly.
+//  2. The FINAL dose of any series begun before 24 months carries the same
+//     ">=12 months old AND >=12 weeks since the dose before it" test - one
+//     rule for "the final infant dose", not a different one per start band.
+
+export const MENACWY_INFANT_EARLY_GAP = 56;                // 8 weeks, between the early doses
+export const MENACWY_INFANT_FINAL_GAP = 84;                // 12 weeks, before the final dose
+export const MENACWY_INFANT_FINAL_MIN_AGE_DAYS = 365; // the first birthday
+export const MENACWY_INFANT_START_MAX_AGE_DAYS = 730; // "begun before 24 months"
+
+
 export const MIN_INT = {
   // minByDose[doseIdx] = per-dose absolute minimum age in days (null = no per-dose floor)
   HepB:    {minD:0,    maxD1:null, i:[null,28,56,null,null], minByDose:[0,28,168,null,null],       d1Cross:{3:112},                                        note:"Birth dose within 24h. D2 min 4 weeks. D3 min 16 weeks from D1 AND ≥8 weeks after D2."},
@@ -17,7 +52,7 @@ export const MIN_INT = {
   HPV:     {minD:3285, maxD1:null, i:[null,152,84,null,null],  iByTotalDoses:{2:[null,152],3:[null,28,84]}, d1Cross:{3:152}, note:"Min age 9 years. 2-dose (<15y): D1→D2 ≥152d (5 months). 3-dose (≥15y/immunocomp): D1→D2 ≥28d, D2→D3 ≥84d, D1→D3 ≥152d."},
   // M1: the dose-2 minimum depends on the age at DOSE 1, not a single flat number.
   // ACIP 2020 MMWR 69(9) Tables 4/5/6 (identical wording in all three):
-  //   dose 1 at 2–6 mos  → 4 doses at 2, 4, 6, 12 mos, ≥4 weeks apart
+  //   dose 1 at 2–6 mos  → 4 doses at 2, 4, 6, 12 mos, ≥8 weeks apart
   //   dose 1 at 7–23 mos → 2 doses, second ≥12 weeks after the first AND after the 1st birthday
   //   dose 1 at ≥2 yrs   → "2 doses ≥8 wks apart"  ← the base i[1]=56 below
   // The old flat 84d applied the 7–23-month infant rule to every high-risk patient at
@@ -30,11 +65,15 @@ export const MIN_INT = {
   // 2020 MMWR 69(RR-9) prints the same "2-23 mos" row in Table 9 (travel),
   // Table 8 (outbreak) and Tables 4-6 (medical high risk), fetched live
   // 2026-09-15. Before M10 an infant traveler's dose 2 fell back to the
-  // unconditional 56-day interval, so a dose given at the correct 4-week infant
-  // interval was graded INVALID and silently dropped from the history.
+  // unconditional 56-day interval, so a dose given at what this file then
+  // believed was the infant interval was graded INVALID and silently dropped
+  // from the history. That believed interval was 4 weeks and was itself wrong
+  // — see the 8-week correction below — so Row 1 now carries the same 56 days
+  // as the base row. It is kept because it states the rule explicitly rather
+  // than letting the infant series inherit a number meant for 2-year-olds.
   //
   // The two rows take DIFFERENT risk lists on purpose:
-  //   Row 1 (dose 1 before ~7 months, 4 weeks) is identical in all three tables.
+  //   Row 1 (dose 1 before ~7 months, 8 weeks) is identical in all three tables.
   //   Row 2 (dose 1 at 7-23 months, 12 weeks) deliberately omits "travel".
   //     Table 9 alone adds a traveler exemption, verbatim: "MenACWY-D (aged >=9
   //     mos): 2 doses >=12 wks apart (may be administered as early as >=8 wks
@@ -45,9 +84,9 @@ export const MIN_INT = {
   //     true floor is 12 weeks; expressing it needs a per-brand condition, which
   //     iCond does not have (see validation.js). Logged as N7.
   MenACWY: {minD:60,   maxD1:null, i:[null,56,null,null,null], iCond:[
-    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv","travel","outbreak_acwy"], prevDoseAgeLt:213, minInterval:28},
-    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv","outbreak_acwy"], prevDoseAgeGte:213, prevDoseAgeLt:730, minInterval:84},
-  ], note:"High-risk: ≥8 weeks D1→D2 from age 2y; infant series ≥4 weeks; a 7–23-month start needs ≥12 weeks AND the 1st birthday. Routine: 11–12y, booster 16y."},
+    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv","travel","outbreak_acwy"], prevDoseAgeLt:213, minInterval:MENACWY_INFANT_EARLY_GAP},
+    {doseNum:2, riskIncludes:["asplenia","sickle_cell","complement","hiv","outbreak_acwy"], prevDoseAgeGte:213, prevDoseAgeLt:MENACWY_INFANT_START_MAX_AGE_DAYS, minInterval:MENACWY_INFANT_FINAL_GAP},
+  ], note:"High-risk: ≥8 weeks D1→D2 from age 2y; infant series ≥8 weeks; a 7–23-month start needs ≥12 weeks AND the 1st birthday. Routine: 11–12y, booster 16y."},
   // M2: the 6-month dose-2 rule belongs to the HEALTHY 2-dose path only. A patient
   // with a MenB high-risk indication is on a different schedule entirely, so the
   // rule must not be applied to them — iByTotalDosesSkipHighRiskMenB below.

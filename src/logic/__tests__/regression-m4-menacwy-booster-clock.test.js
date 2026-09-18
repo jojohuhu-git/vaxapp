@@ -9,7 +9,7 @@
 //     months — correctly and completely vaccinated — was told the next dose was
 //     a "subsequent booster, every 5 years" (1826 days). Their primary series
 //     finished at 12 months, long before age 7, so ACIP wants the FIRST booster
-//     3 years later (1095 days). The child waited two extra years.
+//     3 years later (1096 days). The child waited two extra years.
 //
 //  B. A child with an INCOMPLETE infant series — 2 of the 4 doses — was told
 //     "Revaccination dose 3, first booster, 3 years". The app called an
@@ -32,6 +32,13 @@
 // Sibling repo: MeningoVax has the same defect and is fixed on branch
 // fix/m4-booster-clock-primary-series, where the shared rule lives in
 // seriesTotals.js menacwyPrimaryTotal().
+//
+// V2 hardening (2026-09-18): this revaccination branch hand-rolled its own
+// 1095/1826 literals instead of reading the shared menACWYBoosterIntervalDays()
+// helper, so it alone kept the pre-M19 "3 years" value (1095d) after M19
+// renamed the other two call sites' literal to MENACWY_BOOSTER_3Y (1096d).
+// Fixed to read the shared helper; minInt below is now 1096, matching the
+// rest of the engine.
 
 import { describe, it, expect } from 'vitest';
 import { genRecs } from '../recommendations.js';
@@ -57,7 +64,7 @@ describe('M4-A: after a completed infant series, the next dose is the FIRST boos
 
   it('it is the first booster at 3 years, not a 5-year subsequent booster', () => {
     const r = recs()[0];
-    expect(r.minInt).toBe(1095);
+    expect(r.minInt).toBe(1096);
     expect(r.dose).toMatch(/first booster/i);
     expect(r.dose).not.toMatch(/subsequent/i);
   });
@@ -93,7 +100,7 @@ describe('M4: what must not change', () => {
     expect(r).toHaveLength(1);
     expect(r[0].doseNum).toBe(3);
     expect(r[0].dose).toMatch(/first booster/i);
-    expect(r[0].minInt).toBe(1095); // completed before age 7 → 3 years
+    expect(r[0].minInt).toBe(1096); // completed before age 7 → 3 years
   });
 
   it('a primary series completed at or after age 7 boosts at 5 years', () => {
